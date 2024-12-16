@@ -21,7 +21,6 @@ pub async fn some(event: Request) -> Result<Response<Body>, Error> {
     Ok(resp)
 }
 
-
 #[lambda]
 pub async fn some1(event: Request) -> Result<Response<Body>, Error> {
     // Extract some useful information from the request
