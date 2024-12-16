@@ -135,7 +135,7 @@ fn cleanup(dst: &Path) {
 
 /// Deploy a function to the cloud
 #[proc_macro_attribute]
-pub fn lambda(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn endpoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let span = proc_macro::Span::call_site();
     let source_file = span.source_file();
     let item_fn = item.clone();
