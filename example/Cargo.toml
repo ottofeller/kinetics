@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-procmacro = { path = "../macro" }
+skymacro = { path = "../macro" }
 lambda_http = "0.13.0"
 tokio = "1.42.0"
