@@ -127,6 +127,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "example"
+version = "0.1.0"
+dependencies = [
+ "lambda_http",
+ "procmacro",
+ "tokio",
+]
+
+[[package]]
 name = "eyre"
 version = "0.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -898,15 +907,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "testmacro"
-version = "0.1.0"
-dependencies = [
- "lambda_http",
- "procmacro",
- "tokio",
 ]
 
 [[package]]
