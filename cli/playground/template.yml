@@ -1,0 +1,44 @@
+# Deploy with (--no-session is important):
+# aws-vault exec PROFILE_NAME --no-session -- aws cloudformation create-stack \
+#   --stack-name minimal-example \
+#   --capabilities CAPABILITY_NAMED_IAM \
+#   --template-body file://template.yml
+Resources:
+  LambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+          FunctionName: AwsLambdaMinimalExample
+          Handler: bootstrap
+          Runtime: provided.al2023
+          Role:
+            Fn::GetAtt:
+              - LambdaFunctionRole
+              - Arn
+          MemorySize: 1024
+          Code:
+            S3Bucket: my-lambda-function-code-test
+            S3Key: bootstrap.zip
+  LambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: AppendToLogsPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: "*"

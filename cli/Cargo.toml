@@ -1,0 +1,14 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = {version = "4.5.23", features = ["derive"]}
+eyre = "0.6.12"
+walkdir = "2.5.0"
+toml = "0.8.19"
+zip = "2.2.1"
+aws-sdk-s3 = "1.65.0"
+aws-config = "1.5.10"
+tokio = {version = "1.42.0", features = ["full"]}

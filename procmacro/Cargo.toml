@@ -1,0 +1,13 @@
+[package]
+name = "procmacro"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eyre = "0.6.12"
+regex = "1.11.1"
+syn = "2.0.90"
+prettyplease = "0.2.25"
+
+[lib]
+proc-macro = true
