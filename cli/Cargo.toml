@@ -12,3 +12,4 @@ zip = "2.2.1"
 aws-sdk-s3 = "1.65.0"
 aws-config = "1.5.10"
 tokio = {version = "1.42.0", features = ["full"]}
+aws-sdk-cloudformation = "1.56.0"

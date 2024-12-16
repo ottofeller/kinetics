@@ -145,7 +145,19 @@ fn template(functions: Vec<PathBuf>) -> eyre::Result<String> {
 
     for path in functions {
         template.push_str(&function2template(
-            &path.file_name().unwrap().to_str().unwrap(),
+            // Convert some-name to SomeName, and do other transformations in order to comply with
+            // Lambda function name requirements
+            &path
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .split(&['-', '.'])
+                .map(|s| match s.chars().next() {
+                    Some(first) => first.to_uppercase().collect::<String>() + s.chars().as_str(),
+                    None => String::new(),
+                })
+                .collect::<String>(),
         ));
 
         template.push_str("\n");
@@ -157,6 +169,21 @@ fn template(functions: Vec<PathBuf>) -> eyre::Result<String> {
 /// Bundle assets and upload to S3, assuming all functions are built
 fn bundle(functions: &Vec<PathBuf>) -> eyre::Result<()> {
     for path in functions {
+        println!("Building {path:?} with cargo-lambda...");
+
+        let status = std::process::Command::new("cargo")
+            .arg("lambda")
+            .arg("build")
+            .arg("--release")
+            .current_dir(&path)
+            .output()
+            .expect("Failed to execute process")
+            .status;
+
+        if !status.success() {
+            Err(eyre!("Build failed: {path:?} {:?}", status.code()))?;
+        }
+
         println!("Bundling {path:?}...");
         let file = std::fs::File::create(&path.join("bootstrap.zip"))?;
         let mut zip = zip::ZipWriter::new(file);
@@ -204,6 +231,26 @@ async fn upload(functions: &Vec<PathBuf>) -> eyre::Result<()> {
     Ok(())
 }
 
+/// Provision cloud resources using CFN template
+async fn provision(template: &str) -> eyre::Result<()> {
+    let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
+        .load()
+        .await;
+
+    let client = aws_sdk_cloudformation::Client::new(&config);
+
+    client
+        .create_stack()
+        .capabilities(aws_sdk_cloudformation::types::Capability::CapabilityIam)
+        .stack_name("sky-example")
+        .template_body(template)
+        .send()
+        .await
+        .wrap_err("Failed to create stack")?;
+
+    Ok(())
+}
+
 /// Build and deploy all assets using CFN template
 async fn deploy() {
     let crat = project().unwrap();
@@ -212,6 +259,7 @@ async fn deploy() {
     bundle(&functions).unwrap();
     upload(&functions).await.unwrap();
     let template = template(functions).unwrap();
+    provision(&template).await.unwrap();
     println!("{template}");
     println!("Done!");
 }

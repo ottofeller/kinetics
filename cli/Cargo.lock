@@ -167,6 +167,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-sdk-cloudformation"
+version = "1.56.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "302e4c85eb7c2ecd2934a01017ae219e59c075de5290bf956c1e0cce77e4d427"
+dependencies = [
+ "aws-credential-types",
+ "aws-runtime",
+ "aws-smithy-async",
+ "aws-smithy-http",
+ "aws-smithy-json 0.61.1",
+ "aws-smithy-query",
+ "aws-smithy-runtime",
+ "aws-smithy-runtime-api",
+ "aws-smithy-types",
+ "aws-smithy-xml",
+ "aws-types",
+ "fastrand",
+ "http 0.2.12",
+ "once_cell",
+ "regex-lite",
+ "tracing",
+]
+
+[[package]]
 name = "aws-sdk-s3"
 version = "1.65.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -660,6 +684,7 @@ name = "cli"
 version = "0.1.0"
 dependencies = [
  "aws-config",
+ "aws-sdk-cloudformation",
  "aws-sdk-s3",
  "clap",
  "eyre",
