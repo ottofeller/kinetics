@@ -81,7 +81,10 @@ fn inject(dst: &Path, function_name: &str, function_code: &str) {
     // Add [[bin]] section to Cargo.toml
     let cargo_toml_path = dst.join("Cargo.toml");
     let mut cargo_toml_content = read_to_string(&cargo_toml_path).unwrap();
-    cargo_toml_content.push_str("\n[[bin]]\nname = \"bootstrap\"\npath = \"src/main.rs\"\n");
+
+    if !cargo_toml_content.contains("name = \"bootstrap\"") {
+        cargo_toml_content.push_str("\n[[bin]]\nname = \"bootstrap\"\npath = \"src/main.rs\"\n");
+    }
 
     write(&cargo_toml_path, &cargo_toml_content)
         .wrap_err(format!("Failed to write: {cargo_toml_path:?}"))
