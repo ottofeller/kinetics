@@ -9,7 +9,6 @@ use std::fs::read_to_string;
 use std::fs::write;
 use std::path::Path;
 use syn::LitStr;
-use syn::{parse_macro_input, ItemFn};
 
 enum FunctionRole {
     Endpoint,
@@ -183,12 +182,22 @@ pub fn endpoint(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attrs = attrs(attr).wrap_err("Failed to parse attributes").unwrap();
     let span = proc_macro::Span::call_site();
     let source_file = span.source_file();
-    let item_fn = item.clone();
 
-    // Extract the function name
-    let ast: ItemFn = parse_macro_input!(item_fn as ItemFn);
-    let func_name = &ast.sig.ident;
+    // By default use the Rust function plus crate path as the function name
+    // Convert some-name to SomeName, and do other transformations in order to comply with
+    // Lambda function name requirements
+    let default_func_name = &source_file
+        .path()
+        .to_str()
+        .unwrap()
+        .split(&['-', '.', '/'])
+        .map(|s| match s.chars().next() {
+            Some(first) => first.to_uppercase().collect::<String>() + s.chars().as_str(),
+            None => String::new(),
+        })
+        .collect::<String>();
 
+    let func_name = attrs.get("name").unwrap_or(default_func_name);
     let src_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let src = Path::new(&src_dir);
 
@@ -205,7 +214,12 @@ pub fn endpoint(attr: TokenStream, item: TokenStream) -> TokenStream {
         .join(project_dir);
 
     clone(src, &dst);
-    inject(&dst, &func_name.to_string(), &item.to_string(), FunctionRole::Endpoint);
+    inject(
+        &dst,
+        &func_name.to_string(),
+        &item.to_string(),
+        FunctionRole::Endpoint,
+    );
     cleanup(&dst);
     item
 }

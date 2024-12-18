@@ -21,7 +21,7 @@ pub async fn some(event: Request) -> Result<Response<Body>, Error> {
     Ok(resp)
 }
 
-#[endpoint(name="SomeOne", url_path="/some1")]
+#[endpoint(url_path="/some1")]
 pub async fn some1(event: Request) -> Result<Response<Body>, Error> {
     // Extract some useful information from the request
     let who = event
