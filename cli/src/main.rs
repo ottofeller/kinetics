@@ -28,14 +28,8 @@ struct Crate {
 
 /// Return crate info from Cargo.toml
 fn project() -> eyre::Result<Crate> {
-    let cargo_toml_path = std::env::current_dir()
-        .wrap_err("Failed to get current dir")?
-        .join("Cargo.toml");
-
-    let cargo_toml: toml::Value = std::fs::read_to_string(cargo_toml_path)
-        .wrap_err("Failed to read Cargo.toml: {cargo_toml_path:?}")?
-        .parse()
-        .wrap_err("Failed to parse Cargo.toml")?;
+    let cargo_toml: toml::Value =
+        cargotoml(&std::env::current_dir().wrap_err("Failed to get current dir")?)?;
 
     Ok(Crate {
         name: cargo_toml
@@ -139,25 +133,28 @@ fn build() -> eyre::Result<()> {
     Ok(())
 }
 
+/// Read Cargo.toml in a given dir
+fn cargotoml(path: &Path) -> eyre::Result<toml::Value> {
+    std::fs::read_to_string(path.join("Cargo.toml"))
+        .wrap_err("Failed to read Cargo.toml: {cargo_toml_path:?}")?
+        .parse::<toml::Value>()
+        .wrap_err("Failed to parse Cargo.toml")
+}
+
 /// Generate CFN template for all functions
 fn template(functions: Vec<PathBuf>) -> eyre::Result<String> {
     let mut template = "Resources:".to_string();
 
     for path in functions {
+        let cargo_toml: toml::Value = cargotoml(&path)?;
+
         template.push_str(&function2template(
-            // Convert some-name to SomeName, and do other transformations in order to comply with
-            // Lambda function name requirements
-            &path
-                .file_name()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .split(&['-', '.'])
-                .map(|s| match s.chars().next() {
-                    Some(first) => first.to_uppercase().collect::<String>() + s.chars().as_str(),
-                    None => String::new(),
-                })
-                .collect::<String>(),
+            cargo_toml
+                .get("package.metadata.sky.function")
+                .and_then(|meta| meta.get("name"))
+                .wrap_err("Failed to get crate name from Cargo.toml")?
+                .as_str()
+                .unwrap(),
         ));
 
         template.push_str("\n");
