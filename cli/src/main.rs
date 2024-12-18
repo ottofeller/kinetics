@@ -151,7 +151,8 @@ fn template(functions: Vec<PathBuf>) -> eyre::Result<String> {
         template.push_str(&function2template(
             cargo_toml
                 .get("package.metadata.sky.function")
-                .and_then(|meta| meta.get("name"))
+                .wrap_err("No required metadata found in function dir: {path:?}")?
+                .get("name")
                 .wrap_err("Failed to get crate name from Cargo.toml")?
                 .as_str()
                 .unwrap(),
