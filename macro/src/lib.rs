@@ -1,10 +1,13 @@
-#![feature(proc_macro_totokens, proc_macro_span)]
+#![feature(proc_macro_totokens, proc_macro_span, proc_macro_expand)]
 use eyre::WrapErr;
+use proc_macro::ToTokens;
 use proc_macro::TokenStream;
 use regex::Regex;
+use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::fs::write;
 use std::path::Path;
+use syn::LitStr;
 use syn::{parse_macro_input, ItemFn};
 
 /// Clone the crate dir to a new directory
@@ -133,9 +136,32 @@ fn cleanup(dst: &Path) {
     write(&cargo_toml_path, new_cargo_toml_content.as_ref()).unwrap();
 }
 
+fn attrs(input: TokenStream) -> eyre::Result<HashMap<String, String>> {
+    let mut result = HashMap::<String, String>::new();
+    let mut name = String::new();
+
+    for token in input.into_iter() {
+        match token {
+            proc_macro::TokenTree::Ident(ident) => name = ident.to_string(),
+
+            proc_macro::TokenTree::Literal(literal) => {
+                result.insert(
+                    name.clone(),
+                    syn::parse::<LitStr>(literal.to_token_stream())?.value(),
+                );
+            }
+
+            _ => {}
+        }
+    }
+
+    Ok(result)
+}
+
 /// Deploy a function to the cloud
 #[proc_macro_attribute]
-pub fn endpoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn endpoint(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let attrs = attrs(attr).wrap_err("Failed to parse attributes").unwrap();
     let span = proc_macro::Span::call_site();
     let source_file = span.source_file();
     let item_fn = item.clone();

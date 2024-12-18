@@ -1,7 +1,7 @@
 use lambda_http::{Body, Error, Request, RequestExt, Response};
 use skymacro::endpoint;
 
-#[endpoint]
+#[endpoint(name="Some", url="/some")]
 pub async fn some(event: Request) -> Result<Response<Body>, Error> {
     // Extract some useful information from the request
     let who = event
@@ -21,7 +21,7 @@ pub async fn some(event: Request) -> Result<Response<Body>, Error> {
     Ok(resp)
 }
 
-#[endpoint]
+#[endpoint(name="SomeOne", url="/some1")]
 pub async fn some1(event: Request) -> Result<Response<Body>, Error> {
     // Extract some useful information from the request
     let who = event
@@ -41,7 +41,7 @@ pub async fn some1(event: Request) -> Result<Response<Body>, Error> {
     Ok(resp)
 }
 
-#[endpoint]
+#[endpoint(name="SomeTwo", url="/some2")]
 pub async fn some2(event: Request) -> Result<Response<Body>, Error> {
     // Extract some useful information from the request
     let who = event
@@ -62,7 +62,7 @@ pub async fn some2(event: Request) -> Result<Response<Body>, Error> {
     Ok(resp)
 }
 
-#[endpoint]
+#[endpoint(name="SomeThree", url="/some3")]
 pub async fn some3(event: Request) -> Result<Response<Body>, Error> {
     // Extract some useful information from the request
     let who = event
