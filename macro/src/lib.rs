@@ -4,11 +4,26 @@ use proc_macro::ToTokens;
 use proc_macro::TokenStream;
 use regex::Regex;
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::fs::read_to_string;
 use std::fs::write;
 use std::path::Path;
 use syn::LitStr;
 use syn::{parse_macro_input, ItemFn};
+
+enum FunctionRole {
+    Endpoint,
+    Worker,
+}
+
+impl Display for FunctionRole {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FunctionRole::Endpoint => write!(f, "endpoint"),
+            FunctionRole::Worker => write!(f, "worker"),
+        }
+    }
+}
 
 /// Clone the crate dir to a new directory
 fn clone(src: &Path, dst: &Path) {
@@ -50,7 +65,7 @@ fn clone(src: &Path, dst: &Path) {
 /// Inject the code which is necessary to build lambda
 ///
 /// Set up the main() function according to cargo lambda guides, and add the lambda code right to main.rs
-fn inject(dst: &Path, function_name: &str, function_code: &str) {
+fn inject(dst: &Path, function_name: &str, function_code: &str, function_role: FunctionRole) {
     let main_rs_path = dst.join("src").join("main.rs");
 
     let source_code = read_to_string(&main_rs_path)
@@ -88,6 +103,10 @@ fn inject(dst: &Path, function_name: &str, function_code: &str) {
     if !cargo_toml_content.contains("name = \"bootstrap\"") {
         cargo_toml_content.push_str("\n[[bin]]\nname = \"bootstrap\"\npath = \"src/main.rs\"\n");
     }
+
+    cargo_toml_content.push_str(
+        format!("\n[[package.metadata.sky.function]]\nname = \"{function_name}\"\nrole = \"{function_role}\"\nurl_path=\"/some/path\"\n").as_str(),
+    );
 
     write(&cargo_toml_path, &cargo_toml_content)
         .wrap_err(format!("Failed to write: {cargo_toml_path:?}"))
@@ -186,7 +205,7 @@ pub fn endpoint(attr: TokenStream, item: TokenStream) -> TokenStream {
         .join(project_dir);
 
     clone(src, &dst);
-    inject(&dst, &func_name.to_string(), &item.to_string());
+    inject(&dst, &func_name.to_string(), &item.to_string(), FunctionRole::Endpoint);
     cleanup(&dst);
     item
 }
