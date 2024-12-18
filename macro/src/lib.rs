@@ -103,9 +103,11 @@ fn inject(dst: &Path, function_name: &str, function_code: &str, function_role: F
         cargo_toml_content.push_str("\n[[bin]]\nname = \"bootstrap\"\npath = \"src/main.rs\"\n");
     }
 
-    cargo_toml_content.push_str(
-        format!("\n[[package.metadata.sky.function]]\nname = \"{function_name}\"\nrole = \"{function_role}\"\nurl_path=\"/some/path\"\n").as_str(),
-    );
+    if !cargo_toml_content.contains("[[package.metadata.sky.function]]") {
+        cargo_toml_content.push_str(
+            format!("\n[[package.metadata.sky.function]]\nname = \"{function_name}\"\nrole = \"{function_role}\"\nurl_path=\"/some/path\"\n").as_str(),
+        );
+    }
 
     write(&cargo_toml_path, &cargo_toml_content)
         .wrap_err(format!("Failed to write: {cargo_toml_path:?}"))
