@@ -103,9 +103,9 @@ fn inject(dst: &Path, function_name: &str, function_code: &str, function_role: F
         cargo_toml_content.push_str("\n[[bin]]\nname = \"bootstrap\"\npath = \"src/main.rs\"\n");
     }
 
-    if !cargo_toml_content.contains("[[package.metadata.sky.function]]") {
+    if !cargo_toml_content.contains("[[metadata.sky.function]]") {
         cargo_toml_content.push_str(
-            format!("\n[[package.metadata.sky.function]]\nname = \"{function_name}\"\nrole = \"{function_role}\"\nurl_path=\"/some/path\"\n").as_str(),
+            format!("\n[[metadata.sky.function]]\nname = \"{function_name}\"\nrole = \"{function_role}\"\nurl_path=\"/some/path\"\n").as_str(),
         );
     }
 
