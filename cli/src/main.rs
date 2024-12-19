@@ -105,7 +105,18 @@ fn function2template(name: &str) -> String {
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                   Resource: \"*\"
-
+        LambdaFuncrionUrl{name}:
+            Type : AWS::Lambda::Url
+            Properties:
+                AuthType: NONE
+                TargetFunctionArn: !Ref LambdaFunction{name}
+        LambdaFuncrionUrlPermission{name}:
+            Type: AWS::Lambda::Permission
+            Properties:
+                Action: lambda:InvokeFunctionUrl
+                FunctionUrlAuthType: 'NONE'
+                FunctionName: !Ref LambdaFunction{name}
+                Principal: '*'
         "
     )
 }
