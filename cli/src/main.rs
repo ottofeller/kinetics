@@ -67,7 +67,7 @@ fn functions() -> eyre::Result<Vec<PathBuf>> {
 fn function2template(name: &str) -> String {
     format!(
         "
-        LambdaFunction:
+        LambdaFunction{name}:
           Type: 'AWS::Lambda::Function'
           Properties:
                 FunctionName: {name}
@@ -75,13 +75,13 @@ fn function2template(name: &str) -> String {
                 Runtime: provided.al2023
                 Role:
                   Fn::GetAtt:
-                    - LambdaFunctionRole
+                    - LambdaFunctionRole{name}
                     - Arn
                 MemorySize: 1024
                 Code:
                   S3Bucket: my-lambda-function-code-test
                   S3Key: bootstrap.zip
-        LambdaFunctionRole:
+        LambdaFunctionRole{name}:
           Type: AWS::IAM::Role
           Properties:
             AssumeRolePolicyDocument:
