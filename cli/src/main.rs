@@ -192,7 +192,7 @@ fn bundle(functions: &Vec<PathBuf>) -> eyre::Result<()> {
             .arg("--release")
             .current_dir(&path)
             .output()
-            .expect("Failed to execute process")
+            .wrap_err("Failed to execute the process")?
             .status;
 
         if !status.success() {
@@ -267,16 +267,17 @@ async fn provision(template: &str) -> eyre::Result<()> {
 }
 
 /// Build and deploy all assets using CFN template
-async fn deploy() {
+async fn deploy() -> eyre::Result<()> {
     let crat = project().unwrap();
-    let functions = functions().wrap_err("Failed to bundle assets").unwrap();
+    let functions = functions().wrap_err("Failed to bundle assets")?;
     println!("Deploying \"{}\"...", crat.name);
-    bundle(&functions).unwrap();
-    upload(&functions).await.unwrap();
-    let template = template(functions).unwrap();
-    provision(&template).await.unwrap();
+    bundle(&functions)?;
+    upload(&functions).await?;
+    let template = template(functions)?;
+    provision(&template).await?;
     println!("{template}");
     println!("Done!");
+    Ok(())
 }
 
 #[tokio::main]
@@ -284,10 +285,22 @@ async fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Some(Commands::Build) => build().unwrap(),
+        Some(Commands::Build) => {
+            if let Err(error) = build() {
+                println!("{error}");
+                return;
+            }
+        }
         Some(Commands::Deploy) => {
-            // build().unwrap();
-            deploy().await;
+            if let Err(error) = build() {
+                println!("{error:?}");
+                return;
+            }
+
+            if let Err(error) = deploy().await {
+                println!("{error:?}");
+                return;
+            }
         }
         None => {}
     }
