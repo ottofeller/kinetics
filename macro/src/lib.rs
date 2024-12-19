@@ -9,6 +9,7 @@ use std::fs::read_to_string;
 use std::fs::write;
 use std::path::Path;
 use syn::LitStr;
+use syn::{parse_macro_input, ItemFn};
 
 enum FunctionRole {
     Endpoint,
@@ -64,7 +65,13 @@ fn clone(src: &Path, dst: &Path) {
 /// Inject the code which is necessary to build lambda
 ///
 /// Set up the main() function according to cargo lambda guides, and add the lambda code right to main.rs
-fn inject(dst: &Path, function_name: &str, function_code: &str, function_role: FunctionRole) {
+fn inject(
+    dst: &Path,
+    function_name: &str,
+    rust_function_name: &str,
+    function_code: &str,
+    function_role: FunctionRole,
+) {
     let main_rs_path = dst.join("src").join("main.rs");
 
     let source_code = read_to_string(&main_rs_path)
@@ -80,7 +87,7 @@ fn inject(dst: &Path, function_name: &str, function_code: &str, function_role: F
         #[tokio::main]\n\
         async fn main() -> Result<(), Error> {{\n\
             tracing::init_default_subscriber();\n\
-            run(service_fn({function_name})).await\n\
+            run(service_fn({rust_function_name})).await\n\
         }}\n\n\
         {function_code}"
     );
@@ -127,13 +134,15 @@ fn cleanup(dst: &Path) {
             if path.is_dir() {
                 process_files(&path)?;
             } else if path.extension().and_then(|s| s.to_str()) == Some("rs") {
-                let content =
+                let mut content =
                     read_to_string(&path).wrap_err(format!("Failed to read: {path:?}"))?;
 
-                let re_attr = Regex::new(r"(?m)^\s*#\s*\[\s*lambda[^\]]*\]\s*$")?;
-                let re_import = Regex::new(r"(?m)^\s*use\s+procmacro(\s*::\s*\w+)?\s*;\s*$")?;
-                let new_content = re_attr.replace_all(&content, "");
-                let new_content = re_import.replace_all(&new_content, "");
+                let re_endpoint = Regex::new(r"(?m)^\s*#\s*\[\s*endpoint[^\]]*\]\s*$")?;
+                let re_worker = Regex::new(r"(?m)^\s*#\s*\[\s*worker[^\]]*\]\s*$")?;
+                let re_import = Regex::new(r"(?m)^\s*use\s+skymacro(\s*::\s*\w+)?\s*;\s*$")?;
+                content = re_endpoint.replace_all(&content, "").to_string();
+                content = re_worker.replace_all(&content, "").to_string();
+                let new_content = re_import.replace_all(&content, "");
 
                 write(&path, new_content.as_ref())
                     .wrap_err(format!("Failed to write: {path:?}"))?;
@@ -151,7 +160,7 @@ fn cleanup(dst: &Path) {
         .wrap_err(format!("Failed to read: {cargo_toml_path:?}"))
         .unwrap();
 
-    let re = Regex::new(r"(?m)^\s*procmacro\s*=.*\n?").unwrap();
+    let re = Regex::new(r"(?m)^\s*skymacro\s*=.*\n?").unwrap();
     let new_cargo_toml_content = re.replace_all(&cargo_toml_content, "");
     write(&cargo_toml_path, new_cargo_toml_content.as_ref()).unwrap();
 }
@@ -184,6 +193,11 @@ pub fn endpoint(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attrs = attrs(attr).wrap_err("Failed to parse attributes").unwrap();
     let span = proc_macro::Span::call_site();
     let source_file = span.source_file();
+    let item_fn = item.clone();
+
+    // Extract the function name
+    let ast: ItemFn = parse_macro_input!(item_fn as ItemFn);
+    let rust_func_name = &ast.sig.ident.to_string();
 
     // By default use the Rust function plus crate path as the function name
     // Convert some-name to SomeName, and do other transformations in order to comply with
@@ -216,12 +230,15 @@ pub fn endpoint(attr: TokenStream, item: TokenStream) -> TokenStream {
         .join(project_dir);
 
     clone(src, &dst);
+
     inject(
         &dst,
         &func_name.to_string(),
+        &rust_func_name,
         &item.to_string(),
         FunctionRole::Endpoint,
     );
+
     cleanup(&dst);
     item
 }
