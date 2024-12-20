@@ -8,6 +8,7 @@ eyre = "0.6.12"
 regex = "1.11.1"
 syn = "2.0.90"
 prettyplease = "0.2.25"
+toml = { workspace = true }
 
 [lib]
 proc-macro = true

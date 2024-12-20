@@ -1,3 +1,6 @@
+[workspace.dependencies]
+toml = "0.8.19"
+
 [workspace]
 resolver = "2"
 
