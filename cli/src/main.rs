@@ -168,7 +168,7 @@ fn template(functions: Vec<PathBuf>) -> eyre::Result<String> {
                 .get("function")
                 .wrap_err("No [function]")?
                 .as_array()
-                .wrap_err("msg")?[0]
+                .wrap_err("Failed to parse Cargo.toml section")?[0]
                 .get("name")
                 .wrap_err("No [name]")?
                 .as_str()
