@@ -7,3 +7,6 @@ edition = "2021"
 skymacro = { path = "../macro" }
 lambda_http = "0.13.0"
 tokio = "1.42.0"
+
+[[metadata.sky.queue.aqueue]]
+fifo=true

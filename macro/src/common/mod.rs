@@ -1,5 +1,5 @@
 use crate::FunctionRole;
-use eyre::{eyre, WrapErr};
+use eyre::{eyre, ContextCompat, WrapErr};
 use proc_macro::TokenStream;
 use proc_macro::{SourceFile, ToTokens};
 use regex::Regex;
@@ -7,7 +7,13 @@ use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::fs::write;
 use std::path::Path;
+use std::path::PathBuf;
 use syn::{parse_macro_input, ItemFn, LitInt, LitStr};
+
+/// Where all the projects are copied
+fn skypath() -> eyre::Result<PathBuf> {
+    Ok(Path::new(&std::env::var("HOME").wrap_err("Can not read HOME env var")?).join(".sky"))
+}
 
 /// Parse the macro input attributes into a hashmap
 fn attrs(input: TokenStream) -> eyre::Result<HashMap<String, String>> {
@@ -212,6 +218,52 @@ fn cleanup(dst: &Path) {
     write(&cargo_toml_path, new_cargo_toml_content.as_ref()).unwrap();
 }
 
+// TODO Handle this in a nicer way with traits (for example endpoint does not need a queue)
+/// Copy relevant resources definitions from source Cargo.toml to Cargo.toml in the target directory
+pub fn resources(dst: &PathBuf, attrs: &HashMap<String, String>) -> eyre::Result<()> {
+    let src_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    let src = Path::new(&src_dir);
+    let src_cargo_toml_path = src.join("Cargo.toml");
+    let dst_cargo_toml_path = dst.join("Cargo.toml");
+
+    let src_cargo_toml: toml::Value = std::fs::read_to_string(src_cargo_toml_path)
+        .wrap_err("Failed to read Cargo.toml: {cargo_toml_path:?}")?
+        .parse::<toml::Value>()
+        .wrap_err("Failed to parse Cargo.toml")?;
+
+    let mut dst_cargo_toml_content = read_to_string(&dst_cargo_toml_path)
+        .wrap_err(format!("Failed to read: {dst_cargo_toml_path:?}"))?;
+
+    for (key, value) in attrs
+        .iter()
+        .filter(|(k, _)| vec!["queue", "db"].contains(&k.as_str()))
+    {
+        let name = value;
+        let head = format!("[[metadata.sky.{key}.{name}]]");
+
+        let body = src_cargo_toml
+            .get("metadata")
+            .wrap_err("No [metadata]")?
+            .get("sky")
+            .wrap_err("No [sky]")?
+            .get(key)
+            .wrap_err(format!("No {key}"))?
+            .get(value)
+            .wrap_err(format!("No {value}"))?
+            .to_string();
+
+        if !dst_cargo_toml_content.contains(&head) {
+            dst_cargo_toml_content.push_str("\n");
+            dst_cargo_toml_content.push_str(&format!("{head}\n{body}"));
+
+            write(&dst_cargo_toml_path, &dst_cargo_toml_content)
+                .wrap_err(format!("Failed to write: {dst_cargo_toml_path:?}"))?;
+        }
+    }
+
+    Ok(())
+}
+
 pub fn process_function(attr: TokenStream, item: TokenStream, role: FunctionRole) -> TokenStream {
     let attrs = attrs(attr).wrap_err("Failed to parse attributes").unwrap();
     let span = proc_macro::Span::call_site();
@@ -229,8 +281,8 @@ pub fn process_function(attr: TokenStream, item: TokenStream, role: FunctionRole
     let src_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let src = Path::new(&src_dir);
 
-    let dst = Path::new(&std::env::var("HOME").unwrap())
-        .join(".sky")
+    let dst = skypath()
+        .unwrap()
         .join(std::env::var("CARGO_CRATE_NAME").unwrap())
         .join(&lambda_name);
 
@@ -244,6 +296,7 @@ pub fn process_function(attr: TokenStream, item: TokenStream, role: FunctionRole
         role,
     );
 
+    resources(&dst, &attrs).unwrap();
     cleanup(&dst);
     item
 }
