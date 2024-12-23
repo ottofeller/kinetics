@@ -5,8 +5,13 @@ edition = "2021"
 
 [dependencies]
 skymacro = { path = "../macro" }
-lambda_http = "0.13.0"
+lambda_http = "0.14.0"
 tokio = "1.42.0"
 
-[[metadata.sky.queue.aqueue]]
+[package.metadata.sky.queue.aqueue]
 fifo=true
+timeout=1000
+
+[package.metadata.sky.queue.bqueue]
+fifo=true
+timeout=3000

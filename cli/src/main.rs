@@ -63,6 +63,80 @@ fn functions() -> eyre::Result<Vec<PathBuf>> {
     Ok(result)
 }
 
+struct Queue {
+    name: String,
+    concurrency: u32,
+}
+
+struct Db {
+    name: String,
+}
+
+enum Resource {
+    Queue(Queue),
+    Db(Db),
+}
+
+/// The hash with all the resources functions needs an access to
+fn resources(path: &PathBuf) -> eyre::Result<Vec<Resource>> {
+    let mut result = vec![];
+    let src_path = Path::new(path);
+    let cargo_toml_path = src_path.join("Cargo.toml");
+
+    let cargo_toml: toml::Value = std::fs::read_to_string(cargo_toml_path)
+        .wrap_err("Failed to read Cargo.toml: {cargo_toml_path:?}")?
+        .parse::<toml::Value>()
+        .wrap_err("Failed to parse Cargo.toml")?;
+
+    for category_name in vec!["queue", "db"] {
+        let category = cargo_toml
+            .get("package")
+            .wrap_err("No [package]")?
+            .get("metadata")
+            .wrap_err("No [metadata]")?
+            .get("sky")
+            .wrap_err("No [sky]")?
+            .get(category_name);
+
+        if category.is_none() {
+            continue;
+        }
+
+        let category = category
+            .wrap_err(format!("No category {category_name} found"))?
+            .as_table()
+            .wrap_err("Section format is wrong")?;
+
+        for resource_name in category.keys() {
+            let resource = category
+                .get(resource_name)
+                .wrap_err("No {resource_name}")?
+                .clone();
+
+            println!("{resource_name}");
+
+            result.push(match category_name {
+                "queue" => Resource::Queue(Queue {
+                    name: resource_name.clone(),
+
+                    concurrency: resource
+                        .get("concurrency")
+                        .unwrap_or(&toml::Value::Integer(1))
+                        .as_integer()
+                        .unwrap() as u32,
+                }),
+
+                "db" => Resource::Db(Db {
+                    name: resource_name.clone(),
+                }),
+                _ => unreachable!(),
+            });
+        }
+    }
+
+    Ok(result)
+}
+
 /// CFN template for a function — a function itself and its role
 fn function2template(name: &str) -> String {
     format!(
@@ -121,6 +195,14 @@ fn function2template(name: &str) -> String {
     )
 }
 
+/// CFN template for a resource (a queue or a db)
+fn resource2template(resource: &Resource) -> String {
+    match resource {
+        Resource::Db(_db) => "DB".into(),
+        Resource::Queue(_queue) => "QUEUE".into(),
+    }
+}
+
 /// Build all assets and CFN templates
 fn build() -> eyre::Result<()> {
     let project = project()?;
@@ -159,16 +241,21 @@ fn template(functions: Vec<PathBuf>) -> eyre::Result<String> {
     for path in functions {
         let cargo_toml: toml::Value = cargotoml(&path)?;
 
+        for resource in resources(&path)?.iter() {
+            template.push_str(&resource2template(&resource));
+            template.push_str("\n");
+        }
+
         template.push_str(&function2template(
             cargo_toml
+                .get("package")
+                .wrap_err("No [package]")?
                 .get("metadata")
                 .wrap_err("No [metadata]")?
                 .get("sky")
                 .wrap_err("No [sky]")?
                 .get("function")
                 .wrap_err("No [function]")?
-                .as_array()
-                .wrap_err("Failed to parse Cargo.toml section")?[0]
                 .get("name")
                 .wrap_err("No [name]")?
                 .as_str()

@@ -7,9 +7,9 @@ edition = "2021"
 clap = {version = "4.5.23", features = ["derive"]}
 eyre = "0.6.12"
 walkdir = "2.5.0"
-zip = "2.2.1"
-aws-sdk-s3 = "1.65.0"
-aws-config = "1.5.10"
+zip = "2.2.2"
+aws-sdk-s3 = "1.66.0"
+aws-config = "1.5.11"
 tokio = {version = "1.42.0", features = ["full"]}
-aws-sdk-cloudformation = "1.56.0"
+aws-sdk-cloudformation = "1.57.0"
 toml = { workspace = true }

@@ -163,9 +163,9 @@ fn inject(
         cargo_toml_content.push_str("\n[[bin]]\nname = \"bootstrap\"\npath = \"src/main.rs\"\n");
     }
 
-    if !cargo_toml_content.contains("[[metadata.sky.function]]") {
+    if !cargo_toml_content.contains("[package.metadata.sky.function]") {
         cargo_toml_content.push_str(
-            format!("\n[[metadata.sky.function]]\nname = \"{function_name}\"\nrole = \"{function_role}\"\nurl_path=\"/some/path\"\n").as_str(),
+            format!("\n[package.metadata.sky.function]\nname = \"{function_name}\"\nrole = \"{function_role}\"\nurl_path=\"/some/path\"\n").as_str(),
         );
     }
 
@@ -175,8 +175,6 @@ fn inject(
 }
 
 /// Clean up scaffolding required for deploying a function
-///
-/// This is done to avoid infinite loop caused by the macro attributes being executed every time a crate is copied.
 fn cleanup(dst: &Path) {
     // Delete the macro attributes from everwhere in the crate
     fn process_files(dir: &Path) -> eyre::Result<()> {
@@ -213,9 +211,37 @@ fn cleanup(dst: &Path) {
         .wrap_err(format!("Failed to read: {cargo_toml_path:?}"))
         .unwrap();
 
-    let re = Regex::new(r"(?m)^\s*skymacro\s*=.*\n?").unwrap();
-    let new_cargo_toml_content = re.replace_all(&cargo_toml_content, "");
-    write(&cargo_toml_path, new_cargo_toml_content.as_ref()).unwrap();
+    let mut cargo_toml_value: toml::Value = cargo_toml_content
+        .parse()
+        .wrap_err(format!(
+            "Failed to parse Cargo.toml at: {cargo_toml_path:?}"
+        ))
+        .unwrap();
+
+    // Delete the resources definitions. This is the general list, each function gets its own.
+    cargo_toml_value
+        .get_mut("package")
+        .wrap_err("No [package]")
+        .unwrap()
+        .get_mut("metadata")
+        .wrap_err("No [metadata]")
+        .unwrap()
+        .as_table_mut()
+        .unwrap()
+        .remove("sky");
+
+    if let Some(dependencies) = cargo_toml_value
+        .get_mut("dependencies")
+        .and_then(|d| d.as_table_mut())
+    {
+        dependencies.remove("skymacro");
+    }
+
+    write(
+        &cargo_toml_path,
+        toml::to_string(&cargo_toml_value).unwrap(),
+    )
+    .unwrap();
 }
 
 // TODO Handle this in a nicer way with traits (for example endpoint does not need a queue)
@@ -239,9 +265,11 @@ pub fn resources(dst: &PathBuf, attrs: &HashMap<String, String>) -> eyre::Result
         .filter(|(k, _)| vec!["queue", "db"].contains(&k.as_str()))
     {
         let name = value;
-        let head = format!("[[metadata.sky.{key}.{name}]]");
+        let head = format!("[package.metadata.sky.{key}.{name}]");
 
         let body = src_cargo_toml
+            .get("package")
+            .wrap_err("No [package]")?
             .get("metadata")
             .wrap_err("No [metadata]")?
             .get("sky")
@@ -250,6 +278,8 @@ pub fn resources(dst: &PathBuf, attrs: &HashMap<String, String>) -> eyre::Result
             .wrap_err(format!("No {key}"))?
             .get(value)
             .wrap_err(format!("No {value}"))?
+            .as_table()
+            .wrap_err("Failed to parse content")?
             .to_string();
 
         if !dst_cargo_toml_content.contains(&head) {
@@ -288,6 +318,9 @@ pub fn process_function(attr: TokenStream, item: TokenStream, role: FunctionRole
 
     clone(src, &dst);
 
+    // Must be called before inject() and resources(), to avoid deleting the code these two functions add
+    cleanup(&dst);
+
     inject(
         &dst,
         &lambda_name.to_string(),
@@ -297,6 +330,5 @@ pub fn process_function(attr: TokenStream, item: TokenStream, role: FunctionRole
     );
 
     resources(&dst, &attrs).unwrap();
-    cleanup(&dst);
     item
 }
