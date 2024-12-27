@@ -21,7 +21,7 @@ pub async fn some_endpoint(event: Request) -> Result<Response<Body>, Error> {
     Ok(resp)
 }
 
-#[worker(name="aworker", queue="aqueue", concurrency=3)]
+#[worker(name="aworker", concurrency=3, fifo=true)]
 pub async fn some_worker(event: Request) -> Result<Response<Body>, Error> {
     // Extract some useful information from the request
     let who = event

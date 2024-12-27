@@ -63,15 +63,18 @@ fn functions() -> eyre::Result<Vec<PathBuf>> {
     Ok(result)
 }
 
+#[derive(Debug)]
 struct Queue {
     name: String,
     concurrency: u32,
 }
 
+#[derive(Debug)]
 struct Db {
     name: String,
 }
 
+#[derive(Debug)]
 enum Resource {
     Queue(Queue),
     Db(Db),
@@ -88,7 +91,7 @@ fn resources(path: &PathBuf) -> eyre::Result<Vec<Resource>> {
         .parse::<toml::Value>()
         .wrap_err("Failed to parse Cargo.toml")?;
 
-    for category_name in vec!["queue", "db"] {
+    for category_name in vec!["db", "queue"] {
         let category = cargo_toml
             .get("package")
             .wrap_err("No [package]")?
@@ -113,7 +116,7 @@ fn resources(path: &PathBuf) -> eyre::Result<Vec<Resource>> {
                 .wrap_err("No {resource_name}")?
                 .clone();
 
-            println!("{resource_name}");
+            println!("{resource_name} - {resource:?}");
 
             result.push(match category_name {
                 "queue" => Resource::Queue(Queue {
@@ -138,10 +141,10 @@ fn resources(path: &PathBuf) -> eyre::Result<Vec<Resource>> {
 }
 
 /// CFN template for a function — a function itself and its role
-fn function2template(name: &str) -> String {
+fn endpoint2template(name: &str) -> String {
     format!(
         "
-        LambdaFunction{name}:
+        Endpoint{name}:
           Type: 'AWS::Lambda::Function'
           Properties:
                 FunctionName: {name}
@@ -149,13 +152,13 @@ fn function2template(name: &str) -> String {
                 Runtime: provided.al2023
                 Role:
                   Fn::GetAtt:
-                    - LambdaFunctionRole{name}
+                    - EndpointRole{name}
                     - Arn
                 MemorySize: 1024
                 Code:
                   S3Bucket: my-lambda-function-code-test
                   S3Key: bootstrap.zip
-        LambdaFunctionRole{name}:
+        EndpointRole{name}:
           Type: AWS::IAM::Role
           Properties:
             AssumeRolePolicyDocument:
@@ -179,27 +182,140 @@ fn function2template(name: &str) -> String {
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                   Resource: \"*\"
-        LambdaFuncrionUrl{name}:
+        EndpointUrl{name}:
             Type : AWS::Lambda::Url
             Properties:
                 AuthType: NONE
-                TargetFunctionArn: !Ref LambdaFunction{name}
-        LambdaFuncrionUrlPermission{name}:
+                TargetFunctionArn: !Ref Endpoint{name}
+        EndpointUrlPermission{name}:
             Type: AWS::Lambda::Permission
             Properties:
                 Action: lambda:InvokeFunctionUrl
                 FunctionUrlAuthType: 'NONE'
-                FunctionName: !Ref LambdaFunction{name}
+                FunctionName: !Ref Endpoint{name}
                 Principal: '*'
         "
     )
 }
 
-/// CFN template for a resource (a queue or a db)
-fn resource2template(resource: &Resource) -> String {
+fn worker2template(name: &str, resources: &Vec<Resource>) -> eyre::Result<String> {
+    let queue = resources
+        .iter()
+        .find_map(|r| match r {
+            Resource::Queue(queue) => Some(queue),
+            _ => None,
+        })
+        .wrap_err("No queue resource found in Cargo.toml")?;
+
+    Ok(format!(
+        "
+        Worker{name}:
+          Type: 'AWS::Lambda::Function'
+          Properties:
+                FunctionName: {name}
+                Handler: bootstrap
+                Runtime: provided.al2023
+                Role:
+                  Fn::GetAtt:
+                    - WorkerRole{name}
+                    - Arn
+                MemorySize: 1024
+                Code:
+                  S3Bucket: my-lambda-function-code-test
+                  S3Key: bootstrap.zip
+
+        WorkerRole{name}:
+          Type: AWS::IAM::Role
+          Properties:
+            AssumeRolePolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+              - Effect: Allow
+                Principal:
+                  Service:
+                  - lambda.amazonaws.com
+                Action:
+                - sts:AssumeRole
+            Path: \"/\"
+            Policies:
+            - PolicyName: AppendToLogsPolicy
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                - Effect: Allow
+                  Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  Resource: \"*\"
+            - PolicyName: QueuePolicy
+              PolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                - Effect: Allow
+                  Action:
+                  - sqs:ChangeMessageVisibility
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                  - sqs:GetQueueUrl
+                  - sqs:ReceiveMessage
+                  Resource:
+                    Fn::GetAtt:
+                      - WorkerQueue{name}
+                      - Arn
+
+        WorkerQueue{name}:
+            Type: AWS::SQS::Queue
+            Properties:
+                QueueName: WorkerQueue{}
+                VisibilityTimeout: 60
+                MaximumMessageSize: 2048
+                MessageRetentionPeriod: 345600
+                ReceiveMessageWaitTimeSeconds: 20
+
+        WorkerQueueEventSourceMapping{name}:
+            Type: 'AWS::Lambda::EventSourceMapping'
+            Properties:
+                EventSourceArn:
+                    Fn::GetAtt:
+                    - WorkerQueue{name}
+                    - Arn
+                FunctionName:
+                    Ref: Worker{name}
+                ScalingConfig:
+                    MaximumConcurrency: {}
+        ",
+        queue.name, queue.concurrency,
+    ))
+}
+
+/// CFN template for a resource (e.g. a queue or a db)
+fn resource2template(name: &str, resource: &Resource) -> String {
     match resource {
         Resource::Db(_db) => "DB".into(),
-        Resource::Queue(_queue) => "QUEUE".into(),
+
+        Resource::Queue(queue) => format!(
+            "
+            WorkerQueue{name}:
+                Type: AWS::SQS::Queue
+                Properties:
+                    QueueName: WorkerQueue{}
+                    VisibilityTimeout: 60
+                    MaximumMessageSize: 2048
+                    MessageRetentionPeriod: 345600
+                    ReceiveMessageWaitTimeSeconds: 20
+            WorkerQueueEventSourceMapping{name}:
+                Type: 'AWS::Lambda::EventSourceMapping'
+                Properties:
+                    EventSourceArn:
+                        Fn::GetAtt:
+                        - WorkerQueue{name}
+                        - Arn
+                    FunctionName:
+                        Ref: LambdaFunction{name}:
+            ",
+            queue.name,
+        ),
     }
 }
 
@@ -218,7 +334,7 @@ fn build() -> eyre::Result<()> {
             .status;
 
         if !status.success() {
-            panic!("Build failed: {:?}", path);
+            panic!("Build failed: {:?}, {}", path, status.code().unwrap());
         }
     }
 
@@ -241,26 +357,49 @@ fn template(functions: Vec<PathBuf>) -> eyre::Result<String> {
     for path in functions {
         let cargo_toml: toml::Value = cargotoml(&path)?;
 
-        for resource in resources(&path)?.iter() {
-            template.push_str(&resource2template(&resource));
+        let meta = cargo_toml
+            .get("package")
+            .wrap_err("No [package]")?
+            .get("metadata")
+            .wrap_err("No [metadata]")?
+            .get("sky")
+            .wrap_err("No [sky]")?
+            .get("function")
+            .wrap_err("No [function]")?;
+
+        let name = meta
+            .get("name")
+            .wrap_err("No [name]")?
+            .as_str()
+            .wrap_err("Not a string")?;
+
+        let role = meta
+            .get("role")
+            .wrap_err("No [role]")?
+            .as_str()
+            .wrap_err("Not a string")?;
+
+        let resources = resources(&path)?;
+
+        for resource in resources.iter() {
+            // A queue resource is unique for a lambda, and created in worker template function
+            if let Resource::Queue(_) = resource {
+                continue;
+            }
+
+            template.push_str(&resource2template(&name, &resource));
             template.push_str("\n");
         }
 
-        template.push_str(&function2template(
-            cargo_toml
-                .get("package")
-                .wrap_err("No [package]")?
-                .get("metadata")
-                .wrap_err("No [metadata]")?
-                .get("sky")
-                .wrap_err("No [sky]")?
-                .get("function")
-                .wrap_err("No [function]")?
-                .get("name")
-                .wrap_err("No [name]")?
-                .as_str()
-                .wrap_err("Not a string")?,
-        ));
+        if role == "endpoint" {
+            template.push_str(&endpoint2template(name));
+        }
+
+        if role == "worker" {
+            template.push_str(
+                &worker2template(name, &resources).wrap_err("Failed to build worker template")?,
+            );
+        }
 
         template.push_str("\n");
     }

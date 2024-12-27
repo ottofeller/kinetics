@@ -8,10 +8,5 @@ skymacro = { path = "../macro" }
 lambda_http = "0.14.0"
 tokio = "1.42.0"
 
-[package.metadata.sky.queue.aqueue]
-fifo=true
-timeout=1000
-
-[package.metadata.sky.queue.bqueue]
-fifo=true
-timeout=3000
+[package.metadata.sky.db.users]
+type="sql"

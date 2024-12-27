@@ -11,12 +11,12 @@ use std::path::PathBuf;
 use syn::{parse_macro_input, ItemFn, LitInt, LitStr};
 
 /// Where all the projects are copied
-fn skypath() -> eyre::Result<PathBuf> {
+pub fn skypath() -> eyre::Result<PathBuf> {
     Ok(Path::new(&std::env::var("HOME").wrap_err("Can not read HOME env var")?).join(".sky"))
 }
 
 /// Parse the macro input attributes into a hashmap
-fn attrs(input: TokenStream) -> eyre::Result<HashMap<String, String>> {
+pub fn attrs(input: TokenStream) -> eyre::Result<HashMap<String, String>> {
     let mut result = HashMap::<String, String>::new();
     let mut name = String::new();
 
@@ -92,7 +92,7 @@ fn clone(src: &Path, dst: &Path) {
 /// By default use the Rust function plus crate path as the function name. Convert
 /// some-name to SomeName, and do other transformations in order to comply with Lambda
 /// function name requirements.
-fn func_name(
+pub fn func_name(
     attrs: &HashMap<String, String>,
     file: &SourceFile,
     rust_name: &str,
@@ -190,7 +190,7 @@ fn cleanup(dst: &Path) {
 
                 let re_endpoint = Regex::new(r"(?m)^\s*#\s*\[\s*endpoint[^\]]*\]\s*$")?;
                 let re_worker = Regex::new(r"(?m)^\s*#\s*\[\s*worker[^\]]*\]\s*$")?;
-                let re_import = Regex::new(r"(?m)^\s*use\s+skymacro(\s*::\s*\w+)?\s*;\s*$")?;
+                let re_import = Regex::new(r"(?m)^\s*use\s+skymacro(\s*::\s*(\w+|\{\s*\w+(\s*,\s*\w+)*\s*\}))?\s*;\s*$")?;
                 content = re_endpoint.replace_all(&content, "").to_string();
                 content = re_worker.replace_all(&content, "").to_string();
                 let new_content = re_import.replace_all(&content, "");
@@ -262,7 +262,7 @@ pub fn resources(dst: &PathBuf, attrs: &HashMap<String, String>) -> eyre::Result
 
     for (key, value) in attrs
         .iter()
-        .filter(|(k, _)| vec!["queue", "db"].contains(&k.as_str()))
+        .filter(|(k, _)| vec!["db"].contains(&k.as_str()))
     {
         let name = value;
         let head = format!("[package.metadata.sky.{key}.{name}]");
