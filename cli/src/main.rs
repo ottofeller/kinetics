@@ -80,7 +80,7 @@ enum Resource {
     Db(Db),
 }
 
-/// The hash with all the resources functions needs an access to
+/// The hash with all the resources specific to the function
 fn resources(path: &PathBuf) -> eyre::Result<Vec<Resource>> {
     let mut result = vec![];
     let src_path = Path::new(path);
