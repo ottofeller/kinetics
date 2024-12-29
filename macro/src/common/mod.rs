@@ -190,7 +190,9 @@ fn cleanup(dst: &Path) {
 
                 let re_endpoint = Regex::new(r"(?m)^\s*#\s*\[\s*endpoint[^\]]*\]\s*$")?;
                 let re_worker = Regex::new(r"(?m)^\s*#\s*\[\s*worker[^\]]*\]\s*$")?;
-                let re_import = Regex::new(r"(?m)^\s*use\s+skymacro(\s*::\s*(\w+|\{\s*\w+(\s*,\s*\w+)*\s*\}))?\s*;\s*$")?;
+                let re_import = Regex::new(
+                    r"(?m)^\s*use\s+skymacro(\s*::\s*(\w+|\{\s*\w+(\s*,\s*\w+)*\s*\}))?\s*;\s*$",
+                )?;
                 content = re_endpoint.replace_all(&content, "").to_string();
                 content = re_worker.replace_all(&content, "").to_string();
                 let new_content = re_import.replace_all(&content, "");
