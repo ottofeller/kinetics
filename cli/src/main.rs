@@ -24,12 +24,13 @@ enum Commands {
 
 struct Crate {
     name: String,
+    resources: Vec<Resource>,
 }
 
 /// Return crate info from Cargo.toml
 fn project() -> eyre::Result<Crate> {
-    let cargo_toml: toml::Value =
-        cargotoml(&std::env::current_dir().wrap_err("Failed to get current dir")?)?;
+    let path = std::env::current_dir().wrap_err("Failed to get current dir")?;
+    let cargo_toml: toml::Value = cargotoml(&path)?;
 
     Ok(Crate {
         name: cargo_toml
@@ -38,6 +39,8 @@ fn project() -> eyre::Result<Crate> {
             .and_then(|name| name.as_str())
             .wrap_err("Failed to get crate name from Cargo.toml")?
             .to_string(),
+
+        resources: resources(&path)?,
     })
 }
 
@@ -351,8 +354,14 @@ fn cargotoml(path: &Path) -> eyre::Result<toml::Value> {
 }
 
 /// Generate CFN template for all functions
-fn template(functions: Vec<PathBuf>) -> eyre::Result<String> {
+fn template(crat: &Crate, functions: Vec<PathBuf>) -> eyre::Result<String> {
     let mut template = "Resources:".to_string();
+
+    // Define global resources from the app's Cargo.toml, e.g. a DB
+    for resource in crat.resources.iter() {
+        template.push_str(&resource2template(&crat.name, &resource));
+        template.push_str("\n");
+    }
 
     for path in functions {
         let cargo_toml: toml::Value = cargotoml(&path)?;
@@ -380,16 +389,6 @@ fn template(functions: Vec<PathBuf>) -> eyre::Result<String> {
             .wrap_err("Not a string")?;
 
         let resources = resources(&path)?;
-
-        for resource in resources.iter() {
-            // A queue resource is unique for a lambda, and created in worker template function
-            if let Resource::Queue(_) = resource {
-                continue;
-            }
-
-            template.push_str(&resource2template(&name, &resource));
-            template.push_str("\n");
-        }
 
         if role == "endpoint" {
             template.push_str(&endpoint2template(name));
@@ -499,7 +498,7 @@ async fn deploy() -> eyre::Result<()> {
     println!("Deploying \"{}\"...", crat.name);
     bundle(&functions)?;
     upload(&functions).await?;
-    let template = template(functions)?;
+    let template = template(&crat, functions)?;
     provision(&template).await?;
     println!("{template}");
     println!("Done!");
