@@ -119,8 +119,6 @@ fn resources(path: &PathBuf) -> eyre::Result<Vec<Resource>> {
                 .wrap_err("No {resource_name}")?
                 .clone();
 
-            println!("{resource_name} - {resource:?}");
-
             result.push(match category_name {
                 "queue" => Resource::Queue(Queue {
                     name: resource_name.clone(),
