@@ -246,56 +246,6 @@ fn cleanup(dst: &Path) {
     .unwrap();
 }
 
-// TODO Handle this in a nicer way with traits (for example endpoint does not need a queue)
-/// Copy relevant resources definitions from source Cargo.toml to Cargo.toml in the target directory
-pub fn resources(dst: &PathBuf, attrs: &HashMap<String, String>) -> eyre::Result<()> {
-    let src_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-    let src = Path::new(&src_dir);
-    let src_cargo_toml_path = src.join("Cargo.toml");
-    let dst_cargo_toml_path = dst.join("Cargo.toml");
-
-    let src_cargo_toml: toml::Value = std::fs::read_to_string(src_cargo_toml_path)
-        .wrap_err("Failed to read Cargo.toml: {cargo_toml_path:?}")?
-        .parse::<toml::Value>()
-        .wrap_err("Failed to parse Cargo.toml")?;
-
-    let mut dst_cargo_toml_content = read_to_string(&dst_cargo_toml_path)
-        .wrap_err(format!("Failed to read: {dst_cargo_toml_path:?}"))?;
-
-    for (key, value) in attrs
-        .iter()
-        .filter(|(k, _)| vec!["db"].contains(&k.as_str()))
-    {
-        let name = value;
-        let head = format!("[package.metadata.sky.{key}.{name}]");
-
-        let body = src_cargo_toml
-            .get("package")
-            .wrap_err("No [package]")?
-            .get("metadata")
-            .wrap_err("No [metadata]")?
-            .get("sky")
-            .wrap_err("No [sky]")?
-            .get(key)
-            .wrap_err(format!("No {key}"))?
-            .get(value)
-            .wrap_err(format!("No {value}"))?
-            .as_table()
-            .wrap_err("Failed to parse content")?
-            .to_string();
-
-        if !dst_cargo_toml_content.contains(&head) {
-            dst_cargo_toml_content.push_str("\n");
-            dst_cargo_toml_content.push_str(&format!("{head}\n{body}"));
-
-            write(&dst_cargo_toml_path, &dst_cargo_toml_content)
-                .wrap_err(format!("Failed to write: {dst_cargo_toml_path:?}"))?;
-        }
-    }
-
-    Ok(())
-}
-
 pub fn process_function(attr: TokenStream, item: TokenStream, role: FunctionRole) -> TokenStream {
     let attrs = attrs(attr).wrap_err("Failed to parse attributes").unwrap();
     let span = proc_macro::Span::call_site();
@@ -331,6 +281,5 @@ pub fn process_function(attr: TokenStream, item: TokenStream, role: FunctionRole
         role,
     );
 
-    resources(&dst, &attrs).unwrap();
     item
 }
