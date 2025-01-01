@@ -8,5 +8,5 @@ skymacro = { path = "../macro" }
 lambda_http = "0.14.0"
 tokio = "1.42.0"
 
-[package.metadata.sky.db.users]
-type="sql"
+[package.metadata.sky.kvdb.users]
+name = "users"

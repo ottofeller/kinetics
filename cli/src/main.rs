@@ -28,7 +28,7 @@ struct Crate {
 }
 
 /// Return crate info from Cargo.toml
-fn project() -> eyre::Result<Crate> {
+fn crat() -> eyre::Result<Crate> {
     let path = std::env::current_dir().wrap_err("Failed to get current dir")?;
     let cargo_toml: toml::Value = cargotoml(&path)?;
 
@@ -47,7 +47,7 @@ fn project() -> eyre::Result<Crate> {
 /// Return the list of dirs with functions to deploy
 fn functions() -> eyre::Result<Vec<PathBuf>> {
     let mut result = vec![];
-    let project = project()?;
+    let project = crat()?;
 
     for entry in std::fs::read_dir(
         &skypath()
@@ -73,14 +73,20 @@ struct Queue {
 }
 
 #[derive(Debug)]
-struct Db {
+struct KvDb {
+    name: String,
+}
+
+#[derive(Debug)]
+struct SqlDb {
     name: String,
 }
 
 #[derive(Debug)]
 enum Resource {
     Queue(Queue),
-    Db(Db),
+    KvDb(KvDb),
+    SqlDb(SqlDb),
 }
 
 /// The hash with all the resources specific to the function
@@ -94,7 +100,7 @@ fn resources(path: &PathBuf) -> eyre::Result<Vec<Resource>> {
         .parse::<toml::Value>()
         .wrap_err("Failed to parse Cargo.toml")?;
 
-    for category_name in vec!["db", "queue"] {
+    for category_name in vec!["kvdb", "queue"] {
         let category = cargo_toml
             .get("package")
             .wrap_err("No [package]")?
@@ -130,9 +136,10 @@ fn resources(path: &PathBuf) -> eyre::Result<Vec<Resource>> {
                         .unwrap() as u32,
                 }),
 
-                "db" => Resource::Db(Db {
+                "kvdb" => Resource::KvDb(KvDb {
                     name: resource_name.clone(),
                 }),
+
                 _ => unreachable!(),
             });
         }
@@ -141,12 +148,54 @@ fn resources(path: &PathBuf) -> eyre::Result<Vec<Resource>> {
     Ok(result)
 }
 
+/// Policy statements to allow a function to access a resource
+///
+/// Current all functions in a crate have access to all resources.
+fn policies(crat: &Crate) -> String {
+    let mut template = String::default();
+
+    for resource in crat.resources.iter() {
+        template.push_str(&match resource {
+            Resource::KvDb(kvdb) => format!(
+                "
+            - PolicyName: DynamoPolicy{}
+              PolicyDocument:
+                  Version: '2012-10-17'
+                  Statement:
+                  - Effect: Allow
+                    Action:
+                      - dynamodb:BatchGetItem
+                      - dynamodb:BatchWriteItem
+                      - dynamodb:ConditionCheckItem
+                      - dynamodb:PutItem
+                      - dynamodb:DescribeTable
+                      - dynamodb:DeleteItem
+                      - dynamodb:GetItem
+                      - dynamodb:Scan
+                      - dynamodb:Query
+                      - dynamodb:UpdateItem
+                    Resource: !GetAtt
+                      - DynamoDBTable{}{}
+                      - Arn",
+                kvdb.name, crat.name, kvdb.name,
+            ),
+
+            Resource::SqlDb(_) => format!(""),
+            _ => format!(""),
+        })
+    }
+
+    template
+}
+
 /// CFN template for a function — a function itself and its role
-fn endpoint2template(name: &str) -> String {
+fn endpoint2template(name: &str, crat: &Crate) -> String {
+    let policies = policies(&crat);
+
     format!(
         "
         Endpoint{name}:
-          Type: 'AWS::Lambda::Function'
+          Type: AWS::Lambda::Function
           Properties:
                 FunctionName: {name}
                 Handler: bootstrap
@@ -183,8 +232,9 @@ fn endpoint2template(name: &str) -> String {
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                   Resource: \"*\"
+            {policies}
         EndpointUrl{name}:
-            Type : AWS::Lambda::Url
+            Type: AWS::Lambda::Url
             Properties:
                 AuthType: NONE
                 TargetFunctionArn: !Ref Endpoint{name}
@@ -194,12 +244,14 @@ fn endpoint2template(name: &str) -> String {
                 Action: lambda:InvokeFunctionUrl
                 FunctionUrlAuthType: 'NONE'
                 FunctionName: !Ref Endpoint{name}
-                Principal: '*'
+                Principal: \"*\"
         "
     )
 }
 
-fn worker2template(name: &str, resources: &Vec<Resource>) -> eyre::Result<String> {
+fn worker2template(name: &str, resources: &Vec<Resource>, crat: &Crate) -> eyre::Result<String> {
+    let policies = policies(&crat);
+
     let queue = resources
         .iter()
         .find_map(|r| match r {
@@ -211,7 +263,7 @@ fn worker2template(name: &str, resources: &Vec<Resource>) -> eyre::Result<String
     Ok(format!(
         "
         Worker{name}:
-          Type: 'AWS::Lambda::Function'
+          Type: AWS::Lambda::Function
           Properties:
                 FunctionName: {name}
                 Handler: bootstrap
@@ -264,6 +316,7 @@ fn worker2template(name: &str, resources: &Vec<Resource>) -> eyre::Result<String
                     Fn::GetAtt:
                       - WorkerQueue{name}
                       - Arn
+            {policies}
 
         WorkerQueue{name}:
             Type: AWS::SQS::Queue
@@ -275,7 +328,7 @@ fn worker2template(name: &str, resources: &Vec<Resource>) -> eyre::Result<String
                 ReceiveMessageWaitTimeSeconds: 20
 
         WorkerQueueEventSourceMapping{name}:
-            Type: 'AWS::Lambda::EventSourceMapping'
+            Type: AWS::Lambda::EventSourceMapping
             Properties:
                 EventSourceArn:
                     Fn::GetAtt:
@@ -293,7 +346,28 @@ fn worker2template(name: &str, resources: &Vec<Resource>) -> eyre::Result<String
 /// CFN template for a resource (e.g. a queue or a db)
 fn resource2template(name: &str, resource: &Resource) -> String {
     match resource {
-        Resource::Db(_db) => "DB".into(),
+        Resource::KvDb(kvdb) => {
+            format!(
+                "
+        DynamoDBTable{}{}:
+            Type: AWS::DynamoDB::Table
+            Properties:
+                TableName: {}
+                AttributeDefinitions:
+                    - AttributeName: id
+                      AttributeType: S
+                KeySchema:
+                    - AttributeName: id
+                      KeyType: HASH
+                ProvisionedThroughput:
+                    ReadCapacityUnits: 5
+                    WriteCapacityUnits: 5
+            ",
+                name, kvdb.name, kvdb.name,
+            )
+        }
+
+        Resource::SqlDb(_sqldb) => format!("KVDB"),
 
         Resource::Queue(queue) => format!(
             "
@@ -322,7 +396,7 @@ fn resource2template(name: &str, resource: &Resource) -> String {
 
 /// Build all assets and CFN templates
 fn build() -> eyre::Result<()> {
-    let project = project()?;
+    let project = crat()?;
     println!("Building \"{}\"...", project.name);
 
     for path in functions()? {
@@ -389,12 +463,13 @@ fn template(crat: &Crate, functions: Vec<PathBuf>) -> eyre::Result<String> {
         let resources = resources(&path)?;
 
         if role == "endpoint" {
-            template.push_str(&endpoint2template(name));
+            template.push_str(&endpoint2template(name, &crat));
         }
 
         if role == "worker" {
             template.push_str(
-                &worker2template(name, &resources).wrap_err("Failed to build worker template")?,
+                &worker2template(name, &resources, &crat)
+                    .wrap_err("Failed to build worker template")?,
             );
         }
 
@@ -491,14 +566,14 @@ async fn provision(template: &str) -> eyre::Result<()> {
 
 /// Build and deploy all assets using CFN template
 async fn deploy() -> eyre::Result<()> {
-    let crat = project().unwrap();
+    let crat = crat().unwrap();
     let functions = functions().wrap_err("Failed to bundle assets")?;
     println!("Deploying \"{}\"...", crat.name);
     bundle(&functions)?;
     upload(&functions).await?;
     let template = template(&crat, functions)?;
+    println!("Provisioning resources:\n{template}");
     provision(&template).await?;
-    println!("{template}");
     println!("Done!");
     Ok(())
 }
