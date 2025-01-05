@@ -136,7 +136,9 @@ fn inject(
         .unwrap();
 
     let new_main_code = format!(
-        "use lambda_http::{{run, service_fn, tracing, Body, Error, Request, RequestExt, Response}};\n\n\
+        "use lambda_http::{{tracing, Body, Response}};\n\
+        use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
+        use aws_lambda_events::{{lambda_function_urls::LambdaFunctionUrlRequest, sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
         #[tokio::main]\n\
         async fn main() -> Result<(), Error> {{\n\
             tracing::init_default_subscriber();\n\
