@@ -1,12 +1,22 @@
-use aws_lambda_events::{lambda_function_urls::LambdaFunctionUrlRequest, sqs::SqsEvent, sqs::SqsBatchResponse};
-use lambda_http::{Body, Response};
-use lambda_runtime::{LambdaEvent, Error};
+use ::serde::{Deserialize, Serialize};
+use aws_lambda_events::{
+    lambda_function_urls::LambdaFunctionUrlRequest,
+    sqs::{SqsBatchResponse, SqsEvent},
+};
+use lambda_runtime::{Error, LambdaEvent};
 use skymacro::{endpoint, worker};
+
+#[derive(Deserialize, Serialize)]
+pub struct Response {
+    pub status_code: i32,
+    pub headers: Vec<(String, String)>,
+    pub body: Vec<u8>,
+}
 
 #[endpoint(name = "Some", url_path = "/some")]
 pub async fn some_endpoint(
     event: LambdaEvent<LambdaFunctionUrlRequest>,
-) -> Result<Response<Body>, Error> {
+) -> Result<Response, Error> {
     let default = String::from("Nobody");
 
     let who = event
@@ -15,17 +25,11 @@ pub async fn some_endpoint(
         .get("name")
         .unwrap_or(&default);
 
-    let message = format!("Hello {who}, this is an AWS Lambda HTTP request");
-
-    // Return something that implements IntoResponse.
-    // It will be serialized to the right response event automatically by the runtime
-    let resp = Response::builder()
-        .status(200)
-        .header("content-type", "text/html")
-        .body(message.into())
-        .map_err(Box::new)?;
-
-    Ok(resp)
+    Ok(Response {
+        status_code: 200,
+        headers: vec![],
+        body: format!("Hello {who}, this is an AWS Lambda HTTP request").into(),
+    })
 }
 
 #[worker(name = "aworker", concurrency = 3, fifo = true)]

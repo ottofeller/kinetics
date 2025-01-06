@@ -136,12 +136,19 @@ fn inject(
         .unwrap();
 
     let new_main_code = format!(
-        "use lambda_http::{{tracing, Body, Response}};\n\
-        use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
+        "use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
         use aws_lambda_events::{{lambda_function_urls::LambdaFunctionUrlRequest, sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
+        use ::serde::{{Deserialize, Serialize}};
+
+        #[derive(Deserialize, Serialize)]
+        pub struct Response {{
+            pub status_code: i32,
+            pub headers: Vec<(String, String)>,
+            pub body: Vec<u8>,
+        }}
+
         #[tokio::main]\n\
         async fn main() -> Result<(), Error> {{\n\
-            tracing::init_default_subscriber();\n\
             run(service_fn({rust_function_name})).await\n\
         }}\n\n\
         {function_code}"
