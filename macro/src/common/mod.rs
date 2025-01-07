@@ -135,24 +135,26 @@ fn inject(
         .wrap_err("Failed to prepare regex")
         .unwrap();
 
-    let new_main_code = format!(
-        "use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
-        use aws_lambda_events::{{lambda_function_urls::LambdaFunctionUrlRequest, sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
-        use ::serde::{{Deserialize, Serialize}};
-
-        #[derive(Deserialize, Serialize)]
-        pub struct Response {{
-            pub status_code: i32,
-            pub headers: Vec<(String, String)>,
-            pub body: Vec<u8>,
-        }}
-
-        #[tokio::main]\n\
-        async fn main() -> Result<(), Error> {{\n\
-            run(service_fn({rust_function_name})).await\n\
-        }}\n\n\
-        {function_code}"
-    );
+    let new_main_code = if let FunctionRole::Endpoint = function_role {
+        format!(
+            "use lambda_http::{{run, service_fn, Body, Error, Request, Response, RequestExt}};\n\
+            #[tokio::main]\n\
+            async fn main() -> Result<(), Error> {{\n\
+                run(service_fn({rust_function_name})).await\n\
+            }}\n\n\
+            {function_code}"
+        )
+    } else {
+        format!(
+            "use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
+            use aws_lambda_events::{{lambda_function_urls::LambdaFunctionUrlRequest, sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
+            #[tokio::main]\n\
+            async fn main() -> Result<(), Error> {{\n\
+                run(service_fn({rust_function_name})).await\n\
+            }}\n\n\
+            {function_code}"
+        )
+    };
 
     let item: syn::File = syn::parse_str(&new_main_code).unwrap();
 

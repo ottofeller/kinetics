@@ -1,22 +1,10 @@
-use ::serde::{Deserialize, Serialize};
-use aws_lambda_events::{
-    lambda_function_urls::LambdaFunctionUrlRequest,
-    sqs::{SqsBatchResponse, SqsEvent},
-};
-use lambda_runtime::{Error, LambdaEvent};
+use aws_lambda_events::sqs::{SqsBatchResponse, SqsEvent};
+use lambda_http::{Body, Error, Request, RequestExt, Response};
+use lambda_runtime::LambdaEvent;
 use skymacro::{endpoint, worker};
 
-#[derive(Deserialize, Serialize)]
-pub struct Response {
-    pub status_code: i32,
-    pub headers: Vec<(String, String)>,
-    pub body: Vec<u8>,
-}
-
 #[endpoint(name = "Some", url_path = "/some")]
-pub async fn some_endpoint(
-    event: LambdaEvent<LambdaFunctionUrlRequest>,
-) -> Result<Response, Error> {
+pub async fn some_endpoint(event: Request) -> Result<Response<Body>, Error> {
     let default = String::from("Nobody");
     use aws_sdk_dynamodb::types::AttributeValue::S;
     use aws_sdk_dynamodb::Client;
@@ -29,22 +17,25 @@ pub async fn some_endpoint(
         .table_name("users")
         .set_item(Some(HashMap::from([
             ("id".to_string(), S("user123".to_string())),
-            ("name".to_string(), S("John Doe".to_string())),
+
+            (
+                "name".to_string(),
+                S(event
+                    .query_string_parameters()
+                    .first("who")
+                    .unwrap_or(&default)
+                    .to_string()),
+            ),
         ])))
         .send()
         .await?;
 
-    let who = event
-        .payload
-        .query_string_parameters
-        .get("name")
-        .unwrap_or(&default);
-
-    Ok(Response {
-        status_code: 200,
-        headers: vec![],
-        body: format!("Hello {who}, this is an AWS Lambda HTTP request").into(),
-    })
+    let resp = Response::builder()
+        .status(200)
+        .header("content-type", "text/html")
+        .body("Hello AWS Lambda HTTP request".into())
+        .map_err(Box::new)?;
+    Ok(resp)
 }
 
 #[worker(name = "aworker", concurrency = 3, fifo = true)]

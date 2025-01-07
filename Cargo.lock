@@ -2510,7 +2510,6 @@ dependencies = [
  "aws_lambda_events",
  "lambda_http",
  "lambda_runtime",
- "serde",
  "skymacro",
  "tokio",
 ]
