@@ -1,0 +1,101 @@
+use aws_sdk_s3::primitives::ByteStream;
+use std::path::PathBuf;
+use eyre::{eyre, ContextCompat, Ok, WrapErr};
+use zip::write::SimpleFileOptions;
+
+pub struct Function {
+    pub id: String,
+    pub path: PathBuf,
+}
+
+impl Function {
+    fn meta(&self) -> eyre::Result<toml::Value> {
+        let cargo_toml: toml::Value = crate::cargotoml(&self.path)?;
+
+        cargo_toml
+            .get("package")
+            .wrap_err("No [package]")?
+            .get("metadata")
+            .wrap_err("No [metadata]")?
+            .get("sky")
+            .wrap_err("No [sky]")?
+            .get("function")
+            .wrap_err("No [function]")
+            .cloned()
+    }
+
+    pub fn name(&self) -> eyre::Result<String> {
+        Ok(self
+            .meta()?
+            .get("name")
+            .wrap_err("No [name]")?
+            .as_str()
+            .wrap_err("Not a string")?
+            .to_string())
+    }
+
+    pub fn role(&self) -> eyre::Result<String> {
+        Ok(self
+            .meta()?
+            .get("role")
+            .wrap_err("No [role]")?
+            .as_str()
+            .wrap_err("Not a string")?
+            .to_string())
+    }
+
+    pub async fn zip_stream(&self) -> eyre::Result<ByteStream> {
+        aws_sdk_s3::primitives::ByteStream::from_path(self.bundle_path())
+            .await
+            .wrap_err("Failed to read bundled zip")
+    }
+
+    pub fn build(&self) -> eyre::Result<()> {
+        println!("Building {:?} with cargo-lambda...", self.path);
+
+        let status = std::process::Command::new("cargo")
+            .arg("lambda")
+            .arg("build")
+            .arg("--release")
+            .current_dir(&self.path)
+            .output()
+            .wrap_err("Failed to execute the process")?
+            .status;
+
+        if !status.success() {
+            return Err(eyre!("Build failed: {:?} {:?}", status.code(), self.path));
+        }
+
+        Ok(())
+    }
+
+    pub fn bundle(&self) -> eyre::Result<()> {
+        println!("Bundling {:?}...", self.path);
+        let file = std::fs::File::create(&self.bundle_path())?;
+        let mut zip = zip::ZipWriter::new(file);
+
+        let mut f = std::fs::File::open(
+            self.build_path()?
+                .to_str()
+                .ok_or(eyre!("Failed to construct bundle path"))?,
+        )?;
+
+        zip.start_file("bootstrap", SimpleFileOptions::default())?;
+        std::io::copy(&mut f, &mut zip)?;
+        zip.finish()?;
+        Ok(())
+    }
+
+    pub fn bundle_path(&self) -> PathBuf {
+        self.path.join(format!("{}.zip", self.id))
+    }
+
+    fn build_path(&self) -> eyre::Result<PathBuf> {
+        Ok(self
+            .path
+            .join("target")
+            .join("lambda")
+            .join("bootstrap")
+            .join("bootstrap"))
+    }
+}

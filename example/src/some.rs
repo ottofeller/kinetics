@@ -18,6 +18,21 @@ pub async fn some_endpoint(
     event: LambdaEvent<LambdaFunctionUrlRequest>,
 ) -> Result<Response, Error> {
     let default = String::from("Nobody");
+    use aws_sdk_dynamodb::types::AttributeValue::S;
+    use aws_sdk_dynamodb::Client;
+    use std::collections::HashMap;
+    let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+    let client = Client::new(&config);
+
+    client
+        .put_item()
+        .table_name("users")
+        .set_item(Some(HashMap::from([
+            ("id".to_string(), S("user123".to_string())),
+            ("name".to_string(), S("John Doe".to_string())),
+        ])))
+        .send()
+        .await?;
 
     let who = event
         .payload

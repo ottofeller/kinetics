@@ -1,9 +1,10 @@
-use aws_config::{imds::client, BehaviorVersion};
+mod function;
+use aws_config::BehaviorVersion;
 use aws_sdk_s3::Client;
 use clap::{Parser, Subcommand};
-use eyre::{eyre, ContextCompat, Ok, WrapErr};
+use eyre::{ContextCompat, Ok, WrapErr};
+use function::Function;
 use std::path::{Path, PathBuf};
-use zip::write::SimpleFileOptions;
 
 fn skypath() -> eyre::Result<PathBuf> {
     Ok(Path::new(&std::env::var("HOME").wrap_err("Can not read HOME env var")?).join(".sky"))
@@ -45,7 +46,7 @@ fn crat() -> eyre::Result<Crate> {
 }
 
 /// Return the list of dirs with functions to deploy
-fn functions() -> eyre::Result<Vec<PathBuf>> {
+fn functions() -> eyre::Result<Vec<Function>> {
     let mut result = vec![];
     let project = crat()?;
 
@@ -59,7 +60,10 @@ fn functions() -> eyre::Result<Vec<PathBuf>> {
         let path = entry.wrap_err("Failed to get dir entry")?.path();
 
         if path.is_dir() {
-            result.push(path);
+            result.push(Function {
+                id: uuid::Uuid::new_v4().into(),
+                path,
+            });
         }
     }
 
@@ -188,26 +192,27 @@ fn policies(crat: &Crate) -> String {
     template
 }
 
-/// CFN template for a function — a function itself and its role
-fn endpoint2template(name: &str, crat: &Crate) -> String {
+/// CFN template for a REST endpoint function — a function itself and its role
+fn endpoint2template(function: &Function, crat: &Crate) -> eyre::Result<String> {
     let policies = policies(&crat);
+    let name = function.name()?;
 
-    format!(
+    Ok(format!(
         "
         Endpoint{name}:
           Type: AWS::Lambda::Function
           Properties:
-                FunctionName: {name}
-                Handler: bootstrap
-                Runtime: provided.al2023
-                Role:
-                  Fn::GetAtt:
-                    - EndpointRole{name}
-                    - Arn
-                MemorySize: 1024
-                Code:
-                  S3Bucket: my-lambda-function-code-test
-                  S3Key: bootstrap.zip
+            FunctionName: {name}
+            Handler: bootstrap
+            Runtime: provided.al2023
+            Role:
+                Fn::GetAtt:
+                - EndpointRole{name}
+                - Arn
+            MemorySize: 1024
+            Code:
+                S3Bucket: my-lambda-function-code-test
+                S3Key: {}
         EndpointRole{name}:
           Type: AWS::IAM::Role
           Properties:
@@ -245,12 +250,24 @@ fn endpoint2template(name: &str, crat: &Crate) -> String {
                 FunctionUrlAuthType: 'NONE'
                 FunctionName: !Ref Endpoint{name}
                 Principal: \"*\"
-        "
-    )
+        ",
+        function
+            .bundle_path()
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+    ))
 }
 
-fn worker2template(name: &str, resources: &Vec<Resource>, crat: &Crate) -> eyre::Result<String> {
+/// CFN template for a worker function
+fn worker2template(
+    function: &Function,
+    resources: &Vec<Resource>,
+    crat: &Crate,
+) -> eyre::Result<String> {
     let policies = policies(&crat);
+    let name = function.name()?;
 
     let queue = resources
         .iter()
@@ -275,7 +292,7 @@ fn worker2template(name: &str, resources: &Vec<Resource>, crat: &Crate) -> eyre:
                 MemorySize: 1024
                 Code:
                   S3Bucket: my-lambda-function-code-test
-                  S3Key: bootstrap.zip
+                  S3Key: {}
 
         WorkerRole{name}:
           Type: AWS::IAM::Role
@@ -339,7 +356,14 @@ fn worker2template(name: &str, resources: &Vec<Resource>, crat: &Crate) -> eyre:
                 ScalingConfig:
                     MaximumConcurrency: {}
         ",
-        queue.name, queue.concurrency,
+        function
+            .bundle_path()
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        queue.name,
+        queue.concurrency,
     ))
 }
 
@@ -399,17 +423,21 @@ fn build() -> eyre::Result<()> {
     let project = crat()?;
     println!("Building \"{}\"...", project.name);
 
-    for path in functions()? {
+    for function in functions()? {
         let status = std::process::Command::new("cargo")
             .arg("lambda")
             .arg("build")
-            .current_dir(&path)
+            .current_dir(&function.path)
             .output()
             .expect("Failed to execute process")
             .status;
 
         if !status.success() {
-            panic!("Build failed: {:?}, {}", path, status.code().unwrap());
+            panic!(
+                "Build failed: {:?}, {}",
+                function.path,
+                status.code().unwrap()
+            );
         }
     }
 
@@ -426,7 +454,7 @@ fn cargotoml(path: &Path) -> eyre::Result<toml::Value> {
 }
 
 /// Generate CFN template for all functions
-fn template(crat: &Crate, functions: Vec<PathBuf>) -> eyre::Result<String> {
+fn template(crat: &Crate, functions: Vec<Function>) -> eyre::Result<String> {
     let mut template = "Resources:".to_string();
 
     // Define global resources from the app's Cargo.toml, e.g. a DB
@@ -435,40 +463,16 @@ fn template(crat: &Crate, functions: Vec<PathBuf>) -> eyre::Result<String> {
         template.push_str("\n");
     }
 
-    for path in functions {
-        let cargo_toml: toml::Value = cargotoml(&path)?;
+    for function in functions {
+        let resources = resources(&function.path)?;
 
-        let meta = cargo_toml
-            .get("package")
-            .wrap_err("No [package]")?
-            .get("metadata")
-            .wrap_err("No [metadata]")?
-            .get("sky")
-            .wrap_err("No [sky]")?
-            .get("function")
-            .wrap_err("No [function]")?;
-
-        let name = meta
-            .get("name")
-            .wrap_err("No [name]")?
-            .as_str()
-            .wrap_err("Not a string")?;
-
-        let role = meta
-            .get("role")
-            .wrap_err("No [role]")?
-            .as_str()
-            .wrap_err("Not a string")?;
-
-        let resources = resources(&path)?;
-
-        if role == "endpoint" {
-            template.push_str(&endpoint2template(name, &crat));
+        if function.role()? == "endpoint" {
+            template.push_str(&endpoint2template(&function, &crat)?);
         }
 
-        if role == "worker" {
+        if function.role()? == "worker" {
             template.push_str(
-                &worker2template(name, &resources, &crat)
+                &worker2template(&function, &resources, &crat)
                     .wrap_err("Failed to build worker template")?,
             );
         }
@@ -480,50 +484,22 @@ fn template(crat: &Crate, functions: Vec<PathBuf>) -> eyre::Result<String> {
 }
 
 /// Bundle assets and upload to S3, assuming all functions are built
-fn bundle(functions: &Vec<PathBuf>) -> eyre::Result<()> {
-    for path in functions {
-        println!("Building {path:?} with cargo-lambda...");
-
-        let status = std::process::Command::new("cargo")
-            .arg("lambda")
-            .arg("build")
-            .arg("--release")
-            .current_dir(&path)
-            .output()
-            .wrap_err("Failed to execute the process")?
-            .status;
-
-        if !status.success() {
-            Err(eyre!("Build failed: {path:?} {:?}", status.code()))?;
-        }
-
-        println!("Bundling {path:?}...");
-        let file = std::fs::File::create(&path.join("bootstrap.zip"))?;
-        let mut zip = zip::ZipWriter::new(file);
-
-        let mut f = std::fs::File::open(
-            path.join("target")
-                .join("lambda")
-                .join("bootstrap")
-                .join("bootstrap")
-                .to_str()
-                .ok_or(eyre!("Failed to construct asset path"))?,
-        )?;
-
-        zip.start_file("bootstrap", SimpleFileOptions::default())?;
-        std::io::copy(&mut f, &mut zip)?;
-        zip.finish()?;
+fn bundle(functions: &Vec<Function>) -> eyre::Result<()> {
+    for function in functions {
+        function.build()?;
+        function.bundle()?;
     }
 
     Ok(())
 }
 
 /// All bundled assets to S3
-async fn upload(functions: &Vec<PathBuf>) -> eyre::Result<()> {
-    for path in functions {
+async fn upload(functions: &Vec<Function>) -> eyre::Result<()> {
+    for function in functions {
         let bucket_name = "my-lambda-function-code-test";
-        let key = "bootstrap.zip";
-        let body = aws_sdk_s3::primitives::ByteStream::from_path(path.join("bootstrap.zip")).await;
+        let path = function.bundle_path();
+        let key = path.file_name().unwrap().to_str().unwrap();
+        let body = function.zip_stream().await?;
 
         let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
             .load()
@@ -535,7 +511,7 @@ async fn upload(functions: &Vec<PathBuf>) -> eyre::Result<()> {
             .put_object()
             .bucket(bucket_name)
             .key(key)
-            .body(body.unwrap())
+            .body(body)
             .send()
             .await
             .wrap_err("Failed to upload file to S3")?;
@@ -588,7 +564,7 @@ async fn provision(template: &str) -> eyre::Result<()> {
             .template_body(template)
             .send()
             .await
-            .wrap_err("Failed to create stack")?;
+            .wrap_err("Failed to update stack")?;
     } else {
         client
             .create_stack()

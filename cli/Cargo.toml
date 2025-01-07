@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+uuid = { version = "1.11.0", features = ["v4"]}
 clap = {version = "4.5.23", features = ["derive"]}
 eyre = "0.6.12"
 walkdir = "2.5.0"
