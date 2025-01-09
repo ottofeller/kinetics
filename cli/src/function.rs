@@ -20,7 +20,7 @@ impl Function {
         })
     }
 
-    fn environment(&self) -> eyre::Result<toml::Value> {
+    pub fn environment(&self) -> eyre::Result<toml::Value> {
         self.crat
             .toml
             .get("package")

@@ -84,9 +84,11 @@ impl Template {
             }
 
             if function.role()? == "worker" {
-                template
-                    .template
-                    .push_str(&template.worker(&function).wrap_err("Failed to build worker template")?);
+                template.template.push_str(
+                    &template
+                        .worker(&function)
+                        .wrap_err("Failed to build worker template")?,
+                );
             }
 
             template.template.push_str("\n");
@@ -135,10 +137,34 @@ impl Template {
         template
     }
 
+    /// Define environment variables for a function
+    fn environment(&self, function: &Function) -> eyre::Result<String> {
+        let variables = function
+            .environment()?
+            .as_table()
+            .unwrap()
+            .iter()
+            .map(|(k, v)| format!("{k}: {v}"))
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        if variables.is_empty() {
+            return Ok("".to_string());
+        }
+
+        Ok(format!(
+            "Environment:
+                        Variables:
+                            {}",
+            variables,
+        ))
+    }
+
     /// CFN template for a REST endpoint function — a function itself and its role
     fn endpoint(&self, function: &Function) -> eyre::Result<String> {
         let policies = self.policies();
         let name = function.name()?;
+        let environment = self.environment(function)?;
 
         Ok(format!(
             "
@@ -148,10 +174,7 @@ impl Template {
                 FunctionName: {name}
                 Handler: bootstrap
                 Runtime: provided.al2023
-                Environment:
-                  Variables:
-                    databaseName: lambdadb
-                    databaseUser: admin
+                {environment}
                 Role:
                     Fn::GetAtt:
                     - EndpointRole{name}
@@ -211,6 +234,7 @@ impl Template {
     fn worker(&self, function: &Function) -> eyre::Result<String> {
         let policies = self.policies();
         let name = function.name()?;
+        let environment = self.environment(function)?;
 
         let queue = function
             .resources()
@@ -229,6 +253,7 @@ impl Template {
                     FunctionName: {name}
                     Handler: bootstrap
                     Runtime: provided.al2023
+                    {environment}
                     Role:
                       Fn::GetAtt:
                         - WorkerRole{name}
