@@ -33,6 +33,7 @@ pub fn worker(attr: TokenStream, item: TokenStream) -> TokenStream {
     let result = common::process_function(attr.clone(), item.clone(), FunctionRole::Worker);
 
     // Create queue resource in the dst Cargo.toml based on the input of the macro
+    // A queue is not defined in Cargo.toml because it is always specific to single function
     let attrs = Attrs::new(attr, &FunctionRole::Worker)
         .wrap_err("Failed to parse attributes")
         .unwrap();

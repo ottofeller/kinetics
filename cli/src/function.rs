@@ -1,18 +1,42 @@
+use crate::crat::Crate;
 use aws_sdk_s3::primitives::ByteStream;
-use std::path::PathBuf;
 use eyre::{eyre, ContextCompat, Ok, WrapErr};
+use std::path::PathBuf;
 use zip::write::SimpleFileOptions;
 
+#[derive(Clone)]
 pub struct Function {
     pub id: String,
     pub path: PathBuf,
+    pub crat: Crate,
 }
 
 impl Function {
-    fn meta(&self) -> eyre::Result<toml::Value> {
-        let cargo_toml: toml::Value = crate::cargotoml(&self.path)?;
+    pub fn new(path: &PathBuf) -> eyre::Result<Self> {
+        Ok(Function {
+            id: uuid::Uuid::new_v4().into(),
+            path: path.clone(),
+            crat: Crate::new(path.clone())?,
+        })
+    }
 
-        cargo_toml
+    fn environment(&self) -> eyre::Result<toml::Value> {
+        self.crat
+            .toml
+            .get("package")
+            .wrap_err("No [package]")?
+            .get("metadata")
+            .wrap_err("No [metadata]")?
+            .get("sky")
+            .wrap_err("No [sky]")?
+            .get("environment")
+            .wrap_err("No [environment]")
+            .cloned()
+    }
+
+    fn meta(&self) -> eyre::Result<toml::Value> {
+        self.crat
+            .toml
             .get("package")
             .wrap_err("No [package]")?
             .get("metadata")
@@ -97,5 +121,9 @@ impl Function {
             .join("lambda")
             .join("bootstrap")
             .join("bootstrap"))
+    }
+
+    pub fn resources(&self) -> Vec<&crate::Resource> {
+        self.crat.resources.iter().clone().collect()
     }
 }

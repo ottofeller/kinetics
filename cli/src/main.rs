@@ -1,10 +1,14 @@
+mod crat;
 mod function;
+mod template;
 use aws_config::BehaviorVersion;
 use aws_sdk_s3::Client;
 use clap::{Parser, Subcommand};
-use eyre::{ContextCompat, Ok, WrapErr};
+use crat::Crate;
+use eyre::{Ok, WrapErr};
 use function::Function;
 use std::path::{Path, PathBuf};
+use template::Template;
 
 fn skypath() -> eyre::Result<PathBuf> {
     Ok(Path::new(&std::env::var("HOME").wrap_err("Can not read HOME env var")?).join(".sky"))
@@ -23,399 +27,55 @@ enum Commands {
     Deploy,
 }
 
-struct Crate {
-    name: String,
-    resources: Vec<Resource>,
-}
-
 /// Return crate info from Cargo.toml
 fn crat() -> eyre::Result<Crate> {
     let path = std::env::current_dir().wrap_err("Failed to get current dir")?;
-    let cargo_toml: toml::Value = cargotoml(&path)?;
-
-    Ok(Crate {
-        name: cargo_toml
-            .get("package")
-            .and_then(|pkg| pkg.get("name"))
-            .and_then(|name| name.as_str())
-            .wrap_err("Failed to get crate name from Cargo.toml")?
-            .to_string(),
-
-        resources: resources(&path)?,
-    })
+    Ok(Crate::new(path)?)
 }
 
 /// Return the list of dirs with functions to deploy
 fn functions() -> eyre::Result<Vec<Function>> {
     let mut result = vec![];
-    let project = crat()?;
+    let crat = crat()?;
 
     for entry in std::fs::read_dir(
         &skypath()
             .wrap_err("Failed to resolve sky path")?
-            .join(project.name),
+            .join(crat.name),
     )
     .wrap_err("Failed to read dir")?
     {
         let path = entry.wrap_err("Failed to get dir entry")?.path();
 
         if path.is_dir() {
-            result.push(Function {
-                id: uuid::Uuid::new_v4().into(),
-                path,
-            });
+            result.push(Function::new(&path)?);
         }
     }
 
     Ok(result)
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Queue {
     name: String,
     concurrency: u32,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct KvDb {
     name: String,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct SqlDb {
     name: String,
 }
 
-#[derive(Debug)]
-enum Resource {
+#[derive(Clone, Debug)]
+pub enum Resource {
     Queue(Queue),
     KvDb(KvDb),
     SqlDb(SqlDb),
-}
-
-/// The hash with all the resources specific to the function
-fn resources(path: &PathBuf) -> eyre::Result<Vec<Resource>> {
-    let mut result = vec![];
-    let src_path = Path::new(path);
-    let cargo_toml_path = src_path.join("Cargo.toml");
-
-    let cargo_toml: toml::Value = std::fs::read_to_string(cargo_toml_path)
-        .wrap_err("Failed to read Cargo.toml: {cargo_toml_path:?}")?
-        .parse::<toml::Value>()
-        .wrap_err("Failed to parse Cargo.toml")?;
-
-    for category_name in vec!["kvdb", "queue"] {
-        let category = cargo_toml
-            .get("package")
-            .wrap_err("No [package]")?
-            .get("metadata")
-            .wrap_err("No [metadata]")?
-            .get("sky")
-            .wrap_err("No [sky]")?
-            .get(category_name);
-
-        if category.is_none() {
-            continue;
-        }
-
-        let category = category
-            .wrap_err(format!("No category {category_name} found"))?
-            .as_table()
-            .wrap_err("Section format is wrong")?;
-
-        for resource_name in category.keys() {
-            let resource = category
-                .get(resource_name)
-                .wrap_err("No {resource_name}")?
-                .clone();
-
-            result.push(match category_name {
-                "queue" => Resource::Queue(Queue {
-                    name: resource_name.clone(),
-
-                    concurrency: resource
-                        .get("concurrency")
-                        .unwrap_or(&toml::Value::Integer(1))
-                        .as_integer()
-                        .unwrap() as u32,
-                }),
-
-                "kvdb" => Resource::KvDb(KvDb {
-                    name: resource_name.clone(),
-                }),
-
-                _ => unreachable!(),
-            });
-        }
-    }
-
-    Ok(result)
-}
-
-/// Policy statements to allow a function to access a resource
-///
-/// Current all functions in a crate have access to all resources.
-fn policies(crat: &Crate) -> String {
-    let mut template = String::default();
-
-    for resource in crat.resources.iter() {
-        template.push_str(&match resource {
-            Resource::KvDb(kvdb) => format!(
-                "
-            - PolicyName: DynamoPolicy{}
-              PolicyDocument:
-                  Version: '2012-10-17'
-                  Statement:
-                  - Effect: Allow
-                    Action:
-                      - dynamodb:BatchGetItem
-                      - dynamodb:BatchWriteItem
-                      - dynamodb:ConditionCheckItem
-                      - dynamodb:PutItem
-                      - dynamodb:DescribeTable
-                      - dynamodb:DeleteItem
-                      - dynamodb:GetItem
-                      - dynamodb:Scan
-                      - dynamodb:Query
-                      - dynamodb:UpdateItem
-                    Resource: !GetAtt
-                      - DynamoDBTable{}{}
-                      - Arn",
-                kvdb.name, crat.name, kvdb.name,
-            ),
-
-            Resource::SqlDb(_) => format!(""),
-            _ => format!(""),
-        })
-    }
-
-    template
-}
-
-/// CFN template for a REST endpoint function — a function itself and its role
-fn endpoint2template(function: &Function, crat: &Crate) -> eyre::Result<String> {
-    let policies = policies(&crat);
-    let name = function.name()?;
-
-    Ok(format!(
-        "
-        Endpoint{name}:
-          Type: AWS::Lambda::Function
-          Properties:
-            FunctionName: {name}
-            Handler: bootstrap
-            Runtime: provided.al2023
-            Role:
-                Fn::GetAtt:
-                - EndpointRole{name}
-                - Arn
-            MemorySize: 1024
-            Code:
-                S3Bucket: my-lambda-function-code-test
-                S3Key: {}
-        EndpointRole{name}:
-          Type: AWS::IAM::Role
-          Properties:
-            AssumeRolePolicyDocument:
-              Version: '2012-10-17'
-              Statement:
-              - Effect: Allow
-                Principal:
-                  Service:
-                  - lambda.amazonaws.com
-                Action:
-                - sts:AssumeRole
-            Path: \"/\"
-            Policies:
-            - PolicyName: AppendToLogsPolicy
-              PolicyDocument:
-                Version: '2012-10-17'
-                Statement:
-                - Effect: Allow
-                  Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                  Resource: \"*\"
-            {policies}
-        EndpointUrl{name}:
-            Type: AWS::Lambda::Url
-            Properties:
-                AuthType: NONE
-                TargetFunctionArn: !Ref Endpoint{name}
-        EndpointUrlPermission{name}:
-            Type: AWS::Lambda::Permission
-            Properties:
-                Action: lambda:InvokeFunctionUrl
-                FunctionUrlAuthType: 'NONE'
-                FunctionName: !Ref Endpoint{name}
-                Principal: \"*\"
-        ",
-        function
-            .bundle_path()
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-    ))
-}
-
-/// CFN template for a worker function
-fn worker2template(
-    function: &Function,
-    resources: &Vec<Resource>,
-    crat: &Crate,
-) -> eyre::Result<String> {
-    let policies = policies(&crat);
-    let name = function.name()?;
-
-    let queue = resources
-        .iter()
-        .find_map(|r| match r {
-            Resource::Queue(queue) => Some(queue),
-            _ => None,
-        })
-        .wrap_err("No queue resource found in Cargo.toml")?;
-
-    Ok(format!(
-        "
-        Worker{name}:
-          Type: AWS::Lambda::Function
-          Properties:
-                FunctionName: {name}
-                Handler: bootstrap
-                Runtime: provided.al2023
-                Role:
-                  Fn::GetAtt:
-                    - WorkerRole{name}
-                    - Arn
-                MemorySize: 1024
-                Code:
-                  S3Bucket: my-lambda-function-code-test
-                  S3Key: {}
-
-        WorkerRole{name}:
-          Type: AWS::IAM::Role
-          Properties:
-            AssumeRolePolicyDocument:
-              Version: '2012-10-17'
-              Statement:
-              - Effect: Allow
-                Principal:
-                  Service:
-                  - lambda.amazonaws.com
-                Action:
-                - sts:AssumeRole
-            Path: \"/\"
-            Policies:
-            - PolicyName: AppendToLogsPolicy
-              PolicyDocument:
-                Version: '2012-10-17'
-                Statement:
-                - Effect: Allow
-                  Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                  Resource: \"*\"
-            - PolicyName: QueuePolicy
-              PolicyDocument:
-                Version: '2012-10-17'
-                Statement:
-                - Effect: Allow
-                  Action:
-                  - sqs:ChangeMessageVisibility
-                  - sqs:DeleteMessage
-                  - sqs:GetQueueAttributes
-                  - sqs:GetQueueUrl
-                  - sqs:ReceiveMessage
-                  Resource:
-                    Fn::GetAtt:
-                      - WorkerQueue{name}
-                      - Arn
-            {policies}
-
-        WorkerQueue{name}:
-            Type: AWS::SQS::Queue
-            Properties:
-                QueueName: WorkerQueue{}
-                VisibilityTimeout: 60
-                MaximumMessageSize: 2048
-                MessageRetentionPeriod: 345600
-                ReceiveMessageWaitTimeSeconds: 20
-
-        WorkerQueueEventSourceMapping{name}:
-            Type: AWS::Lambda::EventSourceMapping
-            Properties:
-                EventSourceArn:
-                    Fn::GetAtt:
-                    - WorkerQueue{name}
-                    - Arn
-                FunctionName:
-                    Ref: Worker{name}
-                ScalingConfig:
-                    MaximumConcurrency: {}
-        ",
-        function
-            .bundle_path()
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap(),
-        queue.name,
-        queue.concurrency,
-    ))
-}
-
-/// CFN template for a resource (e.g. a queue or a db)
-fn resource2template(name: &str, resource: &Resource) -> String {
-    match resource {
-        Resource::KvDb(kvdb) => {
-            format!(
-                "
-        DynamoDBTable{}{}:
-            Type: AWS::DynamoDB::Table
-            Properties:
-                TableName: {}
-                AttributeDefinitions:
-                    - AttributeName: id
-                      AttributeType: S
-                KeySchema:
-                    - AttributeName: id
-                      KeyType: HASH
-                ProvisionedThroughput:
-                    ReadCapacityUnits: 5
-                    WriteCapacityUnits: 5
-            ",
-                name, kvdb.name, kvdb.name,
-            )
-        }
-
-        Resource::SqlDb(_sqldb) => format!("KVDB"),
-
-        Resource::Queue(queue) => format!(
-            "
-            WorkerQueue{name}:
-                Type: AWS::SQS::Queue
-                Properties:
-                    QueueName: WorkerQueue{}
-                    VisibilityTimeout: 60
-                    MaximumMessageSize: 2048
-                    MessageRetentionPeriod: 345600
-                    ReceiveMessageWaitTimeSeconds: 20
-            WorkerQueueEventSourceMapping{name}:
-                Type: 'AWS::Lambda::EventSourceMapping'
-                Properties:
-                    EventSourceArn:
-                        Fn::GetAtt:
-                        - WorkerQueue{name}
-                        - Arn
-                    FunctionName:
-                        Ref: LambdaFunction{name}:
-            ",
-            queue.name,
-        ),
-    }
 }
 
 /// Build all assets and CFN templates
@@ -443,44 +103,6 @@ fn build() -> eyre::Result<()> {
 
     println!("Done!");
     Ok(())
-}
-
-/// Read Cargo.toml in a given dir
-fn cargotoml(path: &Path) -> eyre::Result<toml::Value> {
-    std::fs::read_to_string(path.join("Cargo.toml"))
-        .wrap_err("Failed to read Cargo.toml: {cargo_toml_path:?}")?
-        .parse::<toml::Value>()
-        .wrap_err("Failed to parse Cargo.toml")
-}
-
-/// Generate CFN template for all functions
-fn template(crat: &Crate, functions: Vec<Function>) -> eyre::Result<String> {
-    let mut template = "Resources:".to_string();
-
-    // Define global resources from the app's Cargo.toml, e.g. a DB
-    for resource in crat.resources.iter() {
-        template.push_str(&resource2template(&crat.name, &resource));
-        template.push_str("\n");
-    }
-
-    for function in functions {
-        let resources = resources(&function.path)?;
-
-        if function.role()? == "endpoint" {
-            template.push_str(&endpoint2template(&function, &crat)?);
-        }
-
-        if function.role()? == "worker" {
-            template.push_str(
-                &worker2template(&function, &resources, &crat)
-                    .wrap_err("Failed to build worker template")?,
-            );
-        }
-
-        template.push_str("\n");
-    }
-
-    Ok(template)
 }
 
 /// Bundle assets and upload to S3, assuming all functions are built
@@ -586,9 +208,9 @@ async fn deploy() -> eyre::Result<()> {
     println!("Deploying \"{}\"...", crat.name);
     bundle(&functions)?;
     upload(&functions).await?;
-    let template = template(&crat, functions)?;
-    println!("Provisioning resources:\n{template}");
-    provision(&template).await?;
+    let template = Template::new(&crat, functions)?;
+    println!("Provisioning resources:\n{}", template.template);
+    provision(&template.template).await?;
     println!("Done!");
     Ok(())
 }
