@@ -1,5 +1,7 @@
 #![feature(proc_macro_totokens, proc_macro_span, proc_macro_expand)]
 mod common;
+use common::attrs::Attrs;
+use eyre::ContextCompat;
 use eyre::WrapErr;
 use proc_macro::TokenStream;
 use std::fmt::Display;
@@ -31,8 +33,13 @@ pub fn worker(attr: TokenStream, item: TokenStream) -> TokenStream {
     let result = common::process_function(attr.clone(), item.clone(), FunctionRole::Worker);
 
     // Create queue resource in the dst Cargo.toml based on the input of the macro
-    let attrs = common::attrs(attr)
+    let attrs = Attrs::new(attr, &FunctionRole::Worker)
         .wrap_err("Failed to parse attributes")
+        .unwrap();
+
+    let worker_attrs = attrs
+        .worker()
+        .wrap_err("No worker attributes found")
         .unwrap();
 
     let span = proc_macro::Span::call_site();
@@ -60,10 +67,10 @@ pub fn worker(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     dst_cargo_toml_content.push_str(&format!(
         "[package.metadata.sky.queue.{}]\nname=\"{}\"\nconcurrency={}\nfifo={}",
-        attrs.get("name").unwrap_or(&lambda_name),
-        attrs.get("name").unwrap_or(&lambda_name),
-        attrs.get("concurrency").unwrap_or(&1.to_string()),
-        attrs.get("fifo").unwrap_or(&false.to_string()),
+        worker_attrs.name.as_ref().unwrap_or(&lambda_name),
+        worker_attrs.name.as_ref().unwrap_or(&lambda_name),
+        worker_attrs.concurrency.unwrap_or(1).to_string(),
+        worker_attrs.fifo.unwrap_or(false).to_string(),
     ));
 
     write(&dst_cargo_toml_path, &dst_cargo_toml_content)

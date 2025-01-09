@@ -3,7 +3,11 @@ use lambda_http::{Body, Error, Request, RequestExt, Response};
 use lambda_runtime::LambdaEvent;
 use skymacro::{endpoint, worker};
 
-#[endpoint(name = "Some", url_path = "/some")]
+#[endpoint(
+    name = "Some",
+    url_path = "/some",
+    environment = {"DEFAULT_NAME": "John"},
+)]
 pub async fn some_endpoint(event: Request) -> Result<Response<Body>, Error> {
     let default = String::from("Nobody");
     use aws_sdk_dynamodb::types::AttributeValue::S;
@@ -38,7 +42,12 @@ pub async fn some_endpoint(event: Request) -> Result<Response<Body>, Error> {
     Ok(resp)
 }
 
-#[worker(name = "aworker", concurrency = 3, fifo = true)]
+#[worker(
+    name = "aworker",
+    concurrency = 3,
+    fifo = true,
+    environment = {"CURRENCY": "USD"},
+)]
 pub async fn some_worker(_event: LambdaEvent<SqsEvent>) -> Result<SqsBatchResponse, Error> {
     let sqs_batch_response = SqsBatchResponse::default();
     Ok(sqs_batch_response)

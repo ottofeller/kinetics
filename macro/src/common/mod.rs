@@ -1,53 +1,19 @@
+pub mod attrs;
 use crate::FunctionRole;
+use attrs::{Attrs, Environment};
 use eyre::{eyre, ContextCompat, WrapErr};
+use proc_macro::SourceFile;
 use proc_macro::TokenStream;
-use proc_macro::{SourceFile, ToTokens};
 use regex::Regex;
-use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::fs::write;
 use std::path::Path;
 use std::path::PathBuf;
-use syn::{parse_macro_input, ItemFn, LitInt, LitStr};
+use syn::{parse_macro_input, ItemFn};
 
 /// Where all the projects are copied
 pub fn skypath() -> eyre::Result<PathBuf> {
     Ok(Path::new(&std::env::var("HOME").wrap_err("Can not read HOME env var")?).join(".sky"))
-}
-
-/// Parse the macro input attributes into a hashmap
-pub fn attrs(input: TokenStream) -> eyre::Result<HashMap<String, String>> {
-    let mut result = HashMap::<String, String>::new();
-    let mut name = String::new();
-
-    for token in input.into_iter() {
-        match token {
-            proc_macro::TokenTree::Ident(ident) => name = ident.to_string(),
-
-            proc_macro::TokenTree::Literal(literal) => {
-                // Try to parse inptut as a string literal first
-                let token_stream = literal.to_token_stream();
-                let try_str = syn::parse::<LitStr>(token_stream.clone());
-                let try_int = syn::parse::<LitInt>(token_stream);
-
-                if try_str.is_err() && try_int.is_err() {
-                    return Err(eyre!(
-                        "The input attr has unsupported format (should be str or int)"
-                    ));
-                }
-
-                if try_str.is_ok() {
-                    result.insert(name.clone(), try_str?.value());
-                } else {
-                    result.insert(name.clone(), try_int?.to_string());
-                }
-            }
-
-            _ => {}
-        }
-    }
-
-    Ok(result)
 }
 
 /// Clone the crate dir to a new directory
@@ -92,12 +58,8 @@ fn clone(src: &Path, dst: &Path) {
 /// By default use the Rust function plus crate path as the function name. Convert
 /// some-name to SomeName, and do other transformations in order to comply with Lambda
 /// function name requirements.
-pub fn func_name(
-    attrs: &HashMap<String, String>,
-    file: &SourceFile,
-    rust_name: &str,
-) -> eyre::Result<String> {
-    let default_func_name = &format!(
+pub fn func_name(attrs: &Attrs, file: &SourceFile, rust_name: &str) -> eyre::Result<String> {
+    let default_func_name = format!(
         "{}{rust_name}",
         &file
             .path()
@@ -112,7 +74,11 @@ pub fn func_name(
     );
 
     // TODO Check the name for uniqueness
-    Ok(attrs.get("name").unwrap_or(default_func_name).to_string())
+    Ok(attrs
+        .name()
+        .or(Some(default_func_name))
+        .unwrap()
+        .to_string())
 }
 
 /// Inject the code which is necessary to build lambda
@@ -124,6 +90,7 @@ fn inject(
     rust_function_name: &str,
     function_code: &str,
     function_role: FunctionRole,
+    environment: &Environment,
 ) {
     let main_rs_path = dst.join("src").join("main.rs");
 
@@ -178,6 +145,14 @@ fn inject(
         cargo_toml_content.push_str(
             format!("\n[package.metadata.sky.function]\nname = \"{function_name}\"\nrole = \"{function_role}\"\nurl_path=\"/some/path\"\n").as_str(),
         );
+    }
+
+    if !cargo_toml_content.contains("[package.metadata.sky.environment]") {
+        cargo_toml_content.push_str(format!("\n[package.metadata.sky.environment]").as_str());
+
+        for (key, value) in environment.iter() {
+            cargo_toml_content.push_str(format!("\n{key} = \"{value}\"").as_str());
+        }
     }
 
     write(&cargo_toml_path, &cargo_toml_content)
@@ -258,7 +233,10 @@ fn cleanup(dst: &Path) {
 }
 
 pub fn process_function(attr: TokenStream, item: TokenStream, role: FunctionRole) -> TokenStream {
-    let attrs = attrs(attr).wrap_err("Failed to parse attributes").unwrap();
+    let attrs = Attrs::new(attr, &role)
+        .wrap_err("Failed to parse attributes")
+        .unwrap();
+
     let span = proc_macro::Span::call_site();
     let source_file = span.source_file();
     let item_fn = item.clone();
@@ -290,6 +268,7 @@ pub fn process_function(attr: TokenStream, item: TokenStream, role: FunctionRole
         &rust_name,
         &item.to_string(),
         role,
+        &attrs.environment(),
     );
 
     item
