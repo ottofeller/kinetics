@@ -1,12 +1,19 @@
+use eyre::Context;
 use rust_dotenv::dotenv::DotEnv;
 
 pub struct Secret {
     name: String,
     value: String,
+    unique: String,
 }
 
 impl Secret {
-    pub fn from_dotenv() -> eyre::Result<Vec<Self>> {
+    /// Read secrets from the .env file
+    ///
+    /// # Arguments
+    ///
+    /// * `unique` - Configurable unique part of the name
+    pub fn from_dotenv(unique: &str) -> eyre::Result<Vec<Self>> {
         let mut result = vec![];
         let dotenv = DotEnv::new("secrets");
 
@@ -14,62 +21,30 @@ impl Secret {
             result.push(Secret {
                 name: name.clone(),
                 value: value.clone(),
+                unique: unique.to_string(),
             });
         }
 
         Ok(result)
     }
 
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    async fn is_exists(&self, client: &aws_sdk_secretsmanager::Client) -> eyre::Result<bool> {
-        let result = client
-            .describe_secret()
-            .set_secret_id(Some(self.name.clone()))
-            .send()
-            .await;
-
-        if let Err(e) = &result {
-            if let aws_sdk_cloudformation::error::SdkError::ServiceError(err) = e {
-                if err.err().meta().code().unwrap().eq("ResourceNotFoundException") {
-                    return Ok(false);
-                } else {
-                    return Err(eyre::eyre!(
-                        "Service error while describing secret: {:?}",
-                        err
-                    ));
-                }
-            } else {
-                return Err(eyre::eyre!("Failed to describe secret: {:?}", e));
-            }
-        }
-
-        Ok(true)
+    pub fn unique_name(&self) -> String {
+        format!("{}-{}", self.unique.clone(), self.name.clone())
     }
 
     pub async fn sync(&self) -> eyre::Result<()> {
         let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-        let client = aws_sdk_secretsmanager::Client::new(&config);
-        let secret_name = self.name.clone();
-        let secret_value = self.value.clone();
+        let client = aws_sdk_ssm::Client::new(&config);
 
-        if self.is_exists(&client).await? {
-            client
-                .update_secret()
-                .secret_id(secret_name)
-                .secret_string(secret_value.clone())
-                .send()
-                .await?;
-        } else {
-            client
-                .create_secret()
-                .name(secret_name)
-                .secret_string(secret_value.clone())
-                .send()
-                .await?;
-        }
+        client
+            .put_parameter()
+            .overwrite(true)
+            .r#type(aws_sdk_ssm::types::ParameterType::SecureString)
+            .name(self.unique_name())
+            .value(self.value.clone())
+            .send()
+            .await
+            .wrap_err("Failed to create SSM param")?;
 
         Ok(())
     }

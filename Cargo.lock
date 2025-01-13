@@ -294,10 +294,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "aws-sdk-secretsmanager"
-version = "1.57.0"
+name = "aws-sdk-ssm"
+version = "1.59.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac29664d633525cbf4c4de4d0351b0dc0cec7d0d903255ee05d3b0f512a3e97f"
+checksum = "935f454e645bcb5d6dfdda0bdf1f2c65cac06c57e876038a2ccf584cb5ef403c"
 dependencies = [
  "aws-credential-types",
  "aws-runtime",
@@ -2521,7 +2521,7 @@ dependencies = [
  "aws-config",
  "aws-sdk-cloudformation",
  "aws-sdk-s3",
- "aws-sdk-secretsmanager",
+ "aws-sdk-ssm",
  "clap",
  "eyre",
  "rust_dotenv",

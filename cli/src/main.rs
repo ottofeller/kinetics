@@ -210,7 +210,7 @@ async fn deploy() -> eyre::Result<()> {
     println!("Deploying \"{}\"...", crat.name);
     bundle(&functions)?;
     upload(&functions).await?;
-    let secrets = Secret::from_dotenv()?;
+    let secrets = Secret::from_dotenv(&crat.name)?;
 
     for secret in secrets.iter() {
         secret.sync().await?;

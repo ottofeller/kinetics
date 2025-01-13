@@ -80,7 +80,7 @@ impl Template {
             template.template.push_str("\n");
         }
 
-        let secrets_names = secrets.iter().map(|s| s.name()).collect();
+        let secrets_names = secrets.iter().map(|s| s.unique_name()).collect();
 
         for function in template.functions.clone() {
             if function.role()? == "endpoint" {
@@ -144,7 +144,7 @@ impl Template {
     }
 
     /// Define environment variables for a function
-    fn environment(&self, function: &Function, secrets: &Vec<&str>) -> eyre::Result<String> {
+    fn environment(&self, function: &Function, secrets: &Vec<String>) -> eyre::Result<String> {
         let raw = function.environment()?;
         let mut raw = raw.as_table().unwrap().clone();
         raw.insert("SECRETS_NAMES".into(), Value::String(secrets.join(",")));
@@ -170,7 +170,7 @@ impl Template {
     /// CFN template for a REST endpoint function — a function itself and its role
     ///
     /// The "secrets" argument is a list of AWS secrets names.
-    fn endpoint(&self, function: &Function, secrets: &Vec<&str>) -> eyre::Result<String> {
+    fn endpoint(&self, function: &Function, secrets: &Vec<String>) -> eyre::Result<String> {
         let policies = self.policies();
         let name = function.name()?;
         let environment = self.environment(function, secrets)?;
@@ -240,7 +240,7 @@ impl Template {
     }
 
     /// CFN template for a worker function
-    fn worker(&self, function: &Function, secrets: &Vec<&str>) -> eyre::Result<String> {
+    fn worker(&self, function: &Function, secrets: &Vec<String>) -> eyre::Result<String> {
         let policies = self.policies();
         let name = function.name()?;
         let environment = self.environment(function, secrets)?;
