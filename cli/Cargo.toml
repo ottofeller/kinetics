@@ -14,3 +14,4 @@ aws-config = "1.5.11"
 tokio = {version = "1.42.0", features = ["full"]}
 aws-sdk-cloudformation = "1.57.0"
 toml = { workspace = true }
+rust_dotenv = "0.1.2"

@@ -105,19 +105,45 @@ fn inject(
     let new_main_code = if let FunctionRole::Endpoint = function_role {
         format!(
             "use lambda_http::{{run, service_fn, Body, Error, Request, Response, RequestExt}};\n\
+            use std::collections::HashMap;\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), Error> {{\n\
-                run(service_fn({rust_function_name})).await\n\
+                let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+                let secrets_client = aws_sdk_secretsmanager::Client::new(&config);
+                let secrets_names_env = \"SECRETS_NAMES\";
+                let mut secrets = HashMap::new();
+
+                for secret_name in std::env::var(secrets_names_env)?
+                    .split(\",\")
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                {{
+                    let secret = secrets_client
+                        .get_secret_value()
+                        .secret_id(&secret_name)
+                        .send()
+                        .await?;
+
+                    let secret_value = secret.secret_string().unwrap().to_string();
+                    secrets.insert(secret_name, secret_value);
+                }}
+
+                run(service_fn(|event| {{
+                    {rust_function_name}(event, &secrets)
+                }})).await\n\
             }}\n\n\
             {function_code}"
         )
     } else {
         format!(
             "use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
+            use std::collections::HashMap;\n\
             use aws_lambda_events::{{lambda_function_urls::LambdaFunctionUrlRequest, sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), Error> {{\n\
-                run(service_fn({rust_function_name})).await\n\
+                run(service_fn(|event| {{
+                    {rust_function_name}(event, HashMap::new())
+                }})).await\n\
             }}\n\n\
             {function_code}"
         )
@@ -153,6 +179,18 @@ fn inject(
         for (key, value) in environment.iter() {
             cargo_toml_content.push_str(format!("\n{key} = \"{value}\"").as_str());
         }
+    }
+
+    if !cargo_toml_content.contains("aws-config") {
+        cargo_toml_content.push_str(
+            format!("\n\n[dependencies.aws-config]\nversion=\"1.0.1\"\n").as_str(),
+        );
+    }
+
+    if !cargo_toml_content.contains("aws-sdk-secretsmanager") {
+        cargo_toml_content.push_str(
+            format!("\n\n[dependencies.aws-sdk-secretsmanager]\nversion=\"1.20.1\"\n").as_str(),
+        );
     }
 
     write(&cargo_toml_path, &cargo_toml_content)

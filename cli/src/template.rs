@@ -1,6 +1,8 @@
 use crate::function::Function;
+use crate::secret::Secret;
 use crate::{Crate, Resource};
 use eyre::{ContextCompat, Ok, WrapErr};
+use toml::Value;
 
 #[derive(Clone)]
 pub struct Template {
@@ -63,7 +65,7 @@ impl Template {
         }
     }
 
-    pub fn new(crat: &Crate, functions: Vec<Function>) -> eyre::Result<Self> {
+    pub fn new(crat: &Crate, functions: Vec<Function>, secrets: Vec<Secret>) -> eyre::Result<Self> {
         let mut template = Template {
             crat: crat.clone(),
             template: "Resources:".to_string(),
@@ -78,15 +80,19 @@ impl Template {
             template.template.push_str("\n");
         }
 
+        let secrets_names = secrets.iter().map(|s| s.name()).collect();
+
         for function in template.functions.clone() {
             if function.role()? == "endpoint" {
-                template.template.push_str(&template.endpoint(&function)?);
+                template
+                    .template
+                    .push_str(&template.endpoint(&function, &secrets_names)?);
             }
 
             if function.role()? == "worker" {
                 template.template.push_str(
                     &template
-                        .worker(&function)
+                        .worker(&function, &secrets_names)
                         .wrap_err("Failed to build worker template")?,
                 );
             }
@@ -138,13 +144,14 @@ impl Template {
     }
 
     /// Define environment variables for a function
-    fn environment(&self, function: &Function) -> eyre::Result<String> {
-        let variables = function
-            .environment()?
-            .as_table()
-            .unwrap()
+    fn environment(&self, function: &Function, secrets: &Vec<&str>) -> eyre::Result<String> {
+        let raw = function.environment()?;
+        let mut raw = raw.as_table().unwrap().clone();
+        raw.insert("SECRETS_NAMES".into(), Value::String(secrets.join(",")));
+
+        let variables = raw
             .iter()
-            .map(|(k, v)| format!("{k}: {v}"))
+            .map(|(k, v)| format!("                            {k}: {v}"))
             .collect::<Vec<String>>()
             .join("\n");
 
@@ -155,16 +162,18 @@ impl Template {
         Ok(format!(
             "Environment:
                         Variables:
-                            {}",
+{}",
             variables,
         ))
     }
 
     /// CFN template for a REST endpoint function — a function itself and its role
-    fn endpoint(&self, function: &Function) -> eyre::Result<String> {
+    ///
+    /// The "secrets" argument is a list of AWS secrets names.
+    fn endpoint(&self, function: &Function, secrets: &Vec<&str>) -> eyre::Result<String> {
         let policies = self.policies();
         let name = function.name()?;
-        let environment = self.environment(function)?;
+        let environment = self.environment(function, secrets)?;
 
         Ok(format!(
             "
@@ -231,10 +240,10 @@ impl Template {
     }
 
     /// CFN template for a worker function
-    fn worker(&self, function: &Function) -> eyre::Result<String> {
+    fn worker(&self, function: &Function, secrets: &Vec<&str>) -> eyre::Result<String> {
         let policies = self.policies();
         let name = function.name()?;
-        let environment = self.environment(function)?;
+        let environment = self.environment(function, secrets)?;
 
         let queue = function
             .resources()

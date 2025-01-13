@@ -1,5 +1,6 @@
 mod crat;
 mod function;
+mod secret;
 mod template;
 use aws_config::BehaviorVersion;
 use aws_sdk_s3::Client;
@@ -7,6 +8,7 @@ use clap::{Parser, Subcommand};
 use crat::Crate;
 use eyre::{Ok, WrapErr};
 use function::Function;
+use secret::Secret;
 use std::path::{Path, PathBuf};
 use template::Template;
 
@@ -208,7 +210,7 @@ async fn deploy() -> eyre::Result<()> {
     println!("Deploying \"{}\"...", crat.name);
     bundle(&functions)?;
     upload(&functions).await?;
-    let template = Template::new(&crat, functions)?;
+    let template = Template::new(&crat, functions, Secret::from_dotenv()?)?;
     println!("Provisioning resources:\n{}", template.template);
     provision(&template.template).await?;
     println!("Done!");

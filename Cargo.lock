@@ -2180,6 +2180,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rust_dotenv"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee7c41545529f6ee52bddef21e2da33730e828e1e5ea3759436a5b570e8da76b"
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2494,6 +2500,7 @@ dependencies = [
  "aws-sdk-s3",
  "clap",
  "eyre",
+ "rust_dotenv",
  "tokio",
  "toml",
  "uuid",
