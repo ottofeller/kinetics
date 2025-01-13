@@ -210,7 +210,13 @@ async fn deploy() -> eyre::Result<()> {
     println!("Deploying \"{}\"...", crat.name);
     bundle(&functions)?;
     upload(&functions).await?;
-    let template = Template::new(&crat, functions, Secret::from_dotenv()?)?;
+    let secrets = Secret::from_dotenv()?;
+
+    for secret in secrets.iter() {
+        secret.sync().await?;
+    }
+
+    let template = Template::new(&crat, functions, secrets)?;
     println!("Provisioning resources:\n{}", template.template);
     provision(&template.template).await?;
     println!("Done!");
