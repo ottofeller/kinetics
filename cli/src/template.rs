@@ -150,7 +150,7 @@ impl Template {
                       Statement:
                       - Effect: Allow
                         Action:
-                          - ssm:GetParameters
+                          - ssm:GetParameter
                         Resource:
                           - arn:aws:ssm:us-east-1:727082259008:parameter/{}
                       - Effect: Allow

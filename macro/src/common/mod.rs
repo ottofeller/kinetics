@@ -109,7 +109,7 @@ fn inject(
             #[tokio::main]\n\
             async fn main() -> Result<(), Error> {{\n\
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-                let secrets_client = aws_sdk_secretsmanager::Client::new(&config);
+                let secrets_client = aws_sdk_ssm::Client::new(&config);
                 let secrets_names_env = \"SECRETS_NAMES\";
                 let mut secrets = HashMap::new();
 
@@ -118,14 +118,17 @@ fn inject(
                     .map(|s| s.trim().to_string())
                     .filter(|s| !s.is_empty())
                 {{
-                    let secret = secrets_client
-                        .get_secret_value()
-                        .secret_id(&secret_name)
+                    let result = secrets_client
+                        .get_parameter()
+                        .name(secret_name.clone())
+                        .with_decryption(true)
                         .send()
-                        .await?;
+                        .await?
+                        .parameter
+                        .unwrap();
 
-                    let secret_value = secret.secret_string().unwrap().to_string();
-                    secrets.insert(secret_name, secret_value);
+                    let secret_value = result.value().unwrap();
+                    secrets.insert(secret_name, secret_value.to_string());
                 }}
 
                 run(service_fn(|event| {{
@@ -141,8 +144,31 @@ fn inject(
             use aws_lambda_events::{{lambda_function_urls::LambdaFunctionUrlRequest, sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), Error> {{\n\
+                let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+                let secrets_client = aws_sdk_ssm::Client::new(&config);
+                let secrets_names_env = \"SECRETS_NAMES\";
+                let mut secrets = HashMap::new();
+
+                for secret_name in std::env::var(secrets_names_env)?
+                    .split(\",\")
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                {{
+                    let result = secrets_client
+                        .get_parameter()
+                        .name(secret_name.clone())
+                        .with_decryption(true)
+                        .send()
+                        .await?
+                        .parameter
+                        .unwrap();
+
+                    let secret_value = result.value().unwrap();
+                    secrets.insert(secret_name, secret_value.to_string());
+                }}
+
                 run(service_fn(|event| {{
-                    {rust_function_name}(event, HashMap::new())
+                    {rust_function_name}(event, &secrets)
                 }})).await\n\
             }}\n\n\
             {function_code}"
@@ -187,9 +213,9 @@ fn inject(
         );
     }
 
-    if !cargo_toml_content.contains("aws-sdk-secretsmanager") {
+    if !cargo_toml_content.contains("aws-sdk-ssm") {
         cargo_toml_content.push_str(
-            format!("\n\n[dependencies.aws-sdk-secretsmanager]\nversion=\"1.20.1\"\n").as_str(),
+            format!("\n\n[dependencies.aws-sdk-ssm]\nversion=\"1.59.0\"\n").as_str(),
         );
     }
 

@@ -86,21 +86,7 @@ fn build() -> eyre::Result<()> {
     println!("Building \"{}\"...", project.name);
 
     for function in functions()? {
-        let status = std::process::Command::new("cargo")
-            .arg("lambda")
-            .arg("build")
-            .current_dir(&function.path)
-            .output()
-            .expect("Failed to execute process")
-            .status;
-
-        if !status.success() {
-            panic!(
-                "Build failed: {:?}, {}",
-                function.path,
-                status.code().unwrap()
-            );
-        }
+        function.build()?;
     }
 
     println!("Done!");
@@ -110,7 +96,6 @@ fn build() -> eyre::Result<()> {
 /// Bundle assets and upload to S3, assuming all functions are built
 fn bundle(functions: &Vec<Function>) -> eyre::Result<()> {
     for function in functions {
-        function.build()?;
         function.bundle()?;
     }
 

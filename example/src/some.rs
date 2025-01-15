@@ -2,26 +2,31 @@ use aws_lambda_events::sqs::{SqsBatchResponse, SqsEvent};
 use lambda_http::{Body, Error, Request, RequestExt, Response};
 use lambda_runtime::LambdaEvent;
 use skymacro::{endpoint, worker};
+use std::collections::HashMap;
 
 #[endpoint(
     name = "Some",
     url_path = "/some",
     environment = {"DEFAULT_NAME": "John"},
 )]
-pub async fn some_endpoint(event: Request) -> Result<Response<Body>, Error> {
+pub async fn some_endpoint(
+    event: Request,
+    secrets: &HashMap<String, String>,
+) -> Result<Response<Body>, Error> {
     let default = String::from("Nobody");
     use aws_sdk_dynamodb::types::AttributeValue::S;
     use aws_sdk_dynamodb::Client;
     use std::collections::HashMap;
     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
     let client = Client::new(&config);
+    println!("Environment: {:?}", std::env::vars().collect::<HashMap<_, _>>());
+    println!("Secrets: {secrets:?}");
 
     client
         .put_item()
         .table_name("users")
         .set_item(Some(HashMap::from([
             ("id".to_string(), S("user123".to_string())),
-
             (
                 "name".to_string(),
                 S(event
@@ -48,7 +53,12 @@ pub async fn some_endpoint(event: Request) -> Result<Response<Body>, Error> {
     fifo = true,
     environment = {"CURRENCY": "USD"},
 )]
-pub async fn some_worker(_event: LambdaEvent<SqsEvent>) -> Result<SqsBatchResponse, Error> {
+pub async fn some_worker(
+    _event: LambdaEvent<SqsEvent>,
+    secrets: &HashMap<String, String>,
+) -> Result<SqsBatchResponse, Error> {
+    println!("Environment: {:?}", std::env::vars().collect::<HashMap<_, _>>());
+    println!("Secrets: {secrets:?}");
     let sqs_batch_response = SqsBatchResponse::default();
     Ok(sqs_batch_response)
 }
