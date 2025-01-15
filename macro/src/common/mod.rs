@@ -9,6 +9,7 @@ use std::fs::read_to_string;
 use std::fs::write;
 use std::path::Path;
 use std::path::PathBuf;
+use std::str::FromStr;
 use syn::{parse_macro_input, ItemFn};
 
 /// Where all the projects are copied
@@ -88,9 +89,9 @@ fn inject(
     dst: &Path,
     function_name: &str,
     rust_function_name: &str,
-    function_code: &str,
     function_role: FunctionRole,
     environment: &Environment,
+    import_statement: &str,
 ) {
     let main_rs_path = dst.join("src").join("main.rs");
 
@@ -104,7 +105,8 @@ fn inject(
 
     let new_main_code = if let FunctionRole::Endpoint = function_role {
         format!(
-            "use lambda_http::{{run, service_fn, Body, Error, Request, Response, RequestExt}};\n\
+            "{import_statement}
+            use lambda_http::{{run, service_fn, Body, Error, Request, Response, RequestExt}};\n\
             use std::collections::HashMap;\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), Error> {{\n\
@@ -134,12 +136,12 @@ fn inject(
                 run(service_fn(|event| {{
                     {rust_function_name}(event, &secrets)
                 }})).await\n\
-            }}\n\n\
-            {function_code}"
+            }}\n\n"
         )
     } else {
         format!(
-            "use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
+            "{import_statement}
+            use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
             use std::collections::HashMap;\n\
             use aws_lambda_events::{{lambda_function_urls::LambdaFunctionUrlRequest, sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
             #[tokio::main]\n\
@@ -170,8 +172,7 @@ fn inject(
                 run(service_fn(|event| {{
                     {rust_function_name}(event, &secrets)
                 }})).await\n\
-            }}\n\n\
-            {function_code}"
+            }}\n\n"
         )
     };
 
@@ -208,15 +209,13 @@ fn inject(
     }
 
     if !cargo_toml_content.contains("aws-config") {
-        cargo_toml_content.push_str(
-            format!("\n\n[dependencies.aws-config]\nversion=\"1.0.1\"\n").as_str(),
-        );
+        cargo_toml_content
+            .push_str(format!("\n\n[dependencies.aws-config]\nversion=\"1.0.1\"\n").as_str());
     }
 
     if !cargo_toml_content.contains("aws-sdk-ssm") {
-        cargo_toml_content.push_str(
-            format!("\n\n[dependencies.aws-sdk-ssm]\nversion=\"1.59.0\"\n").as_str(),
-        );
+        cargo_toml_content
+            .push_str(format!("\n\n[dependencies.aws-sdk-ssm]\nversion=\"1.59.0\"\n").as_str());
     }
 
     write(&cargo_toml_path, &cargo_toml_content)
@@ -296,6 +295,59 @@ fn cleanup(dst: &Path) {
     .unwrap();
 }
 
+/// Generate the import statement for the function which is being deployed
+/// as a lambda
+fn import_statement(source_file: &SourceFile, rust_name: &str) -> eyre::Result<String> {
+    // Relative to the crate, e.g. /home/john/app/src/some/mod.rs to some/mod.rs
+    let relative_path = PathBuf::from_str(
+        &source_file
+            .path()
+            .to_str()
+            .unwrap()
+            .split("/src/")
+            .last()
+            .unwrap()
+            .replace("^src/", ""),
+    )
+    .unwrap();
+
+    let mut module_path_parts = Vec::new();
+
+    for component in relative_path.components() {
+        if let std::path::Component::Normal(os_str) = component {
+            let s = os_str.to_str().unwrap();
+            module_path_parts.push(s);
+        }
+    }
+
+    // Handle lib.rs, main.rs (root module)
+    let is_root_module =
+        relative_path == Path::new("lib.rs") || relative_path == Path::new("main.rs");
+
+    let module_path = if is_root_module {
+        "".to_string()
+    } else {
+        // Remove extension from last component
+        if let Some(last) = module_path_parts.last_mut() {
+            if *last == "mod.rs" {
+                // Remove 'mod.rs'
+                module_path_parts.pop();
+            } else {
+                *last = last.trim_end_matches(".rs");
+            }
+        }
+        module_path_parts.join("::")
+    };
+
+    let import_statement = if module_path.is_empty() {
+        format!("use {};", rust_name)
+    } else {
+        format!("use {}::{};", module_path, rust_name)
+    };
+
+    Ok(import_statement)
+}
+
 pub fn process_function(attr: TokenStream, item: TokenStream, role: FunctionRole) -> TokenStream {
     let attrs = Attrs::new(attr, &role)
         .wrap_err("Failed to parse attributes")
@@ -304,6 +356,7 @@ pub fn process_function(attr: TokenStream, item: TokenStream, role: FunctionRole
     let span = proc_macro::Span::call_site();
     let source_file = span.source_file();
     let item_fn = item.clone();
+    let src_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
 
     // Extract the function name
     let ast: ItemFn = parse_macro_input!(item_fn as ItemFn);
@@ -313,7 +366,6 @@ pub fn process_function(attr: TokenStream, item: TokenStream, role: FunctionRole
         .wrap_err("Failed to generate function name")
         .unwrap();
 
-    let src_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let src = Path::new(&src_dir);
 
     let dst = skypath()
@@ -330,9 +382,9 @@ pub fn process_function(attr: TokenStream, item: TokenStream, role: FunctionRole
         &dst,
         &lambda_name.to_string(),
         &rust_name,
-        &item.to_string(),
         role,
         &attrs.environment(),
+        &import_statement(&source_file, rust_name).unwrap(),
     );
 
     item
