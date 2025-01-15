@@ -105,8 +105,8 @@ impl Template {
 
     /// Policy statements to allow a function to access a resource
     ///
-    /// Current all functions in a crate have access to all resources.
-    fn policies(&self) -> String {
+    /// Current all functions in a crate have access to all resources. Including secrets.
+    fn policies(&self, secrets: &Vec<String>) -> String {
         let mut template = String::default();
 
         for resource in self.crat.resources.iter() {
@@ -140,6 +140,28 @@ impl Template {
             })
         }
 
+        // https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-access.html#sysman-paramstore-access-inst
+        for secret in secrets.iter() {
+            template.push_str(&format!(
+                "
+                - PolicyName: SecretPolicy{}
+                  PolicyDocument:
+                      Version: '2012-10-17'
+                      Statement:
+                      - Effect: Allow
+                        Action:
+                          - ssm:GetParameters
+                        Resource:
+                          - arn:aws:ssm:us-east-1:727082259008:parameter/{}
+                      - Effect: Allow
+                        Action:
+                          - kms:Decrypt
+                        Resource:
+                          - arn:aws:kms:us-east-1:727082259008:key/1bf38d51-e7e3-4c20-b155-60c6214b0255",
+                secret, secret,
+            ));
+        }
+
         template
     }
 
@@ -171,7 +193,7 @@ impl Template {
     ///
     /// The "secrets" argument is a list of AWS secrets names.
     fn endpoint(&self, function: &Function, secrets: &Vec<String>) -> eyre::Result<String> {
-        let policies = self.policies();
+        let policies = self.policies(secrets);
         let name = function.name()?;
         let environment = self.environment(function, secrets)?;
 
@@ -241,7 +263,7 @@ impl Template {
 
     /// CFN template for a worker function
     fn worker(&self, function: &Function, secrets: &Vec<String>) -> eyre::Result<String> {
-        let policies = self.policies();
+        let policies = self.policies(secrets);
         let name = function.name()?;
         let environment = self.environment(function, secrets)?;
 
