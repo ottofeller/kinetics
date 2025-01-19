@@ -13,7 +13,7 @@ pub struct Template {
 
 impl Template {
     /// CFN template for a resource (e.g. a queue or a db)
-    fn resource2template(&self, resource: &Resource) -> String {
+    fn resource(&self, resource: &Resource) -> String {
         let name = self.crat.name.clone();
 
         match resource {
@@ -76,7 +76,7 @@ impl Template {
         for resource in crat.resources.iter() {
             template
                 .template
-                .push_str(&template.resource2template(&resource));
+                .push_str(&template.resource(&resource));
             template.template.push_str("\n");
         }
 
