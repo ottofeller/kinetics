@@ -65,6 +65,138 @@ impl Template {
         }
     }
 
+    /// Domain and paths for endpoint lambdas
+    fn routing(&self) -> String {
+        let project_name = self.crat.name.clone();
+        let functions: Vec<Function> = self.functions.clone();
+
+        let functions = functions
+            .iter()
+            .filter(|f| f.role().unwrap() == "endpoint")
+            .collect::<Vec<&Function>>();
+
+        let default_origin_name = functions[0].name().unwrap();
+
+        let origins = functions
+            .iter()
+            .map(|f| {
+                format!(
+                    "
+                        - Id: EndpointOrigin{name}
+                          DomainName: !Select [2, !Split ['/', !GetAtt EndpointUrl{name}.FunctionUrl]]
+                          CustomOriginConfig:
+                            OriginProtocolPolicy: https-only
+                    ",
+                    name = f.name().unwrap()
+                )
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        let behaviors = functions
+            .iter()
+            .map(|f| {
+                format!(
+                    "
+                        - PathPattern: {path}
+                          AllowedMethods:
+                          - DELETE
+                          - GET
+                          - HEAD
+                          - OPTIONS
+                          - PATCH
+                          - POST
+                          - PUT
+                          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+                          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+                          ForwardedValues:
+                              QueryString: true
+                          TargetOriginId: EndpointOrigin{name}
+                          ViewerProtocolPolicy: redirect-to-https
+                          Compress: true
+                        - PathPattern: {path}/
+                          AllowedMethods:
+                          - DELETE
+                          - GET
+                          - HEAD
+                          - OPTIONS
+                          - PATCH
+                          - POST
+                          - PUT
+                          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+                          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+                          ForwardedValues:
+                              QueryString: true
+                          TargetOriginId: EndpointOrigin{name}
+                          ViewerProtocolPolicy: redirect-to-https
+                          Compress: true
+                    ",
+                    path = f.name().unwrap().to_lowercase(),
+                    name = f.name().unwrap()
+                )
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        format!(
+            "
+            EndpointDistribution{project_name}:
+                Type: AWS::CloudFront::Distribution
+                Properties:
+                    DistributionConfig:
+                        Aliases:
+                        - {project_name}.usekinetics.com
+                        Enabled: true
+                        CacheBehaviors:
+                        {behaviors}
+                        DefaultCacheBehavior:
+                            AllowedMethods:
+                            - DELETE
+                            - GET
+                            - HEAD
+                            - OPTIONS
+                            - PATCH
+                            - POST
+                            - PUT
+                            DefaultTTL: 0
+                            MaxTTL: 0
+                            MinTTL: 0
+                            ForwardedValues:
+                                QueryString: true
+                                Headers:
+                                - '*'
+                                Cookies:
+                                    Forward: all
+                            TargetOriginId: EndpointOrigin{default_origin_name}
+                            ViewerProtocolPolicy: allow-all
+                            Compress: true
+                        Origins:
+                        {origins}
+                        ViewerCertificate:
+                            AcmCertificateArn: !Ref EndpointDistributionDomainCert{project_name}
+                            SslSupportMethod: sni-only
+                            MinimumProtocolVersion: TLSv1
+            EndpointDistributionDomainCert{project_name}:
+                Type: AWS::CertificateManager::Certificate
+                Properties:
+                    DomainName: {project_name}.usekinetics.com
+                    ValidationMethod: DNS
+                    DomainValidationOptions:
+                    - DomainName: {project_name}.usekinetics.com
+                      HostedZoneId: 'Z00296463IS4S0ZO4ABOR'
+            EndpointDistributionAliasRecord{project_name}:
+                Type: AWS::Route53::RecordSet
+                Properties:
+                    HostedZoneId: 'Z00296463IS4S0ZO4ABOR'
+                    Name: '{project_name}.usekinetics.com.'
+                    Type: 'A'
+                    AliasTarget:
+                        HostedZoneId: 'Z2FDTNDATAQYW2'  # CloudFront Hosted Zone ID
+                        DNSName: !GetAtt EndpointDistribution{project_name}.DomainName
+            "
+        )
+    }
+
     pub fn new(crat: &Crate, functions: Vec<Function>, secrets: Vec<Secret>) -> eyre::Result<Self> {
         let mut template = Template {
             crat: crat.clone(),
@@ -74,9 +206,7 @@ impl Template {
 
         // Define global resources from the app's Cargo.toml, e.g. a DB
         for resource in crat.resources.iter() {
-            template
-                .template
-                .push_str(&template.resource(&resource));
+            template.template.push_str(&template.resource(&resource));
             template.template.push_str("\n");
         }
 
@@ -100,6 +230,7 @@ impl Template {
             template.template.push_str("\n");
         }
 
+        template.template.push_str(&template.routing());
         Ok(template)
     }
 
