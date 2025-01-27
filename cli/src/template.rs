@@ -96,6 +96,9 @@ impl Template {
         let behaviors = functions
             .iter()
             .map(|f| {
+                // Manage trailing slashes in the template
+                let re = regex::Regex::new(r"/$").unwrap();
+
                 format!(
                     "
                         - PathPattern: {path}
@@ -131,7 +134,10 @@ impl Template {
                           ViewerProtocolPolicy: redirect-to-https
                           Compress: true
                     ",
-                    path = f.name().unwrap().to_lowercase(),
+                    path = re.replace_all(
+                        &f.url_path().unwrap_or(f.name().unwrap().to_lowercase()),
+                        ""
+                    ),
                     name = f.name().unwrap()
                 )
             })

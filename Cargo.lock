@@ -2524,6 +2524,7 @@ dependencies = [
  "aws-sdk-ssm",
  "clap",
  "eyre",
+ "regex",
  "rust_dotenv",
  "tokio",
  "toml",

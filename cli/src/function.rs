@@ -48,6 +48,23 @@ impl Function {
             .cloned()
     }
 
+    /// URL path to be used in the CloudFront distribution
+    ///
+    /// Optional property, only available for endpoint type of functions.
+    pub fn url_path(&self) -> Option<String> {
+        if self.meta().is_err() || self.role().unwrap() != "endpoint" {
+            return None;
+        }
+
+        let meta = self.meta().unwrap();
+
+        if meta.get("url_path").is_none() {
+            return None;
+        }
+
+        Some(meta.get("url_path").unwrap().as_str().unwrap().to_string())
+    }
+
     pub fn name(&self) -> eyre::Result<String> {
         Ok(self
             .meta()?

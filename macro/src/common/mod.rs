@@ -90,7 +90,7 @@ fn inject(
     function_name: &str,
     rust_function_name: &str,
     function_role: FunctionRole,
-    environment: &Environment,
+    attrs: &Attrs,
     import_statement: &str,
 ) {
     let main_rs_path = dst.join("src").join("main.rs");
@@ -195,15 +195,20 @@ fn inject(
     }
 
     if !cargo_toml_content.contains("[package.metadata.sky.function]") {
+        let url_path = match attrs {
+            Attrs::Endpoint(e) => e.url_path.clone().unwrap_or("".to_string()),
+            _ => "".to_string(),
+        };
+
         cargo_toml_content.push_str(
-            format!("\n[package.metadata.sky.function]\nname = \"{function_name}\"\nrole = \"{function_role}\"\nurl_path=\"/some/path\"\n").as_str(),
+            format!("\n[package.metadata.sky.function]\nname = \"{function_name}\"\nrole = \"{function_role}\"\nurl_path=\"{url_path}\"\n").as_str(),
         );
     }
 
     if !cargo_toml_content.contains("[package.metadata.sky.environment]") {
         cargo_toml_content.push_str(format!("\n[package.metadata.sky.environment]").as_str());
 
-        for (key, value) in environment.iter() {
+        for (key, value) in attrs.environment().iter() {
             cargo_toml_content.push_str(format!("\n{key} = \"{value}\"").as_str());
         }
     }
@@ -383,7 +388,7 @@ pub fn process_function(attr: TokenStream, item: TokenStream, role: FunctionRole
         &lambda_name.to_string(),
         &rust_name,
         role,
-        &attrs.environment(),
+        &attrs,
         &import_statement(&source_file, rust_name).unwrap(),
     );
 
