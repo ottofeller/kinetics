@@ -156,13 +156,28 @@ async fn is_exists(client: &aws_sdk_cloudformation::Client, name: &str) -> eyre:
 }
 
 /// Provision cloud resources using CFN template
-async fn provision(template: &str) -> eyre::Result<()> {
+async fn provision(template: &str, crat: &Crate) -> eyre::Result<()> {
     let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
         .load()
         .await;
 
     let client = aws_sdk_cloudformation::Client::new(&config);
-    let name = "sky-example";
+    let default_name = crat.name.as_str();
+    let default_value = toml::Value::String(default_name.to_string());
+    let stack = crat.metadata()?;
+    let stack = stack.get("stack");
+
+    let name = if stack.is_none() {
+        default_name
+    } else {
+        stack
+            .unwrap()
+            .get("name")
+            .unwrap_or(&default_value)
+            .as_str()
+            .unwrap()
+    };
+
     let capabilities = aws_sdk_cloudformation::types::Capability::CapabilityIam;
 
     if is_exists(&client, name).await? {
