@@ -110,6 +110,7 @@ fn inject(
             #[tokio::main]\n\
             async fn main() -> Result<(), lambda_http::Error> {{\n\
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+                println!(\"Provisioning secrets\");
                 let secrets_client = aws_sdk_ssm::Client::new(&config);
                 let secrets_names_env = \"SECRETS_NAMES\";
                 let mut secrets = std::collections::HashMap::new();
@@ -132,9 +133,17 @@ fn inject(
                     secrets.insert(secret_name, secret_value.to_string());
                 }}
 
-                run(service_fn(|event| {{
-                    {rust_function_name}(event, &secrets)
-                }})).await\n\
+                println!(\"Serving requests\");
+
+                run(service_fn(|event| async {{
+                    match {rust_function_name}(event, &secrets).await {{
+                        Ok(response) => Ok(response),
+                        Err(err) => {{
+                            eprintln!(\"Error occurred while handling request: {{:?}}\", err);
+                            Err(err)
+                        }}
+                    }}
+                }})).await
             }}\n\n"
         )
     } else {
@@ -145,6 +154,7 @@ fn inject(
             #[tokio::main]\n\
             async fn main() -> Result<(), Error> {{\n\
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+                println!(\"Provisioning secrets\");
                 let secrets_client = aws_sdk_ssm::Client::new(&config);
                 let secrets_names_env = \"SECRETS_NAMES\";
                 let mut secrets = std::collections::HashMap::new();
@@ -167,9 +177,17 @@ fn inject(
                     secrets.insert(secret_name, secret_value.to_string());
                 }}
 
-                run(service_fn(|event| {{
-                    {rust_function_name}(event, &secrets)
-                }})).await\n\
+                println!(\"Serving requests\");
+
+                run(service_fn(|event| async {{
+                    match {rust_function_name}(event, &secrets).await {{
+                        Ok(response) => Ok(response),
+                        Err(err) => {{
+                            eprintln!(\"Error occurred while handling request: {{:?}}\", err);
+                            Err(err)
+                        }}
+                    }}
+                }})).await
             }}\n\n"
         )
     };
