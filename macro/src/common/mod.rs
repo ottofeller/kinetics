@@ -1,6 +1,6 @@
 pub mod attrs;
 use crate::FunctionRole;
-use attrs::{Attrs, Environment};
+use attrs::Attrs;
 use eyre::{eyre, ContextCompat, WrapErr};
 use proc_macro::SourceFile;
 use proc_macro::TokenStream;
