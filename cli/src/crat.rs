@@ -40,15 +40,23 @@ impl Crate {
             .wrap_err("Failed to parse Cargo.toml")?;
 
         for category_name in vec!["kvdb", "queue"] {
-            let category = cargo_toml
+            let metadata = cargo_toml
                 .get("package")
                 .wrap_err("No [package]")?
-                .get("metadata")
+                .get("metadata");
+
+            // No resources defiend at all
+            if metadata.is_none() {
+                continue;
+            }
+
+            let category = metadata
                 .wrap_err("No [metadata]")?
                 .get("sky")
                 .wrap_err("No [sky]")?
                 .get(category_name);
 
+            // No resources defined in the category
             if category.is_none() {
                 continue;
             }
