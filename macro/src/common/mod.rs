@@ -278,16 +278,16 @@ fn cleanup(dst: &Path) {
         .unwrap();
 
     // Delete the resources definitions. This is the general list, each function gets its own.
-    cargo_toml_value
+    let package = cargo_toml_value
         .get_mut("package")
         .wrap_err("No [package]")
-        .unwrap()
-        .get_mut("metadata")
-        .wrap_err("No [metadata]")
-        .unwrap()
-        .as_table_mut()
-        .unwrap()
-        .remove("sky");
+        .unwrap();
+
+    let metadata = package.get_mut("metadata");
+
+    if metadata.is_some() {
+        metadata.unwrap().as_table_mut().unwrap().remove("sky");
+    }
 
     if let Some(dependencies) = cargo_toml_value
         .get_mut("dependencies")
