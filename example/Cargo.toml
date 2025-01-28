@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-aws-config = "1.5.11"
-aws-sdk-dynamodb = "1.56.0"
+aws-config = "1.5.15"
+aws-sdk-dynamodb = "1.62.0"
 aws_lambda_events = "0.16.0"
 lambda_runtime = "0.13.0"
 skymacro = { path = "../macro" }
 lambda_http = "0.14.0"
-tokio = "1.42.0"
+tokio = "1.43.0"
 
 [package.metadata.sky.kvdb.users]
 name = "users"
