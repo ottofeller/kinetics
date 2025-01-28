@@ -69,15 +69,9 @@ struct KvDb {
 }
 
 #[derive(Clone, Debug)]
-struct SqlDb {
-    name: String,
-}
-
-#[derive(Clone, Debug)]
-pub enum Resource {
+enum Resource {
     Queue(Queue),
     KvDb(KvDb),
-    SqlDb(SqlDb),
 }
 
 /// Build all assets and CFN templates

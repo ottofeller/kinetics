@@ -38,8 +38,6 @@ impl Template {
                 )
             }
 
-            Resource::SqlDb(_sqldb) => format!("KVDB"),
-
             Resource::Queue(queue) => format!(
                 "
                 WorkerQueue{name}:
@@ -272,7 +270,6 @@ impl Template {
                     kvdb.name, self.crat.name, kvdb.name,
                 ),
 
-                Resource::SqlDb(_) => format!(""),
                 _ => format!(""),
             })
         }
