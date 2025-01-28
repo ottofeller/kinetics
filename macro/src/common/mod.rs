@@ -347,8 +347,9 @@ fn import_statement(source_file: &SourceFile, rust_name: &str) -> eyre::Result<S
         module_path_parts.join("::")
     };
 
+    // If module path is empty then the function is locate in the main.rs file
     let import_statement = if module_path.is_empty() {
-        format!("use {};", rust_name)
+        format!("")
     } else {
         format!("use {}::{};", module_path, rust_name)
     };
