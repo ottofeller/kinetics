@@ -6,6 +6,7 @@ use toml::Value;
 
 #[derive(Clone)]
 pub struct Template {
+    bucket: String,
     crat: Crate,
     functions: Vec<Function>,
     pub template: String,
@@ -201,8 +202,14 @@ impl Template {
         )
     }
 
-    pub fn new(crat: &Crate, functions: Vec<Function>, secrets: Vec<Secret>) -> eyre::Result<Self> {
+    pub fn new(
+        crat: &Crate,
+        functions: Vec<Function>,
+        secrets: Vec<Secret>,
+        bucket: &str,
+    ) -> eyre::Result<Self> {
         let mut template = Template {
+            bucket: bucket.to_string(),
             crat: crat.clone(),
             template: "Resources:".to_string(),
             functions,
@@ -330,6 +337,7 @@ impl Template {
         let policies = self.policies(secrets);
         let name = function.name()?;
         let environment = self.environment(function, secrets)?;
+        let bucket = self.bucket.clone();
 
         Ok(format!(
             "
@@ -346,7 +354,7 @@ impl Template {
                     - Arn
                 MemorySize: 1024
                 Code:
-                    S3Bucket: my-lambda-function-code-test
+                    S3Bucket: {bucket}
                     S3Key: {}
             EndpointRole{name}:
               Type: AWS::IAM::Role
@@ -400,6 +408,7 @@ impl Template {
         let policies = self.policies(secrets);
         let name = function.name()?;
         let environment = self.environment(function, secrets)?;
+        let bucket = self.bucket.clone();
 
         let queue = function
             .resources()
@@ -425,7 +434,7 @@ impl Template {
                         - Arn
                     MemorySize: 1024
                     Code:
-                      S3Bucket: my-lambda-function-code-test
+                      S3Bucket: {bucket}
                       S3Key: {}
 
             WorkerRole{name}:

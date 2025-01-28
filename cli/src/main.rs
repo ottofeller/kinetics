@@ -11,6 +11,12 @@ use function::Function;
 use secret::Secret;
 use std::path::{Path, PathBuf};
 use template::Template;
+static BUCKET: &str = "kinetics-rust-builds";
+static API_BASE: &str = "https://backend.usekinetics.com";
+
+fn api_url(path: &str) -> String {
+    format!("{}{}", API_BASE, path)
+}
 
 fn skypath() -> eyre::Result<PathBuf> {
     Ok(Path::new(&std::env::var("HOME").wrap_err("Can not read HOME env var")?).join(".sky"))
@@ -195,9 +201,9 @@ async fn deploy() -> eyre::Result<()> {
         secret.sync().await?;
     }
 
-    let template = Template::new(&crat, functions, secrets)?;
+    let template = Template::new(&crat, functions, secrets, BUCKET)?;
     println!("Provisioning resources:\n{}", template.template);
-    provision(&template.template).await?;
+    provision(&template.template, &crat).await?;
     println!("Done!");
     Ok(())
 }
