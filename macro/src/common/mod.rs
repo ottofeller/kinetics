@@ -221,6 +221,11 @@ fn inject(
             .push_str(format!("\n\n[dependencies.aws-sdk-ssm]\nversion=\"1.59.0\"\n").as_str());
     }
 
+    if !cargo_toml_content.contains("tokio") {
+        cargo_toml_content
+            .push_str(format!("\n\n[dependencies.tokio]\nversion=\"1.43.0\"\n").as_str());
+    }
+
     write(&cargo_toml_path, &cargo_toml_content)
         .wrap_err(format!("Failed to write: {cargo_toml_path:?}"))
         .unwrap();
