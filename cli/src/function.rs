@@ -1,5 +1,4 @@
 use crate::crat::Crate;
-use aws_sdk_s3::primitives::ByteStream;
 use eyre::{eyre, ContextCompat, Ok, WrapErr};
 use std::path::PathBuf;
 use zip::write::SimpleFileOptions;
@@ -83,12 +82,6 @@ impl Function {
             .as_str()
             .wrap_err("Not a string")?
             .to_string())
-    }
-
-    pub async fn zip_stream(&self) -> eyre::Result<ByteStream> {
-        aws_sdk_s3::primitives::ByteStream::from_path(self.bundle_path())
-            .await
-            .wrap_err("Failed to read bundled zip")
     }
 
     pub fn build(&self) -> eyre::Result<()> {

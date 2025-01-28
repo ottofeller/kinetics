@@ -3,7 +3,6 @@ mod function;
 mod secret;
 mod template;
 use aws_config::BehaviorVersion;
-use aws_sdk_s3::Client;
 use clap::{Parser, Subcommand};
 use crat::Crate;
 use eyre::{Ok, WrapErr};
@@ -104,26 +103,31 @@ fn bundle(functions: &Vec<Function>) -> eyre::Result<()> {
 
 /// All bundled assets to S3
 async fn upload(functions: &Vec<Function>) -> eyre::Result<()> {
+
     for function in functions {
-        let bucket_name = "my-lambda-function-code-test";
+        #[derive(serde::Deserialize)]
+        struct PresignedUrl {
+            url: String,
+        }
+
         let path = function.bundle_path();
         let key = path.file_name().unwrap().to_str().unwrap();
-        let body = function.zip_stream().await?;
+        println!("Uploading {path:?}...");
 
-        let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
-            .load()
-            .await;
-
-        let client = Client::new(&config);
-
-        client
-            .put_object()
-            .bucket(bucket_name)
-            .key(key)
-            .body(body)
+        let presigned = reqwest::Client::new()
+            .post(api_url("/upload"))
+            .json(&serde_json::json!({ "key": key }))
             .send()
-            .await
-            .wrap_err("Failed to upload file to S3")?;
+            .await?
+            .json::<PresignedUrl>()
+            .await?;
+
+        reqwest::Client::new()
+            .put(&presigned.url)
+            .body(tokio::fs::read(&path).await?)
+            .send()
+            .await?
+            .error_for_status()?;
     }
 
     Ok(())
