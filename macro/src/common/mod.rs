@@ -106,14 +106,13 @@ fn inject(
     let new_main_code = if let FunctionRole::Endpoint = function_role {
         format!(
             "{import_statement}
-            use lambda_http::{{run, service_fn, Body, Error, Request, Response, RequestExt}};\n\
-            use std::collections::HashMap;\n\
+            use lambda_http::{{run, service_fn}};\n\
             #[tokio::main]\n\
-            async fn main() -> Result<(), Error> {{\n\
+            async fn main() -> Result<(), lambda_http::Error> {{\n\
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
                 let secrets_client = aws_sdk_ssm::Client::new(&config);
                 let secrets_names_env = \"SECRETS_NAMES\";
-                let mut secrets = HashMap::new();
+                let mut secrets = std::collections::HashMap::new();
 
                 for secret_name in std::env::var(secrets_names_env)?
                     .split(\",\")
@@ -142,14 +141,13 @@ fn inject(
         format!(
             "{import_statement}
             use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
-            use std::collections::HashMap;\n\
             use aws_lambda_events::{{lambda_function_urls::LambdaFunctionUrlRequest, sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), Error> {{\n\
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
                 let secrets_client = aws_sdk_ssm::Client::new(&config);
                 let secrets_names_env = \"SECRETS_NAMES\";
-                let mut secrets = HashMap::new();
+                let mut secrets = std::collections::HashMap::new();
 
                 for secret_name in std::env::var(secrets_names_env)?
                     .split(\",\")
