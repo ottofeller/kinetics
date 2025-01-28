@@ -28,6 +28,20 @@ impl Crate {
         })
     }
 
+    /// All the kinetics related metadata
+    pub fn metadata(&self) -> eyre::Result<toml::Value> {
+        Ok(self
+            .toml
+            .clone()
+            .get("package")
+            .wrap_err("No [package]")?
+            .get("metadata")
+            .wrap_err("No [metadata]")?
+            .get("sky")
+            .wrap_err("No [sky]")?
+            .clone())
+    }
+
     /// The hash with all the resources specific to the function
     fn resources(path: &PathBuf) -> eyre::Result<Vec<crate::Resource>> {
         let mut result = vec![];
