@@ -116,8 +116,9 @@ async fn upload(functions: &Vec<Function>) -> eyre::Result<()> {
         let path = function.bundle_path();
         let key = path.file_name().unwrap().to_str().unwrap();
         println!("Uploading {path:?}...");
+        let client = reqwest::Client::new();
 
-        let presigned = reqwest::Client::new()
+        let presigned = client
             .post(api_url("/upload"))
             .json(&serde_json::json!({ "key": key }))
             .send()
@@ -125,7 +126,7 @@ async fn upload(functions: &Vec<Function>) -> eyre::Result<()> {
             .json::<PresignedUrl>()
             .await?;
 
-        reqwest::Client::new()
+        client
             .put(&presigned.url)
             .body(tokio::fs::read(&path).await?)
             .send()
