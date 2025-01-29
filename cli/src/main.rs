@@ -107,7 +107,6 @@ fn bundle(functions: &Vec<Function>) -> eyre::Result<()> {
 
 /// All bundled assets to S3
 async fn upload(functions: &Vec<Function>) -> eyre::Result<()> {
-
     for function in functions {
         #[derive(serde::Deserialize)]
         struct PresignedUrl {
