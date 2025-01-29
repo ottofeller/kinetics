@@ -81,11 +81,15 @@ enum Resource {
 
 /// Build all assets and CFN templates
 fn build() -> eyre::Result<()> {
-    let project = crat()?;
-    println!("Building \"{}\"...", project.name);
+    let threads: Vec<_> = functions()?
+        .into_iter()
+        .map(|function| {
+            std::thread::spawn(move || function.build())
+        })
+        .collect();
 
-    for function in functions()? {
-        function.build()?;
+    for thread in threads {
+        thread.join().unwrap()?;
     }
 
     println!("Done!");
