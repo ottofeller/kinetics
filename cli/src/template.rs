@@ -9,22 +9,20 @@ pub struct Template {
     bucket: String,
     crat: Crate,
     functions: Vec<Function>,
+    username: String,
     pub template: String,
 }
 
 impl Template {
     /// CFN template for a resource (e.g. a queue or a db)
     fn resource(&self, resource: &Resource) -> String {
-        let name = self.crat.name.clone();
-
         match resource {
-            Resource::KvDb(kvdb) => {
-                format!(
-                    "
-            DynamoDBTable{}{}:
+            Resource::KvDb(kvdb) => format!(
+                "
+            DynamoDBTable{name}:
                 Type: AWS::DynamoDB::Table
                 Properties:
-                    TableName: {}
+                    TableName: {db_name}
                     AttributeDefinitions:
                         - AttributeName: id
                           AttributeType: S
@@ -35,32 +33,11 @@ impl Template {
                         ReadCapacityUnits: 5
                         WriteCapacityUnits: 5
                 ",
-                    name, kvdb.name, kvdb.name,
-                )
-            }
-
-            Resource::Queue(queue) => format!(
-                "
-                WorkerQueue{name}:
-                    Type: AWS::SQS::Queue
-                    Properties:
-                        QueueName: WorkerQueue{}
-                        VisibilityTimeout: 60
-                        MaximumMessageSize: 2048
-                        MessageRetentionPeriod: 345600
-                        ReceiveMessageWaitTimeSeconds: 20
-                WorkerQueueEventSourceMapping{name}:
-                    Type: 'AWS::Lambda::EventSourceMapping'
-                    Properties:
-                        EventSourceArn:
-                            Fn::GetAtt:
-                            - WorkerQueue{name}
-                            - Arn
-                        FunctionName:
-                            Ref: LambdaFunction{name}:
-                ",
-                queue.name,
+                name = self.prefixed(vec![&kvdb.name]),
+                db_name = kvdb.name,
             ),
+
+            _ => unimplemented!(),
         }
     }
 
@@ -74,7 +51,7 @@ impl Template {
             .filter(|f| f.role().unwrap() == "endpoint")
             .collect::<Vec<&Function>>();
 
-        let default_origin_name = functions[0].name().unwrap();
+        let default_origin_name = self.prefixed(vec![&functions[0].name().unwrap()]);
 
         let origins = functions
             .iter()
@@ -86,7 +63,7 @@ impl Template {
                           CustomOriginConfig:
                             OriginProtocolPolicy: https-only
                     ",
-                    name = f.name().unwrap()
+                    name = self.prefixed(vec![&f.name().unwrap()])
                 )
             })
             .collect::<Vec<String>>()
@@ -137,7 +114,7 @@ impl Template {
                         &f.url_path().unwrap_or(f.name().unwrap().to_lowercase()),
                         ""
                     ),
-                    name = f.name().unwrap()
+                    name = self.prefixed(vec![&f.name().unwrap()])
                 )
             })
             .collect::<Vec<String>>()
@@ -207,11 +184,13 @@ impl Template {
         functions: Vec<Function>,
         secrets: Vec<Secret>,
         bucket: &str,
+        username: &str,
     ) -> eyre::Result<Self> {
         let mut template = Template {
             bucket: bucket.to_string(),
             crat: crat.clone(),
             template: "Resources:".to_string(),
+            username: username.to_string(),
             functions,
         };
 
@@ -245,6 +224,16 @@ impl Template {
         Ok(template)
     }
 
+    fn prefixed(&self, names: Vec<&str>) -> String {
+        let joined = names.join("D");
+
+        return format!(
+            "{username}D{crat_name}D{joined}",
+            username = &self.username,
+            crat_name = &self.crat.name
+        );
+    }
+
     /// Policy statements to allow a function to access a resource
     ///
     /// Current all functions in a crate have access to all resources. Including secrets.
@@ -253,9 +242,12 @@ impl Template {
 
         for resource in self.crat.resources.iter() {
             template.push_str(&match resource {
-                Resource::KvDb(kvdb) => format!(
-                    "
-                - PolicyName: DynamoPolicy{}
+                Resource::KvDb(kvdb) => {
+                    let name = self.prefixed(vec![&kvdb.name]);
+
+                    format!(
+                        "
+                - PolicyName: DynamoPolicy{name}
                   PolicyDocument:
                       Version: '2012-10-17'
                       Statement:
@@ -272,10 +264,10 @@ impl Template {
                           - dynamodb:Query
                           - dynamodb:UpdateItem
                         Resource: !GetAtt
-                          - DynamoDBTable{}{}
+                          - DynamoDBTable{name}
                           - Arn",
-                    kvdb.name, self.crat.name, kvdb.name,
-                ),
+                    )
+                }
 
                 _ => format!(""),
             })
@@ -283,9 +275,11 @@ impl Template {
 
         // https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-access.html#sysman-paramstore-access-inst
         for secret in secrets.iter() {
+            let name = self.prefixed(vec![&secret]);
+
             template.push_str(&format!(
                 "
-                - PolicyName: SecretPolicy{}
+                - PolicyName: SecretPolicy{name}
                   PolicyDocument:
                       Version: '2012-10-17'
                       Statement:
@@ -293,13 +287,12 @@ impl Template {
                         Action:
                           - ssm:GetParameter
                         Resource:
-                          - arn:aws:ssm:us-east-1:727082259008:parameter/{}
+                          - arn:aws:ssm:us-east-1:727082259008:parameter/{secret}
                       - Effect: Allow
                         Action:
                           - kms:Decrypt
                         Resource:
                           - arn:aws:kms:us-east-1:727082259008:key/1bf38d51-e7e3-4c20-b155-60c6214b0255",
-                secret, secret,
             ));
         }
 
@@ -335,7 +328,7 @@ impl Template {
     /// The "secrets" argument is a list of AWS secrets names.
     fn endpoint(&self, function: &Function, secrets: &Vec<String>) -> eyre::Result<String> {
         let policies = self.policies(secrets);
-        let name = function.name()?;
+        let name = self.prefixed(vec![&function.name()?]);
         let environment = self.environment(function, secrets)?;
         let bucket = self.bucket.clone();
 
@@ -406,7 +399,7 @@ impl Template {
     /// CFN template for a worker function
     fn worker(&self, function: &Function, secrets: &Vec<String>) -> eyre::Result<String> {
         let policies = self.policies(secrets);
-        let name = function.name()?;
+        let name = self.prefixed(vec![&function.name()?]);
         let environment = self.environment(function, secrets)?;
         let bucket = self.bucket.clone();
 
@@ -435,7 +428,7 @@ impl Template {
                     MemorySize: 1024
                     Code:
                       S3Bucket: {bucket}
-                      S3Key: {}
+                      S3Key: {s3key}
 
             WorkerRole{name}:
               Type: AWS::IAM::Role
@@ -481,7 +474,7 @@ impl Template {
             WorkerQueue{name}:
                 Type: AWS::SQS::Queue
                 Properties:
-                    QueueName: WorkerQueue{}
+                    QueueName: {queue_name}
                     VisibilityTimeout: 60
                     MaximumMessageSize: 2048
                     MessageRetentionPeriod: 345600
@@ -497,16 +490,16 @@ impl Template {
                     FunctionName:
                         Ref: Worker{name}
                     ScalingConfig:
-                        MaximumConcurrency: {}
+                        MaximumConcurrency: {queue_concurrency}
             ",
-            function
+            s3key = function
                 .bundle_path()
                 .file_name()
                 .unwrap()
                 .to_str()
                 .unwrap(),
-            queue.name,
-            queue.concurrency,
+            queue_name = self.prefixed(vec![&queue.name]),
+            queue_concurrency = queue.concurrency,
         ))
     }
 }

@@ -56,13 +56,14 @@ pub async fn some_endpoint(
     environment = {"CURRENCY": "USD"},
 )]
 pub async fn some_worker(
-    _event: LambdaEvent<SqsEvent>,
+    event: LambdaEvent<SqsEvent>,
     secrets: &HashMap<String, String>,
 ) -> Result<SqsBatchResponse, Error> {
     println!(
         "Environment: {:?}",
         std::env::vars().collect::<HashMap<_, _>>()
     );
+    println!("{event:?}");
     println!("Secrets: {secrets:?}");
     let sqs_batch_response = SqsBatchResponse::default();
     Ok(sqs_batch_response)

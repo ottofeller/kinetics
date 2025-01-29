@@ -224,7 +224,7 @@ async fn deploy() -> eyre::Result<()> {
         secret.sync().await?;
     }
 
-    let template = Template::new(&crat, functions, secrets, BUCKET)?;
+    let template = Template::new(&crat, functions, secrets, BUCKET, "kinetics")?;
     println!("Provisioning resources:\n{}", template.template);
     provision(&template.template, &crat).await?;
     println!("Done!");
