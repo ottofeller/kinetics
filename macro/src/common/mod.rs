@@ -108,6 +108,28 @@ fn inject(
     import_statement: &str,
 ) {
     let main_rs_path = dst.join("src").join("main.rs");
+    let lib_rs_path = dst.join("src").join("lib.rs");
+
+    // Move lib.rs to main.rs
+    if lib_rs_path.exists() {
+        let lib_content = read_to_string(&lib_rs_path)
+            .wrap_err("Failed to read lib.rs")
+            .unwrap();
+
+        std::fs::write(&main_rs_path, format!("{}\nfn main() {{}}", lib_content))
+            .wrap_err("Failed to write main.rs")
+            .unwrap();
+
+        std::fs::remove_file(&lib_rs_path)
+            .wrap_err("Failed to delete lib.rs")
+            .unwrap();
+    }
+
+    if !main_rs_path.exists() {
+        std::fs::write(&main_rs_path, "fn main() {}")
+            .wrap_err("Failed to create main.rs")
+            .unwrap();
+    }
 
     let source_code = read_to_string(&main_rs_path)
         .wrap_err("Reading main.rs failed")
