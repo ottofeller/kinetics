@@ -1,3 +1,4 @@
+use crate::json;
 use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::Client;
 use eyre::{Context, ContextCompat, OptionExt};
@@ -37,8 +38,7 @@ pub async fn upload(
         .put_object()
         .bucket(env.get("BUCKET_NAME").wrap_err("BUCKET_NAME is missing")?)
         .key({
-            let body: serde_json::Value = serde_json::from_slice(event.body().as_ref())
-                .wrap_err("Failed to parse request body as JSON")?;
+            let body = json::body::<serde_json::Value>(event)?;
 
             body.get("key")
                 .wrap_err("No 'key' field found in request body")?
@@ -49,9 +49,5 @@ pub async fn upload(
         .presigned(expires_in)
         .await?;
 
-    Ok(Response::builder()
-        .status(200)
-        .header("content-type", "application/json")
-        .body(json!({"url":  presigned_request.uri()}).to_string().into())
-        .map_err(Box::new)?)
+    json::response(json!({"url":  presigned_request.uri()}))
 }
