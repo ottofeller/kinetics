@@ -139,7 +139,6 @@ fn inject(
         .wrap_err("Failed to prepare regex")
         .unwrap();
 
-    // Prettify with https://github.com/dtolnay/prettyplease
     let new_main_code = if let FunctionRole::Endpoint = function_role {
         format!(
             "{import_statement}
