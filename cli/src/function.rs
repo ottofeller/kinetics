@@ -7,6 +7,8 @@ use zip::write::SimpleFileOptions;
 pub struct Function {
     pub id: String,
     pub path: PathBuf,
+
+    // Oringal parent crate
     pub crat: Crate,
 }
 
@@ -64,6 +66,7 @@ impl Function {
         Some(meta.get("url_path").unwrap().as_str().unwrap().to_string())
     }
 
+    /// User defined name of the function
     pub fn name(&self) -> eyre::Result<String> {
         Ok(self
             .meta()?
@@ -122,6 +125,15 @@ impl Function {
 
     pub fn bundle_path(&self) -> PathBuf {
         self.path.join(format!("{}.zip", self.id))
+    }
+
+    pub fn bundle_name(&self) -> String {
+        format!("{}.zip", self.id)
+    }
+
+    pub fn toml_string(&self) -> eyre::Result<String> {
+        std::fs::read_to_string(self.path.join("Cargo.toml"))
+            .wrap_err("Failed to read function's Cargo.toml")
     }
 
     fn build_path(&self) -> eyre::Result<PathBuf> {

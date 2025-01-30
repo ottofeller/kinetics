@@ -6,12 +6,15 @@ pub struct Crate {
     pub name: String,
     pub resources: Vec<crate::Resource>,
     pub toml: toml::Value,
+    pub toml_string: String,
 }
 
 impl Crate {
     pub fn new(path: PathBuf) -> eyre::Result<Self> {
-        let cargo_toml: toml::Value = std::fs::read_to_string(path.join("Cargo.toml"))
-            .wrap_err("Failed to read Cargo.toml: {cargo_toml_path:?}")?
+        let cargo_toml_string = std::fs::read_to_string(path.join("Cargo.toml"))
+            .wrap_err("Failed to read Cargo.toml: {cargo_toml_path:?}")?;
+
+        let cargo_toml: toml::Value = cargo_toml_string
             .parse::<toml::Value>()
             .wrap_err("Failed to parse Cargo.toml")?;
 
@@ -25,6 +28,7 @@ impl Crate {
 
             resources: Crate::resources(&path)?,
             toml: cargo_toml,
+            toml_string: cargo_toml_string,
         })
     }
 

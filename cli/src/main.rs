@@ -3,6 +3,7 @@ mod function;
 mod secret;
 mod template;
 use aws_config::BehaviorVersion;
+use backend::deploy::{self, BodyCrate};
 use clap::{Parser, Subcommand};
 use crat::Crate;
 use eyre::{Ok, WrapErr};
@@ -83,9 +84,7 @@ enum Resource {
 fn build() -> eyre::Result<()> {
     let threads: Vec<_> = functions()?
         .into_iter()
-        .map(|function| {
-            std::thread::spawn(move || function.build())
-        })
+        .map(|function| std::thread::spawn(move || function.build()))
         .collect();
 
     for thread in threads {
@@ -215,9 +214,33 @@ async fn provision(template: &str, crat: &Crate) -> eyre::Result<()> {
 async fn deploy() -> eyre::Result<()> {
     let crat = crat().unwrap();
     let functions = functions().wrap_err("Failed to bundle assets")?;
+    let client = reqwest::Client::new();
     println!("Deploying \"{}\"...", crat.name);
     bundle(&functions)?;
     upload(&functions).await?;
+
+    client
+        .post(api_url("/deploy"))
+        .json(&serde_json::json!(deploy::JsonBody {
+            crat: BodyCrate {
+                toml: crat.toml_string.clone(),
+            },
+            functions: functions
+                .iter()
+                .map(|f| {
+                    deploy::BodyFunction {
+                        name: f.name().unwrap().to_string(),
+                        s3key: f.bundle_name(),
+                        toml: f.toml_string().unwrap(),
+                    }
+                })
+                .collect(),
+            secrets: vec![],
+        }))
+        .send()
+        .await
+        .wrap_err("Deployment request failed")?;
+
     let secrets = Secret::from_dotenv(&crat.name)?;
 
     for secret in secrets.iter() {
