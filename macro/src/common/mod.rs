@@ -22,10 +22,24 @@ fn clone(src: &Path, dst: &Path) {
     if dst.exists() {
         // For some reason am existing directory is not being deleted
         // when the macro is run in IDE.
-        match std::fs::remove_dir_all(&dst) {
-            Ok(_) => {}
-            Err(e) => {
-                println!("Failed to delete old dir: {:?}, {:?}", &dst, e);
+        let src_path = dst.join("src");
+        let cargo_path = dst.join("Cargo.toml");
+
+        if src_path.exists() {
+            match std::fs::remove_dir_all(&src_path) {
+                Ok(_) => {}
+                Err(e) => {
+                    println!("Failed to delete src dir: {:?}, {:?}", &src_path, e);
+                }
+            }
+        }
+
+        if cargo_path.exists() {
+            match std::fs::remove_file(&cargo_path) {
+                Ok(_) => {}
+                Err(e) => {
+                    println!("Failed to delete Cargo.toml: {:?}, {:?}", &cargo_path, e);
+                }
             }
         }
     }
