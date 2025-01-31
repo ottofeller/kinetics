@@ -620,6 +620,7 @@ name = "backend"
 version = "0.1.0"
 dependencies = [
  "aws-config",
+ "aws-sdk-cloudformation",
  "aws-sdk-s3",
  "aws-sdk-ssm",
  "eyre",

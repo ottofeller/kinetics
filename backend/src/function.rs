@@ -39,8 +39,6 @@ impl Function {
     }
 
     fn meta(&self) -> eyre::Result<toml::Value> {
-        println!("FUNCTION: {:?}", self.toml);
-
         self.toml
             .get("package")
             .wrap_err("No [package]")?

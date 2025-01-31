@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+aws-sdk-cloudformation = "1.62.0"
 lambda_http = "0.14.0"
 uuid = { version = "1.12.1", features = ["v4"]}
 lambda_runtime = "0.13.0"

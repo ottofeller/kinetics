@@ -21,20 +21,6 @@ impl Function {
         })
     }
 
-    pub fn environment(&self) -> eyre::Result<toml::Value> {
-        self.crat
-            .toml
-            .get("package")
-            .wrap_err("No [package]")?
-            .get("metadata")
-            .wrap_err("No [metadata]")?
-            .get("sky")
-            .wrap_err("No [sky]")?
-            .get("environment")
-            .wrap_err("No [environment]")
-            .cloned()
-    }
-
     fn meta(&self) -> eyre::Result<toml::Value> {
         self.crat
             .toml
@@ -49,39 +35,12 @@ impl Function {
             .cloned()
     }
 
-    /// URL path to be used in the CloudFront distribution
-    ///
-    /// Optional property, only available for endpoint type of functions.
-    pub fn url_path(&self) -> Option<String> {
-        if self.meta().is_err() || self.role().unwrap() != "endpoint" {
-            return None;
-        }
-
-        let meta = self.meta().unwrap();
-
-        if meta.get("url_path").is_none() {
-            return None;
-        }
-
-        Some(meta.get("url_path").unwrap().as_str().unwrap().to_string())
-    }
-
     /// User defined name of the function
     pub fn name(&self) -> eyre::Result<String> {
         Ok(self
             .meta()?
             .get("name")
             .wrap_err("No [name]")?
-            .as_str()
-            .wrap_err("Not a string")?
-            .to_string())
-    }
-
-    pub fn role(&self) -> eyre::Result<String> {
-        Ok(self
-            .meta()?
-            .get("role")
-            .wrap_err("No [role]")?
             .as_str()
             .wrap_err("Not a string")?
             .to_string())
@@ -143,9 +102,5 @@ impl Function {
             .join("lambda")
             .join("bootstrap")
             .join("bootstrap"))
-    }
-
-    pub fn resources(&self) -> Vec<&crate::Resource> {
-        self.crat.resources.iter().clone().collect()
     }
 }

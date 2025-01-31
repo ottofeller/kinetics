@@ -7,6 +7,18 @@ use serde_json::json;
 use skymacro::endpoint;
 use std::collections::HashMap;
 
+// Permissions:
+// {
+//     "Action": [
+//         "s3:PutObject"
+//     ],
+//     "Resource": [
+//         "*",
+//         "arn:aws:s3:::kinetics-rust-builds/*"
+//     ],
+//     "Effect": "Allow"
+// }
+
 /// Generate S3 presigned URL for upload
 #[endpoint(
     name = "upload",

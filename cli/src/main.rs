@@ -1,8 +1,6 @@
 mod crat;
 mod function;
 mod secret;
-mod template;
-use aws_config::BehaviorVersion;
 use backend::deploy::{self, BodyCrate};
 use clap::{Parser, Subcommand};
 use crat::Crate;
@@ -10,8 +8,6 @@ use eyre::{Ok, WrapErr};
 use function::Function;
 use secret::Secret;
 use std::path::{Path, PathBuf};
-use template::Template;
-static BUCKET: &str = "kinetics-rust-builds";
 static API_BASE: &str = "https://backend.usekinetics.com";
 
 fn api_url(path: &str) -> String {
@@ -61,23 +57,6 @@ fn functions() -> eyre::Result<Vec<Function>> {
     }
 
     Ok(result)
-}
-
-#[derive(Clone, Debug)]
-struct Queue {
-    name: String,
-    concurrency: u32,
-}
-
-#[derive(Clone, Debug)]
-struct KvDb {
-    name: String,
-}
-
-#[derive(Clone, Debug)]
-enum Resource {
-    Queue(Queue),
-    KvDb(KvDb),
 }
 
 /// Build all assets and CFN templates
@@ -136,80 +115,6 @@ async fn upload(functions: &Vec<Function>) -> eyre::Result<()> {
     Ok(())
 }
 
-/// Check if the stack already exists
-async fn is_exists(client: &aws_sdk_cloudformation::Client, name: &str) -> eyre::Result<bool> {
-    let result = client
-        .describe_stacks()
-        .set_stack_name(Some(name.into()))
-        .send()
-        .await;
-
-    if let Err(e) = &result {
-        if let aws_sdk_cloudformation::error::SdkError::ServiceError(err) = e {
-            if err.err().meta().code().unwrap().eq("ValidationError") {
-                return Ok(false);
-            } else {
-                return Err(eyre::eyre!(
-                    "Service error while describing stack: {:?}",
-                    err
-                ));
-            }
-        } else {
-            return Err(eyre::eyre!("Failed to describe stack: {:?}", e));
-        }
-    }
-
-    Ok(true)
-}
-
-/// Provision cloud resources using CFN template
-async fn provision(template: &str, crat: &Crate) -> eyre::Result<()> {
-    let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
-        .load()
-        .await;
-
-    let client = aws_sdk_cloudformation::Client::new(&config);
-    let default_name = crat.name.as_str();
-    let default_value = toml::Value::String(default_name.to_string());
-    let stack = crat.metadata()?;
-    let stack = stack.get("stack");
-
-    let name = if stack.is_none() {
-        default_name
-    } else {
-        stack
-            .unwrap()
-            .get("name")
-            .unwrap_or(&default_value)
-            .as_str()
-            .unwrap()
-    };
-
-    let capabilities = aws_sdk_cloudformation::types::Capability::CapabilityIam;
-
-    if is_exists(&client, name).await? {
-        client
-            .update_stack()
-            .capabilities(capabilities)
-            .stack_name(name)
-            .template_body(template)
-            .send()
-            .await
-            .wrap_err("Failed to update stack")?;
-    } else {
-        client
-            .create_stack()
-            .capabilities(capabilities)
-            .stack_name(name)
-            .template_body(template)
-            .send()
-            .await
-            .wrap_err("Failed to create stack")?;
-    }
-
-    Ok(())
-}
-
 /// Build and deploy all assets using CFN template
 async fn deploy() -> eyre::Result<()> {
     let crat = crat().unwrap();
@@ -247,9 +152,6 @@ async fn deploy() -> eyre::Result<()> {
         secret.sync().await?;
     }
 
-    let template = Template::new(&crat, functions, secrets, BUCKET, "kinetics")?;
-    println!("Provisioning resources:\n{}", template.template);
-    provision(&template.template, &crat).await?;
     println!("Done!");
     Ok(())
 }

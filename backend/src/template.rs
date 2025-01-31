@@ -493,4 +493,8 @@ impl Template {
             queue_concurrency = queue.concurrency,
         ))
     }
+
+    pub fn to_string(&self) -> String {
+        self.template.clone()
+    }
 }
