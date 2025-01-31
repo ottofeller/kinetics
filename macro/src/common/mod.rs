@@ -82,7 +82,7 @@ pub fn func_name(attrs: &Attrs, file: &SourceFile, rust_name: &str) -> eyre::Res
             .ok_or(eyre!("Failed to get file path"))?
             .split(&['-', '.', '/'])
             .map(|s| match s.chars().next() {
-                Some(first) => first.to_uppercase().collect::<String>() + s.chars().as_str(),
+                Some(first) => first.to_uppercase().collect::<String>() + &s[1..],
                 None => String::new(),
             })
             .collect::<String>()
