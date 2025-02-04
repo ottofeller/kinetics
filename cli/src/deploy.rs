@@ -1,10 +1,10 @@
-use backend::deploy::{self, BodyCrate};
-use crate::function::Function;
-use crate::crat;
-use crate::functions;
 use crate::api_url;
-use eyre::{Ok, WrapErr};
+use crate::crat;
+use crate::function::Function;
+use crate::functions;
 use crate::secret::Secret;
+use backend::deploy::{self, BodyCrate};
+use eyre::{Ok, WrapErr};
 
 /// Bundle assets and upload to S3, assuming all functions are built
 fn bundle(functions: &Vec<Function>) -> eyre::Result<()> {
@@ -42,6 +42,26 @@ async fn upload(functions: &Vec<Function>) -> eyre::Result<()> {
             .send()
             .await?
             .error_for_status()?;
+
+        // Upload the backaend manually if the /upload endpoint gets
+        // deleted accidentally
+        // use aws_config::BehaviorVersion;
+        // use aws_sdk_s3::Client;
+        // let body = function.zip_stream().await?;
+        // let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
+        //     .load()
+        //     .await;
+
+        // let client = Client::new(&config);
+
+        // client
+        //     .put_object()
+        //     .bucket("kinetics-rust-builds")
+        //     .key(key)
+        //     .body(body)
+        //     .send()
+        //     .await
+        //     .wrap_err("Failed to upload file to S3")?;
     }
 
     Ok(())

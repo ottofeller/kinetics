@@ -1,11 +1,13 @@
 mod crat;
 mod deploy;
 mod function;
+mod login;
 mod secret;
 use clap::{Parser, Subcommand};
 use crat::Crate;
 use eyre::{Ok, WrapErr};
 use function::Function;
+use login::login;
 use std::path::{Path, PathBuf};
 static API_BASE: &str = "https://backend.usekinetics.com";
 
@@ -28,6 +30,11 @@ struct Cli {
 enum Commands {
     Build,
     Deploy,
+
+    Login {
+        #[arg()]
+        email: String,
+    },
 }
 
 /// Return crate info from Cargo.toml
@@ -94,6 +101,9 @@ async fn main() {
                 println!("{error:?}");
                 return;
             }
+        }
+        Some(Commands::Login { email }) => {
+            login(email).await.unwrap();
         }
         None => {}
     }
