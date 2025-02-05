@@ -31,7 +31,7 @@ pub struct BodyFunction {
 pub struct JsonBody {
     pub crat: BodyCrate,
     pub functions: Vec<BodyFunction>,
-    pub secrets: Vec<HashMap<String, String>>,
+    pub secrets: HashMap<String, String>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -166,20 +166,26 @@ pub async fn deploy(
     let body = json::body::<JsonBody>(event)?;
     let crat = Crate::new(body.crat.toml.clone()).wrap_err("Invalid crate toml")?;
 
+    let secrets = body
+        .secrets
+        .iter()
+        .map(|(k, v)| Secret::new(k, v, &crat, "nide"))
+        .collect::<Vec<Secret>>();
+
     let template = Template::new(
         &crat,
         body.functions
             .iter()
             .map(|f| Function::new(&f.toml, &crat, &f.s3key).unwrap())
             .collect::<Vec<Function>>(),
-        body.secrets
-            .iter()
-            .flat_map(|m| m.iter())
-            .map(|(k, v)| Secret::new(k, v, &crat, "nide"))
-            .collect::<Vec<Secret>>(),
+        secrets.clone(),
         "kinetics-rust-builds",
         "nide",
     )?;
+
+    for secret in secrets.iter() {
+        secret.sync().await?;
+    }
 
     provision(&template.to_string(), &crat)
         .await

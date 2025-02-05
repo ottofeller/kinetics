@@ -1,6 +1,7 @@
 use crate::crat::Crate;
 use eyre::Context;
 
+#[derive(Clone, Debug)]
 pub struct Secret {
     name: String,
     value: String,

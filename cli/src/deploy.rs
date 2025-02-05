@@ -5,6 +5,7 @@ use crate::functions;
 use crate::secret::Secret;
 use backend::deploy::{self, BodyCrate};
 use eyre::{Ok, WrapErr};
+use std::collections::HashMap;
 
 /// Bundle assets and upload to S3, assuming all functions are built
 fn bundle(functions: &Vec<Function>) -> eyre::Result<()> {
@@ -75,6 +76,11 @@ pub async fn deploy() -> eyre::Result<()> {
     println!("Deploying \"{}\"...", crat.name);
     bundle(&functions)?;
     upload(&functions).await?;
+    let mut secrets = HashMap::new();
+
+    Secret::from_dotenv()?.iter().for_each(|s| {
+        secrets.insert(s.name.clone(), s.value());
+    });
 
     client
         .post(api_url("/deploy"))
@@ -92,17 +98,11 @@ pub async fn deploy() -> eyre::Result<()> {
                     }
                 })
                 .collect(),
-            secrets: vec![],
+            secrets: secrets.clone(),
         }))
         .send()
         .await
         .wrap_err("Deployment request failed")?;
-
-    let secrets = Secret::from_dotenv(&crat.name)?;
-
-    for secret in secrets.iter() {
-        secret.sync().await?;
-    }
 
     println!("Done!");
     Ok(())
