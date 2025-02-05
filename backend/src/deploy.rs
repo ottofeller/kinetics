@@ -149,7 +149,8 @@ Permissions:
         "cloudfront:*",
         "dynamodb:DescribeTable",
         "dynamodb:CreateTable",
-        "dynamodb:DeleteTAble"
+        "dynamodb:DeleteTAble",
+        "ssm:PutParameter"
     ],
     "Resource": "*",
     "Effect": "Allow"
