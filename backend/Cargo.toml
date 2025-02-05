@@ -18,6 +18,13 @@ toml = "0.8.19"
 zip = "2.2.2"
 aws-sdk-ssm = "1.62.1"
 regex = "1.11.1"
+aws-sdk-dynamodb = "1.62.0"
+serde-email = "3.1.0"
+chrono = "0.4.39"
+rand = "0.8.5"
 
 [package.metadata.sky.stack]
 name = "kinetics-backend"
+
+[package.metadata.sky.kvdb.kinetics]
+name = "kinetics"
