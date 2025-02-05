@@ -621,13 +621,17 @@ version = "0.1.0"
 dependencies = [
  "aws-config",
  "aws-sdk-cloudformation",
+ "aws-sdk-dynamodb",
  "aws-sdk-s3",
  "aws-sdk-ssm",
+ "chrono",
  "eyre",
  "lambda_http",
  "lambda_runtime",
+ "rand",
  "regex",
  "serde",
+ "serde-email",
  "serde_json",
  "skymacro",
  "toml",
@@ -1106,6 +1110,15 @@ dependencies = [
  "sec1",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "email_address"
+version = "0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e079f19b08ca6239f47f8ba8509c11cf3ea30095831f7fed61441475edd8c449"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -2661,6 +2674,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02fc4265df13d6fa1d00ecff087228cc0a2b5f3c0e87e258d8b94a156e984c70"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde-email"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c9f8652ec4a59c7e1a4881c50339a711a8ef9b1fe2e87a84c6fff58eee242a2"
+dependencies = [
+ "email_address",
+ "serde",
 ]
 
 [[package]]
