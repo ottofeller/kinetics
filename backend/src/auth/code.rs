@@ -11,7 +11,7 @@ use std::collections::HashMap;
 #[endpoint(url_path = "/auth/code/request", environment = {"TABLE_NAME": "kinetics"})]
 pub async fn request(
     event: Request,
-    _secrets: &HashMap<String, String>,
+    secrets: &HashMap<String, String>,
 ) -> Result<Response<Body>, Error> {
     #[derive(serde::Deserialize)]
     pub struct JsonBody {
@@ -22,6 +22,7 @@ pub async fn request(
     let body = crate::json::body::<JsonBody>(event).wrap_err("The input is invalid")?;
     let config = aws_config::load_defaults(BehaviorVersion::latest()).await;
     let client = Client::new(&config);
+    let code = format!("{:X}", rand::random::<u32>() % 1000000000).to_lowercase();
 
     client
         .put_item()
@@ -32,13 +33,33 @@ pub async fn request(
                 S(format!("{}#authcode", body.email.to_string())),
             ),
             ("created_at".to_string(), S(chrono::Utc::now().to_rfc3339())),
-            (
-                "code".to_string(),
-                S(format!("{:X}", rand::random::<u32>() % 1000000000).to_lowercase()),
-            ),
+            ("code".to_string(), S(code.clone())),
         ])))
         .send()
         .await?;
+
+    let res = reqwest::Client::new()
+        .post("https://api.resend.com/emails")
+        .header(
+            "Authorization",
+            format!(
+                "Bearer {}",
+                secrets.get("nide-backend-RESEND_API_KEY").unwrap()
+            ),
+        )
+        .header("Content-Type", "application/json")
+        .json(&json!({
+            "from": "kinetics@microfeller.com",
+            "to": body.email.to_string(),
+            "subject": "Auth code",
+            "text": format!("Use this code to login using Kinetics CLI:\n{code}")
+        }))
+        .send()
+        .await?;
+
+    if !res.status().is_success() {
+        return Err(Error::from(res.text().await.unwrap_or_default()));
+    }
 
     crate::json::response(json!({"success": true}))
 }

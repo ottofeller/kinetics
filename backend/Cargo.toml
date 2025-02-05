@@ -22,6 +22,7 @@ aws-sdk-dynamodb = "1.62.0"
 serde-email = "3.1.0"
 chrono = "0.4.39"
 rand = "0.8.5"
+reqwest = { version = "0.12.12", default-features = false, features = ["rustls-tls", "json"] }
 
 [package.metadata.sky.stack]
 name = "kinetics-backend"

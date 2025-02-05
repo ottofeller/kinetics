@@ -44,7 +44,10 @@ async fn token(email: &str) -> eyre::Result<String> {
         .await?;
 
     if !response.status().is_success() {
-        return Err(eyre::eyre!("Failed to request the auth code"));
+        return Err(eyre::eyre!(
+            "Failed to request the auth code: {}",
+            response.text().await?
+        ));
     }
 
     println!("Enter the code sent to your email: ");
