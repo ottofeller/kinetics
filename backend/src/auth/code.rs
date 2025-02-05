@@ -22,7 +22,7 @@ pub async fn request(
     let body = crate::json::body::<JsonBody>(event).wrap_err("The input is invalid")?;
     let config = aws_config::load_defaults(BehaviorVersion::latest()).await;
     let client = Client::new(&config);
-    let code = format!("{:X}", rand::random::<u32>() % 1000000000).to_lowercase();
+    let code = format!("{:x}", rand::random::<u32>() % 1000000000);
 
     client
         .put_item()
