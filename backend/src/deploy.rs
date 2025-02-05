@@ -144,8 +144,12 @@ Permissions:
         "lambda:RemovePermission",
         "lambda:GetFunctionUrlConfig",
         "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration",
         "s3:GetObject",
-        "cloudfront:*"
+        "cloudfront:*",
+        "dynamodb:DescribeTable",
+        "dynamodb:CreateTable",
+        "dynamodb:DeleteTAble"
     ],
     "Resource": "*",
     "Effect": "Allow"
