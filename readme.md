@@ -1,13 +1,35 @@
 # Intro
 Sky is a work-in-progress project that aims to provide a simple way to deploy Rust functions to the cloud. In essence it is a macro takes a Rust function and deploys it as AWS Lambda.
 
+# Processes diagrams
+```mermaid
+graph TD;
+  subgraph macro
+  User -- Edits --> Codebase
+  Codebase -- Triggers --> Macro
+  Macro -- Copies each function<br/>to its tmp dir --> FunctionTmp
+  end
+
+  subgraph deploy
+  User1["User"] -- Runs in the dir of Rust crate<br/># kinetics deploy --> CLI
+  CLI -- Gets informatoin about resources (e.g. DB) from Cargo.toml --> Codebase1["Codebase"]
+  CLI -- Builds each function --> FunctionTmp1["FunctionTmp"]
+  Codebase1 --> Upload
+  FunctionTmp1 -- Uploads build artefacts to /upload --> Upload
+  Upload -- Calls backend endpoint /deploy --> Deploy
+  Deploy -- Generates template and provisions it --> CloudFormation
+  end
+```
+
 # Current state
 - [x] Deploy a function to bare-bones AWS Lambda.
-- [ ] FunctionURL.
-- [ ] Queue worker.
-- [ ] Provision SQL DB (DSQL).
-- [ ] DynamoDB.
-- [ ] Custom domain for FunctionURL.
+- [x] FunctionURL.
+- [x] Queue worker.
+- [x] Provision SQL DB (DSQL).
+- [x] DynamoDB.
+- [x] Custom domain for FunctionURL.
+- [ ] Login.
+- [ ] User sessions.
 
 # How to run the example
 1. Create `$HOME/.sky/` directory.
