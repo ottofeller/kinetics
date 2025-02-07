@@ -142,12 +142,15 @@ pub async fn exchange(
         .table_name(env("TABLE_NAME")?)
         .set_item(Some(HashMap::from([
             ("id".to_string(), S(format!("{}#accesstoken", token_hash))),
-            ("email".to_string(), S(email)),
+            ("email".to_string(), S(email.clone())),
             ("created_at".to_string(), S(now.to_rfc3339())),
             ("expires_at".to_string(), S(expires_at.clone())),
         ])))
         .send()
         .await?;
 
-    crate::json::response(json!({"token": token, "expiresAt": expires_at}), None)
+    crate::json::response(
+        json!({"email": email, "token": token, "expiresAt": expires_at}),
+        None,
+    )
 }

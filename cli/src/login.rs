@@ -7,33 +7,13 @@ use std::{io, path::Path};
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct Credentials {
+    email: String,
     token: String,
     expires_at: DateTime<Utc>,
 }
 
 /// Return the cached access token, or refresh if it is expired
-async fn token(email: &str) -> eyre::Result<String> {
-    let path = Path::new(&crate::skypath()?).join(".credentials");
-
-    // Read or create credentials file
-    let credentials = serde_json::from_str::<Credentials>(
-        &std::fs::read_to_string(path.clone())
-            .or_else(|_| {
-                let default =
-                    json!({ "token": "", "expiresAt": "2000-01-01T00:00:00Z" }).to_string();
-
-                std::fs::write(path.clone(), default.clone())?;
-                eyre::Ok(default.into())
-            })
-            .unwrap_or_default(),
-    )
-    .wrap_err("Credentials stored in a wrong format")?;
-
-    if !credentials.token.is_empty() && credentials.expires_at.timestamp() > Utc::now().timestamp()
-    {
-        return Ok(credentials.token);
-    }
-
+async fn token(email: &str) -> eyre::Result<Credentials> {
     // Refresh the token if it is expired
     let client = reqwest::Client::new();
 
@@ -69,9 +49,7 @@ async fn token(email: &str) -> eyre::Result<String> {
         return Err(eyre::eyre!("Failed to login: {}", response.text().await?));
     }
 
-    let response: Credentials = response.json::<Credentials>().await?;
-    std::fs::write(path, json!(response).to_string())?;
-    Ok(response.token)
+    Ok(response.json::<Credentials>().await?)
 }
 
 /// Obtain the access token
@@ -84,6 +62,33 @@ pub async fn login(email: &str) -> eyre::Result<()> {
         return Err(eyre::eyre!("Invalid email format"));
     }
 
-    token(email).await?;
+    let path = Path::new(&crate::skypath()?).join(".credentials");
+
+    // Read or create credentials file
+    let credentials = serde_json::from_str::<Credentials>(
+        &std::fs::read_to_string(path.clone())
+            .or_else(|_| {
+                let default =
+                    json!({ "email": "", "token": "", "expiresAt": "2000-01-01T00:00:00Z" })
+                        .to_string();
+
+                std::fs::write(path.clone(), default.clone())?;
+                eyre::Ok(default.into())
+            })
+            .unwrap_or_default(),
+    )
+    .wrap_err("Credentials stored in a wrong format")?;
+
+    // If credentials expired — request new token
+    if !credentials.token.is_empty()
+        && credentials.expires_at.timestamp() > Utc::now().timestamp()
+        && credentials.email == email
+    {
+        println!("Already logged in.");
+        return Ok(());
+    }
+
+    std::fs::write(path, json!(token(email).await?).to_string())?;
+    println!("Logged in successfully!");
     Ok(())
 }
