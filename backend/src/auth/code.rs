@@ -93,7 +93,6 @@ pub async fn exchange(
     let client = Client::new(&aws_config::load_defaults(BehaviorVersion::latest()).await);
     let now = chrono::Utc::now();
     let email = body.email.to_string();
-    println!("CODE: {}", body.code);
 
     // Mark the auth code as exchanged
     let result = client
