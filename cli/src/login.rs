@@ -12,8 +12,8 @@ struct Credentials {
     expires_at: DateTime<Utc>,
 }
 
-/// Return the cached access token, or refresh if it is expired
-async fn token(email: &str) -> eyre::Result<Credentials> {
+/// Request auth code and exchange it for access token
+async fn request(email: &str) -> eyre::Result<Credentials> {
     // Refresh the token if it is expired
     let client = reqwest::Client::new();
 
@@ -88,7 +88,7 @@ pub async fn login(email: &str) -> eyre::Result<()> {
         return Ok(());
     }
 
-    std::fs::write(path, json!(token(email).await?).to_string())?;
+    std::fs::write(path, json!(request(email).await?).to_string())?;
     println!("Logged in successfully!");
     Ok(())
 }
