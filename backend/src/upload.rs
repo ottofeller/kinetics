@@ -61,5 +61,5 @@ pub async fn upload(
         .presigned(expires_in)
         .await?;
 
-    json::response(json!({"url":  presigned_request.uri()}))
+    json::response(json!({"url":  presigned_request.uri()}), None)
 }

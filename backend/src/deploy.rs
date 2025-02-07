@@ -194,5 +194,5 @@ pub async fn deploy(
     json::response(JsonResponse {
         message: None,
         status: JsonResponseStatus::Success,
-    })
+    }, None)
 }

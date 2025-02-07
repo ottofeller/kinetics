@@ -5,6 +5,7 @@ pub mod template;
 pub mod secret;
 pub mod upload;
 pub mod json;
+pub mod env;
 pub mod auth;
 
 #[derive(Clone, Debug)]
