@@ -1,38 +1,48 @@
+use crate::env::env;
 use aws_config::BehaviorVersion;
 use aws_sdk_dynamodb::types::AttributeValue::S;
 use aws_sdk_dynamodb::Client;
-use eyre::{Context, ContextCompat};
+use eyre::Context;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
 use skymacro::endpoint;
 use std::collections::HashMap;
 
-/// Generate a tmp auth code for the user to login, and send over email
-#[endpoint(url_path = "/auth/code/request", environment = {"TABLE_NAME": "kinetics"})]
+// Generate a tmp auth code for the user to login, and send over email
+#[endpoint(url_path = "/auth/code/request", environment = {"TABLE_NAME": "kinetics", "EXPIRES_IN_SECONDS": "60"})]
 pub async fn request(
     event: Request,
     secrets: &HashMap<String, String>,
 ) -> Result<Response<Body>, Error> {
     #[derive(serde::Deserialize)]
-    pub struct JsonBody {
-        pub email: serde_email::Email,
+    struct JsonBody {
+        email: serde_email::Email,
     }
 
-    let env = std::env::vars().collect::<HashMap<_, _>>();
     let body = crate::json::body::<JsonBody>(event).wrap_err("The input is invalid")?;
     let config = aws_config::load_defaults(BehaviorVersion::latest()).await;
     let client = Client::new(&config);
     let code = format!("{:x}", rand::random::<u32>() % 1000000000);
+    let now = chrono::Utc::now();
 
     client
         .put_item()
-        .table_name(env.get("TABLE_NAME").wrap_err("TABLE_NAME is missing")?)
+        .table_name(env("TABLE_NAME")?)
         .set_item(Some(HashMap::from([
             (
                 "id".to_string(),
                 S(format!("{}#authcode", body.email.to_string())),
             ),
-            ("created_at".to_string(), S(chrono::Utc::now().to_rfc3339())),
+            ("created_at".to_string(), S(now.to_rfc3339())),
+            (
+                "expires_at".to_string(),
+                S(now
+                    .checked_sub_signed(chrono::Duration::seconds(
+                        env("EXPIRES_IN_SECONDS")?.parse()?,
+                    ))
+                    .unwrap()
+                    .to_rfc3339()),
+            ),
             ("code".to_string(), S(code.clone())),
         ])))
         .send()
@@ -61,14 +71,84 @@ pub async fn request(
         return Err(Error::from(res.text().await.unwrap_or_default()));
     }
 
-    crate::json::response(json!({"success": true}))
+    crate::json::response(json!({"success": true}), None)
 }
 
 /// Exchange the auth code for a short lived access token
-#[endpoint(url_path = "/auth/code/exchange")]
+#[endpoint(
+    url_path = "/auth/code/exchange",
+    environment = {"TABLE_NAME": "kinetics", "ACCESS_TOKEN_EXPIRES_IN_SECONDS": "21600"}
+)]
 pub async fn exchange(
-    _event: Request,
-    _secrets: &HashMap<String, String>,
+    event: Request,
+    secrets: &HashMap<String, String>,
 ) -> Result<Response<Body>, Error> {
-    crate::json::response(json!({"token": "token", "expiresAt": "2020-01-01T01:01:01Z"}))
+    #[derive(serde::Deserialize)]
+    struct JsonBody {
+        email: serde_email::Email,
+        code: String,
+    }
+
+    let body = crate::json::body::<JsonBody>(event).wrap_err("The input is invalid")?;
+    let client = Client::new(&aws_config::load_defaults(BehaviorVersion::latest()).await);
+    let now = chrono::Utc::now();
+    let email = body.email.to_string();
+    println!("CODE: {}", body.code);
+
+    // Mark the auth code as exchanged
+    let result = client
+        .update_item()
+        .table_name(env("TABLE_NAME")?)
+        .key("id", S(format!("{}#authcode", email)))
+        .update_expression("SET exchanged_at = :now")
+        .condition_expression(
+            "attribute_not_exists(exchanged_at) AND code = :code AND expires_at < :now",
+        )
+        .expression_attribute_values(":now", S(now.to_rfc3339()))
+        .expression_attribute_values(":code", S(body.code))
+        .send()
+        .await;
+
+    match result {
+        Ok(_) => (),
+        Err(err) => {
+            if err.to_string().contains("ConditionalCheckFailed") {
+                return Err(Error::from("Code has already been exchanged"));
+            }
+            return Err(Error::from(err));
+        }
+    }
+
+    // Generate and store access token
+    let token = format!("{:0>16x}", rand::random::<u64>());
+
+    let token_hash = sha256::digest(
+        format!(
+            "{}{}",
+            token,
+            secrets
+                .get("nide-backend-ACCESS_TOKEN_HASH_SALT")
+                .ok_or("No secret nide-backend-ACCESS_TOKEN_HASH_SALT provided")?
+        )
+        .as_bytes(),
+    );
+
+    let expires_at = now
+        .checked_add_signed(chrono::Duration::hours(6))
+        .unwrap()
+        .to_rfc3339();
+
+    client
+        .put_item()
+        .table_name(env("TABLE_NAME")?)
+        .set_item(Some(HashMap::from([
+            ("id".to_string(), S(format!("{}#accesstoken", token_hash))),
+            ("email".to_string(), S(email)),
+            ("created_at".to_string(), S(now.to_rfc3339())),
+            ("expires_at".to_string(), S(expires_at.clone())),
+        ])))
+        .send()
+        .await?;
+
+    crate::json::response(json!({"token": token, "expiresAt": expires_at}), None)
 }

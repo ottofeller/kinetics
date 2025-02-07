@@ -23,6 +23,7 @@ serde-email = "3.1.0"
 chrono = "0.4.39"
 rand = "0.8.5"
 reqwest = { version = "0.12.12", default-features = false, features = ["rustls-tls", "json"] }
+sha256 = "1.5.0"
 
 [package.metadata.sky.stack]
 name = "kinetics-backend"
