@@ -7,9 +7,12 @@ pub fn body<T: DeserializeOwned>(event: Request) -> eyre::Result<T> {
         .wrap_err("Failed to parse request body as JSON")
 }
 
-pub fn response<T: serde::Serialize>(body: T) -> Result<Response<Body>, Error> {
+pub fn response<T: serde::Serialize>(
+    body: T,
+    status: Option<u16>,
+) -> Result<Response<Body>, Error> {
     Ok(Response::builder()
-        .status(200)
+        .status(status.unwrap_or(200))
         .header("content-type", "application/json")
         .body(serde_json::to_string(&body).unwrap().into())?)
 }
