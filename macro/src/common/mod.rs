@@ -156,17 +156,31 @@ fn inject(
                     .map(|s| s.trim().to_string())
                     .filter(|s| !s.is_empty())
                 {{
-                    let result = secrets_client
+                    let desc = secrets_client
                         .get_parameter()
                         .name(secret_name.clone())
                         .with_decryption(true)
                         .send()
+                        .await?;
+
+                    let result = desc.parameter.unwrap();
+
+                    let tags = secrets_client
+                        .list_tags_for_resource()
+                        .resource_type(aws_sdk_ssm::types::ResourceTypeForTagging::Parameter)
+                        .resource_id(secret_name.clone())
+                        .send()
                         .await?
-                        .parameter
-                        .unwrap();
+                        .tag_list
+                        .unwrap_or_default();
+
+                    let name = match tags.iter().find(|t| t.key() == \"original_name\") {{
+                        Some(tag) => tag.value(),
+                        None => &secret_name.clone(),
+                    }};
 
                     let secret_value = result.value().unwrap();
-                    secrets.insert(secret_name, secret_value.to_string());
+                    secrets.insert(name.into(), secret_value.to_string());
                 }}
 
                 println!(\"Serving requests\");
@@ -200,17 +214,31 @@ fn inject(
                     .map(|s| s.trim().to_string())
                     .filter(|s| !s.is_empty())
                 {{
-                    let result = secrets_client
+                    let desc = secrets_client
                         .get_parameter()
                         .name(secret_name.clone())
                         .with_decryption(true)
                         .send()
+                        .await?;
+
+                    let result = desc.parameter.unwrap();
+
+                    let tags = secrets_client
+                        .list_tags_for_resource()
+                        .resource_type(aws_sdk_ssm::types::ResourceTypeForTagging::Parameter)
+                        .resource_id(secret_name.clone())
+                        .send()
                         .await?
-                        .parameter
-                        .unwrap();
+                        .tag_list
+                        .unwrap_or_default();
+
+                    let name = match tags.iter().find(|t| t.key() == \"original_name\") {{
+                        Some(tag) => tag.value(),
+                        None => &secret_name.clone(),
+                    }};
 
                     let secret_value = result.value().unwrap();
-                    secrets.insert(secret_name, secret_value.to_string());
+                    secrets.insert(name.into(), secret_value.to_string());
                 }}
 
                 println!(\"Serving requests\");

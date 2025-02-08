@@ -287,6 +287,8 @@ impl Template {
                       - Effect: Allow
                         Action:
                           - ssm:GetParameter
+                          - ssm:GetParameters
+                          - ssm:ListTagsForResource
                         Resource:
                           - arn:aws:ssm:us-east-1:727082259008:parameter/{secret}
                       - Effect: Allow

@@ -52,10 +52,7 @@ pub async fn request(
         .post("https://api.resend.com/emails")
         .header(
             "Authorization",
-            format!(
-                "Bearer {}",
-                secrets.get("nide-backend-RESEND_API_KEY").unwrap()
-            ),
+            format!("Bearer {}", secrets.get("RESEND_API_KEY").unwrap()),
         )
         .header("Content-Type", "application/json")
         .json(&json!({
@@ -126,8 +123,8 @@ pub async fn exchange(
             "{}{}",
             token,
             secrets
-                .get("nide-backend-ACCESS_TOKEN_HASH_SALT")
-                .ok_or("No secret nide-backend-ACCESS_TOKEN_HASH_SALT provided")?
+                .get("ACCESS_TOKEN_HASH_SALT")
+                .ok_or("No secret ACCESS_TOKEN_HASH_SALT provided")?
         )
         .as_bytes(),
     );

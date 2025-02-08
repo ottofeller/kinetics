@@ -35,6 +35,22 @@ impl Secret {
             .await
             .wrap_err("Failed to create SSM param")?;
 
+        // Add tags
+        client
+            .add_tags_to_resource()
+            .resource_type(aws_sdk_ssm::types::ResourceTypeForTagging::Parameter)
+            .resource_id(self.unique_name())
+            .tags(
+                aws_sdk_ssm::types::Tag::builder()
+                    .key("original_name")
+                    .value(&self.name)
+                    .build()
+                    .wrap_err("Failed to build AWS tag")?,
+            )
+            .send()
+            .await
+            .wrap_err("Failed to add tags to SSM param")?;
+
         Ok(())
     }
 }

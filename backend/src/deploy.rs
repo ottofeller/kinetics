@@ -150,7 +150,9 @@ Permissions:
         "dynamodb:DescribeTable",
         "dynamodb:CreateTable",
         "dynamodb:DeleteTAble",
-        "ssm:PutParameter"
+        "ssm:GetParameters",
+        "ssm:PutParameter",
+        "ssm:AddTagsToResource"
     ],
     "Resource": "*",
     "Effect": "Allow"
