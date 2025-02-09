@@ -1,3 +1,4 @@
+mod client;
 mod crat;
 mod deploy;
 mod function;
@@ -9,7 +10,17 @@ use eyre::{Ok, WrapErr};
 use function::Function;
 use login::login;
 use std::path::{Path, PathBuf};
+use chrono::{DateTime, Utc};
 static API_BASE: &str = "https://backend.usekinetics.com";
+
+/// Credentials to be used with API
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct Credentials {
+    email: String,
+    token: String,
+    expires_at: DateTime<Utc>,
+}
 
 fn api_url(path: &str) -> String {
     format!("{}{}", API_BASE, path)

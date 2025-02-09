@@ -1,9 +1,9 @@
-use crate::api_url;
+use crate::client::Client;
+use backend::deploy::{self, BodyCrate};
 use crate::crat;
 use crate::function::Function;
 use crate::functions;
 use crate::secret::Secret;
-use backend::deploy::{self, BodyCrate};
 use eyre::{Ok, WrapErr};
 use std::collections::HashMap;
 
@@ -16,8 +16,8 @@ fn bundle(functions: &Vec<Function>) -> eyre::Result<()> {
     Ok(())
 }
 
-/// All bundled assets to S3
-async fn upload(functions: &Vec<Function>) -> eyre::Result<()> {
+/// Call the /upload endpoint to get the presigned URL and upload the file
+async fn upload(client: &Client, functions: &Vec<Function>) -> eyre::Result<()> {
     for function in functions {
         #[derive(serde::Deserialize)]
         struct PresignedUrl {
@@ -27,17 +27,18 @@ async fn upload(functions: &Vec<Function>) -> eyre::Result<()> {
         let path = function.bundle_path();
         let key = path.file_name().unwrap().to_str().unwrap();
         println!("Uploading {path:?}...");
-        let client = reqwest::Client::new();
 
         let presigned = client
-            .post(api_url("/upload"))
+            .post("/upload")
             .json(&serde_json::json!({ "key": key }))
             .send()
             .await?
             .json::<PresignedUrl>()
             .await?;
 
-        client
+        let public_client = reqwest::Client::new();
+
+        public_client
             .put(&presigned.url)
             .body(tokio::fs::read(&path).await?)
             .send()
@@ -72,18 +73,17 @@ async fn upload(functions: &Vec<Function>) -> eyre::Result<()> {
 pub async fn deploy() -> eyre::Result<()> {
     let crat = crat().unwrap();
     let functions = functions().wrap_err("Failed to bundle assets")?;
-    let client = reqwest::Client::new();
+    let client = crate::client::Client::new().wrap_err("Failed to create client")?;
     println!("Deploying \"{}\"...", crat.name);
     bundle(&functions)?;
-    upload(&functions).await?;
+    upload(&client, &functions).await?;
     let mut secrets = HashMap::new();
 
     Secret::from_dotenv()?.iter().for_each(|s| {
         secrets.insert(s.name.clone(), s.value());
     });
 
-    client
-        .post(api_url("/deploy"))
+    client.post("/deploy")
         .json(&serde_json::json!(deploy::JsonBody {
             crat: BodyCrate {
                 toml: crat.toml_string.clone(),

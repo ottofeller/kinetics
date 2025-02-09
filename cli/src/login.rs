@@ -1,16 +1,9 @@
-use chrono::{DateTime, Utc};
+use crate::Credentials;
+use chrono::Utc;
 use eyre::Context;
 use regex::Regex;
 use serde_json::json;
 use std::{io, path::Path};
-
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct Credentials {
-    email: String,
-    token: String,
-    expires_at: DateTime<Utc>,
-}
 
 /// Request auth code and exchange it for access token
 async fn request(email: &str) -> eyre::Result<Credentials> {
