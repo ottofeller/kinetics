@@ -116,7 +116,10 @@ pub async fn exchange(
     }
 
     // Generate and store access token
-    let token = format!("{:0>16x}", rand::random::<u64>());
+    let token = format!(
+        "{}",
+        sha256::digest(&rand::random::<u32>().to_string())
+    );
 
     let token_hash = sha256::digest(
         format!(
