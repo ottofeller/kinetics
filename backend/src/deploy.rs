@@ -1,4 +1,5 @@
 use crate::crat::Crate;
+use crate::env::env;
 use crate::function::Function;
 use crate::json;
 use crate::secret::Secret;
@@ -6,6 +7,7 @@ use crate::template::Template;
 use aws_config::BehaviorVersion;
 use eyre::Context;
 use lambda_http::{Body, Error, Request, Response};
+use serde_json::json;
 use skymacro::endpoint;
 use std::collections::HashMap;
 
@@ -159,12 +161,21 @@ Permissions:
 }
 */
 #[endpoint(url_path = "/deploy", environment = {
-    "BUCKET_NAME": "kinetics-rust-builds"
+    "BUCKET_NAME": "kinetics-rust-builds",
+    "TABLE_NAME": "kinetics",
+    "DANGER_DISABLE_AUTH": "false"
 })]
 pub async fn deploy(
     event: Request,
     _secrets: &HashMap<String, String>,
 ) -> Result<Response<Body>, Error> {
+    let result = crate::auth::validator::is_authorized(&event, &env("TABLE_NAME")?).await;
+
+    if env("DANGER_DISABLE_AUTH")? == "false" && (result.is_err() || !result.unwrap()) {
+        eprintln!("Not authorized");
+        return json::response(json!({"error": "Unauthorized"}), None);
+    }
+
     let body = json::body::<JsonBody>(event)?;
     let crat = Crate::new(body.crat.toml.clone()).wrap_err("Invalid crate toml")?;
 
@@ -193,8 +204,11 @@ pub async fn deploy(
         .await
         .wrap_err("Failed to provision template")?;
 
-    json::response(JsonResponse {
-        message: None,
-        status: JsonResponseStatus::Success,
-    }, None)
+    json::response(
+        JsonResponse {
+            message: None,
+            status: JsonResponseStatus::Success,
+        },
+        None,
+    )
 }
