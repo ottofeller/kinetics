@@ -31,7 +31,7 @@ pub async fn request(
         .set_item(Some(HashMap::from([
             (
                 "id".to_string(),
-                S(format!("{}#authcode", body.email.to_string())),
+                S(format!("authcode#{}", body.email.to_string())),
             ),
             ("created_at".to_string(), S(now.to_rfc3339())),
             (
@@ -95,7 +95,7 @@ pub async fn exchange(
     let result = client
         .update_item()
         .table_name(env("TABLE_NAME")?)
-        .key("id", S(format!("{}#authcode", email)))
+        .key("id", S(format!("authcode#{}", email)))
         .update_expression("SET exchanged_at = :now")
         .condition_expression(
             "attribute_not_exists(exchanged_at) AND code = :code AND expires_at < :now",
@@ -116,10 +116,7 @@ pub async fn exchange(
     }
 
     // Generate and store access token
-    let token = format!(
-        "{}",
-        sha256::digest(&rand::random::<u32>().to_string())
-    );
+    let token = format!("{}", sha256::digest(&rand::random::<u32>().to_string()));
 
     let token_hash = sha256::digest(
         format!(
@@ -141,7 +138,7 @@ pub async fn exchange(
         .put_item()
         .table_name(env("TABLE_NAME")?)
         .set_item(Some(HashMap::from([
-            ("id".to_string(), S(format!("{}#accesstoken", token_hash))),
+            ("id".to_string(), S(format!("accesstoken#{}", token_hash))),
             ("email".to_string(), S(email.clone())),
             ("created_at".to_string(), S(now.to_rfc3339())),
             ("expires_at".to_string(), S(expires_at.clone())),
@@ -150,7 +147,7 @@ pub async fn exchange(
         .await?;
 
     crate::json::response(
-        json!({"email": email, "token": token, "expiresAt": expires_at}),
+        json!({"email": email, "token": token_hash, "expiresAt": expires_at}),
         None,
     )
 }

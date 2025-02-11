@@ -1,7 +1,8 @@
+use crate::env::env;
 use crate::json;
 use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::Client;
-use eyre::{Context, ContextCompat, OptionExt};
+use eyre::{Context, ContextCompat};
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
 use skymacro::endpoint;
@@ -25,22 +26,29 @@ use std::collections::HashMap;
     url_path = "/upload",
     environment = {
         "EXPIRES_IN_SECONDS": "15",
-        "BUCKET_NAME": "kinetics-rust-builds"
+        "BUCKET_NAME": "kinetics-rust-builds",
+        "TABLE_NAME": "kinetics",
+        "DANGER_DISABLE_AUTH": "false"
     },
 )]
 pub async fn upload(
     event: Request,
     _secrets: &HashMap<String, String>,
 ) -> Result<Response<Body>, Error> {
+    let result = crate::auth::validator::is_authorized(&event, &env("TABLE_NAME")?).await;
+
+    if env("DANGER_DISABLE_AUTH")? == "false" && (result.is_err() || !result.unwrap()) {
+        eprintln!("Not authorized");
+        return json::response(json!({"error": "Unauthorized"}), None);
+    }
+
     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
     let client = Client::new(&config);
-    let env = std::env::vars().collect::<HashMap<_, _>>();
 
     let expires_in: std::time::Duration = std::time::Duration::from_secs(
-        env.get("EXPIRES_IN_SECONDS")
-            .ok_or_eyre("EXPIRES_IN_SECONDS is missing")?
+        env("EXPIRES_IN_SECONDS")?
             .parse()
-            .wrap_err("Wrong format of EXPIRES_IN_SECONDS")?,
+            .wrap_err("Env var has wrong format (expcted int, seconds)")?,
     );
 
     let expires_in: PresigningConfig =
@@ -48,7 +56,7 @@ pub async fn upload(
 
     let presigned_request = client
         .put_object()
-        .bucket(env.get("BUCKET_NAME").wrap_err("BUCKET_NAME is missing")?)
+        .bucket(env("BUCKET_NAME")?)
         .key({
             let body = json::body::<serde_json::Value>(event)?;
 
