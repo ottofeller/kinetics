@@ -1,5 +1,5 @@
-use crate::env::env;
 use crate::json;
+use crate::{auth::session::Session, env::env};
 use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::Client;
 use eyre::{Context, ContextCompat};
@@ -35,9 +35,9 @@ pub async fn upload(
     event: Request,
     _secrets: &HashMap<String, String>,
 ) -> Result<Response<Body>, Error> {
-    let result = crate::auth::validator::is_authorized(&event, &env("TABLE_NAME")?).await;
+    let session = Session::new(&event, &env("TABLE_NAME")?).await;
 
-    if env("DANGER_DISABLE_AUTH")? == "false" && (result.is_err() || !result.unwrap()) {
+    if env("DANGER_DISABLE_AUTH")? == "false" && !session?.is_valid() {
         eprintln!("Not authorized");
         return json::response(json!({"error": "Unauthorized"}), None);
     }
