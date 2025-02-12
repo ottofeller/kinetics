@@ -71,7 +71,7 @@ impl Session {
             expires_at: Some(expires_at),
 
             email: Some(
-                item.get("expires_at")
+                item.get("email")
                     .wrap_err("email is missing")?
                     .as_s()
                     .unwrap()
