@@ -2,7 +2,7 @@ use crate::json;
 use crate::{auth::session::Session, env::env};
 use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::Client;
-use eyre::{Context, ContextCompat};
+use eyre::Context;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
 use skymacro::endpoint;
@@ -28,7 +28,8 @@ use std::collections::HashMap;
         "EXPIRES_IN_SECONDS": "15",
         "BUCKET_NAME": "kinetics-rust-builds",
         "TABLE_NAME": "kinetics",
-        "DANGER_DISABLE_AUTH": "false"
+        "DANGER_DISABLE_AUTH": "false",
+        "S3_KEY_ENCRYPTION_KEY": "fjskoapgpsijtzp"
     },
 )]
 pub async fn upload(
@@ -37,11 +38,12 @@ pub async fn upload(
 ) -> Result<Response<Body>, Error> {
     let session = Session::new(&event, &env("TABLE_NAME")?).await;
 
-    if env("DANGER_DISABLE_AUTH")? == "false" && !session?.is_valid() {
+    if env("DANGER_DISABLE_AUTH")? == "false" && !session.as_ref().unwrap().is_valid() {
         eprintln!("Not authorized");
         return json::response(json!({"error": "Unauthorized"}), None);
     }
 
+    let session = session.unwrap();
     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
     let client = Client::new(&config);
 
@@ -54,20 +56,26 @@ pub async fn upload(
     let expires_in: PresigningConfig =
         PresigningConfig::expires_in(expires_in).wrap_err("Failed to prepare duration")?;
 
+    let key = format!("{}-{}.zip", session.username(), uuid::Uuid::new_v4());
+
+    let encrypted_key = {
+        use magic_crypt::{new_magic_crypt, MagicCryptTrait};
+        let mc = new_magic_crypt!(env("S3_KEY_ENCRYPTION_KEY")?, 256);
+        mc.encrypt_str_to_base64(&key)
+    };
+
     let presigned_request = client
         .put_object()
         .bucket(env("BUCKET_NAME")?)
-        .key({
-            let body = json::body::<serde_json::Value>(event)?;
-
-            body.get("key")
-                .wrap_err("No 'key' field found in request body")?
-                .as_str()
-                .wrap_err("'key' field is not a string")?
-                .to_string()
-        })
+        .key(key)
         .presigned(expires_in)
         .await?;
 
-    json::response(json!({"url":  presigned_request.uri()}), None)
+    json::response(
+        json!({
+            "url":  presigned_request.uri(),
+            "s3key_encrypted": encrypted_key,
+        }),
+        None,
+    )
 }

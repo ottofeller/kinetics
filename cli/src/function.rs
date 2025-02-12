@@ -7,6 +7,7 @@ use zip::write::SimpleFileOptions;
 pub struct Function {
     pub id: String,
     pub path: PathBuf,
+    pub s3key_encrypted: Option<String>,
 
     // Oringal parent crate
     pub crat: Crate,
@@ -18,7 +19,16 @@ impl Function {
             id: uuid::Uuid::new_v4().into(),
             path: path.clone(),
             crat: Crate::new(path.clone())?,
+            s3key_encrypted: None,
         })
+    }
+
+    pub fn set_s3key_encrypted(&mut self, s3key_encrypted: String) {
+        self.s3key_encrypted = Some(s3key_encrypted);
+    }
+
+    pub fn s3key_encrypted(&self) -> Option<String> {
+        self.s3key_encrypted.clone()
     }
 
     // Upload the backaend manually if the /upload endpoint gets
@@ -92,10 +102,6 @@ impl Function {
 
     pub fn bundle_path(&self) -> PathBuf {
         self.path.join(format!("{}.zip", self.id))
-    }
-
-    pub fn bundle_name(&self) -> String {
-        format!("{}.zip", self.id)
     }
 
     pub fn toml_string(&self) -> eyre::Result<String> {

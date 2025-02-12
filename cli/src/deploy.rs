@@ -1,9 +1,9 @@
 use crate::client::Client;
-use backend::deploy::{self, BodyCrate};
 use crate::crat;
 use crate::function::Function;
 use crate::functions;
 use crate::secret::Secret;
+use backend::deploy::{self, BodyCrate};
 use eyre::{Ok, WrapErr};
 use std::collections::HashMap;
 
@@ -17,20 +17,19 @@ fn bundle(functions: &Vec<Function>) -> eyre::Result<()> {
 }
 
 /// Call the /upload endpoint to get the presigned URL and upload the file
-async fn upload(client: &Client, functions: &Vec<Function>) -> eyre::Result<()> {
+async fn upload(client: &Client, functions: &mut Vec<Function>) -> eyre::Result<()> {
     for function in functions {
-        #[derive(serde::Deserialize)]
+        #[derive(serde::Deserialize, Debug)]
         struct PresignedUrl {
             url: String,
+            s3key_encrypted: String,
         }
 
         let path = function.bundle_path();
-        let key = path.file_name().unwrap().to_str().unwrap();
         println!("Uploading {path:?}...");
 
         let presigned = client
             .post("/upload")
-            .json(&serde_json::json!({ "key": key }))
             .send()
             .await?
             .json::<PresignedUrl>()
@@ -44,6 +43,8 @@ async fn upload(client: &Client, functions: &Vec<Function>) -> eyre::Result<()> 
             .send()
             .await?
             .error_for_status()?;
+
+        function.set_s3key_encrypted(presigned.s3key_encrypted);
 
         // Upload the backaend manually if the /upload endpoint gets
         // deleted accidentally
@@ -72,18 +73,19 @@ async fn upload(client: &Client, functions: &Vec<Function>) -> eyre::Result<()> 
 /// Build and deploy all assets using CFN template
 pub async fn deploy() -> eyre::Result<()> {
     let crat = crat().unwrap();
-    let functions = functions().wrap_err("Failed to bundle assets")?;
+    let mut functions = functions().wrap_err("Failed to bundle assets")?;
     let client = crate::client::Client::new().wrap_err("Failed to create client")?;
     println!("Deploying \"{}\"...", crat.name);
     bundle(&functions)?;
-    upload(&client, &functions).await?;
+    upload(&client, &mut functions).await?;
     let mut secrets = HashMap::new();
 
     Secret::from_dotenv()?.iter().for_each(|s| {
         secrets.insert(s.name.clone(), s.value());
     });
 
-    client.post("/deploy")
+    client
+        .post("/deploy")
         .json(&serde_json::json!(deploy::JsonBody {
             crat: BodyCrate {
                 toml: crat.toml_string.clone(),
@@ -93,7 +95,7 @@ pub async fn deploy() -> eyre::Result<()> {
                 .map(|f| {
                     deploy::BodyFunction {
                         name: f.name().unwrap().to_string(),
-                        s3key: f.bundle_name(),
+                        s3key_encrypted: f.s3key_encrypted().unwrap(),
                         toml: f.toml_string().unwrap(),
                     }
                 })

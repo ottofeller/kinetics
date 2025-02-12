@@ -22,8 +22,8 @@ pub struct BodyCrate {
 pub struct BodyFunction {
     pub name: String,
 
-    // The name of the zip file with the build in S3 bucket
-    pub s3key: String,
+    // Encrypted name of the zip file with the build in S3 bucket
+    pub s3key_encrypted: String,
 
     // Full Cargo.toml
     pub toml: String,
@@ -163,7 +163,8 @@ Permissions:
 #[endpoint(url_path = "/deploy", environment = {
     "BUCKET_NAME": "kinetics-rust-builds",
     "TABLE_NAME": "kinetics",
-    "DANGER_DISABLE_AUTH": "false"
+    "DANGER_DISABLE_AUTH": "false",
+    "S3_KEY_ENCRYPTION_KEY": "fjskoapgpsijtzp"
 })]
 pub async fn deploy(
     event: Request,
@@ -189,7 +190,15 @@ pub async fn deploy(
         &crat,
         body.functions
             .iter()
-            .map(|f| Function::new(&f.toml, &crat, &f.s3key).unwrap())
+            .map(|f| {
+                Function::new(
+                    &f.toml,
+                    &crat,
+                    &f.s3key_encrypted,
+                    &env("S3_KEY_ENCRYPTION_KEY").unwrap(),
+                )
+                .unwrap()
+            })
             .collect::<Vec<Function>>(),
         secrets.clone(),
         "kinetics-rust-builds",
