@@ -26,7 +26,7 @@ use std::collections::HashMap;
     url_path = "/upload",
     environment = {
         "EXPIRES_IN_SECONDS": "15",
-        "BUCKET_NAME": "kinetics-rust-builds",
+        "BUILDS_BUCKET": "kinetics-rust-builds",
         "TABLE_NAME": "kinetics",
         "DANGER_DISABLE_AUTH": "false",
         "S3_KEY_ENCRYPTION_KEY": "fjskoapgpsijtzp"
@@ -66,7 +66,7 @@ pub async fn upload(
 
     let presigned_request = client
         .put_object()
-        .bucket(env("BUCKET_NAME")?)
+        .bucket(env("BUILDS_BUCKET")?)
         .key(key)
         .presigned(expires_in)
         .await?;
