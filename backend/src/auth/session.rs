@@ -95,6 +95,10 @@ impl Session {
 
     /// Generate unique username out of email, suitable to be used in CloudFormation
     pub fn username(&self) -> String {
-        self.email.clone().unwrap().replace("@", "AT")
+        self.email
+            .clone()
+            .unwrap()
+            .replace("@", "AT")
+            .replace(".", "DOT")
     }
 }
