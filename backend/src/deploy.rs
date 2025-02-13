@@ -79,7 +79,9 @@ Permissions:
         "dynamodb:DeleteTAble",
         "ssm:GetParameters",
         "ssm:PutParameter",
-        "ssm:AddTagsToResource"
+        "ssm:AddTagsToResource",
+        "acm:RequestCertificate",
+        "acm:DeleteCertificate"
     ],
     "Resource": "*",
     "Effect": "Allow"
