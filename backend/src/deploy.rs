@@ -4,7 +4,6 @@ use crate::json;
 use crate::secret::Secret;
 use crate::template::Template;
 use crate::{auth::session::Session, env::env};
-use aws_config::BehaviorVersion;
 use eyre::Context;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
@@ -46,80 +45,6 @@ pub enum JsonResponseStatus {
 pub struct JsonResponse {
     pub message: Option<String>,
     pub status: JsonResponseStatus,
-}
-
-/// Check if the stack already exists
-async fn is_exists(client: &aws_sdk_cloudformation::Client, name: &str) -> eyre::Result<bool> {
-    let result = client
-        .describe_stacks()
-        .set_stack_name(Some(name.into()))
-        .send()
-        .await;
-
-    if let Err(e) = &result {
-        if let aws_sdk_cloudformation::error::SdkError::ServiceError(err) = e {
-            if err.err().meta().code().unwrap().eq("ValidationError") {
-                return Ok(false);
-            } else {
-                return Err(eyre::eyre!(
-                    "Service error while describing stack: {:?}",
-                    err
-                ));
-            }
-        } else {
-            return Err(eyre::eyre!("Failed to describe stack: {:?}", e));
-        }
-    }
-
-    Ok(true)
-}
-
-/// Provision cloud resources using CFN template
-async fn provision(template: &str, crat: &Crate) -> eyre::Result<()> {
-    let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
-        .load()
-        .await;
-
-    let client = aws_sdk_cloudformation::Client::new(&config);
-    let default_name = crat.name.as_str();
-    let default_value = toml::Value::String(default_name.to_string());
-    let stack = crat.metadata()?;
-    let stack = stack.get("stack");
-
-    let name = if stack.is_none() {
-        default_name
-    } else {
-        stack
-            .unwrap()
-            .get("name")
-            .unwrap_or(&default_value)
-            .as_str()
-            .unwrap()
-    };
-
-    let capabilities = aws_sdk_cloudformation::types::Capability::CapabilityIam;
-
-    if is_exists(&client, name).await? {
-        client
-            .update_stack()
-            .capabilities(capabilities)
-            .stack_name(name)
-            .template_body(template)
-            .send()
-            .await
-            .wrap_err("Failed to update stack")?;
-    } else {
-        client
-            .create_stack()
-            .capabilities(capabilities)
-            .stack_name(name)
-            .template_body(template)
-            .send()
-            .await
-            .wrap_err("Failed to create stack")?;
-    }
-
-    Ok(())
 }
 
 /*
@@ -204,13 +129,15 @@ pub async fn deploy(
         secrets.clone(),
         &env("BUILDS_BUCKET")?,
         "nide",
-    )?;
+    )
+    .await?;
 
     for secret in secrets.iter() {
         secret.sync().await?;
     }
 
-    provision(&template.to_string(), &crat)
+    template
+        .provision()
         .await
         .wrap_err("Failed to provision template")?;
 

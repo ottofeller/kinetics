@@ -2,12 +2,14 @@ use crate::crat::Crate;
 use crate::function::Function;
 use crate::secret::Secret;
 use crate::Resource;
+use aws_config::BehaviorVersion;
 use eyre::{ContextCompat, Ok, WrapErr};
 use toml::Value;
 
 #[derive(Clone, Debug)]
 pub struct Template {
     bucket: String,
+    client: aws_sdk_cloudformation::Client,
     crat: Crate,
     functions: Vec<Function>,
     username: String,
@@ -180,15 +182,22 @@ impl Template {
         )
     }
 
-    pub fn new(
+    pub async fn new(
         crat: &Crate,
         functions: Vec<Function>,
         secrets: Vec<Secret>,
         bucket: &str,
         username: &str,
     ) -> eyre::Result<Self> {
+        let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
+            .load()
+            .await;
+
+        let client = aws_sdk_cloudformation::Client::new(&config);
+
         let mut template = Template {
             bucket: bucket.to_string(),
+            client,
             crat: crat.clone(),
             template: "Resources:".to_string(),
             username: username.to_string(),
@@ -498,5 +507,75 @@ impl Template {
 
     pub fn to_string(&self) -> String {
         self.template.clone()
+    }
+
+    /// Check if the stack already exists
+    async fn is_exists(&self, name: &str) -> eyre::Result<bool> {
+        let result = self
+            .client
+            .describe_stacks()
+            .set_stack_name(Some(name.into()))
+            .send()
+            .await;
+
+        if let Err(e) = &result {
+            if let aws_sdk_cloudformation::error::SdkError::ServiceError(err) = e {
+                if err.err().meta().code().unwrap().eq("ValidationError") {
+                    return Ok(false);
+                } else {
+                    return Err(eyre::eyre!(
+                        "Service error while describing stack: {:?}",
+                        err
+                    ));
+                }
+            } else {
+                return Err(eyre::eyre!("Failed to describe stack: {:?}", e));
+            }
+        }
+
+        Ok(true)
+    }
+
+    /// Provision the template in CloudFormation
+    pub async fn provision(&self) -> eyre::Result<()> {
+        let default_name = self.crat.name.as_str();
+        let default_value = toml::Value::String(default_name.to_string());
+        let stack = self.crat.metadata()?;
+        let stack = stack.get("stack");
+
+        let name = if stack.is_none() {
+            default_name
+        } else {
+            stack
+                .unwrap()
+                .get("name")
+                .unwrap_or(&default_value)
+                .as_str()
+                .unwrap()
+        };
+
+        let capabilities = aws_sdk_cloudformation::types::Capability::CapabilityIam;
+
+        if self.is_exists(name).await? {
+            self.client
+                .update_stack()
+                .capabilities(capabilities)
+                .stack_name(name)
+                .template_body(self.template.clone())
+                .send()
+                .await
+                .wrap_err("Failed to update stack")?;
+        } else {
+            self.client
+                .create_stack()
+                .capabilities(capabilities)
+                .stack_name(name)
+                .template_body(self.template.clone())
+                .send()
+                .await
+                .wrap_err("Failed to create stack")?;
+        }
+
+        Ok(())
     }
 }
