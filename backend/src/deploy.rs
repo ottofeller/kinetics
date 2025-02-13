@@ -164,7 +164,8 @@ Permissions:
     "BUCKET_NAME": "kinetics-rust-builds",
     "TABLE_NAME": "kinetics",
     "DANGER_DISABLE_AUTH": "false",
-    "S3_KEY_ENCRYPTION_KEY": "fjskoapgpsijtzp"
+    "S3_KEY_ENCRYPTION_KEY": "fjskoapgpsijtzp",
+    "BUILDS_BUCKET": "kinetics-rust-builds"
 })]
 pub async fn deploy(
     event: Request,
@@ -201,7 +202,7 @@ pub async fn deploy(
             })
             .collect::<Vec<Function>>(),
         secrets.clone(),
-        "kinetics-rust-builds",
+        &env("BUILDS_BUCKET")?,
         "nide",
     )?;
 
