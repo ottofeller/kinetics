@@ -1,4 +1,5 @@
 use crate::crat::Crate;
+use aws_sdk_s3::primitives::ByteStream;
 use eyre::{eyre, ContextCompat, Ok, WrapErr};
 use std::path::PathBuf;
 use zip::write::SimpleFileOptions;
@@ -33,11 +34,11 @@ impl Function {
 
     // Upload the backaend manually if the /upload endpoint gets
     // use aws_sdk_s3::primitives::ByteStream;
-    // pub async fn zip_stream(&self) -> eyre::Result<ByteStream> {
-    //     aws_sdk_s3::primitives::ByteStream::from_path(self.bundle_path())
-    //         .await
-    //         .wrap_err("Failed to read bundled zip")
-    // }
+    pub async fn zip_stream(&self) -> eyre::Result<ByteStream> {
+        aws_sdk_s3::primitives::ByteStream::from_path(self.bundle_path())
+            .await
+            .wrap_err("Failed to read bundled zip")
+    }
 
     fn meta(&self) -> eyre::Result<toml::Value> {
         self.crat

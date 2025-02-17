@@ -538,25 +538,11 @@ impl Template {
 
     /// Provision the template in CloudFormation
     pub async fn provision(&self) -> eyre::Result<()> {
-        let default_name = self.crat.name.as_str();
-        let default_value = toml::Value::String(default_name.to_string());
-        let stack = self.crat.metadata()?;
-        let stack = stack.get("stack");
-
-        let name = if stack.is_none() {
-            default_name
-        } else {
-            stack
-                .unwrap()
-                .get("name")
-                .unwrap_or(&default_value)
-                .as_str()
-                .unwrap()
-        };
-
+        let base_name = self.crat.name.as_str();
+        let name = format!("{}-{}", self.username, base_name);
         let capabilities = aws_sdk_cloudformation::types::Capability::CapabilityIam;
 
-        if self.is_exists(name).await? {
+        if self.is_exists(&name).await? {
             self.client
                 .update_stack()
                 .capabilities(capabilities)

@@ -17,16 +17,19 @@ impl Function {
         crat: &Crate,
         s3key_encrypted: &str,
         s3key_decryption_key: &str,
+        is_encrypted: bool,
     ) -> eyre::Result<Self> {
         let cargo_toml: toml::Value = cargo_toml_string
             .parse::<toml::Value>()
             .wrap_err("Failed to parse Cargo.toml")?;
 
-        let decrypted = {
+        let decrypted = if is_encrypted {
             use magic_crypt::{new_magic_crypt, MagicCryptTrait};
             let mc = new_magic_crypt!(s3key_decryption_key, 256);
             mc.decrypt_base64_to_string(&s3key_encrypted)
                 .unwrap_or("default".into())
+        } else {
+            s3key_encrypted.to_string()
         };
 
         Ok(Function {

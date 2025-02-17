@@ -10,7 +10,14 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new() -> eyre::Result<Self> {
+    pub fn new(is_directly: &bool) -> eyre::Result<Self> {
+        if *is_directly {
+            return Ok(Client {
+                access_token: "".into(),
+                client: reqwest::Client::new(),
+            });
+        }
+
         let path = Path::new(&crate::skypath()?).join(".credentials");
 
         let credentials = serde_json::from_str::<crate::Credentials>(

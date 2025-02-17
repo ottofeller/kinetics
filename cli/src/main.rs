@@ -4,13 +4,13 @@ mod deploy;
 mod function;
 mod login;
 mod secret;
+use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use crat::Crate;
 use eyre::{Ok, WrapErr};
 use function::Function;
 use login::login;
 use std::path::{Path, PathBuf};
-use chrono::{DateTime, Utc};
 static API_BASE: &str = "https://backend.usekinetics.com";
 
 /// Credentials to be used with API
@@ -40,7 +40,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     Build,
-    Deploy,
+
+    Deploy {
+        #[arg(short, long)]
+        is_directly: bool,
+    },
 
     Login {
         #[arg()]
@@ -102,13 +106,13 @@ async fn main() {
                 return;
             }
         }
-        Some(Commands::Deploy) => {
+        Some(Commands::Deploy { is_directly }) => {
             if let Err(error) = build() {
                 println!("{error:?}");
                 return;
             }
 
-            if let Err(error) = deploy::deploy().await {
+            if let Err(error) = deploy::deploy(is_directly).await {
                 println!("{error:?}");
                 return;
             }
