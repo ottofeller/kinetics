@@ -1,3 +1,4 @@
+use eyre::Context;
 use std::collections::HashMap;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
@@ -125,13 +126,21 @@ impl Parser {
 
                 match ident.to_string().as_str() {
                     "name" => {
-                        params.name = input.parse::<LitStr>()?.value();
+                        params.name = input
+                            .parse::<LitStr>()
+                            .wrap_err("Failed to parse name value")?
+                            .value();
                     }
                     "url_path" => {
-                        params.url_path = input.parse::<LitStr>()?.value();
+                        params.url_path = input
+                            .parse::<LitStr>()
+                            .wrap_err("Failed to parse url_path value")?
+                            .value();
                     }
                     "environment" => {
-                        params.environment = self.parse_environment(input)?;
+                        params.environment = self
+                            .parse_environment(input)
+                            .wrap_err("Failed to parse environment value")?;
                     }
                     // Ignore unknown attributes
                     _ => {}
@@ -156,21 +165,27 @@ impl Parser {
 
                 match ident.to_string().as_str() {
                     "name" => {
-                        params.name = input.parse::<LitStr>()?.value();
+                        params.name = input
+                            .parse::<LitStr>()
+                            .wrap_err("Failed to parse name value")?
+                            .value();
                     }
                     "environment" => {
-                        params.environment = self.parse_environment(input)?;
+                        params.environment = self
+                            .parse_environment(input)
+                            .wrap_err("Failed to parse environment")?;
                     }
                     "concurrency" => {
-                        params.concurrency = input.parse::<LitInt>()?.base10_parse::<i16>()?;
+                        params.concurrency = input
+                            .parse::<LitInt>()
+                            .wrap_err("Failed to parse concurrency value")?
+                            .base10_parse::<i16>()?;
                     }
                     "fifo" => {
-                        params.fifo = match input.parse::<LitBool>() {
-                            Ok(bool) => bool.value,
-                            Err(_) => {
-                                return Err(input.error("expected boolean value for 'fifo'"));
-                            }
-                        };
+                        params.fifo = input
+                            .parse::<LitBool>()
+                            .wrap_err("Failed to parse fifo value")?
+                            .value;
                     }
                     // Ignore unknown attributes
                     _ => {}
