@@ -89,7 +89,12 @@ impl Crate {
                     }),
 
                     "kvdb" => crate::Resource::KvDb(crate::KvDb {
-                        name: resource_name.clone(),
+                        name: resource
+                            .get("name")
+                            .unwrap_or(&toml::Value::String(resource_name.clone()))
+                            .as_str()
+                            .unwrap()
+                            .to_string(),
                     }),
 
                     _ => unreachable!(),
