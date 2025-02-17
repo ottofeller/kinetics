@@ -1,4 +1,3 @@
-use eyre::eyre;
 use std::collections::HashMap;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
@@ -38,22 +37,6 @@ impl Role {
         match self {
             Role::Endpoint(params) => &params.environment,
             Role::Worker(params) => &params.environment,
-        }
-    }
-
-    pub fn worker(&self) -> eyre::Result<&Worker> {
-        match self {
-            Role::Worker(params) => Ok(params),
-            _ => Err(eyre!("Can't return worker for non-worker role: {self:?}")),
-        }
-    }
-
-    pub fn endpoint(&self) -> eyre::Result<&Endpoint> {
-        match self {
-            Role::Endpoint(params) => Ok(params),
-            _ => Err(eyre!(
-                "Can't return endpoint for non-endpoint role: {self:?}"
-            )),
         }
     }
 }

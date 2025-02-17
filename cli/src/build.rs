@@ -298,29 +298,40 @@ fn inject(dst: &PathBuf, parsed_function: &ParsedFunction) -> eyre::Result<()> {
         .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
         .as_table_mut()
         .map(|sky_meta| {
-            let (url_path, name, role) = match &parsed_function.role {
-                Role::Endpoint(p) => (p.url_path.as_str(), &p.name, "endpoint"),
-                Role::Worker(p) => ("", &p.name, "worker"),
+            let (name, role) = match &parsed_function.role {
+                Role::Endpoint(p) => (&p.name, "endpoint"),
+                Role::Worker(p) => (&p.name, "worker"),
             };
 
-            if !sky_meta.contains_key("function") {
-                let mut function_table = toml_edit::Table::new();
-                function_table["name"] = toml_edit::value(name);
-                function_table["role"] = toml_edit::value(role);
+            // Create a function table for both roles
+            let mut function_table = toml_edit::Table::new();
+            function_table["name"] = toml_edit::value(name);
+            function_table["role"] = toml_edit::value(role);
+            sky_meta.insert("function", toml_edit::Item::Table(function_table));
 
-                if !url_path.is_empty() {
-                    function_table["url_path"] = toml_edit::value(url_path);
+            match &parsed_function.role {
+                Role::Worker(params) => {
+                    let mut queue_table = toml_edit::Table::new();
+                    queue_table["name"] = toml_edit::value(name);
+                    queue_table["concurrency"] = toml_edit::value(params.concurrency as i64);
+                    queue_table["fifo"] = toml_edit::value(params.fifo);
+
+                    let mut named_table = toml_edit::Table::new();
+                    named_table.set_implicit(true); // Don't create an empty queue table
+                    named_table.insert(name, toml_edit::Item::Table(queue_table));
+
+                    sky_meta.insert("queue", toml_edit::Item::Table(named_table));
                 }
+                Role::Endpoint(params) => {
+                    let mut endpoint_table = toml_edit::Table::new();
+                    endpoint_table["url_path"] = toml_edit::value(&params.url_path);
 
-                sky_meta.insert("function", toml_edit::Item::Table(function_table));
-            };
-
-            if let Ok(params) = parsed_function.role.worker() {
-                let mut queue_table = toml_edit::Table::new();
-                queue_table["name"] = toml_edit::value(name);
-                queue_table["concurrency"] = toml_edit::value(params.concurrency as i64);
-                queue_table["fifo"] = toml_edit::value(params.fifo);
-                sky_meta.insert("queue", toml_edit::Item::Table(queue_table));
+                    // Update function table with endpoint configuration
+                    // Function table has been created above
+                    sky_meta["function"]
+                        .as_table_mut()
+                        .map(|f| f.extend(endpoint_table));
+                }
             }
 
             let environment = parsed_function.role.environment().iter();
