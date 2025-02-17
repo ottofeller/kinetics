@@ -48,12 +48,23 @@ pub(crate) struct Endpoint {
     pub(crate) environment: Environment,
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub(crate) struct Worker {
     pub(crate) name: String,
     pub(crate) concurrency: i16,
     pub(crate) fifo: bool,
     pub(crate) environment: Environment,
+}
+
+impl Default for Worker {
+    fn default() -> Self {
+        Worker {
+            name: "".to_string(),
+            concurrency: 1,
+            fifo: false,
+            environment: Environment::new(),
+        }
+    }
 }
 
 enum ParsedRole {
