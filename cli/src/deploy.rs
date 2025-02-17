@@ -1,9 +1,8 @@
 use crate::client::Client;
-use backend::deploy::{self, BodyCrate};
 use crate::crat;
 use crate::function::Function;
-use crate::functions;
 use crate::secret::Secret;
+use backend::deploy::{self, BodyCrate};
 use eyre::{Ok, WrapErr};
 use std::collections::HashMap;
 
@@ -70,20 +69,20 @@ async fn upload(client: &Client, functions: &Vec<Function>) -> eyre::Result<()> 
 }
 
 /// Build and deploy all assets using CFN template
-pub async fn deploy() -> eyre::Result<()> {
-    let crat = crat().unwrap();
-    let functions = functions().wrap_err("Failed to bundle assets")?;
-    let client = crate::client::Client::new().wrap_err("Failed to create client")?;
+pub async fn deploy(functions: &Vec<Function>) -> eyre::Result<()> {
+    let crat = crat()?;
+    let client = Client::new().wrap_err("Failed to create client")?;
     println!("Deploying \"{}\"...", crat.name);
-    bundle(&functions)?;
-    upload(&client, &functions).await?;
+    bundle(functions)?;
+    upload(&client, functions).await?;
     let mut secrets = HashMap::new();
 
     Secret::from_dotenv()?.iter().for_each(|s| {
         secrets.insert(s.name.clone(), s.value());
     });
 
-    client.post("/deploy")
+    client
+        .post("/deploy")
         .json(&serde_json::json!(deploy::JsonBody {
             crat: BodyCrate {
                 toml: crat.toml_string.clone(),
