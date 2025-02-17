@@ -124,7 +124,7 @@ fn clone(src: &Path, dst: &Path) -> eyre::Result<()> {
 /// Inject the code which is necessary to build lambda
 ///
 /// Set up the main() function according to cargo lambda guides, and add the lambda code right to main.rs
-fn inject(dst: &PathBuf, function_info: &ParsedFunction) -> eyre::Result<()> {
+fn inject(dst: &PathBuf, parsed_function: &ParsedFunction) -> eyre::Result<()> {
     let main_rs_path = dst.join("src").join("main.rs");
     let lib_rs_path = dst.join("src").join("lib.rs");
 
@@ -147,13 +147,13 @@ fn inject(dst: &PathBuf, function_info: &ParsedFunction) -> eyre::Result<()> {
     let re = Regex::new(r"fn\s+main\s*\(.*?\)\s*\{[^}]*}").wrap_err("Failed to prepare regex")?;
 
     let import_statement = import_statement(
-        function_info.relative_path.as_str(),
-        function_info.rust_function_name.as_str(),
+        parsed_function.relative_path.as_str(),
+        parsed_function.rust_function_name.as_str(),
     )?;
 
-    let rust_function_name = function_info.rust_function_name.clone();
+    let rust_function_name = parsed_function.rust_function_name.clone();
 
-    let new_main_code = match &function_info.role {
+    let new_main_code = match &parsed_function.role {
         Role::Endpoint(_) => {
             format!(
                 "{import_statement}
@@ -298,15 +298,16 @@ fn inject(dst: &PathBuf, function_info: &ParsedFunction) -> eyre::Result<()> {
         .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
         .as_table_mut()
         .map(|sky_meta| {
-            if !sky_meta.contains_key("function") {
-                let (url_path, name, role) = match &function_info.role {
-                    Role::Endpoint(p) => (p.url_path.as_str(), &p.name, "endpoint"),
-                    Role::Worker(p) => ("", &p.name, "worker"),
-                };
+            let (url_path, name, role) = match &parsed_function.role {
+                Role::Endpoint(p) => (p.url_path.as_str(), &p.name, "endpoint"),
+                Role::Worker(p) => ("", &p.name, "worker"),
+            };
 
+            if !sky_meta.contains_key("function") {
                 let mut function_table = toml_edit::Table::new();
                 function_table["name"] = toml_edit::value(name);
                 function_table["role"] = toml_edit::value(role);
+
                 if !url_path.is_empty() {
                     function_table["url_path"] = toml_edit::value(url_path);
                 }
@@ -314,7 +315,15 @@ fn inject(dst: &PathBuf, function_info: &ParsedFunction) -> eyre::Result<()> {
                 sky_meta.insert("function", toml_edit::Item::Table(function_table));
             };
 
-            let environment = function_info.role.environment().iter();
+            if let Ok(params) = parsed_function.role.worker() {
+                let mut queue_table = toml_edit::Table::new();
+                queue_table["name"] = toml_edit::value(name);
+                queue_table["concurrency"] = toml_edit::value(params.concurrency as i64);
+                queue_table["fifo"] = toml_edit::value(params.fifo);
+                sky_meta.insert("queue", toml_edit::Item::Table(queue_table));
+            }
+
+            let environment = parsed_function.role.environment().iter();
 
             sky_meta["environment"]
                 .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
