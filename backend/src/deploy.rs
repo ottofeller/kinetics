@@ -100,7 +100,7 @@ pub async fn deploy(
 ) -> Result<Response<Body>, Error> {
     let session = Session::new(&event, &env("TABLE_NAME")?).await;
 
-    if env("DANGER_DISABLE_AUTH")? == "false" && !session?.is_valid() {
+    if env("DANGER_DISABLE_AUTH")? == "false" && !session.as_ref().unwrap().is_valid() {
         eprintln!("Not authorized");
         return json::response(json!({"error": "Unauthorized"}), None);
     }
@@ -124,13 +124,14 @@ pub async fn deploy(
                     &crat,
                     &f.s3key_encrypted,
                     &env("S3_KEY_ENCRYPTION_KEY").unwrap(),
+                    true,
                 )
                 .unwrap()
             })
             .collect::<Vec<Function>>(),
         secrets.clone(),
         &env("BUILDS_BUCKET")?,
-        "nide",
+        &session?.username(),
     )
     .await?;
 
