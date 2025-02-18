@@ -37,7 +37,7 @@ pub fn prepare_crates(
 
     for parsed_function in parser.functions {
         // Function name is parsed value from skymacro name attribute
-        // Path example: /home/some-user/.sky/<crate-name>/<function-name>/<rust-function-name>
+        // Path example: /home/some-user/.kinetics/<crate-name>/<function-name>/<rust-function-name>
         let dst = target_directory
             .join(&current_crate.name)
             .join(func_name(&parsed_function));

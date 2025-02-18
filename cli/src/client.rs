@@ -18,7 +18,7 @@ impl Client {
             });
         }
 
-        let path = Path::new(&crate::skypath()?).join(".credentials");
+        let path = Path::new(&crate::build_path()?).join(".credentials");
 
         let credentials = serde_json::from_str::<crate::Credentials>(
             &std::fs::read_to_string(path.clone())
