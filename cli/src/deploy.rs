@@ -1,7 +1,6 @@
 use crate::client::Client;
 use crate::crat;
 use crate::function::Function;
-use crate::functions;
 use crate::secret::Secret;
 use backend::crat::Crate;
 use backend::deploy::{self, BodyCrate};
@@ -84,13 +83,12 @@ async fn upload(
 }
 
 /// Build and deploy all assets using CFN template
-pub async fn deploy(is_directly: &bool) -> eyre::Result<()> {
-    let crat = crat().unwrap();
-    let mut functions = functions().wrap_err("Failed to bundle assets")?;
-    let client = crate::client::Client::new(is_directly).wrap_err("Failed to create client")?;
+pub async fn deploy(functions: &mut Vec<Function>, is_directly: &bool) -> eyre::Result<()> {
+    let crat = crat()?;
+    let client = Client::new(is_directly).wrap_err("Failed to create client")?;
     println!("Deploying \"{}\"...", crat.name);
-    bundle(&functions)?;
-    upload(&client, &mut functions, is_directly).await?;
+    bundle(functions)?;
+    upload(&client, functions, is_directly).await?;
     let mut secrets = HashMap::new();
 
     Secret::from_dotenv()?.iter().for_each(|s| {

@@ -2366,9 +2366,9 @@ dependencies = [
 
 [[package]]
 name = "prettyplease"
-version = "0.2.25"
+version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64d1ec885c64d0457d564db4ec299b2dae3f9c02808b8ad9c3a089c591b18033"
+checksum = "6924ced06e1f7dfe3fa48d57b9f74f55d8915f5036121bef647ef4b204895fac"
 dependencies = [
  "proc-macro2",
  "syn",
@@ -3059,13 +3059,16 @@ dependencies = [
  "chrono",
  "clap",
  "eyre",
+ "prettyplease",
  "regex",
  "reqwest",
  "rust_dotenv",
  "serde",
  "serde_json",
+ "syn",
  "tokio",
  "toml",
+ "toml_edit",
  "uuid",
  "walkdir",
  "zip",
@@ -3087,15 +3090,6 @@ dependencies = [
 [[package]]
 name = "skymacro"
 version = "0.1.0"
-dependencies = [
- "eyre",
- "prettyplease",
- "regex",
- "serde",
- "serde_json",
- "syn",
- "toml",
-]
 
 [[package]]
 name = "slab"
@@ -3158,9 +3152,9 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "syn"
-version = "2.0.95"
+version = "2.0.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46f71c0377baf4ef1cc3e3402ded576dccc315800fbc62dfc7fe04b009773b4a"
+checksum = "36147f1a48ae0ec2b5b3bc5b537d267457555a10dc06f3dbc8cb11ba3006d3b1"
 dependencies = [
  "proc-macro2",
  "quote",

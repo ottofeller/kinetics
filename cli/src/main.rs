@@ -1,9 +1,12 @@
+mod build;
 mod client;
 mod crat;
 mod deploy;
 mod function;
 mod login;
+mod parser;
 mod secret;
+use crate::build::{build, prepare_crates};
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use crat::Crate;
@@ -60,39 +63,14 @@ fn crat() -> eyre::Result<Crate> {
 
 /// Return the list of dirs with functions to deploy
 fn functions() -> eyre::Result<Vec<Function>> {
-    let mut result = vec![];
-    let crat = crat()?;
+    let directories = prepare_crates(skypath()?, crat()?)?;
 
-    for entry in std::fs::read_dir(
-        &skypath()
-            .wrap_err("Failed to resolve sky path")?
-            .join(crat.name),
-    )
-    .wrap_err("Failed to read dir")?
-    {
-        let path = entry.wrap_err("Failed to get dir entry")?.path();
-
-        if path.is_dir() {
-            result.push(Function::new(&path)?);
-        }
-    }
-
-    Ok(result)
-}
-
-/// Build all assets and CFN templates
-fn build() -> eyre::Result<()> {
-    let threads: Vec<_> = functions()?
+    let functions = directories
         .into_iter()
-        .map(|function| std::thread::spawn(move || function.build()))
+        .map(|p| Function::new(&p).unwrap())
         .collect();
 
-    for thread in threads {
-        thread.join().unwrap()?;
-    }
-
-    println!("Done!");
-    Ok(())
+    Ok(functions)
 }
 
 #[tokio::main]
@@ -101,18 +79,22 @@ async fn main() {
 
     match &cli.command {
         Some(Commands::Build) => {
-            if let Err(error) = build() {
+            let functions = functions().unwrap();
+
+            if let Err(error) = build(&functions) {
                 println!("{error}");
                 return;
             }
         }
         Some(Commands::Deploy { is_directly }) => {
-            if let Err(error) = build() {
+            let mut functions = functions().unwrap();
+
+            if let Err(error) = build(&functions) {
                 println!("{error:?}");
                 return;
             }
 
-            if let Err(error) = deploy::deploy(is_directly).await {
+            if let Err(error) = deploy::deploy(&mut functions, is_directly).await {
                 println!("{error:?}");
                 return;
             }

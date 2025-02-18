@@ -3,6 +3,8 @@ use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct Crate {
+    /// Path to the crate's root directory
+    pub path: PathBuf,
     pub name: String,
     pub toml: toml::Value,
     pub toml_string: String,
@@ -18,6 +20,7 @@ impl Crate {
             .wrap_err("Failed to parse Cargo.toml")?;
 
         Ok(Crate {
+            path,
             name: cargo_toml
                 .get("package")
                 .and_then(|pkg| pkg.get("name"))
