@@ -26,10 +26,10 @@ pub(crate) enum Role {
 }
 
 impl Role {
-    pub fn rust_function_name(&self) -> &str {
+    pub fn name(&self) -> Option<&String> {
         match self {
-            Role::Endpoint(params) => &params.name,
-            Role::Worker(params) => &params.name,
+            Role::Endpoint(params) => params.name.as_ref(),
+            Role::Worker(params) => params.name.as_ref(),
         }
     }
 
@@ -43,14 +43,14 @@ impl Role {
 
 #[derive(Default, Debug)]
 pub(crate) struct Endpoint {
-    pub(crate) name: String,
+    pub(crate) name: Option<String>,
     pub(crate) url_path: String,
     pub(crate) environment: Environment,
 }
 
 #[derive(Debug)]
 pub(crate) struct Worker {
-    pub(crate) name: String,
+    pub(crate) name: Option<String>,
     pub(crate) concurrency: i16,
     pub(crate) fifo: bool,
     pub(crate) environment: Environment,
@@ -59,7 +59,7 @@ pub(crate) struct Worker {
 impl Default for Worker {
     fn default() -> Self {
         Worker {
-            name: "".to_string(),
+            name: None,
             concurrency: 1,
             fifo: false,
             environment: Environment::new(),
@@ -90,7 +90,7 @@ pub(crate) struct Parser {
     pub(crate) functions: Vec<ParsedFunction>,
 
     /// Relative path to currently processing file
-    relative_path: String,
+    pub(crate) relative_path: String,
 }
 
 impl Parser {
@@ -125,7 +125,7 @@ impl Parser {
 
                 match ident.to_string().as_str() {
                     "name" => {
-                        endpoint.name = input.parse::<LitStr>()?.value();
+                        endpoint.name = Some(input.parse::<LitStr>()?.value());
                     }
                     "url_path" => {
                         endpoint.url_path = input.parse::<LitStr>()?.value();
@@ -156,7 +156,7 @@ impl Parser {
 
                 match ident.to_string().as_str() {
                     "name" => {
-                        worker.name = input.parse::<LitStr>()?.value();
+                        worker.name = Some(input.parse::<LitStr>()?.value());
                     }
                     "environment" => {
                         worker.environment = self.parse_environment(input)?;

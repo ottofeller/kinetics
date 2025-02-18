@@ -40,7 +40,7 @@ pub fn prepare_crates(
         // Path example: /home/some-user/.sky/<crate-name>/<function-name>/<rust-function-name>
         let dst = target_directory
             .join(&current_crate.name)
-            .join(parsed_function.role.rust_function_name());
+            .join(func_name(&parsed_function));
 
         clone(&current_crate.path, &dst)?;
         cleanup(&dst)?;
@@ -297,27 +297,29 @@ fn inject(dst: &PathBuf, parsed_function: &ParsedFunction) -> eyre::Result<()> {
         .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
         .as_table_mut()
         .map(|sky_meta| {
-            let (name, role) = match &parsed_function.role {
-                Role::Endpoint(p) => (&p.name, "endpoint"),
-                Role::Worker(p) => (&p.name, "worker"),
+            let role_str = match &parsed_function.role {
+                Role::Endpoint(_) => "endpoint",
+                Role::Worker(_) => "worker",
             };
+
+            let name = func_name(parsed_function);
 
             // Create a function table for both roles
             let mut function_table = toml_edit::Table::new();
-            function_table["name"] = toml_edit::value(name);
-            function_table["role"] = toml_edit::value(role);
+            function_table["name"] = toml_edit::value(&name);
+            function_table["role"] = toml_edit::value(role_str);
             sky_meta.insert("function", toml_edit::Item::Table(function_table));
 
             match &parsed_function.role {
                 Role::Worker(params) => {
                     let mut queue_table = toml_edit::Table::new();
-                    queue_table["name"] = toml_edit::value(name);
+                    queue_table["name"] = toml_edit::value(&name);
                     queue_table["concurrency"] = toml_edit::value(params.concurrency as i64);
                     queue_table["fifo"] = toml_edit::value(params.fifo);
 
                     let mut named_table = toml_edit::Table::new();
                     named_table.set_implicit(true); // Don't create an empty queue table
-                    named_table.insert(name, toml_edit::Item::Table(queue_table));
+                    named_table.insert(&name, toml_edit::Item::Table(queue_table));
 
                     sky_meta.insert("queue", toml_edit::Item::Table(named_table));
                 }
@@ -452,4 +454,33 @@ fn cleanup(dst: &Path) -> eyre::Result<()> {
 
     fs::write(&cargo_toml_path, doc.to_string())?;
     Ok(())
+}
+
+/// Generate lambda function name out of Rust function name or macro attribute
+///
+/// By default use the Rust function plus crate path as the function name. Convert
+/// some-name to SomeName, and do other transformations in order to comply with Lambda
+/// function name requirements.
+pub fn func_name(parsed_function: &ParsedFunction) -> String {
+    let rust_name = &parsed_function.rust_function_name;
+
+    let default_func_name = format!(
+        "{}{rust_name}",
+        parsed_function
+            .relative_path
+            .as_str()
+            .split(&['-', '.', '/'])
+            .map(|s| match s.chars().next() {
+                Some(first) => first.to_uppercase().collect::<String>() + &s[1..],
+                None => String::new(),
+            })
+            .collect::<String>()
+    );
+
+    // TODO Check the name for uniqueness
+    parsed_function
+        .role
+        .name()
+        .unwrap_or(&default_func_name)
+        .to_string()
 }
