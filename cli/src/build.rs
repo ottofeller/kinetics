@@ -35,8 +35,6 @@ pub fn prepare_crates(
         parser.visit_file(&syntax);
     }
 
-    fs::create_dir_all(&target_directory).wrap_err("Failed to create directory")?;
-
     for parsed_function in parser.functions {
         // Function name is parsed value from skymacro name attribute
         // Path example: /home/some-user/.sky/<crate-name>/<function-name>/<rust-function-name>
@@ -99,6 +97,7 @@ fn clone(src: &Path, dst: &Path) -> eyre::Result<()> {
     for entry in WalkDir::new(src).into_iter().filter_map(|e| e.ok()) {
         let src_path = entry.path();
 
+        // Skip the target dir, we use it (if exist) as a "cache" for incremental build
         if src_path.eq(&src.join("target")) {
             continue;
         }
