@@ -4,7 +4,6 @@ use crate::json;
 use crate::secret::Secret;
 use crate::template::Template;
 use crate::{auth::session::Session, env::env};
-use aws_config::BehaviorVersion;
 use eyre::Context;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
@@ -22,8 +21,8 @@ pub struct BodyCrate {
 pub struct BodyFunction {
     pub name: String,
 
-    // The name of the zip file with the build in S3 bucket
-    pub s3key: String,
+    // Encrypted name of the zip file with the build in S3 bucket
+    pub s3key_encrypted: String,
 
     // Full Cargo.toml
     pub toml: String,
@@ -46,80 +45,6 @@ pub enum JsonResponseStatus {
 pub struct JsonResponse {
     pub message: Option<String>,
     pub status: JsonResponseStatus,
-}
-
-/// Check if the stack already exists
-async fn is_exists(client: &aws_sdk_cloudformation::Client, name: &str) -> eyre::Result<bool> {
-    let result = client
-        .describe_stacks()
-        .set_stack_name(Some(name.into()))
-        .send()
-        .await;
-
-    if let Err(e) = &result {
-        if let aws_sdk_cloudformation::error::SdkError::ServiceError(err) = e {
-            if err.err().meta().code().unwrap().eq("ValidationError") {
-                return Ok(false);
-            } else {
-                return Err(eyre::eyre!(
-                    "Service error while describing stack: {:?}",
-                    err
-                ));
-            }
-        } else {
-            return Err(eyre::eyre!("Failed to describe stack: {:?}", e));
-        }
-    }
-
-    Ok(true)
-}
-
-/// Provision cloud resources using CFN template
-async fn provision(template: &str, crat: &Crate) -> eyre::Result<()> {
-    let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
-        .load()
-        .await;
-
-    let client = aws_sdk_cloudformation::Client::new(&config);
-    let default_name = crat.name.as_str();
-    let default_value = toml::Value::String(default_name.to_string());
-    let stack = crat.metadata()?;
-    let stack = stack.get("stack");
-
-    let name = if stack.is_none() {
-        default_name
-    } else {
-        stack
-            .unwrap()
-            .get("name")
-            .unwrap_or(&default_value)
-            .as_str()
-            .unwrap()
-    };
-
-    let capabilities = aws_sdk_cloudformation::types::Capability::CapabilityIam;
-
-    if is_exists(&client, name).await? {
-        client
-            .update_stack()
-            .capabilities(capabilities)
-            .stack_name(name)
-            .template_body(template)
-            .send()
-            .await
-            .wrap_err("Failed to update stack")?;
-    } else {
-        client
-            .create_stack()
-            .capabilities(capabilities)
-            .stack_name(name)
-            .template_body(template)
-            .send()
-            .await
-            .wrap_err("Failed to create stack")?;
-    }
-
-    Ok(())
 }
 
 /*
@@ -154,7 +79,9 @@ Permissions:
         "dynamodb:DeleteTAble",
         "ssm:GetParameters",
         "ssm:PutParameter",
-        "ssm:AddTagsToResource"
+        "ssm:AddTagsToResource",
+        "acm:RequestCertificate",
+        "acm:DeleteCertificate"
     ],
     "Resource": "*",
     "Effect": "Allow"
@@ -163,7 +90,9 @@ Permissions:
 #[endpoint(url_path = "/deploy", environment = {
     "BUCKET_NAME": "kinetics-rust-builds",
     "TABLE_NAME": "kinetics",
-    "DANGER_DISABLE_AUTH": "false"
+    "DANGER_DISABLE_AUTH": "false",
+    "S3_KEY_ENCRYPTION_KEY": "fjskoapgpsijtzp",
+    "BUILDS_BUCKET": "kinetics-rust-builds"
 })]
 pub async fn deploy(
     event: Request,
@@ -171,7 +100,7 @@ pub async fn deploy(
 ) -> Result<Response<Body>, Error> {
     let session = Session::new(&event, &env("TABLE_NAME")?).await;
 
-    if env("DANGER_DISABLE_AUTH")? == "false" && !session?.is_valid() {
+    if env("DANGER_DISABLE_AUTH")? == "false" && !session.as_ref().unwrap().is_valid() {
         eprintln!("Not authorized");
         return json::response(json!({"error": "Unauthorized"}), None);
     }
@@ -189,18 +118,29 @@ pub async fn deploy(
         &crat,
         body.functions
             .iter()
-            .map(|f| Function::new(&f.toml, &crat, &f.s3key).unwrap())
+            .map(|f| {
+                Function::new(
+                    &f.toml,
+                    &crat,
+                    &f.s3key_encrypted,
+                    &env("S3_KEY_ENCRYPTION_KEY").unwrap(),
+                    true,
+                )
+                .unwrap()
+            })
             .collect::<Vec<Function>>(),
         secrets.clone(),
-        "kinetics-rust-builds",
-        "nide",
-    )?;
+        &env("BUILDS_BUCKET")?,
+        &session?.username(),
+    )
+    .await?;
 
     for secret in secrets.iter() {
         secret.sync().await?;
     }
 
-    provision(&template.to_string(), &crat)
+    template
+        .provision()
         .await
         .wrap_err("Failed to provision template")?;
 

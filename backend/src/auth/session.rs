@@ -71,7 +71,7 @@ impl Session {
             expires_at: Some(expires_at),
 
             email: Some(
-                item.get("expires_at")
+                item.get("email")
                     .wrap_err("email is missing")?
                     .as_s()
                     .unwrap()
@@ -95,6 +95,10 @@ impl Session {
 
     /// Generate unique username out of email, suitable to be used in CloudFormation
     pub fn username(&self) -> String {
-        self.email.clone().unwrap().replace("@", "AT")
+        self.email
+            .clone()
+            .unwrap()
+            .replace("@", "AT")
+            .replace(".", "DOT")
     }
 }

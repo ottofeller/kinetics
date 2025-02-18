@@ -14,7 +14,6 @@ use eyre::{Ok, WrapErr};
 use function::Function;
 use login::login;
 use std::path::{Path, PathBuf};
-
 static API_BASE: &str = "https://backend.usekinetics.com";
 
 /// Credentials to be used with API
@@ -44,7 +43,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     Build,
-    Deploy,
+
+    Deploy {
+        #[arg(short, long)]
+        is_directly: bool,
+    },
 
     Login {
         #[arg()]
@@ -83,15 +86,15 @@ async fn main() {
                 return;
             }
         }
-        Some(Commands::Deploy) => {
-            let functions = functions().unwrap();
+        Some(Commands::Deploy { is_directly }) => {
+            let mut functions = functions().unwrap();
 
             if let Err(error) = build(&functions) {
                 println!("{error:?}");
                 return;
             }
 
-            if let Err(error) = deploy::deploy(&functions).await {
+            if let Err(error) = deploy::deploy(&mut functions, is_directly).await {
                 println!("{error:?}");
                 return;
             }
