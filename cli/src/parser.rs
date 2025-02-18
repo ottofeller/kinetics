@@ -117,7 +117,7 @@ impl Parser {
 
     fn parse_endpoint(&mut self, attr: &Attribute) -> eyre::Result<Endpoint, SynError> {
         attr.parse_args_with(|input: ParseStream| {
-            let mut params = Endpoint::default();
+            let mut endpoint = Endpoint::default();
 
             while !input.is_empty() {
                 let ident: Ident = input.parse()?;
@@ -125,13 +125,13 @@ impl Parser {
 
                 match ident.to_string().as_str() {
                     "name" => {
-                        params.name = input.parse::<LitStr>()?.value();
+                        endpoint.name = input.parse::<LitStr>()?.value();
                     }
                     "url_path" => {
-                        params.url_path = input.parse::<LitStr>()?.value();
+                        endpoint.url_path = input.parse::<LitStr>()?.value();
                     }
                     "environment" => {
-                        params.environment = self.parse_environment(input)?;
+                        endpoint.environment = self.parse_environment(input)?;
                     }
                     // Ignore unknown attributes
                     _ => {}
@@ -142,13 +142,13 @@ impl Parser {
                 }
             }
 
-            Ok(params)
+            Ok(endpoint)
         })
     }
 
     fn parse_worker(&mut self, attr: &Attribute) -> eyre::Result<Worker, SynError> {
         attr.parse_args_with(|input: ParseStream| {
-            let mut params = Worker::default();
+            let mut worker = Worker::default();
 
             while !input.is_empty() {
                 let ident: Ident = input.parse()?;
@@ -156,16 +156,16 @@ impl Parser {
 
                 match ident.to_string().as_str() {
                     "name" => {
-                        params.name = input.parse::<LitStr>()?.value();
+                        worker.name = input.parse::<LitStr>()?.value();
                     }
                     "environment" => {
-                        params.environment = self.parse_environment(input)?;
+                        worker.environment = self.parse_environment(input)?;
                     }
                     "concurrency" => {
-                        params.concurrency = input.parse::<LitInt>()?.base10_parse::<i16>()?;
+                        worker.concurrency = input.parse::<LitInt>()?.base10_parse::<i16>()?;
                     }
                     "fifo" => {
-                        params.fifo = match input.parse::<LitBool>() {
+                        worker.fifo = match input.parse::<LitBool>() {
                             Ok(bool) => bool.value,
                             Err(_) => {
                                 return Err(input.error("expected boolean value for 'fifo'"));
@@ -181,7 +181,7 @@ impl Parser {
                 }
             }
 
-            Ok(params)
+            Ok(worker)
         })
     }
 
