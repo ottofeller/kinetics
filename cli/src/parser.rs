@@ -194,13 +194,15 @@ impl Parser {
 
         if path.segments.len() == 1 {
             let ident = &path.segments[0].ident;
-            ParsedRole::try_from(ident.to_string()).ok()
-        } else if path.segments.len() == 2 && &path.segments[0].ident == "skymacro" {
-            let ident = &path.segments[1].ident;
-            ParsedRole::try_from(ident.to_string()).ok()
-        } else {
-            None
+            return ParsedRole::try_from(ident.to_string()).ok();
         }
+
+        if path.segments.len() == 2 && &path.segments[0].ident == "skymacro" {
+            let ident = &path.segments[1].ident;
+            return ParsedRole::try_from(ident.to_string()).ok();
+        }
+
+        None
     }
 }
 
