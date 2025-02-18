@@ -416,7 +416,7 @@ fn import_statement(relative_path: &str, rust_name: &str) -> eyre::Result<String
 /// Clean up scaffolding required for deploying a function
 fn cleanup(dst: &Path) -> eyre::Result<()> {
     // Delete the macro attributes from everywhere in the crate
-    for entry in WalkDir::new(dst)
+    for entry in WalkDir::new(dst.join("src"))
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
