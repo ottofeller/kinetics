@@ -5,8 +5,11 @@ mod deploy;
 mod function;
 mod login;
 mod parser;
+mod pipeline;
 mod secret;
-use crate::build::{build, prepare_crates};
+
+use crate::build::prepare_crates;
+use crate::pipeline::Pipeline;
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use crat::Crate;
@@ -14,6 +17,7 @@ use eyre::{Ok, WrapErr};
 use function::Function;
 use login::login;
 use std::path::{Path, PathBuf};
+
 static API_BASE: &str = "https://backend.usekinetics.com";
 
 /// Credentials to be used with API
@@ -79,22 +83,31 @@ async fn main() {
 
     match &cli.command {
         Some(Commands::Build) => {
-            let functions = functions().unwrap();
-
-            if let Err(error) = build(&functions) {
-                println!("{error}");
+            if let Err(error) = Pipeline::builder()
+                .set_functions(functions().unwrap())
+                .set_crat(crat().unwrap())
+                .build()
+                .wrap_err("Failed to build pipeline")
+                .unwrap()
+                .run()
+                .await
+            {
+                println!("{error:?}");
                 return;
             }
         }
         Some(Commands::Deploy { is_directly }) => {
-            let mut functions = functions().unwrap();
-
-            if let Err(error) = build(&functions) {
-                println!("{error:?}");
-                return;
-            }
-
-            if let Err(error) = deploy::deploy(&mut functions, is_directly).await {
+            if let Err(error) = Pipeline::builder()
+                .set_functions(functions().unwrap())
+                .set_crat(crat().unwrap())
+                .with_directly(*is_directly)
+                .with_deploy_enabled(true)
+                .build()
+                .wrap_err("Failed to build pipeline")
+                .unwrap()
+                .run()
+                .await
+            {
                 println!("{error:?}");
                 return;
             }

@@ -1,5 +1,4 @@
 use crate::crat::Crate;
-use crate::function::Function;
 use crate::parser::{ParsedFunction, Role};
 use eyre::Context;
 use regex::Regex;
@@ -50,22 +49,6 @@ pub fn prepare_crates(
     }
 
     Ok(result)
-}
-
-/// Build all assets and CFN templates
-pub fn build(functions: &Vec<Function>) -> eyre::Result<()> {
-    let threads: Vec<_> = functions
-        .into_iter()
-        .cloned()
-        .map(|function| std::thread::spawn(move || function.build()))
-        .collect();
-
-    for thread in threads {
-        thread.join().unwrap()?;
-    }
-
-    println!("Done!");
-    eyre::Ok(())
 }
 
 /// Clone the crate dir to a new directory

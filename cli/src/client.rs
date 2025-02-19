@@ -4,6 +4,7 @@ use serde_json::json;
 use std::path::Path;
 static API_BASE: &str = "https://backend.usekinetics.com";
 
+#[derive(Clone)]
 pub struct Client {
     access_token: String,
     client: reqwest::Client,
