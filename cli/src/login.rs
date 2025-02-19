@@ -55,7 +55,7 @@ pub async fn login(email: &str) -> eyre::Result<()> {
         return Err(eyre::eyre!("Invalid email format"));
     }
 
-    let path = Path::new(&crate::skypath()?).join(".credentials");
+    let path = Path::new(&crate::build_path()?).join(".credentials");
 
     // Read or create credentials file
     let credentials = serde_json::from_str::<Credentials>(

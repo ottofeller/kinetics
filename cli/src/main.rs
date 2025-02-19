@@ -29,8 +29,8 @@ fn api_url(path: &str) -> String {
     format!("{}{}", API_BASE, path)
 }
 
-fn skypath() -> eyre::Result<PathBuf> {
-    Ok(Path::new(&std::env::var("HOME").wrap_err("Can not read HOME env var")?).join(".sky"))
+fn build_path() -> eyre::Result<PathBuf> {
+    Ok(Path::new(&std::env::var("HOME").wrap_err("Can not read HOME env var")?).join(".kinetics"))
 }
 
 #[derive(Parser)]
@@ -63,7 +63,7 @@ fn crat() -> eyre::Result<Crate> {
 
 /// Return the list of dirs with functions to deploy
 fn functions() -> eyre::Result<Vec<Function>> {
-    let directories = prepare_crates(skypath()?, crat()?)?;
+    let directories = prepare_crates(build_path()?, crat()?)?;
 
     let functions = directories
         .into_iter()
