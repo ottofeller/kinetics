@@ -114,6 +114,8 @@ pub async fn deploy(
         .map(|(k, v)| Secret::new(k, v, &crat, "nide"))
         .collect::<Vec<Secret>>();
 
+    let session = session.unwrap();
+
     let template = Template::new(
         &crat,
         body.functions
@@ -131,7 +133,8 @@ pub async fn deploy(
             .collect::<Vec<Function>>(),
         secrets.clone(),
         &env("BUILDS_BUCKET")?,
-        &session?.username(),
+        &session.username(true),
+        &session.username(false),
     )
     .await?;
 

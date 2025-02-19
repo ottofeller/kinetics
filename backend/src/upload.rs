@@ -56,7 +56,7 @@ pub async fn upload(
     let expires_in: PresigningConfig =
         PresigningConfig::expires_in(expires_in).wrap_err("Failed to prepare duration")?;
 
-    let key = format!("{}-{}.zip", session.username(), uuid::Uuid::new_v4());
+    let key = format!("{}-{}.zip", session.username(true), uuid::Uuid::new_v4());
 
     let encrypted_key = {
         use magic_crypt::{new_magic_crypt, MagicCryptTrait};
