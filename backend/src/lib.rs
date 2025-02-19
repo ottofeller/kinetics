@@ -1,12 +1,13 @@
-pub mod deploy;
-pub mod crat;
-pub mod function;
-pub mod template;
-pub mod secret;
-pub mod upload;
-pub mod json;
-pub mod env;
 pub mod auth;
+pub mod crat;
+pub mod usage;
+pub mod deploy;
+pub mod env;
+pub mod function;
+pub mod json;
+pub mod secret;
+pub mod template;
+pub mod upload;
 
 #[derive(Clone, Debug)]
 pub struct Queue {
