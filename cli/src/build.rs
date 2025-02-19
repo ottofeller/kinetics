@@ -3,10 +3,14 @@ use crate::function::Function;
 use crate::parser::{ParsedFunction, Role};
 use eyre::Context;
 use regex::Regex;
-use std::fs;
+use std::collections::HashMap;
+use std::fs::{self, File};
+use std::hash::Hasher;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use syn::visit::Visit;
+use twox_hash::XxHash64;
 use walkdir::WalkDir;
 
 /// Parses source code and prepares crates for deployment
@@ -70,37 +74,19 @@ pub fn build(functions: &Vec<Function>) -> eyre::Result<()> {
 
 /// Clone the crate dir to a new directory
 fn clone(src: &Path, dst: &Path) -> eyre::Result<()> {
-    if dst.exists() {
-        // Cleanup existing contents
-        let src_path = dst.join("src");
-        let cargo_path = dst.join("Cargo.toml");
+    // Checksums of source files for preventing rewrite existing files
+    let mut checksum = FileHash::new(dst.to_path_buf());
 
-        if src_path.exists() {
-            match fs::remove_dir_all(&src_path) {
-                Ok(_) => {}
-                Err(e) => {
-                    println!("Failed to delete src dir: {:?}, {:?}", &src_path, e);
-                }
-            }
-        }
+    // Skip source target from copying
+    let src_target = src.join("target");
 
-        if cargo_path.exists() {
-            match fs::remove_file(&cargo_path) {
-                Ok(_) => {}
-                Err(e) => {
-                    println!("Failed to delete Cargo.toml: {:?}, {:?}", &cargo_path, e);
-                }
-            }
-        }
-    }
-
-    for entry in WalkDir::new(src).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(src)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        // Skip the target dir, cargo lambda use it (if exist) for incremental builds
+        .filter(|entry| !entry.path().starts_with(&src_target))
+    {
         let src_path = entry.path();
-
-        // Skip the target dir, we use it (if exist) as a "cache" for incremental build
-        if src_path.eq(&src.join("target")) {
-            continue;
-        }
 
         // Strip leading path from source to create relative path in destination
         let src_relative = entry
@@ -112,11 +98,27 @@ fn clone(src: &Path, dst: &Path) -> eyre::Result<()> {
 
         if src_path.is_dir() {
             fs::create_dir_all(&dst_path).wrap_err("Create dir failed")?;
-        } else {
+            continue;
+        }
+
+        let new_hash = FileHash::hash_from_path(src_path).wrap_err("Failed to calculate hash")?;
+
+        // If src file has been modified, copy it to the destination
+        let old_hash = checksum
+            .inner
+            // insert() returns the old value if it exists and updates it
+            .insert(src_relative.to_path_buf(), new_hash.clone())
+            .unwrap_or_default();
+
+        if new_hash != old_hash {
             fs::copy(&src_path, &dst_path).wrap_err("Copying file failed")?;
         }
     }
 
+    checksum.save().wrap_err("Failed to save checksums")?;
+
+    // TODO Remove files that are not present in the source directory
+    // but still exist in the target directory
     Ok(())
 }
 
@@ -124,25 +126,35 @@ fn clone(src: &Path, dst: &Path) -> eyre::Result<()> {
 ///
 /// Set up the main() function according to cargo lambda guides, and add the lambda code right to main.rs
 fn inject(dst: &PathBuf, parsed_function: &ParsedFunction) -> eyre::Result<()> {
+    let tmp_dir = &dst.join(".temp");
+    fs::create_dir_all(tmp_dir).wrap_err("Failed to create .temp directory")?;
+
+    // Work with the tmp file to avoid modifying the original file without real changes.
+    let tmp_main_rs_path = tmp_dir.join("main.rs");
     let main_rs_path = dst.join("src").join("main.rs");
     let lib_rs_path = dst.join("src").join("lib.rs");
+
+    // Copy existing main.rs to a temporary file
+    let _ = fs::copy(&main_rs_path, &tmp_main_rs_path);
 
     // Move lib.rs to main.rs
     if lib_rs_path.exists() {
         let lib_content = fs::read_to_string(&lib_rs_path).wrap_err("Failed to read lib.rs")?;
 
-        fs::write(&main_rs_path, format!("{}\nfn main() {{}}", lib_content))
-            .wrap_err("Failed to write main.rs")?;
+        fs::write(
+            &tmp_main_rs_path,
+            format!("{}\nfn main() {{}}", lib_content),
+        )
+        .wrap_err("Failed to write main.rs")?;
 
         fs::remove_file(&lib_rs_path).wrap_err("Failed to delete lib.rs")?;
     }
 
-    if !main_rs_path.exists() {
-        fs::write(&main_rs_path, "fn main() {}").wrap_err("Failed to create main.rs")?;
+    if !tmp_main_rs_path.exists() {
+        fs::write(&tmp_main_rs_path, "fn main() {}").wrap_err("Failed to create main.rs")?;
     }
 
-    let source_code = fs::read_to_string(&main_rs_path).wrap_err("Reading main.rs failed")?;
-
+    let source_code = fs::read_to_string(&tmp_main_rs_path).wrap_err("Reading main.rs failed")?;
     let re = Regex::new(r"fn\s+main\s*\(.*?\)\s*\{[^}]*}").wrap_err("Failed to prepare regex")?;
 
     let import_statement = import_statement(
@@ -274,12 +286,11 @@ fn inject(dst: &PathBuf, parsed_function: &ParsedFunction) -> eyre::Result<()> {
 
     let item: syn::File = syn::parse_str(&new_main_code)?;
 
-    fs::write(
+    write_if_changed(
         &main_rs_path,
         re.replace(&source_code, prettyplease::unparse(&item))
-            .as_ref(),
-    )
-    .wrap_err(format!("Failed to write: {main_rs_path:?}"))?;
+            .to_string(),
+    )?;
 
     let cargo_toml_path = dst.join("Cargo.toml");
     let mut doc: toml_edit::DocumentMut = fs::read_to_string(&cargo_toml_path)?.parse()?;
@@ -362,7 +373,8 @@ fn inject(dst: &PathBuf, parsed_function: &ParsedFunction) -> eyre::Result<()> {
             t.insert("features", toml_edit::value(features));
         });
 
-    fs::write(&cargo_toml_path, doc.to_string())?;
+    write_if_changed(&cargo_toml_path, doc.to_string()).wrap_err("Failed to replace Cargo.toml")?;
+    let _ = fs::remove_dir_all(&tmp_dir).wrap_err("Failed to remove temporary directory");
     Ok(())
 }
 
@@ -442,7 +454,7 @@ fn cleanup(dst: &Path) -> eyre::Result<()> {
         content = re_worker.replace_all(&content, "").to_string();
         let new_content = re_import.replace_all(&content, "");
 
-        fs::write(&path, new_content.as_ref()).wrap_err(format!("Failed to write: {path:?}"))?;
+        write_if_changed(&path, new_content.as_ref())?;
     }
 
     let cargo_toml_path = dst.join("Cargo.toml");
@@ -452,7 +464,7 @@ fn cleanup(dst: &Path) -> eyre::Result<()> {
         deps_table.remove("skymacro");
     }
 
-    fs::write(&cargo_toml_path, doc.to_string())?;
+    write_if_changed(&cargo_toml_path, doc.to_string())?;
     Ok(())
 }
 
@@ -483,4 +495,72 @@ pub fn func_name(parsed_function: &ParsedFunction) -> String {
         .name()
         .unwrap_or(&default_func_name)
         .to_string()
+}
+
+/// Stores files hashes on the disk to avoid rebuilding on unchanged files
+/// cargo lambda rebuilds crate if file timestamp changed
+struct FileHash {
+    path: PathBuf,
+    inner: HashMap<PathBuf, String>,
+}
+
+impl FileHash {
+    fn new(dst: PathBuf) -> Self {
+        let path = dst.join(".checksums");
+
+        // Relative path -> hash of the file
+        let checksums: HashMap<PathBuf, String> = {
+            match fs::read_to_string(&path) {
+                Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+                Err(_) => HashMap::new(),
+            }
+        };
+
+        FileHash {
+            inner: checksums,
+            path,
+        }
+    }
+
+    fn save(&self) -> eyre::Result<()> {
+        Ok(fs::write(
+            &self.path,
+            serde_json::to_string_pretty(&self.inner)?,
+        )?)
+    }
+
+    fn hash_from_path<P: AsRef<Path>>(path: P) -> eyre::Result<String> {
+        let mut file = File::open(path).wrap_err("Failed to open file")?;
+        let mut hasher = XxHash64::default();
+        let mut buffer = [0; 8192];
+
+        loop {
+            let bytes_read = file.read(&mut buffer)?;
+            if bytes_read == 0 {
+                break;
+            }
+            hasher.write(&buffer[..bytes_read]);
+        }
+
+        Ok(format!("{:x}", hasher.finish()))
+    }
+
+    fn hash_from_bytes<C: AsRef<[u8]>>(contents: C) -> eyre::Result<String> {
+        let mut hasher = XxHash64::default();
+        hasher.write(contents.as_ref());
+        Ok(format!("{:x}", hasher.finish()))
+    }
+}
+
+/// Check the checksum of a file before write to ensure it hasn't changed
+fn write_if_changed<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> eyre::Result<()> {
+    let path_hash = FileHash::hash_from_path(&path).unwrap_or("path".to_string());
+    let contents_hash = FileHash::hash_from_bytes(&contents).unwrap_or("content".to_string());
+
+    if path_hash == contents_hash {
+        Ok(())
+    } else {
+        fs::write(&path, &contents)
+            .wrap_err(format!("Failed to write: {}", path.as_ref().display()))
+    }
 }

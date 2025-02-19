@@ -68,17 +68,25 @@ impl Function {
     pub fn build(&self) -> eyre::Result<()> {
         println!("Building {:?} with cargo-lambda...", self.path);
 
-        let status = std::process::Command::new("cargo")
+        let output = std::process::Command::new("cargo")
             .arg("lambda")
             .arg("build")
             .arg("--release")
             .current_dir(&self.path)
             .output()
-            .wrap_err("Failed to execute the process")?
-            .status;
+            .wrap_err("Failed to execute the process")?;
 
-        if !status.success() {
-            return Err(eyre!("Build failed: {:?} {:?}", status.code(), self.path));
+        if !output.status.success() {
+            println!(
+                "Build failed: {:?}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+
+            return Err(eyre!(
+                "Build failed: {:?} {:?}",
+                output.status.code(),
+                self.path
+            ));
         }
 
         Ok(())
