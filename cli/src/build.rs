@@ -46,9 +46,10 @@ pub fn prepare_crates(
             .join(&current_crate.name)
             .join(func_name(&parsed_function));
 
-        clone(&current_crate.path, &dst)?;
+        let src = &current_crate.path;
+        clone(&src, &dst)?;
         cleanup(&dst)?;
-        inject(&dst, &parsed_function)?;
+        inject(&src, &dst, &parsed_function)?;
 
         result.push(dst);
     }
@@ -125,7 +126,7 @@ fn clone(src: &Path, dst: &Path) -> eyre::Result<()> {
 /// Inject the code which is necessary to build lambda
 ///
 /// Set up the main() function according to cargo lambda guides, and add the lambda code right to main.rs
-fn inject(dst: &PathBuf, parsed_function: &ParsedFunction) -> eyre::Result<()> {
+fn inject(src: &PathBuf, dst: &PathBuf, parsed_function: &ParsedFunction) -> eyre::Result<()> {
     let tmp_dir = &dst.join(".temp");
     fs::create_dir_all(tmp_dir).wrap_err("Failed to create .temp directory")?;
 
@@ -292,8 +293,7 @@ fn inject(dst: &PathBuf, parsed_function: &ParsedFunction) -> eyre::Result<()> {
             .to_string(),
     )?;
 
-    let cargo_toml_path = dst.join("Cargo.toml");
-    let mut doc: toml_edit::DocumentMut = fs::read_to_string(&cargo_toml_path)?.parse()?;
+    let mut doc: toml_edit::DocumentMut = fs::read_to_string(&src.join("Cargo.toml"))?.parse()?;
 
     if !doc.contains_array_of_tables("bin") {
         let mut aot = toml_edit::ArrayOfTables::new();
@@ -373,7 +373,13 @@ fn inject(dst: &PathBuf, parsed_function: &ParsedFunction) -> eyre::Result<()> {
             t.insert("features", toml_edit::value(features));
         });
 
-    write_if_changed(&cargo_toml_path, doc.to_string()).wrap_err("Failed to replace Cargo.toml")?;
+    if let Some(deps_table) = doc["dependencies"].as_table_mut() {
+        deps_table.remove("skymacro");
+    }
+
+    write_if_changed(&dst.join("Cargo.toml"), doc.to_string())
+        .wrap_err("Failed to replace Cargo.toml")?;
+
     let _ = fs::remove_dir_all(&tmp_dir).wrap_err("Failed to remove temporary directory");
     Ok(())
 }
@@ -457,14 +463,6 @@ fn cleanup(dst: &Path) -> eyre::Result<()> {
         write_if_changed(&path, new_content.as_ref())?;
     }
 
-    let cargo_toml_path = dst.join("Cargo.toml");
-    let mut doc: toml_edit::DocumentMut = fs::read_to_string(&cargo_toml_path)?.parse()?;
-
-    if let Some(deps_table) = doc["dependencies"].as_table_mut() {
-        deps_table.remove("skymacro");
-    }
-
-    write_if_changed(&cargo_toml_path, doc.to_string())?;
     Ok(())
 }
 
