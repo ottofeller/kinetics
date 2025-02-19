@@ -1,9 +1,9 @@
 use aws_lambda_events::sqs::{SqsBatchResponse, SqsEvent};
 use aws_sdk_dynamodb::types::AttributeValue::S;
 use aws_sdk_dynamodb::Client;
+use kinetics_macro::{endpoint, worker};
 use lambda_http::{Body, Error, Request, RequestExt, Response};
 use lambda_runtime::LambdaEvent;
-use skymacro::{endpoint, worker};
 use std::collections::HashMap;
 
 #[endpoint(

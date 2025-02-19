@@ -3,9 +3,9 @@ use aws_config::BehaviorVersion;
 use aws_sdk_dynamodb::types::AttributeValue::S;
 use aws_sdk_dynamodb::Client;
 use eyre::Context;
+use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
-use skymacro::endpoint;
 use std::collections::HashMap;
 
 // Generate a tmp auth code for the user to login, and send over email

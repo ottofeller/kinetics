@@ -36,7 +36,7 @@ pub fn prepare_crates(
     }
 
     for parsed_function in parser.functions {
-        // Function name is parsed value from skymacro name attribute
+        // Function name is parsed value from kinetics_macro name attribute
         // Path example: /home/some-user/.kinetics/<crate-name>/<function-name>/<rust-function-name>
         let dst = target_directory
             .join(&current_crate.name)
@@ -435,7 +435,7 @@ fn cleanup(dst: &Path) -> eyre::Result<()> {
         let re_worker = Regex::new(r"(?m)^\s*#\s*\[\s*worker[^]]*]\s*$")?;
 
         let re_import = Regex::new(
-            r"(?m)^\s*use\s+skymacro(\s*::\s*(\w+|\{\s*\w+(\s*,\s*\w+)*\s*}))?\s*;\s*$",
+            r"(?m)^\s*use\s+kinetics_macro(\s*::\s*(\w+|\{\s*\w+(\s*,\s*\w+)*\s*}))?\s*;\s*$",
         )?;
 
         content = re_endpoint.replace_all(&content, "").to_string();
@@ -449,7 +449,7 @@ fn cleanup(dst: &Path) -> eyre::Result<()> {
     let mut doc: toml_edit::DocumentMut = fs::read_to_string(&cargo_toml_path)?.parse()?;
 
     if let Some(deps_table) = doc["dependencies"].as_table_mut() {
-        deps_table.remove("skymacro");
+        deps_table.remove("kinetics-macro");
     }
 
     fs::write(&cargo_toml_path, doc.to_string())?;
