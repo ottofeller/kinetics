@@ -122,6 +122,7 @@ pub async fn deploy(functions: &mut Vec<Function>, is_directly: &bool) -> eyre::
             secrets.clone(),
             "kinetics-rust-builds",
             "artemATottofellerDOTcom",
+            "artem@ottofeller.com",
         )
         .await?;
 

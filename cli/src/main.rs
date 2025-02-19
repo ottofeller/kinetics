@@ -100,7 +100,10 @@ async fn main() {
             }
         }
         Some(Commands::Login { email }) => {
-            login(email).await.unwrap();
+            match login(email).await {
+                Result::Ok(_) => println!("Login successful"),
+                Result::Err(error) => println!("Login failed: {error:?}"),
+            };
         }
         None => {}
     }
