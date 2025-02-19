@@ -160,7 +160,7 @@ fn inject(dst: &PathBuf, parsed_function: &ParsedFunction) -> eyre::Result<()> {
             #[tokio::main]\n\
             async fn main() -> Result<(), lambda_http::Error> {{\n\
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-                println!(\"Provisioning secrets\");
+                println!(\"Fetching secrets\");
                 let secrets_client = aws_sdk_ssm::Client::new(&config);
                 let secrets_names_env = \"SECRETS_NAMES\";
                 let mut secrets = std::collections::HashMap::new();
