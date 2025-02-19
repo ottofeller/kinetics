@@ -11,6 +11,9 @@ use std::collections::HashMap;
 // Permissions:
 // {
 //     "Action": [
+//         "logs:CreateLogGroup",
+//         "logs:CreateLogStream",
+//         "logs:PutLogEvents"
 //         "s3:PutObject"
 //     ],
 //     "Resource": [
