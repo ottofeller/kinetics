@@ -13,7 +13,7 @@ use crate::pipeline::Pipeline;
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use crat::Crate;
-use eyre::{Ok, WrapErr};
+use eyre::WrapErr;
 use function::Function;
 use login::login;
 use std::path::{Path, PathBuf};
@@ -84,51 +84,45 @@ fn functions() -> eyre::Result<Vec<Function>> {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> eyre::Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
         Some(Commands::Build { max_concurrent }) => {
-            if let Err(error) = Pipeline::builder()
+            Pipeline::builder()
                 .set_max_concurrent(*max_concurrent)
-                .set_functions(functions().unwrap())
-                .set_crat(crat().unwrap())
+                .with_deploy_enabled(false)
+                .set_crat(crat()?)
                 .build()
-                .wrap_err("Failed to build pipeline")
-                .unwrap()
-                .run()
-                .await
-            {
-                println!("{error:?}");
-                return;
-            }
+                .wrap_err("Failed to build pipeline")?
+                .run(functions()?)
+                .await?;
+
+            Ok(())
         }
         Some(Commands::Deploy {
             is_directly,
             max_concurrent,
         }) => {
-            if let Err(error) = Pipeline::builder()
+            Pipeline::builder()
                 .set_max_concurrent(*max_concurrent)
-                .set_functions(functions().unwrap())
-                .set_crat(crat().unwrap())
-                .with_directly(*is_directly)
                 .with_deploy_enabled(true)
+                .set_crat(crat()?)
+                .with_directly(*is_directly)
                 .build()
-                .wrap_err("Failed to build pipeline")
-                .unwrap()
-                .run()
-                .await
-            {
-                println!("{error:?}");
-                return;
+                .wrap_err("Failed to build pipeline")?
+                .run(functions()?)
+                .await?;
+
+            Ok(())
+        }
+        Some(Commands::Login { email }) => match login(email).await {
+            Ok(_) => {
+                println!("Login successful");
+                Ok(())
             }
-        }
-        Some(Commands::Login { email }) => {
-            match login(email).await {
-                Result::Ok(_) => println!("Login successful"),
-                Result::Err(error) => println!("Login failed: {error:?}"),
-            };
-        }
-        None => {}
+            Err(error) => Err(error),
+        },
+        None => Ok(()),
     }
 }

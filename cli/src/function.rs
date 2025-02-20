@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use tokio::io::AsyncReadExt;
 use zip::write::SimpleFileOptions;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Function {
     pub id: String,
     pub path: PathBuf,
@@ -92,7 +92,7 @@ impl Function {
             ));
         }
 
-        println!("{:?} built successfully", self.path);
+        println!("Function {:?} was built successfully", self.path);
         Ok(())
     }
 

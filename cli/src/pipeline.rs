@@ -6,8 +6,8 @@ use futures::future;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 
+#[derive(Debug, Clone)]
 pub struct Pipeline {
-    functions: Vec<Function>,
     is_deploy_enabled: bool,
     is_directly: bool,
     crat: Crate,
@@ -19,14 +19,14 @@ impl Pipeline {
         PipelineBuilder::default()
     }
 
-    pub async fn run(self) -> eyre::Result<()> {
-        println!("Building \"{}\"...", self.crat.name);
-        let client = Client::new(&self.is_directly).wrap_err("Failed to create client")?;
-
-        // Define maximum number of parallel requests
+    pub async fn run(self, functions: Vec<Function>) -> eyre::Result<()> {
+        // Define maximum number of parallel builds
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
 
-        let handles = self.functions.clone().into_iter().map(|mut function| {
+        println!("Building \"{}\"...", &self.crat.name);
+        let client = Client::new(&self.is_directly).wrap_err("Failed to create client")?;
+
+        let handles = functions.into_iter().map(|mut function| {
             let client = client.clone();
             let sem = Arc::clone(&semaphore);
 
@@ -42,7 +42,7 @@ impl Pipeline {
                     .wrap_err(format!("Failed to build: {}", function_name))?;
 
                 if !self.is_deploy_enabled {
-                    return Ok(());
+                    return Ok(function);
                 }
 
                 function.bundle().await?;
@@ -51,27 +51,32 @@ impl Pipeline {
                     .await
                     .wrap_err(format!("Failed to upload: {}", function.name()?))?;
 
-                Ok::<(), Report>(())
+                Ok::<Function, Report>(function)
             })
         });
 
-        let errors: Vec<_> = future::join_all(handles)
+        let results: Vec<_> = future::join_all(handles)
             .await
             .into_iter()
             .map(|res| {
                 res.map_err(Report::msg)
                     .and_then(|inner_result| inner_result)
             })
-            .filter_map(|res| res.err())
             .collect();
 
+        let (mut ok_results, errors): (Vec<_>, Vec<_>) =
+            results.into_iter().partition(Result::is_ok);
+
         if !errors.is_empty() {
-            println!("Failed to deploy functions:");
+            println!("Failed to build and upload functions:");
             for error in errors {
-                println!("{}", error);
+                println!("{:?}", error);
             }
-            return Err(eyre!("Failed to deploy functions"));
+            return Err(eyre!("Failed to build and upload functions"));
         }
+
+        // It's safe to unwrap here because the errors have already been caught
+        let functions: Vec<_> = ok_results.drain(..).map(Result::unwrap).collect();
 
         println!("Build completed: \"{}\"", self.crat.name);
 
@@ -81,7 +86,7 @@ impl Pipeline {
 
         println!("Deploying \"{}\"...", self.crat.name);
 
-        crate::deploy::deploy(&self.crat, &self.functions, &self.is_directly)
+        crate::deploy::deploy(&self.crat, &functions, &self.is_directly)
             .await
             .wrap_err("Failed to deploy functions")?;
 
@@ -93,24 +98,18 @@ impl Pipeline {
 pub struct PipelineBuilder {
     is_deploy_enabled: Option<bool>,
     is_directly: Option<bool>,
-    functions: Vec<Function>,
     crat: Option<Crate>,
     max_concurrent: Option<usize>,
 }
 
 impl PipelineBuilder {
     pub fn build(self) -> eyre::Result<Pipeline> {
-        if self.functions.is_empty() {
-            return Err(eyre!("No functions provided to the pipeline"));
-        }
-
         if self.crat.is_none() {
             return Err(eyre!("No crate provided to the pipeline"));
         }
 
         Ok(Pipeline {
             crat: self.crat.unwrap(),
-            functions: self.functions,
             is_deploy_enabled: self.is_deploy_enabled.unwrap_or(false),
             is_directly: self.is_directly.unwrap_or(false),
             max_concurrent: self.max_concurrent.unwrap_or(2),
@@ -124,11 +123,6 @@ impl PipelineBuilder {
 
     pub fn with_directly(mut self, is_directly: bool) -> Self {
         self.is_directly = Some(is_directly);
-        self
-    }
-
-    pub fn set_functions(mut self, functions: Vec<Function>) -> Self {
-        self.functions.extend(functions);
         self
     }
 
