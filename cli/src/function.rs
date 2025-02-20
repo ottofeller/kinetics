@@ -111,7 +111,7 @@ impl Function {
 
         let bundle_path = self.bundle_path();
 
-        // Zip crate doesn't have async support, so we'll use a blocking task
+        // Zip crate doesn't have async support, so we have to use a blocking task here
         tokio::task::spawn_blocking(move || -> eyre::Result<()> {
             let file = std::fs::File::create(bundle_path)?;
             let mut zip = zip::ZipWriter::new(file);
