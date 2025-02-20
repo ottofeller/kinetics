@@ -8,7 +8,8 @@ use std::collections::HashMap;
 
 #[endpoint(url_path = "/usage/increment", environment = {
     "TABLE_NAME": "kinetics",
-    "USAGE_LIMIT": "100000"
+    "USAGE_LIMIT": "100000",
+    "DANGER_DISABLE_AUTH": "false"
 })]
 pub async fn increment(
     event: Request,
@@ -24,6 +25,7 @@ pub async fn increment(
     let config = aws_config::load_defaults(BehaviorVersion::latest()).await;
     let dynamodb_client = aws_sdk_dynamodb::Client::new(&config);
     let id = AttributeValue::S(format!("usage#{}", session?.username(false)));
+    let name = "calls";
 
     let get_item = dynamodb_client
         .get_item()
@@ -34,7 +36,7 @@ pub async fn increment(
 
     let current_count = match get_item.item {
         Some(item) => item
-            .get("count")
+            .get(name)
             .unwrap_or(&AttributeValue::N("0".into()))
             .as_n()
             .unwrap_or(&String::from("0"))
@@ -43,7 +45,7 @@ pub async fn increment(
         None => 0,
     };
 
-    if current_count > 100000 {
+    if current_count >= 100000 {
         return json_response(json!({"error": "Endpoint count exceeded limit"}), Some(429));
     }
 
@@ -53,7 +55,8 @@ pub async fn increment(
         .update_item()
         .table_name(env("TABLE_NAME")?)
         .key("id", id)
-        .update_expression("SET сount = :val")
+        .update_expression("SET #name = :val")
+        .expression_attribute_names("#name", name)
         .expression_attribute_values(":val", AttributeValue::N(new_count.to_string()))
         .send()
         .await?;
