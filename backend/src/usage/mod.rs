@@ -1,6 +1,7 @@
 use crate::{auth::session::Session, env::env, json::response as json_response};
 use aws_config::BehaviorVersion;
 use aws_sdk_dynamodb::types::AttributeValue;
+use eyre::Context;
 use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
@@ -45,7 +46,11 @@ pub async fn increment(
         None => 0,
     };
 
-    if current_count >= 100000 {
+    if current_count
+        >= env("USAGE_LIMIT")?
+            .parse::<i32>()
+            .wrap_err("Non-numeric value")?
+    {
         return json_response(json!({"error": "Endpoint count exceeded limit"}), Some(429));
     }
 
