@@ -75,9 +75,6 @@ impl Pipeline {
             return Err(eyre!("Failed to build and upload functions"));
         }
 
-        // It's safe to unwrap here because the errors have already been caught
-        let functions: Vec<_> = ok_results.drain(..).map(Result::unwrap).collect();
-
         println!("Build completed: \"{}\"", self.crat.name);
 
         if !self.is_deploy_enabled {
@@ -85,6 +82,9 @@ impl Pipeline {
         }
 
         println!("Deploying \"{}\"...", self.crat.name);
+
+        // It's safe to unwrap here because the errors have already been caught
+        let functions: Vec<_> = ok_results.drain(..).map(Result::unwrap).collect();
 
         crate::deploy::deploy(&self.crat, &functions, &self.is_directly)
             .await
