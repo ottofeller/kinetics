@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod crat;
+pub mod usage;
 pub mod deploy;
 pub mod env;
 pub mod function;

@@ -3,14 +3,17 @@ use crate::{auth::session::Session, env::env};
 use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::Client;
 use eyre::Context;
+use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
-use skymacro::endpoint;
 use std::collections::HashMap;
 
 // Permissions:
 // {
 //     "Action": [
+//         "logs:CreateLogGroup",
+//         "logs:CreateLogStream",
+//         "logs:PutLogEvents"
 //         "s3:PutObject"
 //     ],
 //     "Resource": [
@@ -56,7 +59,7 @@ pub async fn upload(
     let expires_in: PresigningConfig =
         PresigningConfig::expires_in(expires_in).wrap_err("Failed to prepare duration")?;
 
-    let key = format!("{}-{}.zip", session.username(), uuid::Uuid::new_v4());
+    let key = format!("{}-{}.zip", session.username(true), uuid::Uuid::new_v4());
 
     let encrypted_key = {
         use magic_crypt::{new_magic_crypt, MagicCryptTrait};

@@ -5,9 +5,9 @@ use crate::secret::Secret;
 use crate::template::Template;
 use crate::{auth::session::Session, env::env};
 use eyre::Context;
+use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
-use skymacro::endpoint;
 use std::collections::HashMap;
 
 // The request/response payload types are used in CLI crate
@@ -114,6 +114,8 @@ pub async fn deploy(
         .map(|(k, v)| Secret::new(k, v, &crat, "nide"))
         .collect::<Vec<Secret>>();
 
+    let session = session.unwrap();
+
     let template = Template::new(
         &crat,
         body.functions
@@ -131,7 +133,8 @@ pub async fn deploy(
             .collect::<Vec<Function>>(),
         secrets.clone(),
         &env("BUILDS_BUCKET")?,
-        &session?.username(),
+        &session.username(true),
+        &session.username(false),
     )
     .await?;
 

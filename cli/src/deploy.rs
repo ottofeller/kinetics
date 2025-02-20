@@ -106,6 +106,7 @@ pub async fn deploy(crat: &Crate, functions: &[Function], is_directly: &bool) ->
             secrets.clone(),
             "kinetics-rust-builds",
             "artemATottofellerDOTcom",
+            "artem@ottofeller.com",
         )
         .await?;
 

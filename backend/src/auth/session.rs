@@ -94,11 +94,13 @@ impl Session {
     }
 
     /// Generate unique username out of email, suitable to be used in CloudFormation
-    pub fn username(&self) -> String {
-        self.email
-            .clone()
-            .unwrap()
-            .replace("@", "AT")
-            .replace(".", "DOT")
+    pub fn username(&self, is_escaped: bool) -> String {
+        let username = self.email.clone().unwrap();
+
+        if is_escaped {
+            return username.replace("@", "AT").replace(".", "DOT")
+        }
+
+        username
     }
 }

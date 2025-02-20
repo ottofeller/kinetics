@@ -57,18 +57,17 @@ pub async fn login(email: &str) -> eyre::Result<()> {
 
     let path = Path::new(&crate::build_path()?).join(".credentials");
 
+    let default =
+        json!({ "email": "", "token": "", "expiresAt": "2000-01-01T00:00:00Z" }).to_string();
+
     // Read or create credentials file
     let credentials = serde_json::from_str::<Credentials>(
         &std::fs::read_to_string(path.clone())
             .or_else(|_| {
-                let default =
-                    json!({ "email": "", "token": "", "expiresAt": "2000-01-01T00:00:00Z" })
-                        .to_string();
-
                 std::fs::write(path.clone(), default.clone())?;
-                eyre::Ok(default.into())
+                eyre::Ok(default.clone().into())
             })
-            .unwrap_or_default(),
+            .unwrap_or(default),
     )
     .wrap_err("Credentials stored in a wrong format")?;
 

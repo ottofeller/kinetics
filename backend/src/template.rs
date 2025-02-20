@@ -12,6 +12,7 @@ pub struct Template {
     client: aws_sdk_cloudformation::Client,
     crat: Crate,
     functions: Vec<Function>,
+    username_escaped: String,
     username: String,
     pub template: String,
 }
@@ -187,6 +188,7 @@ impl Template {
         functions: Vec<Function>,
         secrets: Vec<Secret>,
         bucket: &str,
+        username_escaped: &str,
         username: &str,
     ) -> eyre::Result<Self> {
         let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
@@ -200,6 +202,7 @@ impl Template {
             client,
             crat: crat.clone(),
             template: "Resources:".to_string(),
+            username_escaped: username_escaped.to_string(),
             username: username.to_string(),
             functions,
         };
@@ -239,7 +242,7 @@ impl Template {
 
         return format!(
             "{username}D{crat_name}D{joined}",
-            username = &self.username,
+            username = &self.username_escaped,
             crat_name = &self.crat.name
         );
     }
@@ -315,7 +318,14 @@ impl Template {
     fn environment(&self, function: &Function, secrets: &Vec<String>) -> eyre::Result<String> {
         let raw = function.environment()?;
         let mut raw = raw.as_table().unwrap().clone();
+
+        // If user tries to redefine these values, insert()s will overwrite them
         raw.insert("SECRETS_NAMES".into(), Value::String(secrets.join(",")));
+
+        raw.insert(
+            "KINETICS_USERNAME".into(),
+            Value::String(self.username.clone()),
+        );
 
         let variables = raw
             .iter()
@@ -539,7 +549,7 @@ impl Template {
     /// Provision the template in CloudFormation
     pub async fn provision(&self) -> eyre::Result<()> {
         let base_name = self.crat.name.as_str();
-        let name = format!("{}-{}", self.username, base_name);
+        let name = format!("{}-{}", self.username_escaped, base_name);
         let capabilities = aws_sdk_cloudformation::types::Capability::CapabilityIam;
 
         if self.is_exists(&name).await? {

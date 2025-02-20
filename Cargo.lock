@@ -637,6 +637,7 @@ dependencies = [
  "aws-sdk-ssm",
  "chrono",
  "eyre",
+ "kinetics-macro",
  "lambda_http",
  "lambda_runtime",
  "magic-crypt",
@@ -647,7 +648,6 @@ dependencies = [
  "serde-email",
  "serde_json",
  "sha256",
- "skymacro",
  "toml",
  "uuid",
  "zip",
@@ -1938,6 +1938,52 @@ dependencies = [
 ]
 
 [[package]]
+name = "kinetics-cli"
+version = "0.1.0"
+dependencies = [
+ "aws-config",
+ "aws-sdk-cloudformation",
+ "aws-sdk-s3",
+ "aws-sdk-ssm",
+ "backend",
+ "chrono",
+ "clap",
+ "eyre",
+ "futures",
+ "prettyplease",
+ "regex",
+ "reqwest",
+ "rust_dotenv",
+ "serde",
+ "serde_json",
+ "syn",
+ "tokio",
+ "toml",
+ "toml_edit",
+ "twox-hash",
+ "uuid",
+ "walkdir",
+ "zip",
+]
+
+[[package]]
+name = "kinetics-example"
+version = "0.1.0"
+dependencies = [
+ "aws-config",
+ "aws-sdk-dynamodb",
+ "aws_lambda_events",
+ "kinetics-macro",
+ "lambda_http",
+ "lambda_runtime",
+ "tokio",
+]
+
+[[package]]
+name = "kinetics-macro"
+version = "0.1.0"
+
+[[package]]
 name = "lambda_http"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3048,51 +3094,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d66dc143e6b11c1eddc06d5c423cfc97062865baf299914ab64caa38182078fe"
 
 [[package]]
-name = "skycli"
-version = "0.1.0"
-dependencies = [
- "aws-config",
- "aws-sdk-cloudformation",
- "aws-sdk-s3",
- "aws-sdk-ssm",
- "backend",
- "chrono",
- "clap",
- "eyre",
- "futures",
- "prettyplease",
- "regex",
- "reqwest",
- "rust_dotenv",
- "serde",
- "serde_json",
- "syn",
- "tokio",
- "toml",
- "toml_edit",
- "uuid",
- "walkdir",
- "zip",
-]
-
-[[package]]
-name = "skyexample"
-version = "0.1.0"
-dependencies = [
- "aws-config",
- "aws-sdk-dynamodb",
- "aws_lambda_events",
- "lambda_http",
- "lambda_runtime",
- "skymacro",
- "tokio",
-]
-
-[[package]]
-name = "skymacro"
-version = "0.1.0"
-
-[[package]]
 name = "slab"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3537,6 +3538,15 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
+
+[[package]]
+name = "twox-hash"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7b17f197b3050ba473acf9181f7b1d3b66d1cf7356c6cc57886662276e65908"
+dependencies = [
+ "rand 0.8.5",
+]
 
 [[package]]
 name = "typenum"

@@ -70,16 +70,26 @@ impl Function {
     pub async fn build(&self) -> eyre::Result<()> {
         println!("Building {:?} with cargo-lambda...", self.path);
 
-        let status = tokio::process::Command::new("cargo")
+        let output = tokio::process::Command::new("cargo")
             .arg("lambda")
             .arg("build")
             .arg("--release")
             .current_dir(&self.path)
-            .status()
-            .await?;
+            .output()
+            .await
+            .wrap_err("Failed to execute the process")?;
 
-        if !status.success() {
-            return Err(eyre!("Build failed: {:?} {:?}", status.code(), self.path));
+        if !output.status.success() {
+            println!(
+                "Build failed: {:?}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+
+            return Err(eyre!(
+                "Build failed: {:?} {:?}",
+                output.status.code(),
+                self.path
+            ));
         }
 
         println!("{:?} built successfully", self.path);
