@@ -101,7 +101,7 @@ pub async fn deploy(functions: &mut Vec<Function>, is_directly: &bool) -> eyre::
 
         let secrets = secrets
             .iter()
-            .map(|(k, v)| backend::secret::Secret::new(k, v, &crat, "nide"))
+            .map(|(k, v)| backend::secret::Secret::new(k, v, &crat, "artemATottofellerDOTcom"))
             .collect::<Vec<backend::secret::Secret>>();
 
         let template = backend::template::Template::new(

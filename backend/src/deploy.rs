@@ -107,14 +107,13 @@ pub async fn deploy(
 
     let body = json::body::<JsonBody>(event)?;
     let crat = Crate::new(body.crat.toml.clone()).wrap_err("Invalid crate toml")?;
+    let session = session.unwrap();
 
     let secrets = body
         .secrets
         .iter()
-        .map(|(k, v)| Secret::new(k, v, &crat, "nide"))
+        .map(|(k, v)| Secret::new(k, v, &crat, &session.username(true)))
         .collect::<Vec<Secret>>();
-
-    let session = session.unwrap();
 
     let template = Template::new(
         &crat,
