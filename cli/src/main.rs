@@ -46,11 +46,17 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Build,
+    Build {
+        #[arg(short, long, default_value_t = 4)]
+        max_concurrent: usize,
+    },
 
     Deploy {
         #[arg(short, long)]
         is_directly: bool,
+
+        #[arg(short, long, default_value_t = 4)]
+        max_concurrent: usize,
     },
 
     Login {
@@ -82,8 +88,9 @@ async fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Some(Commands::Build) => {
+        Some(Commands::Build { max_concurrent }) => {
             if let Err(error) = Pipeline::builder()
+                .set_max_concurrent(*max_concurrent)
                 .set_functions(functions().unwrap())
                 .set_crat(crat().unwrap())
                 .build()
@@ -96,8 +103,12 @@ async fn main() {
                 return;
             }
         }
-        Some(Commands::Deploy { is_directly }) => {
+        Some(Commands::Deploy {
+            is_directly,
+            max_concurrent,
+        }) => {
             if let Err(error) = Pipeline::builder()
+                .set_max_concurrent(*max_concurrent)
                 .set_functions(functions().unwrap())
                 .set_crat(crat().unwrap())
                 .with_directly(*is_directly)
