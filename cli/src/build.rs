@@ -175,7 +175,7 @@ fn inject(src: &PathBuf, dst: &PathBuf, parsed_function: &ParsedFunction) -> eyr
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
                 println!(\"Fetching secrets\");
                 let secrets_client = aws_sdk_ssm::Client::new(&config);
-                let secrets_names_env = \"SECRETS_NAMES\";
+                let secrets_names_env = \"KINETICS_SECRETS_NAMES\";
                 let mut secrets = std::collections::HashMap::new();
 
                 for secret_name in std::env::var(secrets_names_env)?
@@ -234,7 +234,7 @@ fn inject(src: &PathBuf, dst: &PathBuf, parsed_function: &ParsedFunction) -> eyr
                     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
                     println!(\"Provisioning secrets\");
                     let secrets_client = aws_sdk_ssm::Client::new(&config);
-                    let secrets_names_env = \"SECRETS_NAMES\";
+                    let secrets_names_env = \"KINETICS_SECRETS_NAMES\";
                     let mut secrets = std::collections::HashMap::new();
 
                     for secret_name in std::env::var(secrets_names_env)?

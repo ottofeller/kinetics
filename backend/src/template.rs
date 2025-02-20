@@ -320,7 +320,7 @@ impl Template {
         let mut raw = raw.as_table().unwrap().clone();
 
         // If user tries to redefine these values, insert()s will overwrite them
-        raw.insert("SECRETS_NAMES".into(), Value::String(secrets.join(",")));
+        raw.insert("KINETICS_SECRETS_NAMES".into(), Value::String(secrets.join(",")));
 
         raw.insert(
             "KINETICS_USERNAME".into(),
