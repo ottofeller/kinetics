@@ -304,10 +304,10 @@ fn inject(src: &PathBuf, dst: &PathBuf, parsed_function: &ParsedFunction) -> eyr
         doc["bin"] = toml_edit::Item::ArrayOfTables(aot);
     }
 
-    doc["package"]["metadata"]["sky"]
+    doc["package"]["metadata"]["kinetics"]
         .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
         .as_table_mut()
-        .map(|sky_meta| {
+        .map(|kinetics_meta| {
             let role_str = match &parsed_function.role {
                 Role::Endpoint(_) => "endpoint",
                 Role::Worker(_) => "worker",
@@ -319,7 +319,7 @@ fn inject(src: &PathBuf, dst: &PathBuf, parsed_function: &ParsedFunction) -> eyr
             let mut function_table = toml_edit::Table::new();
             function_table["name"] = toml_edit::value(&name);
             function_table["role"] = toml_edit::value(role_str);
-            sky_meta.insert("function", toml_edit::Item::Table(function_table));
+            kinetics_meta.insert("function", toml_edit::Item::Table(function_table));
 
             match &parsed_function.role {
                 Role::Worker(params) => {
@@ -332,7 +332,7 @@ fn inject(src: &PathBuf, dst: &PathBuf, parsed_function: &ParsedFunction) -> eyr
                     named_table.set_implicit(true); // Don't create an empty queue table
                     named_table.insert(&name, toml_edit::Item::Table(queue_table));
 
-                    sky_meta.insert("queue", toml_edit::Item::Table(named_table));
+                    kinetics_meta.insert("queue", toml_edit::Item::Table(named_table));
                 }
                 Role::Endpoint(params) => {
                     let mut endpoint_table = toml_edit::Table::new();
@@ -340,7 +340,7 @@ fn inject(src: &PathBuf, dst: &PathBuf, parsed_function: &ParsedFunction) -> eyr
 
                     // Update function table with endpoint configuration
                     // Function table has been created above
-                    sky_meta["function"]
+                    kinetics_meta["function"]
                         .as_table_mut()
                         .map(|f| f.extend(endpoint_table));
                 }
@@ -348,7 +348,7 @@ fn inject(src: &PathBuf, dst: &PathBuf, parsed_function: &ParsedFunction) -> eyr
 
             let environment = parsed_function.role.environment().iter();
 
-            sky_meta["environment"]
+            kinetics_meta["environment"]
                 .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
                 .as_table_mut()
                 .map(|e| e.extend(environment));

@@ -47,8 +47,8 @@ impl Function {
             .wrap_err("No [package]")?
             .get("metadata")
             .wrap_err("No [metadata]")?
-            .get("sky")
-            .wrap_err("No [sky]")?
+            .get("kinetics")
+            .wrap_err("No [kinetics]")?
             .get("function")
             .wrap_err("No [function]")
             .cloned()

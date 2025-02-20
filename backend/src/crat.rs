@@ -35,8 +35,8 @@ impl Crate {
             .wrap_err("No [package]")?
             .get("metadata")
             .wrap_err("No [metadata]")?
-            .get("sky")
-            .wrap_err("No [sky]")?
+            .get("kinetics")
+            .wrap_err("No [kinetics]")?
             .clone())
     }
 
@@ -57,8 +57,8 @@ impl Crate {
 
             let category = metadata
                 .wrap_err("No [metadata]")?
-                .get("sky")
-                .wrap_err("No [sky]")?
+                .get("kinetics")
+                .wrap_err("No [kinetics]")?
                 .get(category_name);
 
             // No resources defined in the category
