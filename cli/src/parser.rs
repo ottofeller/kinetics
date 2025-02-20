@@ -15,7 +15,7 @@ pub(crate) struct ParsedFunction {
     /// Path to the file where function is defined
     pub(crate) relative_path: String,
 
-    /// Parsed from skymacro macro definition
+    /// Parsed from kinetics_macro macro definition
     pub(crate) role: Role,
 }
 
@@ -185,10 +185,10 @@ impl Parser {
         })
     }
 
-    /// Checks if the input is a valid skymacro definition
+    /// Checks if the input is a valid kinetics_macro definition
     /// Known definitions:
-    /// skymacro::endpoint or endpoint
-    /// skymacro::worker or worker
+    /// kinetics_macro::endpoint or endpoint
+    /// kinetics_macro::worker or worker
     fn parse_attr(&self, input: &Attribute) -> Option<ParsedRole> {
         let path = input.path();
 
@@ -197,7 +197,7 @@ impl Parser {
             return ParsedRole::try_from(ident.to_string()).ok();
         }
 
-        if path.segments.len() == 2 && &path.segments[0].ident == "skymacro" {
+        if path.segments.len() == 2 && &path.segments[0].ident == "kinetics_macro" {
             let ident = &path.segments[1].ident;
             return ParsedRole::try_from(ident.to_string()).ok();
         }

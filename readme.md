@@ -32,7 +32,7 @@ graph TD;
 - [ ] User sessions.
 
 # How to run the example
-1. Create `$HOME/.sky/` directory.
+1. Create `$HOME/.kinetics/` directory.
 1. Clone the repository.
 1. Install [Cargo Lambda](https://www.cargo-lambda.info/guide/getting-started.html#step-1-install-cargo-lambda).
 1. Clone the repository.

@@ -5,9 +5,9 @@ use crate::secret::Secret;
 use crate::template::Template;
 use crate::{auth::session::Session, env::env};
 use eyre::Context;
+use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
-use skymacro::endpoint;
 use std::collections::HashMap;
 
 // The request/response payload types are used in CLI crate

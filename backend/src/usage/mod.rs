@@ -1,9 +1,9 @@
 use crate::{auth::session::Session, env::env, json::response as json_response};
 use aws_config::BehaviorVersion;
 use aws_sdk_dynamodb::types::AttributeValue;
+use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
-use skymacro::endpoint;
 use std::collections::HashMap;
 
 #[endpoint(url_path = "/usage/increment", environment = {
