@@ -20,80 +20,44 @@ impl Pipeline {
     }
 
     pub async fn run(self, functions: Vec<Function>) -> eyre::Result<()> {
-        // Define maximum number of parallel builds
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
-
         println!("Building \"{}\"...", &self.crat.name);
         let client = Client::new(&self.is_directly).wrap_err("Failed to create client")?;
 
-        let handles = functions.into_iter().map(|mut function| {
+        let results = future::try_join_all(functions.into_iter().map(|mut function| {
             let client = client.clone();
             let sem = Arc::clone(&semaphore);
-
-            tokio::spawn(async move {
-                // Acquire permit before sending request.
+            async move {
                 let _permit = sem.acquire().await?;
-
                 let function_name = function.name()?;
-
                 function
                     .build()
                     .await
                     .wrap_err(format!("Failed to build: {}", function_name))?;
 
-                if !self.is_deploy_enabled {
-                    return Ok(function);
+                if self.is_deploy_enabled {
+                    function.bundle().await?;
+                    crate::deploy::upload(&client, &mut function, &self.is_directly)
+                        .await
+                        .wrap_err(format!("Failed to upload: {}", function.name()?))?;
                 }
 
-                function.bundle().await?;
-
-                crate::deploy::upload(&client, &mut function, &self.is_directly)
-                    .await
-                    .wrap_err(format!("Failed to upload: {}", function.name()?))?;
-
                 Ok::<Function, Report>(function)
-            })
-        });
-
-        let results: Vec<_> = future::join_all(handles)
-            .await
-            .into_iter()
-            .map(|res| {
-                res.map_err(Report::msg)
-                    .and_then(|inner_result| inner_result)
-            })
-            .collect();
-
-        let (mut ok_results, errors): (Vec<_>, Vec<_>) =
-            results.into_iter().partition(Result::is_ok);
-
-        if !errors.is_empty() {
-            println!("Failed to build and upload functions:");
-            for error in errors {
-                println!("{:?}", error);
             }
-            return Err(eyre!("Failed to build and upload functions"));
-        }
+        }))
+        .await?;
 
         println!("Build completed: \"{}\"", self.crat.name);
 
-        if !self.is_deploy_enabled {
-            return Ok(());
+        if self.is_deploy_enabled {
+            println!("Deploying \"{}\"...", self.crat.name);
+            crate::deploy::deploy(&self.crat, &results, &self.is_directly)
+                .await
+                .wrap_err("Failed to deploy functions")?;
         }
-
-        println!("Deploying \"{}\"...", self.crat.name);
-
-        // It's safe to unwrap here because the errors have already been caught
-        let functions: Vec<_> = ok_results.drain(..).map(Result::unwrap).collect();
-
-        crate::deploy::deploy(&self.crat, &functions, &self.is_directly)
-            .await
-            .wrap_err("Failed to deploy functions")?;
-
         Ok(())
     }
 }
-
 #[derive(Default)]
 pub struct PipelineBuilder {
     is_deploy_enabled: Option<bool>,
