@@ -112,7 +112,7 @@ impl PipelineBuilder {
             crat: self.crat.unwrap(),
             is_deploy_enabled: self.is_deploy_enabled.unwrap_or(false),
             is_directly: self.is_directly.unwrap_or(false),
-            max_concurrent: self.max_concurrent.unwrap_or(2),
+            max_concurrent: self.max_concurrent.unwrap_or(4),
         })
     }
 
