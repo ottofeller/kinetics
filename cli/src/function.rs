@@ -122,7 +122,9 @@ impl Function {
 
             Ok(())
         })
-        .await??;
+        .await
+        .wrap_err("Failed to spawn the blocking task")?
+        .wrap_err("Failed to create a Zip archive")?;
 
         Ok(())
     }
