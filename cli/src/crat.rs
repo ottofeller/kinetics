@@ -1,7 +1,7 @@
 use eyre::{ContextCompat, Ok, WrapErr};
 use std::path::PathBuf;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Crate {
     /// Path to the crate's root directory
     pub path: PathBuf,

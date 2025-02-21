@@ -26,3 +26,4 @@ backend = { path = "../backend" }
 syn = { version = "2.0", features = ["full", "visit"] }
 prettyplease = "0.2.29"
 twox-hash = "2.1.0"
+futures = "0.3.31"

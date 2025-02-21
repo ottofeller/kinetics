@@ -1,16 +1,18 @@
 use crate::crat::Crate;
 use aws_sdk_s3::primitives::ByteStream;
 use eyre::{eyre, ContextCompat, Ok, WrapErr};
+use std::io::Write;
 use std::path::PathBuf;
+use tokio::io::AsyncReadExt;
 use zip::write::SimpleFileOptions;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Function {
     pub id: String,
     pub path: PathBuf,
     pub s3key_encrypted: Option<String>,
 
-    // Oringal parent crate
+    // Original parent crate
     pub crat: Crate,
 }
 
@@ -32,7 +34,7 @@ impl Function {
         self.s3key_encrypted.clone()
     }
 
-    // Upload the backaend manually if the /upload endpoint gets
+    // Upload the backend manually if the /upload endpoint gets
     // use aws_sdk_s3::primitives::ByteStream;
     pub async fn zip_stream(&self) -> eyre::Result<ByteStream> {
         aws_sdk_s3::primitives::ByteStream::from_path(self.bundle_path())
@@ -65,15 +67,16 @@ impl Function {
             .to_string())
     }
 
-    pub fn build(&self) -> eyre::Result<()> {
+    pub async fn build(&self) -> eyre::Result<()> {
         println!("Building {:?} with cargo-lambda...", self.path);
 
-        let output = std::process::Command::new("cargo")
+        let output = tokio::process::Command::new("cargo")
             .arg("lambda")
             .arg("build")
             .arg("--release")
             .current_dir(&self.path)
             .output()
+            .await
             .wrap_err("Failed to execute the process")?;
 
         if !output.status.success() {
@@ -89,23 +92,40 @@ impl Function {
             ));
         }
 
+        println!("Function {:?} was built successfully", self.path);
         Ok(())
     }
 
-    pub fn bundle(&self) -> eyre::Result<()> {
+    pub async fn bundle(&self) -> eyre::Result<()> {
         println!("Bundling {:?}...", self.path);
-        let file = std::fs::File::create(&self.bundle_path())?;
-        let mut zip = zip::ZipWriter::new(file);
 
-        let mut f = std::fs::File::open(
+        let mut f = tokio::fs::File::open(
             self.build_path()?
                 .to_str()
                 .ok_or(eyre!("Failed to construct bundle path"))?,
-        )?;
+        )
+        .await?;
 
-        zip.start_file("bootstrap", SimpleFileOptions::default())?;
-        std::io::copy(&mut f, &mut zip)?;
-        zip.finish()?;
+        let mut buffer = Vec::new();
+        f.read_to_end(&mut buffer).await?;
+
+        let bundle_path = self.bundle_path();
+
+        // Zip crate doesn't have async support, so we have to use a blocking task here
+        tokio::task::spawn_blocking(move || -> eyre::Result<()> {
+            let file = std::fs::File::create(bundle_path)?;
+            let mut zip = zip::ZipWriter::new(file);
+
+            zip.start_file("bootstrap", SimpleFileOptions::default())?;
+            zip.write_all(&buffer)?;
+            zip.finish()?;
+
+            Ok(())
+        })
+        .await
+        .wrap_err("Failed to spawn the blocking task")?
+        .wrap_err("Failed to create a Zip archive")?;
+
         Ok(())
     }
 

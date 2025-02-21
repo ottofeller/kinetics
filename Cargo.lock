@@ -1949,6 +1949,7 @@ dependencies = [
  "chrono",
  "clap",
  "eyre",
+ "futures",
  "prettyplease",
  "regex",
  "reqwest",

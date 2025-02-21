@@ -5,15 +5,19 @@ mod deploy;
 mod function;
 mod login;
 mod parser;
+mod pipeline;
 mod secret;
-use crate::build::{build, prepare_crates};
+
+use crate::build::prepare_crates;
+use crate::pipeline::Pipeline;
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use crat::Crate;
-use eyre::{Ok, WrapErr};
+use eyre::WrapErr;
 use function::Function;
 use login::login;
 use std::path::{Path, PathBuf};
+
 static API_BASE: &str = "https://backend.usekinetics.com";
 
 /// Credentials to be used with API
@@ -42,11 +46,17 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Build,
+    Build {
+        #[arg(short, long, default_value_t = 4)]
+        max_concurrent: usize,
+    },
 
     Deploy {
         #[arg(short, long)]
         is_directly: bool,
+
+        #[arg(short, long, default_value_t = 4)]
+        max_concurrent: usize,
     },
 
     Login {
@@ -74,37 +84,45 @@ fn functions() -> eyre::Result<Vec<Function>> {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> eyre::Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Some(Commands::Build) => {
-            let functions = functions().unwrap();
+        Some(Commands::Build { max_concurrent }) => {
+            Pipeline::builder()
+                .set_max_concurrent(*max_concurrent)
+                .with_deploy_enabled(false)
+                .set_crat(crat()?)
+                .build()
+                .wrap_err("Failed to build pipeline")?
+                .run(functions()?)
+                .await?;
 
-            if let Err(error) = build(&functions) {
-                println!("{error}");
-                return;
-            }
+            Ok(())
         }
-        Some(Commands::Deploy { is_directly }) => {
-            let mut functions = functions().unwrap();
+        Some(Commands::Deploy {
+            is_directly,
+            max_concurrent,
+        }) => {
+            Pipeline::builder()
+                .set_max_concurrent(*max_concurrent)
+                .with_deploy_enabled(true)
+                .set_crat(crat()?)
+                .with_directly(*is_directly)
+                .build()
+                .wrap_err("Failed to build pipeline")?
+                .run(functions()?)
+                .await?;
 
-            if let Err(error) = build(&functions) {
-                println!("{error:?}");
-                return;
-            }
-
-            if let Err(error) = deploy::deploy(&mut functions, is_directly).await {
-                println!("{error:?}");
-                return;
-            }
+            Ok(())
         }
-        Some(Commands::Login { email }) => {
-            match login(email).await {
-                Result::Ok(_) => println!("Login successful"),
-                Result::Err(error) => println!("Login failed: {error:?}"),
-            };
-        }
-        None => {}
+        Some(Commands::Login { email }) => match login(email).await {
+            Ok(_) => {
+                println!("Login successful");
+                Ok(())
+            }
+            Err(error) => Err(error),
+        },
+        None => Ok(()),
     }
 }
