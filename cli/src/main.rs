@@ -47,7 +47,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     Build {
-        #[arg(short, long, default_value_t = 4)]
+        #[arg(short, long, default_value_t = 6)]
         max_concurrent: usize,
     },
 
@@ -55,7 +55,7 @@ enum Commands {
         #[arg(short, long)]
         is_directly: bool,
 
-        #[arg(short, long, default_value_t = 4)]
+        #[arg(short, long, default_value_t = 6)]
         max_concurrent: usize,
     },
 
