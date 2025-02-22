@@ -48,7 +48,7 @@ struct Cli {
 enum Commands {
     Build {
         #[arg(short, long, default_value_t = 6)]
-        max_concurrent: usize,
+        max_concurrency: usize,
     },
 
     Deploy {
@@ -56,7 +56,7 @@ enum Commands {
         is_directly: bool,
 
         #[arg(short, long, default_value_t = 6)]
-        max_concurrent: usize,
+        max_concurrency: usize,
     },
 
     Login {
@@ -88,9 +88,9 @@ async fn main() -> eyre::Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Some(Commands::Build { max_concurrent }) => {
+        Some(Commands::Build { max_concurrency }) => {
             Pipeline::builder()
-                .set_max_concurrent(*max_concurrent)
+                .set_max_concurrent(*max_concurrency)
                 .with_deploy_enabled(false)
                 .set_crat(crat()?)
                 .build()
@@ -102,10 +102,10 @@ async fn main() -> eyre::Result<()> {
         }
         Some(Commands::Deploy {
             is_directly,
-            max_concurrent,
+            max_concurrency,
         }) => {
             Pipeline::builder()
-                .set_max_concurrent(*max_concurrent)
+                .set_max_concurrent(*max_concurrency)
                 .with_deploy_enabled(true)
                 .set_crat(crat()?)
                 .with_directly(*is_directly)
