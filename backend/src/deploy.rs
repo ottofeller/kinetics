@@ -81,7 +81,10 @@ Permissions:
         "ssm:PutParameter",
         "ssm:AddTagsToResource",
         "acm:RequestCertificate",
-        "acm:DeleteCertificate"
+        "acm:DeleteCertificate",
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
     ],
     "Resource": "*",
     "Effect": "Allow"
