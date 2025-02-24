@@ -51,6 +51,10 @@ pub struct JsonResponse {
 Permissions:
 {
     "Action": [
+        "route53:GetChange",
+        "route53:ChangeResourceRecordSets",
+        "route53:GetHostedZone",
+        "acm:DescribeCertificate",
         "cloudformation:CreateStack",
         "cloudformation:DeleteStack",
         "cloudformation:UpdateStack",
@@ -72,6 +76,10 @@ Permissions:
         "lambda:GetFunctionUrlConfig",
         "lambda:UpdateFunctionCode",
         "lambda:UpdateFunctionConfiguration",
+        "lambda:ListTags",
+        "lambda:TagResource",
+        "lambda:GetLayerVersion",
+        "lambda:InvokeFunction",
         "s3:GetObject",
         "cloudfront:*",
         "dynamodb:DescribeTable",
@@ -81,7 +89,10 @@ Permissions:
         "ssm:PutParameter",
         "ssm:AddTagsToResource",
         "acm:RequestCertificate",
-        "acm:DeleteCertificate"
+        "acm:DeleteCertificate",
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
     ],
     "Resource": "*",
     "Effect": "Allow"
