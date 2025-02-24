@@ -72,6 +72,7 @@ Permissions:
         "lambda:GetFunctionUrlConfig",
         "lambda:UpdateFunctionCode",
         "lambda:UpdateFunctionConfiguration",
+        "lambda:ListTags",
         "s3:GetObject",
         "cloudfront:*",
         "dynamodb:DescribeTable",
