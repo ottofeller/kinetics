@@ -26,7 +26,7 @@ impl Function {
         let decrypted = if is_encrypted {
             use magic_crypt::{new_magic_crypt, MagicCryptTrait};
             let mc = new_magic_crypt!(s3key_decryption_key, 256);
-            mc.decrypt_base64_to_string(&s3key_encrypted)
+            mc.decrypt_base64_to_string(s3key_encrypted)
                 .unwrap_or("default".into())
         } else {
             s3key_encrypted.to_string()
@@ -76,11 +76,7 @@ impl Function {
 
         let meta = self.meta().unwrap();
 
-        if meta.get("url_path").is_none() {
-            return None;
-        }
-
-        Some(meta.get("url_path").unwrap().as_str().unwrap().to_string())
+        Some(meta.get("url_path")?.as_str().unwrap().to_string())
     }
 
     /// User defined name of the function
