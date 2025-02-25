@@ -31,7 +31,7 @@ pub async fn request(
         .set_item(Some(HashMap::from([
             (
                 "id".to_string(),
-                S(format!("authcode#{}", body.email.to_string())),
+                S(format!("authcode#{}", body.email)),
             ),
             ("created_at".to_string(), S(now.to_rfc3339())),
             (
@@ -116,7 +116,7 @@ pub async fn exchange(
     }
 
     // Generate and store access token
-    let token = format!("{}", sha256::digest(&rand::random::<u32>().to_string()));
+    let token = sha256::digest(rand::random::<u32>().to_string()).to_string();
 
     let token_hash = sha256::digest(
         format!(
