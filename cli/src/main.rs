@@ -68,7 +68,7 @@ enum Commands {
 /// Return crate info from Cargo.toml
 fn crat() -> eyre::Result<Crate> {
     let path = std::env::current_dir().wrap_err("Failed to get current dir")?;
-    Ok(Crate::new(path)?)
+    Crate::new(path)
 }
 
 /// Return the list of dirs with functions to deploy

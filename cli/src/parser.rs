@@ -206,7 +206,7 @@ impl Parser {
     }
 }
 
-impl<'a> Visit<'a> for Parser {
+impl Visit<'_> for Parser {
     /// Visits function definitions
     fn visit_item_fn(&mut self, item: &ItemFn) {
         for attr in &item.attrs {

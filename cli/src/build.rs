@@ -26,7 +26,7 @@ pub fn prepare_crates(
     for entry in WalkDir::new(&current_crate.path)
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
     {
         let content = fs::read_to_string(entry.path())?;
         let syntax = syn::parse_file(&content)?;
@@ -46,9 +46,9 @@ pub fn prepare_crates(
             .join(func_name(&parsed_function));
 
         let src = &current_crate.path;
-        clone(&src, &dst)?;
+        clone(src, &dst)?;
         cleanup(&dst)?;
-        inject(&src, &dst, &parsed_function)?;
+        inject(src, &dst, &parsed_function)?;
 
         result.push(dst);
     }
@@ -95,7 +95,7 @@ fn clone(src: &Path, dst: &Path) -> eyre::Result<()> {
             .unwrap_or_default();
 
         if new_hash != old_hash {
-            fs::copy(&src_path, &dst_path).wrap_err("Copying file failed")?;
+            fs::copy(src_path, &dst_path).wrap_err("Copying file failed")?;
         }
     }
 
@@ -109,7 +109,7 @@ fn clone(src: &Path, dst: &Path) -> eyre::Result<()> {
 /// Inject the code which is necessary to build lambda
 ///
 /// Set up the main() function according to cargo lambda guides, and add the lambda code right to main.rs
-fn inject(src: &PathBuf, dst: &PathBuf, parsed_function: &ParsedFunction) -> eyre::Result<()> {
+fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Result<()> {
     let tmp_dir = &dst.join(".temp");
     fs::create_dir_all(tmp_dir).wrap_err("Failed to create .temp directory")?;
 
@@ -276,7 +276,7 @@ fn inject(src: &PathBuf, dst: &PathBuf, parsed_function: &ParsedFunction) -> eyr
             .to_string(),
     )?;
 
-    let mut doc: toml_edit::DocumentMut = fs::read_to_string(&src.join("Cargo.toml"))?.parse()?;
+    let mut doc: toml_edit::DocumentMut = fs::read_to_string(src.join("Cargo.toml"))?.parse()?;
 
     if !doc.contains_array_of_tables("bin") {
         let mut aot = toml_edit::ArrayOfTables::new();
@@ -287,55 +287,57 @@ fn inject(src: &PathBuf, dst: &PathBuf, parsed_function: &ParsedFunction) -> eyr
         doc["bin"] = toml_edit::Item::ArrayOfTables(aot);
     }
 
-    doc["package"]["metadata"]["kinetics"]
+    if let Some(kinetics_meta) = doc["package"]["metadata"]["kinetics"]
         .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
         .as_table_mut()
-        .map(|kinetics_meta| {
-            let role_str = match &parsed_function.role {
-                Role::Endpoint(_) => "endpoint",
-                Role::Worker(_) => "worker",
-            };
+    {
+        let role_str = match &parsed_function.role {
+            Role::Endpoint(_) => "endpoint",
+            Role::Worker(_) => "worker",
+        };
 
-            let name = func_name(parsed_function);
+        let name = func_name(parsed_function);
 
-            // Create a function table for both roles
-            let mut function_table = toml_edit::Table::new();
-            function_table["name"] = toml_edit::value(&name);
-            function_table["role"] = toml_edit::value(role_str);
-            kinetics_meta.insert("function", toml_edit::Item::Table(function_table));
+        // Create a function table for both roles
+        let mut function_table = toml_edit::Table::new();
+        function_table["name"] = toml_edit::value(&name);
+        function_table["role"] = toml_edit::value(role_str);
+        kinetics_meta.insert("function", toml_edit::Item::Table(function_table));
 
-            match &parsed_function.role {
-                Role::Worker(params) => {
-                    let mut queue_table = toml_edit::Table::new();
-                    queue_table["name"] = toml_edit::value(&name);
-                    queue_table["concurrency"] = toml_edit::value(params.concurrency as i64);
-                    queue_table["fifo"] = toml_edit::value(params.fifo);
+        match &parsed_function.role {
+            Role::Worker(params) => {
+                let mut queue_table = toml_edit::Table::new();
+                queue_table["name"] = toml_edit::value(&name);
+                queue_table["concurrency"] = toml_edit::value(params.concurrency as i64);
+                queue_table["fifo"] = toml_edit::value(params.fifo);
 
-                    let mut named_table = toml_edit::Table::new();
-                    named_table.set_implicit(true); // Don't create an empty queue table
-                    named_table.insert(&name, toml_edit::Item::Table(queue_table));
+                let mut named_table = toml_edit::Table::new();
+                named_table.set_implicit(true); // Don't create an empty queue table
+                named_table.insert(&name, toml_edit::Item::Table(queue_table));
 
-                    kinetics_meta.insert("queue", toml_edit::Item::Table(named_table));
-                }
-                Role::Endpoint(params) => {
-                    let mut endpoint_table = toml_edit::Table::new();
-                    endpoint_table["url_path"] = toml_edit::value(&params.url_path);
+                kinetics_meta.insert("queue", toml_edit::Item::Table(named_table));
+            }
+            Role::Endpoint(params) => {
+                let mut endpoint_table = toml_edit::Table::new();
+                endpoint_table["url_path"] = toml_edit::value(&params.url_path);
 
-                    // Update function table with endpoint configuration
-                    // Function table has been created above
-                    kinetics_meta["function"]
-                        .as_table_mut()
-                        .map(|f| f.extend(endpoint_table));
+                // Update function table with endpoint configuration
+                // Function table has been created above
+                if let Some(f) = kinetics_meta["function"].as_table_mut() {
+                    f.extend(endpoint_table)
                 }
             }
+        }
 
-            let environment = parsed_function.role.environment().iter();
+        let environment = parsed_function.role.environment().iter();
 
-            kinetics_meta["environment"]
-                .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
-                .as_table_mut()
-                .map(|e| e.extend(environment));
-        });
+        if let Some(e) = kinetics_meta["environment"]
+            .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+            .as_table_mut()
+        {
+            e.extend(environment)
+        }
+    }
 
     doc["dependencies"]["aws-config"]
         .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
@@ -347,34 +349,34 @@ fn inject(src: &PathBuf, dst: &PathBuf, parsed_function: &ParsedFunction) -> eyr
         .as_table_mut()
         .map(|t| t.insert("version", toml_edit::value("1.59.0")));
 
-    doc["dependencies"]["tokio"]
+    if let Some(tokio_dep) = doc["dependencies"]["tokio"]
         .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
         .as_table_mut()
-        .map(|t| {
-            t.insert("version", toml_edit::value("1.43.0"));
-            let features = toml_edit::Array::from_iter(vec!["full"]);
-            t.insert("features", toml_edit::value(features));
-        });
+    {
+        tokio_dep.insert("version", toml_edit::value("1.43.0"));
+
+        tokio_dep.insert(
+            "features",
+            toml_edit::value(toml_edit::Array::from_iter(vec!["full"])),
+        );
+    }
 
     if let Some(deps_table) = doc["dependencies"].as_table_mut() {
         deps_table.remove("kinetics-macro");
     }
 
-    write_if_changed(&dst.join("Cargo.toml"), doc.to_string())
+    write_if_changed(dst.join("Cargo.toml"), doc.to_string())
         .wrap_err("Failed to replace Cargo.toml")?;
 
-    let _ = fs::remove_dir_all(&tmp_dir).wrap_err("Failed to remove temporary directory");
+    let _ = fs::remove_dir_all(tmp_dir).wrap_err("Failed to remove temporary directory");
     Ok(())
 }
 
 /// Generate the import statement for the function which is being deployed
 /// as a lambda
 fn import_statement(relative_path: &str, rust_name: &str) -> eyre::Result<String> {
-    let relative_path = PathBuf::from_str(
-        relative_path
-            .strip_prefix("src/")
-            .unwrap_or_else(|| relative_path),
-    )?;
+    let relative_path =
+        PathBuf::from_str(relative_path.strip_prefix("src/").unwrap_or(relative_path))?;
 
     let mut module_path_parts = Vec::new();
 
@@ -416,11 +418,18 @@ fn import_statement(relative_path: &str, rust_name: &str) -> eyre::Result<String
 
 /// Clean up scaffolding required for deploying a function
 fn cleanup(dst: &Path) -> eyre::Result<()> {
+    let re_endpoint = Regex::new(r"(?m)^\s*#\s*\[\s*endpoint[^]]*]\s*$")?;
+    let re_worker = Regex::new(r"(?m)^\s*#\s*\[\s*worker[^]]*]\s*$")?;
+
+    let re_import = Regex::new(
+        r"(?m)^\s*use\s+kinetics_macro(\s*::\s*(\w+|\{\s*\w+(\s*,\s*\w+)*\s*}))?\s*;\s*$",
+    )?;
+
     // Delete the macro attributes from everywhere in the crate
     for entry in WalkDir::new(dst.join("src"))
         .into_iter()
         .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
     {
         let path = entry.path();
 
@@ -428,22 +437,15 @@ fn cleanup(dst: &Path) -> eyre::Result<()> {
             continue;
         }
 
-        let mut content = fs::read_to_string(&path)
+        let mut content = fs::read_to_string(path)
             .wrap_err(format!("Failed to read: {path:?}"))
             .wrap_err("Failed to read file")?;
-
-        let re_endpoint = Regex::new(r"(?m)^\s*#\s*\[\s*endpoint[^]]*]\s*$")?;
-        let re_worker = Regex::new(r"(?m)^\s*#\s*\[\s*worker[^]]*]\s*$")?;
-
-        let re_import = Regex::new(
-            r"(?m)^\s*use\s+kinetics_macro(\s*::\s*(\w+|\{\s*\w+(\s*,\s*\w+)*\s*}))?\s*;\s*$",
-        )?;
 
         content = re_endpoint.replace_all(&content, "").to_string();
         content = re_worker.replace_all(&content, "").to_string();
         let new_content = re_import.replace_all(&content, "");
 
-        write_if_changed(&path, new_content.as_ref())?;
+        write_if_changed(path, new_content.as_ref())?;
     }
 
     Ok(())

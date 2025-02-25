@@ -44,7 +44,7 @@ impl Crate {
     fn resources(cargo_toml: &toml::Value) -> eyre::Result<Vec<crate::Resource>> {
         let mut result = vec![];
 
-        for category_name in vec!["kvdb", "queue"] {
+        for category_name in ["kvdb", "queue"] {
             let metadata = cargo_toml
                 .get("package")
                 .wrap_err("No [package]")?
