@@ -209,11 +209,11 @@ impl Template {
 
         // Define global resources from the app's Cargo.toml, e.g. a DB
         for resource in crat.resources.iter() {
-            template.template.push_str(&template.resource(&resource));
-            template.template.push_str("\n");
+            template.template.push_str(&template.resource(resource));
+            template.template.push('\n');
         }
 
-        let secrets_names = secrets.iter().map(|s| s.unique_name()).collect();
+        let secrets_names: Vec<String> = secrets.iter().map(|s| s.unique_name()).collect();
 
         for function in template.functions.clone() {
             if function.role()? == "endpoint" {
@@ -230,7 +230,7 @@ impl Template {
                 );
             }
 
-            template.template.push_str("\n");
+            template.template.push('\n');
         }
 
         template.template.push_str(&template.routing());
@@ -240,17 +240,17 @@ impl Template {
     fn prefixed(&self, names: Vec<&str>) -> String {
         let joined = names.join("D");
 
-        return format!(
+        format!(
             "{username}D{crat_name}D{joined}",
             username = &self.username_escaped,
             crat_name = &self.crat.name
-        );
+        )
     }
 
     /// Policy statements to allow a function to access a resource
     ///
     /// Current all functions in a crate have access to all resources. Including secrets.
-    fn policies(&self, secrets: &Vec<String>) -> String {
+    fn policies(&self, secrets: &[String]) -> String {
         let mut template = String::default();
 
         for resource in self.crat.resources.iter() {
@@ -282,7 +282,7 @@ impl Template {
                     )
                 }
 
-                _ => format!(""),
+                _ => String::new(),
             })
         }
 
@@ -315,12 +315,15 @@ impl Template {
     }
 
     /// Define environment variables for a function
-    fn environment(&self, function: &Function, secrets: &Vec<String>) -> eyre::Result<String> {
+    fn environment(&self, function: &Function, secrets: &[String]) -> eyre::Result<String> {
         let raw = function.environment()?;
         let mut raw = raw.as_table().unwrap().clone();
 
         // If user tries to redefine these values, insert()s will overwrite them
-        raw.insert("KINETICS_SECRETS_NAMES".into(), Value::String(secrets.join(",")));
+        raw.insert(
+            "KINETICS_SECRETS_NAMES".into(),
+            Value::String(secrets.join(",")),
+        );
 
         raw.insert(
             "KINETICS_USERNAME".into(),
@@ -348,7 +351,7 @@ impl Template {
     /// CFN template for a REST endpoint function — a function itself and its role
     ///
     /// The "secrets" argument is a list of AWS secrets names.
-    fn endpoint(&self, function: &Function, secrets: &Vec<String>) -> eyre::Result<String> {
+    fn endpoint(&self, function: &Function, secrets: &[String]) -> eyre::Result<String> {
         let policies = self.policies(secrets);
         let name = self.prefixed(vec![&function.name()?]);
         let environment = self.environment(function, secrets)?;
@@ -367,7 +370,8 @@ impl Template {
                     Fn::GetAtt:
                     - EndpointRole{name}
                     - Arn
-                MemorySize: 1024
+                MemorySize: 256
+                Timeout: 1
                 Code:
                     S3Bucket: {bucket}
                     S3Key: {s3key}
@@ -414,7 +418,7 @@ impl Template {
     }
 
     /// CFN template for a worker function
-    fn worker(&self, function: &Function, secrets: &Vec<String>) -> eyre::Result<String> {
+    fn worker(&self, function: &Function, secrets: &[String]) -> eyre::Result<String> {
         let policies = self.policies(secrets);
         let name = self.prefixed(vec![&function.name()?]);
         let environment = self.environment(function, secrets)?;
@@ -442,7 +446,8 @@ impl Template {
                       Fn::GetAtt:
                         - WorkerRole{name}
                         - Arn
-                    MemorySize: 1024
+                    MemorySize: 128
+                    Timeout: 3
                     Code:
                       S3Bucket: {bucket}
                       S3Key: {s3key}
@@ -515,10 +520,6 @@ impl Template {
         ))
     }
 
-    pub fn to_string(&self) -> String {
-        self.template.clone()
-    }
-
     /// Check if the stack already exists
     async fn is_exists(&self, name: &str) -> eyre::Result<bool> {
         let result = self
@@ -573,5 +574,11 @@ impl Template {
         }
 
         Ok(())
+    }
+}
+
+impl std::fmt::Display for Template {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.template.clone())
     }
 }
