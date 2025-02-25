@@ -1,5 +1,7 @@
 use crate::crat::Crate;
+use crate::Resource;
 use eyre::{ContextCompat, Ok, WrapErr};
+use itertools::Itertools;
 
 #[derive(Clone, Debug)]
 pub struct Function {
@@ -9,6 +11,8 @@ pub struct Function {
 
     // Oringal parent crate
     pub crat: Crate,
+
+    pub resources: Vec<Resource>,
 }
 
 impl Function {
@@ -32,11 +36,15 @@ impl Function {
             s3key_encrypted.to_string()
         };
 
+        // Load resources from function's Cargo.toml
+        let resources = Crate::resources(&cargo_toml)?;
+
         Ok(Function {
             id: uuid::Uuid::new_v4().into(),
             crat: crat.clone(),
             toml: cargo_toml,
             s3key: decrypted,
+            resources,
         })
     }
 
@@ -100,7 +108,18 @@ impl Function {
             .to_string())
     }
 
-    pub fn resources(&self) -> Vec<&crate::Resource> {
-        self.crat.resources.iter().clone().collect()
+    /// Returns a list of crate resources and function-specific resources
+    /// All resources are unique by name to avoid conflicts in the CloudFormation template
+    /// Parent crate resources come first, then function-specific resources
+    pub fn resources(&self) -> Vec<&Resource> {
+        self.crat
+            .resources
+            .iter()
+            .chain(&self.resources)
+            .unique_by(|resource| match resource {
+                Resource::Queue(queue) => &queue.name,
+                Resource::KvDb(kv_db) => &kv_db.name,
+            })
+            .collect()
     }
 }
