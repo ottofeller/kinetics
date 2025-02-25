@@ -67,23 +67,6 @@ impl Default for Worker {
     }
 }
 
-enum ParsedRole {
-    Endpoint,
-    Worker,
-}
-
-impl TryFrom<String> for ParsedRole {
-    type Error = &'static str;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        match value.as_str() {
-            "endpoint" => Ok(ParsedRole::Endpoint),
-            "worker" => Ok(ParsedRole::Worker),
-            _ => Err("Unknown function type"),
-        }
-    }
-}
-
 #[derive(Debug, Default)]
 pub(crate) struct Parser {
     /// All found functions in the source code
@@ -185,24 +168,23 @@ impl Parser {
         })
     }
 
-    /// Checks if the input is a valid kinetics_macro definition
+    /// Checks if the input is a valid kinetics_macro definition and returns its role
     /// Known definitions:
-    /// kinetics_macro::endpoint or endpoint
-    /// kinetics_macro::worker or worker
-    fn parse_attr(&self, input: &Attribute) -> Option<ParsedRole> {
+    /// kinetics_macro::<role> or <role>
+    fn parse_attr_role(&self, input: &Attribute) -> String {
         let path = input.path();
 
         if path.segments.len() == 1 {
             let ident = &path.segments[0].ident;
-            return ParsedRole::try_from(ident.to_string()).ok();
+            return ident.to_string();
         }
 
         if path.segments.len() == 2 && &path.segments[0].ident == "kinetics_macro" {
             let ident = &path.segments[1].ident;
-            return ParsedRole::try_from(ident.to_string()).ok();
+            return ident.to_string();
         }
 
-        None
+        "".to_string()
     }
 }
 
@@ -211,12 +193,12 @@ impl Visit<'_> for Parser {
     fn visit_item_fn(&mut self, item: &ItemFn) {
         for attr in &item.attrs {
             // Skip non-endpoint or non-worker attributes
-            let role = match self.parse_attr(attr) {
-                Some(ParsedRole::Endpoint) => {
+            let role = match self.parse_attr_role(attr).as_str() {
+                "endpoint" => {
                     let params = self.parse_endpoint(attr).unwrap();
                     Role::Endpoint(params)
                 }
-                Some(ParsedRole::Worker) => {
+                "worker" => {
                     let params = self.parse_worker(attr).unwrap();
                     Role::Worker(params)
                 }
