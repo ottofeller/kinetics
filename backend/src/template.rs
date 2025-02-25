@@ -372,6 +372,7 @@ impl Template {
                     - Arn
                 MemorySize: 256
                 Timeout: 1
+                ReservedConcurrentExecutions: 8
                 Code:
                     S3Bucket: {bucket}
                     S3Key: {s3key}
@@ -448,6 +449,7 @@ impl Template {
                         - Arn
                     MemorySize: 128
                     Timeout: 3
+                    ReservedConcurrentExecutions: 8
                     Code:
                       S3Bucket: {bucket}
                       S3Key: {s3key}
