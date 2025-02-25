@@ -2,7 +2,7 @@ use crate::crat::Crate;
 use aws_sdk_s3::primitives::ByteStream;
 use eyre::{eyre, ContextCompat, Ok, WrapErr};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
 use zip::write::SimpleFileOptions;
 
@@ -17,11 +17,11 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn new(path: &PathBuf) -> eyre::Result<Self> {
+    pub fn new(path: &Path) -> eyre::Result<Self> {
         Ok(Function {
             id: uuid::Uuid::new_v4().into(),
-            path: path.clone(),
-            crat: Crate::new(path.clone())?,
+            path: path.to_path_buf(),
+            crat: Crate::new(path.to_path_buf())?,
             s3key_encrypted: None,
         })
     }
