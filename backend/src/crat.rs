@@ -50,7 +50,7 @@ impl Crate {
                 .wrap_err("No [package]")?
                 .get("metadata");
 
-            // No resources defiend at all
+            // No resources defined at all
             if metadata.is_none() {
                 continue;
             }

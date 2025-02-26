@@ -95,7 +95,6 @@ pub async fn deploy(crat: &Crate, functions: &[Function], is_directly: &bool) ->
                 .map(|f| {
                     BackendFunction::new(
                         &f.toml_string().unwrap(),
-                        &crat,
                         &f.s3key_encrypted.to_owned().unwrap(),
                         "",
                         false,
