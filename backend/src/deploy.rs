@@ -78,8 +78,6 @@ Permissions:
         "lambda:UpdateFunctionConfiguration",
         "lambda:ListTags",
         "lambda:TagResource",
-        "lambda:GetLayerVersion",
-        "lambda:InvokeFunction",
         "s3:GetObject",
         "cloudfront:*",
         "dynamodb:DescribeTable",

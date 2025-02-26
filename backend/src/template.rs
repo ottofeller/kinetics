@@ -356,7 +356,11 @@ impl Template {
         let name = self.prefixed(vec![&function.name()?]);
         let environment = self.environment(function, secrets)?;
         let bucket = self.bucket.clone();
+        let username = self.username.clone();
 
+        // By default a lambda has no permissions to modify its own tags,
+        // so it's safe to assign tags with system information and rely on them
+        // in other parts of the stack.
         Ok(format!(
             "
             Endpoint{name}:
@@ -373,6 +377,9 @@ impl Template {
                 MemorySize: 256
                 Timeout: 1
                 ReservedConcurrentExecutions: 8
+                Tags:
+                    - Key: KINETICS_USERNAME
+                      Value: {username}
                 Code:
                     S3Bucket: {bucket}
                     S3Key: {s3key}
@@ -424,6 +431,7 @@ impl Template {
         let name = self.prefixed(vec![&function.name()?]);
         let environment = self.environment(function, secrets)?;
         let bucket = self.bucket.clone();
+        let username = self.username.clone();
 
         let queue = function
             .resources()
@@ -453,6 +461,9 @@ impl Template {
                     Code:
                       S3Bucket: {bucket}
                       S3Key: {s3key}
+                    Tags:
+                        - Key: KINETICS_USERNAME
+                        Value: {username}
 
             WorkerRole{name}:
               Type: AWS::IAM::Role
