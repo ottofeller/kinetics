@@ -41,7 +41,7 @@ impl Crate {
     }
 
     /// The hash with all the resources specific to the function
-    fn resources(cargo_toml: &toml::Value) -> eyre::Result<Vec<crate::Resource>> {
+    pub(crate) fn resources(cargo_toml: &toml::Value) -> eyre::Result<Vec<crate::Resource>> {
         let mut result = vec![];
 
         for category_name in ["kvdb", "queue"] {
