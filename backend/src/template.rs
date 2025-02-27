@@ -434,7 +434,7 @@ impl Template {
         let username = self.username.clone();
 
         let queue = function
-            .function_resources()
+            .resources()
             .iter()
             .find_map(|r| match r {
                 Resource::Queue(queue) => Some(queue),

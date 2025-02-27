@@ -102,7 +102,7 @@ impl Function {
     }
 
     /// Returns a list of function's specific resources
-    pub(crate) fn function_resources(&self) -> Vec<&Resource> {
+    pub(crate) fn resources(&self) -> Vec<&Resource> {
         self.resources.iter().collect()
     }
 }
