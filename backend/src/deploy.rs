@@ -131,7 +131,6 @@ pub async fn deploy(
             .map(|f| {
                 Function::new(
                     &f.toml,
-                    &crat,
                     &f.s3key_encrypted,
                     &env("S3_KEY_ENCRYPTION_KEY").unwrap(),
                     true,
