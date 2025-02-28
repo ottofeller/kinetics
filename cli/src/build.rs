@@ -530,19 +530,19 @@ fn cleanup(dst: &Path) -> eyre::Result<()> {
 /// function name requirements.
 pub fn func_name(parsed_function: &ParsedFunction) -> String {
     let rust_name = &parsed_function.rust_function_name;
+    let full_path = format!("{}/{rust_name}", parsed_function.relative_path);
 
-    let default_func_name = format!(
-        "{}{rust_name}",
-        parsed_function
-            .relative_path
-            .as_str()
-            .split(&['-', '.', '/'])
-            .map(|s| match s.chars().next() {
-                Some(first) => first.to_uppercase().collect::<String>() + &s[1..],
-                None => String::new(),
-            })
-            .collect::<String>()
-    );
+    let default_func_name = full_path
+        .as_str()
+        .split(&['-', '.', '/'])
+        .into_iter()
+        .filter(|s| !s.eq(&"rs"))
+        .map(|s| match s.chars().next() {
+            Some(first) => first.to_uppercase().collect::<String>() + &s[1..],
+            None => String::new(),
+        })
+        .collect::<String>()
+        .replacen("Src", "", 1);
 
     // TODO Check the name for uniqueness
     parsed_function
