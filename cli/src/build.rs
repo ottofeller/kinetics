@@ -211,7 +211,7 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
             format!(
                 "{import_statement}
                 use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
-                use aws_lambda_events::{{lambda_function_urls::LambdaFunctionUrlRequest, sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
+                use aws_lambda_events::{{sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
                 #[tokio::main]\n\
                 async fn main() -> Result<(), Error> {{\n\
                     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
