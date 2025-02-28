@@ -266,6 +266,66 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
                 }}\n\n"
             )
         }
+        Role::Cron(_) => {
+            format!(
+                "{import_statement}
+                use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
+                use aws_lambda_events::eventbridge::EventBridgeEvent;\n\
+                #[tokio::main]\n\
+                async fn main() -> Result<(), Error> {{\n\
+                    let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+                    println!(\"Provisioning secrets\");
+                    let secrets_client = aws_sdk_ssm::Client::new(&config);
+                    let secrets_names_env = \"KINETICS_SECRETS_NAMES\";
+                    let mut secrets = std::collections::HashMap::new();
+
+                    for secret_name in std::env::var(secrets_names_env)?
+                        .split(\",\")
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                    {{
+                        let desc = secrets_client
+                            .get_parameter()
+                            .name(secret_name.clone())
+                            .with_decryption(true)
+                            .send()
+                            .await?;
+
+                        let result = desc.parameter.unwrap();
+
+                        let tags = secrets_client
+                            .list_tags_for_resource()
+                            .resource_type(aws_sdk_ssm::types::ResourceTypeForTagging::Parameter)
+                            .resource_id(secret_name.clone())
+                            .send()
+                            .await?
+                            .tag_list
+                            .unwrap_or_default();
+
+                        let name = match tags.iter().find(|t| t.key() == \"original_name\") {{
+                            Some(tag) => tag.value(),
+                            None => &secret_name.clone(),
+                        }};
+
+                        let secret_value = result.value().unwrap();
+                        secrets.insert(name.into(), secret_value.to_string());
+                    }}
+
+                    println!(\"Serving requests\");
+
+                    run(service_fn(|_event: LambdaEvent<EventBridgeEvent<serde_json::Value>>| async {{
+                        match cron(&secrets).await {{
+                            Ok(()) => Ok(()),
+                            Err(err) => {{
+                                eprintln!(\"Error occurred while handling request: {{:?}}\", err);
+                                Err(err)
+                            }}
+                        }}
+                    }}))
+                    .await
+                }}\n\n"
+            )
+        }
     };
 
     let item: syn::File = syn::parse_str(&new_main_code)?;
@@ -293,6 +353,7 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
     {
         let role_str = match &parsed_function.role {
             Role::Endpoint(_) => "endpoint",
+            Role::Cron(_) => "cron",
             Role::Worker(_) => "worker",
         };
 
@@ -325,6 +386,16 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
                 // Function table has been created above
                 if let Some(f) = kinetics_meta["function"].as_table_mut() {
                     f.extend(endpoint_table)
+                }
+            }
+            Role::Cron(params) => {
+                let mut cron_table = toml_edit::Table::new();
+                cron_table["schedule"] = toml_edit::value(&params.schedule.to_string());
+
+                // Update function table with cron configuration
+                // Function table has been created above
+                if let Some(f) = kinetics_meta["function"].as_table_mut() {
+                    f.extend(cron_table)
                 }
             }
         }
@@ -419,6 +490,7 @@ fn import_statement(relative_path: &str, rust_name: &str) -> eyre::Result<String
 /// Clean up scaffolding required for deploying a function
 fn cleanup(dst: &Path) -> eyre::Result<()> {
     let re_endpoint = Regex::new(r"(?m)^\s*#\s*\[\s*endpoint[^]]*]\s*$")?;
+    let re_cron = Regex::new(r"(?m)^\s*#\s*\[\s*cron[^]]*]\s*$")?;
     let re_worker = Regex::new(r"(?m)^\s*#\s*\[\s*worker[^]]*]\s*$")?;
 
     let re_import = Regex::new(
@@ -443,8 +515,8 @@ fn cleanup(dst: &Path) -> eyre::Result<()> {
 
         content = re_endpoint.replace_all(&content, "").to_string();
         content = re_worker.replace_all(&content, "").to_string();
+        content = re_cron.replace_all(&content, "").to_string();
         let new_content = re_import.replace_all(&content, "");
-
         write_if_changed(path, new_content.as_ref())?;
     }
 
