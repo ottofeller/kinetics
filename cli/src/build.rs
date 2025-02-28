@@ -410,6 +410,11 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
         }
     }
 
+    doc["dependencies"]["aws_lambda_events"]
+        .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+        .as_table_mut()
+        .map(|t| t.insert("version", toml_edit::value("0.16.0")));
+
     doc["dependencies"]["aws-config"]
         .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
         .as_table_mut()
