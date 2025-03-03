@@ -1,7 +1,7 @@
 use crate::client::Client;
 use crate::crat::Crate;
 use crate::function::Function;
-use eyre::{eyre, Context, Report};
+use eyre::{eyre, Context, OptionExt, Report};
 use futures::future;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
@@ -24,7 +24,12 @@ impl Pipeline {
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
 
         println!("Building \"{}\"...", &self.crat.name);
-        let client = Client::new(&self.is_directly).wrap_err("Failed to create client")?;
+
+        let client = if self.is_deploy_enabled {
+            Some(Client::new(&self.is_directly).wrap_err("Failed to create client")?)
+        } else {
+            None
+        };
 
         let handles = functions.into_iter().map(|mut function| {
             let client = client.clone();
@@ -47,9 +52,13 @@ impl Pipeline {
 
                 function.bundle().await?;
 
-                crate::deploy::upload(&client, &mut function, &self.is_directly)
-                    .await
-                    .wrap_err(format!("Failed to upload: {}", function.name()?))?;
+                crate::deploy::upload(
+                    &client.ok_or_eyre("Client must be initialized when deployment is enabled")?,
+                    &mut function,
+                    &self.is_directly,
+                )
+                .await
+                .wrap_err(format!("Failed to upload: {}", function.name()?))?;
 
                 Ok::<Function, Report>(function)
             })
