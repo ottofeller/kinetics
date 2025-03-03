@@ -87,6 +87,12 @@ fn functions() -> eyre::Result<Vec<Function>> {
 async fn main() -> eyre::Result<()> {
     let cli = Cli::parse();
 
+    color_eyre::config::HookBuilder::default()
+        .display_location_section(false)
+        .display_env_section(false)
+        .theme(color_eyre::config::Theme::new())
+        .install()?;
+
     match &cli.command {
         Some(Commands::Build { max_concurrent }) => {
             Pipeline::builder()
