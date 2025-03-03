@@ -222,6 +222,12 @@ impl Template {
                     .push_str(&template.endpoint(&function, &secrets_names)?);
             }
 
+            if function.role()? == "cron" {
+                template
+                    .template
+                    .push_str(&template.cron(&function, &secrets_names)?);
+            }
+
             if function.role()? == "worker" {
                 template.template.push_str(
                     &template
@@ -530,6 +536,83 @@ impl Template {
             s3key = function.s3key,
             queue_name = self.prefixed(vec![&queue.name]),
             queue_concurrency = queue.concurrency,
+        ))
+    }
+
+    /// CFN template for a worker function
+    fn cron(&self, function: &Function, secrets: &[String]) -> eyre::Result<String> {
+        let policies = self.policies(secrets);
+        let name = self.prefixed(vec![&function.name()?]);
+        let environment = self.environment(function, secrets)?;
+        let bucket = self.bucket.clone();
+        let username = self.username.clone();
+
+        Ok(format!(
+            "
+            Cron{name}:
+                Type: AWS::Lambda::Function
+                Properties:
+                    FunctionName: {name}
+                    Handler: bootstrap
+                    Runtime: provided.al2023
+                    {environment}
+                    Role:
+                        Fn::GetAtt:
+                        - CronRole{name}
+                        - Arn
+                    MemorySize: 128
+                    Timeout: 3
+                    ReservedConcurrentExecutions: 8
+                    Code:
+                        S3Bucket: {bucket}
+                        S3Key: {s3key}
+                    Tags:
+                        - Key: KINETICS_USERNAME
+                          Value: {username}
+            CronRole{name}:
+              Type: AWS::IAM::Role
+              Properties:
+                AssumeRolePolicyDocument:
+                  Version: '2012-10-17'
+                  Statement:
+                  - Effect: Allow
+                    Principal:
+                      Service:
+                      - lambda.amazonaws.com
+                    Action:
+                    - sts:AssumeRole
+                Path: \"/\"
+                Policies:
+                - PolicyName: AppendToLogsPolicy
+                  PolicyDocument:
+                    Version: '2012-10-17'
+                    Statement:
+                    - Effect: Allow
+                      Action:
+                      - logs:CreateLogGroup
+                      - logs:CreateLogStream
+                      - logs:PutLogEvents
+                      Resource: \"*\"
+                {policies}
+            CronEventBridgeRule{name}:
+                Type: AWS::Events::Rule
+                Properties:
+                    Description: \"EventBridge rule to trigger cron lambda\"
+                    ScheduleExpression: {schedule}
+                    State: ENABLED
+                    Targets:
+                        - Arn: !GetAtt Cron{name}.Arn
+                          Id: CronTarget{name}
+            CronEventBridgePermission{name}:
+                Type: AWS::Lambda::Permission
+                Properties:
+                    Action: lambda:InvokeFunction
+                    FunctionName: !Ref Cron{name}
+                    Principal: events.amazonaws.com
+                    SourceArn: !GetAtt CronEventBridgeRule{name}.Arn
+           ",
+            s3key = function.s3key,
+            schedule = function.schedule().unwrap(),
         ))
     }
 
