@@ -1,7 +1,7 @@
 use crate::client::Client;
 use crate::crat::Crate;
 use crate::function::Function;
-use eyre::{eyre, Context, Report};
+use eyre::{eyre, Context, OptionExt, Report};
 use futures::future;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use std::sync::{Arc, Mutex};
@@ -27,7 +27,11 @@ impl Pipeline {
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
         let pipeline_progress = PipelineProgress::new(functions.len() as u64);
 
-        let client = Client::new(&self.is_directly).wrap_err("Failed to create client")?;
+        let client = if self.is_deploy_enabled {
+            Some(Client::new(&self.is_directly).wrap_err("Failed to create client")?)
+        } else {
+            None
+        };
 
         let handles = functions.into_iter().map(|mut function| {
             let client = client.clone();
@@ -64,9 +68,13 @@ impl Pipeline {
 
                 function_progress.log_stage("Uploading");
 
-                crate::deploy::upload(&client, &mut function, &self.is_directly)
-                    .await
-                    .map_err(|e| {
+                crate::deploy::upload(
+                    &client.ok_or_eyre("Client must be initialized when deployment is enabled")?,
+                    &mut function,
+                    &self.is_directly,
+                )
+                .await
+                .map_err(|e| {
                         function_progress.error();
                         e.wrap_err(eyre!("Failed to upload function: \"{}\"", function_name))
                     })?;

@@ -11,7 +11,7 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
     let client = reqwest::Client::new();
 
     let response = client
-        .post(&crate::api_url("/auth/code/request"))
+        .post(crate::api_url("/auth/code/request"))
         .json(&serde_json::json!({ "email": email }))
         .send()
         .await?;
@@ -29,7 +29,7 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
     let code = code.trim();
 
     let response = client
-        .post(&crate::api_url("/auth/code/exchange"))
+        .post(crate::api_url("/auth/code/exchange"))
         .json(&serde_json::json!({ "email": email, "code": code }))
         .send()
         .await?;
@@ -51,7 +51,7 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
 /// and after user enters it in stdin exhcbages it for short lived access token.
 pub async fn login(email: &str) -> eyre::Result<()> {
     // Validate email
-    if !Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")?.is_match(&email) {
+    if !Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")?.is_match(email) {
         return Err(eyre::eyre!("Invalid email format"));
     }
 
@@ -65,7 +65,7 @@ pub async fn login(email: &str) -> eyre::Result<()> {
         &std::fs::read_to_string(path.clone())
             .or_else(|_| {
                 std::fs::write(path.clone(), default.clone())?;
-                eyre::Ok(default.clone().into())
+                eyre::Ok(default.clone())
             })
             .unwrap_or(default),
     )

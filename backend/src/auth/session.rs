@@ -98,7 +98,7 @@ impl Session {
         let username = self.email.clone().unwrap();
 
         if is_escaped {
-            return username.replace("@", "AT").replace(".", "DOT")
+            return username.replace("@", "AT").replace(".", "DOT");
         }
 
         username

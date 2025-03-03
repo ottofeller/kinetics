@@ -29,7 +29,7 @@ impl Client {
                             .to_string();
 
                     std::fs::write(path.clone(), default.clone())?;
-                    eyre::Ok(default.into())
+                    eyre::Ok(default)
                 })
                 .unwrap_or_default(),
         )

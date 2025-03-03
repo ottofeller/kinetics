@@ -12,5 +12,5 @@ kinetics-macro = { path = "../macro" }
 lambda_http = "0.14.0"
 tokio = "1.43.0"
 
-[package.metadata.sky.kvdb.users]
+[package.metadata.kinetics.kvdb.users]
 name = "users"

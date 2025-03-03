@@ -47,16 +47,16 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     Build {
-        #[arg(short, long, default_value_t = 4)]
-        max_concurrent: usize,
+        #[arg(short, long, default_value_t = 6)]
+        max_concurrency: usize,
     },
 
     Deploy {
         #[arg(short, long)]
         is_directly: bool,
 
-        #[arg(short, long, default_value_t = 4)]
-        max_concurrent: usize,
+        #[arg(short, long, default_value_t = 6)]
+        max_concurrency: usize,
     },
 
     Login {
@@ -68,7 +68,7 @@ enum Commands {
 /// Return crate info from Cargo.toml
 fn crat() -> eyre::Result<Crate> {
     let path = std::env::current_dir().wrap_err("Failed to get current dir")?;
-    Ok(Crate::new(path)?)
+    Crate::new(path)
 }
 
 /// Return the list of dirs with functions to deploy
@@ -94,9 +94,9 @@ async fn main() -> eyre::Result<()> {
         .install()?;
 
     match &cli.command {
-        Some(Commands::Build { max_concurrent }) => {
+        Some(Commands::Build { max_concurrency }) => {
             Pipeline::builder()
-                .set_max_concurrent(*max_concurrent)
+                .set_max_concurrent(*max_concurrency)
                 .with_deploy_enabled(false)
                 .set_crat(crat()?)
                 .build()
@@ -108,10 +108,10 @@ async fn main() -> eyre::Result<()> {
         }
         Some(Commands::Deploy {
             is_directly,
-            max_concurrent,
+            max_concurrency,
         }) => {
             Pipeline::builder()
-                .set_max_concurrent(*max_concurrent)
+                .set_max_concurrent(*max_concurrency)
                 .with_deploy_enabled(true)
                 .set_crat(crat()?)
                 .with_directly(*is_directly)

@@ -35,30 +35,30 @@ impl Crate {
             .wrap_err("No [package]")?
             .get("metadata")
             .wrap_err("No [metadata]")?
-            .get("sky")
-            .wrap_err("No [sky]")?
+            .get("kinetics")
+            .wrap_err("No [kinetics]")?
             .clone())
     }
 
     /// The hash with all the resources specific to the function
-    fn resources(cargo_toml: &toml::Value) -> eyre::Result<Vec<crate::Resource>> {
+    pub(crate) fn resources(cargo_toml: &toml::Value) -> eyre::Result<Vec<crate::Resource>> {
         let mut result = vec![];
 
-        for category_name in vec!["kvdb", "queue"] {
+        for category_name in ["kvdb", "queue"] {
             let metadata = cargo_toml
                 .get("package")
                 .wrap_err("No [package]")?
                 .get("metadata");
 
-            // No resources defiend at all
+            // No resources defined at all
             if metadata.is_none() {
                 continue;
             }
 
             let category = metadata
                 .wrap_err("No [metadata]")?
-                .get("sky")
-                .wrap_err("No [sky]")?
+                .get("kinetics")
+                .wrap_err("No [kinetics]")?
                 .get(category_name);
 
             // No resources defined in the category

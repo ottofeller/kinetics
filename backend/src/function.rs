@@ -1,4 +1,5 @@
 use crate::crat::Crate;
+use crate::Resource;
 use eyre::{ContextCompat, Ok, WrapErr};
 
 #[derive(Clone, Debug)]
@@ -6,15 +7,12 @@ pub struct Function {
     pub id: String,
     pub toml: toml::Value,
     pub s3key: String,
-
-    // Oringal parent crate
-    pub crat: Crate,
+    pub resources: Vec<Resource>,
 }
 
 impl Function {
     pub fn new(
         cargo_toml_string: &str,
-        crat: &Crate,
         s3key_encrypted: &str,
         s3key_decryption_key: &str,
         is_encrypted: bool,
@@ -26,17 +24,20 @@ impl Function {
         let decrypted = if is_encrypted {
             use magic_crypt::{new_magic_crypt, MagicCryptTrait};
             let mc = new_magic_crypt!(s3key_decryption_key, 256);
-            mc.decrypt_base64_to_string(&s3key_encrypted)
+            mc.decrypt_base64_to_string(s3key_encrypted)
                 .unwrap_or("default".into())
         } else {
             s3key_encrypted.to_string()
         };
 
+        // Load resources from function's Cargo.toml
+        let resources = Crate::resources(&cargo_toml)?;
+
         Ok(Function {
             id: uuid::Uuid::new_v4().into(),
-            crat: crat.clone(),
             toml: cargo_toml,
             s3key: decrypted,
+            resources,
         })
     }
 
@@ -46,8 +47,8 @@ impl Function {
             .wrap_err("No [package]")?
             .get("metadata")
             .wrap_err("No [metadata]")?
-            .get("sky")
-            .wrap_err("No [sky]")?
+            .get("kinetics")
+            .wrap_err("No [kinetics]")?
             .get("environment")
             .wrap_err("No [environment]")
             .cloned()
@@ -59,8 +60,8 @@ impl Function {
             .wrap_err("No [package]")?
             .get("metadata")
             .wrap_err("No [metadata]")?
-            .get("sky")
-            .wrap_err("No [sky]")?
+            .get("kinetics")
+            .wrap_err("No [kinetics]")?
             .get("function")
             .wrap_err("No [function]")
             .cloned()
@@ -76,11 +77,7 @@ impl Function {
 
         let meta = self.meta().unwrap();
 
-        if meta.get("url_path").is_none() {
-            return None;
-        }
-
-        Some(meta.get("url_path").unwrap().as_str().unwrap().to_string())
+        Some(meta.get("url_path")?.as_str().unwrap().to_string())
     }
 
     /// User defined name of the function
@@ -104,7 +101,8 @@ impl Function {
             .to_string())
     }
 
-    pub fn resources(&self) -> Vec<&crate::Resource> {
-        self.crat.resources.iter().clone().collect()
+    /// Returns a list of function's specific resources
+    pub(crate) fn resources(&self) -> Vec<&Resource> {
+        self.resources.iter().collect()
     }
 }

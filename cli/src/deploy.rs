@@ -84,7 +84,7 @@ pub async fn deploy(crat: &Crate, functions: &[Function], is_directly: &bool) ->
 
         let secrets = secrets
             .iter()
-            .map(|(k, v)| backend::secret::Secret::new(k, v, &crat, "nide"))
+            .map(|(k, v)| backend::secret::Secret::new(k, v, &crat, "artemATottofellerDOTcom"))
             .collect::<Vec<backend::secret::Secret>>();
 
         let template = backend::template::Template::new(
@@ -94,7 +94,6 @@ pub async fn deploy(crat: &Crate, functions: &[Function], is_directly: &bool) ->
                 .map(|f| {
                     BackendFunction::new(
                         &f.toml_string().unwrap(),
-                        &crat,
                         &f.s3key_encrypted.to_owned().unwrap(),
                         "",
                         false,

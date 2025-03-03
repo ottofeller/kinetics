@@ -51,6 +51,10 @@ pub struct JsonResponse {
 Permissions:
 {
     "Action": [
+        "route53:GetChange",
+        "route53:ChangeResourceRecordSets",
+        "route53:GetHostedZone",
+        "acm:DescribeCertificate",
         "cloudformation:CreateStack",
         "cloudformation:DeleteStack",
         "cloudformation:UpdateStack",
@@ -72,6 +76,8 @@ Permissions:
         "lambda:GetFunctionUrlConfig",
         "lambda:UpdateFunctionCode",
         "lambda:UpdateFunctionConfiguration",
+        "lambda:ListTags",
+        "lambda:TagResource",
         "s3:GetObject",
         "cloudfront:*",
         "dynamodb:DescribeTable",
@@ -81,7 +87,10 @@ Permissions:
         "ssm:PutParameter",
         "ssm:AddTagsToResource",
         "acm:RequestCertificate",
-        "acm:DeleteCertificate"
+        "acm:DeleteCertificate",
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
     ],
     "Resource": "*",
     "Effect": "Allow"
@@ -107,14 +116,13 @@ pub async fn deploy(
 
     let body = json::body::<JsonBody>(event)?;
     let crat = Crate::new(body.crat.toml.clone()).wrap_err("Invalid crate toml")?;
+    let session = session.unwrap();
 
     let secrets = body
         .secrets
         .iter()
-        .map(|(k, v)| Secret::new(k, v, &crat, "nide"))
+        .map(|(k, v)| Secret::new(k, v, &crat, &session.username(true)))
         .collect::<Vec<Secret>>();
-
-    let session = session.unwrap();
 
     let template = Template::new(
         &crat,
@@ -123,7 +131,6 @@ pub async fn deploy(
             .map(|f| {
                 Function::new(
                     &f.toml,
-                    &crat,
                     &f.s3key_encrypted,
                     &env("S3_KEY_ENCRYPTION_KEY").unwrap(),
                     true,
