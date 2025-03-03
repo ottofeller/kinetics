@@ -22,7 +22,6 @@ pub async fn upload(
     }
 
     let path = function.bundle_path();
-    println!("Uploading {path:?}...");
 
     if *is_directly {
         // Upload the backend manually if the /upload endpoint gets deleted accidentally
@@ -148,6 +147,5 @@ pub async fn deploy(crat: &Crate, functions: &[Function], is_directly: &bool) ->
         return Err(eyre::eyre!("Deployment failed: {:?}", result));
     }
 
-    println!("Done!");
     Ok(())
 }
