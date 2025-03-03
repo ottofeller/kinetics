@@ -23,8 +23,10 @@ impl Pipeline {
     }
 
     pub async fn run(self, functions: Vec<Function>) -> eyre::Result<()> {
-        let start_time = Instant::now();
+        // Define maximum number of parallel builds
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
+        
+        let start_time = Instant::now();
         let pipeline_progress = PipelineProgress::new(functions.len() as u64);
 
         let client = if self.is_deploy_enabled {
@@ -125,6 +127,7 @@ impl Pipeline {
 
         deploying_progress.log_stage("Deploying");
 
+        // It's safe to unwrap here because the errors have already been caught
         let functions: Vec<_> = ok_results.drain(..).map(Result::unwrap).collect();
 
         crate::deploy::deploy(&self.crat, &functions, &self.is_directly)
