@@ -25,7 +25,7 @@ impl Pipeline {
     pub async fn run(self, functions: Vec<Function>) -> eyre::Result<()> {
         // Define maximum number of parallel builds
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
-        
+
         let start_time = Instant::now();
         let pipeline_progress = PipelineProgress::new(functions.len() as u64);
 
@@ -77,9 +77,9 @@ impl Pipeline {
                 )
                 .await
                 .map_err(|e| {
-                        function_progress.error();
-                        e.wrap_err(eyre!("Failed to upload function: \"{}\"", function_name))
-                    })?;
+                    function_progress.error();
+                    e.wrap_err(eyre!("Failed to upload function: \"{}\"", function_name))
+                })?;
 
                 function_progress.done();
                 pipeline_progress.increase_current_function_position();
