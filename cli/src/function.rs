@@ -68,8 +68,6 @@ impl Function {
     }
 
     pub async fn build(&self) -> eyre::Result<()> {
-        println!("Building {:?} with cargo-lambda...", self.path);
-
         let output = tokio::process::Command::new("cargo")
             .arg("lambda")
             .arg("build")
@@ -80,25 +78,13 @@ impl Function {
             .wrap_err("Failed to execute the process")?;
 
         if !output.status.success() {
-            println!(
-                "Build failed: {:?}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-
-            return Err(eyre!(
-                "Build failed: {:?} {:?}",
-                output.status.code(),
-                self.path
-            ));
+            return Err(eyre!("{}", String::from_utf8_lossy(&output.stderr),));
         }
 
-        println!("Function {:?} was built successfully", self.path);
         Ok(())
     }
 
     pub async fn bundle(&self) -> eyre::Result<()> {
-        println!("Bundling {:?}...", self.path);
-
         let mut f = tokio::fs::File::open(
             self.build_path()?
                 .to_str()
@@ -123,8 +109,8 @@ impl Function {
             Ok(())
         })
         .await
-        .wrap_err("Failed to spawn the blocking task")?
-        .wrap_err("Failed to create a Zip archive")?;
+        .wrap_err(eyre!("Failed to spawn the blocking task"))?
+        .wrap_err(eyre!("Failed to create a Zip archive"))?;
 
         Ok(())
     }
