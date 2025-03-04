@@ -29,10 +29,7 @@ pub async fn request(
         .put_item()
         .table_name(env("TABLE_NAME")?)
         .set_item(Some(HashMap::from([
-            (
-                "id".to_string(),
-                S(format!("authcode#{}", body.email)),
-            ),
+            ("id".to_string(), S(format!("authcode#{}", body.email))),
             ("created_at".to_string(), S(now.to_rfc3339())),
             (
                 "expires_at".to_string(),
