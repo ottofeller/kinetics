@@ -4,10 +4,11 @@ use crate::function::Function;
 use eyre::{eyre, Context, OptionExt, Report};
 use futures::future;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 use std::time::Instant;
 use tokio::sync::Semaphore;
 use tokio::time::Duration;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Debug, Clone)]
 pub struct Pipeline {
@@ -194,14 +195,13 @@ impl PipelineBuilder {
 struct PipelineProgress {
     multi_progress: MultiProgress,
     total_progress_bar: ProgressBar,
-    total_functions: u64,
-    completed_functions_count: Arc<Mutex<u64>>,
+    completed_functions_count: Arc<AtomicUsize>,
 }
 
 impl PipelineProgress {
     fn new(total_functions: u64) -> Self {
         let multi_progress = MultiProgress::new();
-        let completed_functions_count = Arc::new(Mutex::new(0));
+        let completed_functions_count = Arc::new(AtomicUsize::new(0));
         let total_progress_bar = multi_progress.add(ProgressBar::new(total_functions));
 
         total_progress_bar.set_style(
@@ -216,20 +216,13 @@ impl PipelineProgress {
         Self {
             multi_progress,
             total_progress_bar,
-            total_functions,
             completed_functions_count,
         }
     }
 
     fn increase_current_function_position(&self) {
-        let mut count = self.completed_functions_count.lock().unwrap();
-        *count += 1;
-        self.total_progress_bar.set_position(*count as u64);
-
-        /* Workaround to make sure the progress bar finishes */
-        if *count as usize == (self.total_functions as usize) {
-            self.total_progress_bar.finish_with_message("");
-        }
+        let count = self.completed_functions_count.fetch_add(1, Ordering::SeqCst) + 1;
+        self.total_progress_bar.set_position(count as u64);
     }
 
     fn new_progress(&self, resource_name: &str) -> Progress {
