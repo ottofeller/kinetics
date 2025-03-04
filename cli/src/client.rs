@@ -1,8 +1,8 @@
+use crate::config::config;
 use chrono::Utc;
 use eyre::Context;
 use serde_json::json;
 use std::path::Path;
-static API_BASE: &str = "https://backend.usekinetics.com";
 
 #[derive(Clone)]
 pub struct Client {
@@ -47,7 +47,7 @@ impl Client {
     }
 
     fn url(path: &str) -> String {
-        format!("{}{}", API_BASE, path)
+        format!("{}{}", config().api_base, path)
     }
 
     /// A POST request with the Authorization header

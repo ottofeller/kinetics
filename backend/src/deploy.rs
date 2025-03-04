@@ -142,6 +142,7 @@ pub async fn deploy(
         &env("BUILDS_BUCKET")?,
         &session.username(true),
         &session.username(false),
+        Some("usekinetics.com"), // TODO This must be configurable
     )
     .await?;
 

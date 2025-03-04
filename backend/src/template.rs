@@ -15,6 +15,7 @@ pub struct Template {
     username_escaped: String,
     username: String,
     pub template: String,
+    domain_name: Option<String>,
 }
 
 impl Template {
@@ -190,6 +191,7 @@ impl Template {
         bucket: &str,
         username_escaped: &str,
         username: &str,
+        domain_name: Option<&str>,
     ) -> eyre::Result<Self> {
         let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
             .load()
@@ -205,6 +207,7 @@ impl Template {
             username_escaped: username_escaped.to_string(),
             username: username.to_string(),
             functions,
+            domain_name: domain_name.map(|d| d.to_string()),
         };
 
         // Define global resources from the app's Cargo.toml, e.g. a DB
