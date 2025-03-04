@@ -358,7 +358,18 @@ impl Template {
 
         let mut variables = raw
             .iter()
-            .map(|(name, resource)| (name.clone(), Value::String(resource.to_string())))
+            .map(|(name, resource)| {
+                (
+                    name.clone(),
+                    Value::String(
+                        resource
+                            .as_str()
+                            .wrap_err("Env var value is not a string")
+                            .unwrap()
+                            .to_string(),
+                    ),
+                )
+            })
             .collect::<serde_json::Map<String, Value>>();
 
         // If user tries to redefine these values, insert()s will overwrite them
