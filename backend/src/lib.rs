@@ -8,6 +8,7 @@ pub mod secret;
 pub mod template;
 pub mod upload;
 pub mod usage;
+pub mod user;
 
 #[derive(Clone, Debug)]
 pub struct Queue {
