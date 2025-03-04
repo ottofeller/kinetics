@@ -4,7 +4,7 @@ use crate::secret::Secret;
 use crate::Resource;
 use aws_config::BehaviorVersion;
 use eyre::{ContextCompat, Ok, WrapErr};
-use toml::Value;
+use serde_json::{json, Value};
 
 #[derive(Clone, Debug)]
 pub struct Template {
@@ -14,40 +14,61 @@ pub struct Template {
     functions: Vec<Function>,
     username_escaped: String,
     username: String,
-    pub template: String,
     domain_name: Option<String>,
+    template: Value,
+}
+
+#[derive(Clone, Debug)]
+pub struct CfnResource {
+    name: String,
+    resource: Value,
 }
 
 impl Template {
+    /// Add a resource to the CFN template
+    fn add_resource(&mut self, CfnResource { name, resource }: CfnResource) {
+        self.template
+            .get_mut("Resources")
+            .unwrap()
+            .as_object_mut()
+            .unwrap()
+            .insert(name, resource);
+    }
+
     /// CFN template for a resource (e.g. a queue or a db)
-    fn resource(&self, resource: &Resource) -> String {
+    fn resource(&self, resource: &Resource) -> CfnResource {
         match resource {
-            Resource::KvDb(kvdb) => format!(
-                "
-            DynamoDBTable{name}:
-                Type: AWS::DynamoDB::Table
-                Properties:
-                    TableName: {db_name}
-                    AttributeDefinitions:
-                        - AttributeName: id
-                          AttributeType: S
-                    KeySchema:
-                        - AttributeName: id
-                          KeyType: HASH
-                    ProvisionedThroughput:
-                        ReadCapacityUnits: 5
-                        WriteCapacityUnits: 5
-                ",
-                name = self.prefixed(vec![&kvdb.name]),
-                db_name = kvdb.name,
-            ),
+            Resource::KvDb(kvdb) => CfnResource {
+                name: format!(
+                    "DynamoDBTable{name}",
+                    name = self.prefixed(vec![&kvdb.name])
+                ),
+                resource: json!({
+                        "Type": "AWS::DynamoDB::Table",
+                        "Properties": {
+                            "TableName": kvdb.name,
+                            "AttributeDefinitions": [{
+                                "AttributeName": "id",
+                                "AttributeType": "S"
+                            }],
+                            "KeySchema": [{
+                                "AttributeName": "id",
+                                "KeyType": "HASH"
+                            }],
+                            "ProvisionedThroughput": {
+                                "ReadCapacityUnits": 5,
+                                "WriteCapacityUnits": 5
+                            }
+                        }
+                }),
+            },
 
             _ => unimplemented!(),
         }
     }
 
     /// Domain and paths for endpoint lambdas
-    fn routing(&self) -> String {
+    fn routing(&self) -> Vec<CfnResource> {
         let project_name = self.crat.name.clone();
         let functions: Vec<Function> = self.functions.clone();
 
@@ -61,127 +82,129 @@ impl Template {
         let origins = functions
             .iter()
             .map(|f| {
-                format!(
-                    "
-                        - Id: EndpointOrigin{name}
-                          DomainName: !Select [2, !Split ['/', !GetAtt EndpointUrl{name}.FunctionUrl]]
-                          CustomOriginConfig:
-                            OriginProtocolPolicy: https-only
-                    ",
-                    name = self.prefixed(vec![&f.name().unwrap()])
-                )
+                let name = self.prefixed(vec![&f.name().unwrap()]);
+                json!({
+                    "Id": format!("EndpointOrigin{name}"),
+                    "DomainName": {
+                        "Fn::Select": [2, {"Fn::Split": ['/', { "Fn::GetAtt" : [format!("EndpointUrl{name}"), "FunctionUrl"]}]}]
+                    },
+                    "CustomOriginConfig": {
+                        "OriginProtocolPolicy": "https-only"
+                    }
+                })
             })
-            .collect::<Vec<String>>()
-            .join("\n");
+            .collect::<Vec<Value>>();
 
         let behaviors = functions
             .iter()
-            .map(|f| {
+            .flat_map(|f| {
                 // Manage trailing slashes in the template
                 let re = regex::Regex::new(r"/$").unwrap();
+                let url_path = &f.url_path().unwrap_or(f.name().unwrap().to_lowercase());
+                let path = re.replace_all(url_path, "");
+                let name = self.prefixed(vec![&f.name().unwrap()]);
 
-                format!(
-                    "
-                        - PathPattern: {path}
-                          AllowedMethods:
-                          - DELETE
-                          - GET
-                          - HEAD
-                          - OPTIONS
-                          - PATCH
-                          - POST
-                          - PUT
-                          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
-                          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
-                          ForwardedValues:
-                              QueryString: true
-                          TargetOriginId: EndpointOrigin{name}
-                          ViewerProtocolPolicy: redirect-to-https
-                          Compress: true
-                        - PathPattern: {path}/
-                          AllowedMethods:
-                          - DELETE
-                          - GET
-                          - HEAD
-                          - OPTIONS
-                          - PATCH
-                          - POST
-                          - PUT
-                          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
-                          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
-                          ForwardedValues:
-                              QueryString: true
-                          TargetOriginId: EndpointOrigin{name}
-                          ViewerProtocolPolicy: redirect-to-https
-                          Compress: true
-                    ",
-                    path = re.replace_all(
-                        &f.url_path().unwrap_or(f.name().unwrap().to_lowercase()),
-                        ""
-                    ),
-                    name = self.prefixed(vec![&f.name().unwrap()])
-                )
+                [path.to_string(), format!("{path}/")].map(|p| {
+                    json!({
+                        "PathPattern": p,
+                        "AllowedMethods": [
+                            "DELETE",
+                            "GET",
+                            "HEAD",
+                            "OPTIONS",
+                            "PATCH",
+                            "POST",
+                            "PUT",
+                        ],
+                        "OriginRequestPolicyId": "b689b0a8-53d0-40ab-baf2-68738e2966ac",
+                        "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+                        "ForwardedValues": {"QueryString": true},
+                        "TargetOriginId": format!("EndpointOrigin{name}"),
+                        "ViewerProtocolPolicy": "redirect-to-https",
+                        "Compress": true
+                    })
+                })
             })
-            .collect::<Vec<String>>()
-            .join("\n");
+            .collect::<Vec<Value>>();
 
-        format!(
-            "
-            EndpointDistribution{project_name}:
-                Type: AWS::CloudFront::Distribution
-                Properties:
-                    DistributionConfig:
-                        Aliases:
-                        - {project_name}.usekinetics.com
-                        Enabled: true
-                        CacheBehaviors:
-                        {behaviors}
-                        DefaultCacheBehavior:
-                            AllowedMethods:
-                            - DELETE
-                            - GET
-                            - HEAD
-                            - OPTIONS
-                            - PATCH
-                            - POST
-                            - PUT
-                            DefaultTTL: 0
-                            MaxTTL: 0
-                            MinTTL: 0
-                            ForwardedValues:
-                                QueryString: true
-                                Headers:
-                                - '*'
-                                Cookies:
-                                    Forward: all
-                            TargetOriginId: EndpointOrigin{default_origin_name}
-                            ViewerProtocolPolicy: allow-all
-                            Compress: true
-                        Origins:
-                        {origins}
-                        ViewerCertificate:
-                            AcmCertificateArn: !Ref EndpointDistributionDomainCert{project_name}
-                            SslSupportMethod: sni-only
-                            MinimumProtocolVersion: TLSv1
-            EndpointDistributionDomainCert{project_name}:
-                Type: AWS::CertificateManager::Certificate
-                Properties:
-                    DomainName: {project_name}.usekinetics.com
-                    ValidationMethod: DNS
-                    DomainValidationOptions:
-                    - DomainName: {project_name}.usekinetics.com
-                      HostedZoneId: 'Z00296463IS4S0ZO4ABOR'
-            EndpointDistributionAliasRecord{project_name}:
-                Type: AWS::Route53::RecordSet
-                Properties:
-                    HostedZoneId: 'Z00296463IS4S0ZO4ABOR'
-                    Name: '{project_name}.usekinetics.com.'
-                    Type: 'A'
-                    AliasTarget:
-                        HostedZoneId: 'Z2FDTNDATAQYW2'  # CloudFront Hosted Zone ID
-                        DNSName: !GetAtt EndpointDistribution{project_name}.DomainName
-            "
-        )
+        let project_domain = format!("{project_name}.usekinetics.com");
+        vec![
+            CfnResource {
+                name: format!("EndpointDistribution{project_name}"),
+                resource: json!({
+                    "Type": "AWS::CloudFront::Distribution",
+                    "Properties": {
+                        "DistributionConfig": {
+                            "Aliases": [project_domain],
+                            "Enabled": true,
+                            "CacheBehaviors": behaviors,
+                            "DefaultCacheBehavior": {
+                                "AllowedMethods": [
+                                    "DELETE",
+                                    "GET",
+                                    "HEAD",
+                                    "OPTIONS",
+                                    "PATCH",
+                                    "POST",
+                                    "PUT",
+                                ],
+                                "DefaultTTL": 0,
+                                "MaxTTL": 0,
+                                "MinTTL": 0,
+                                "ForwardedValues": {
+                                    "QueryString": true,
+                                    "Headers": ["*"],
+                                    "Cookies": {"Forward": "all"}
+                                },
+                                "TargetOriginId": format!("EndpointOrigin{default_origin_name}"),
+                                "ViewerProtocolPolicy": "allow-all",
+                                "Compress": true
+                            },
+                            "Origins": origins,
+                            "ViewerCertificate": {
+                                "AcmCertificateArn": {"Ref": format!("EndpointDistributionDomainCert{project_name}")},
+                                "SslSupportMethod": "sni-only",
+                                "MinimumProtocolVersion": "TLSv1"
+                            }
+                        }
+                    }
+                }),
+            },
+            CfnResource {
+                name: format!("EndpointDistributionDomainCert{project_name}"),
+                resource: json!({
+                    "Type": "AWS::CertificateManager::Certificate",
+                    "Properties": {
+                        "DomainName": project_domain,
+                        "ValidationMethod": "DNS",
+                        "DomainValidationOptions": [{
+                            "DomainName": project_domain,
+                            "HostedZoneId": "Z00296463IS4S0ZO4ABOR"
+                        }]
+                    }
+                }),
+            },
+            CfnResource {
+                name: format!("EndpointDistributionAliasRecord{project_name}"),
+                resource: json!({
+                    "Type": "AWS::Route53::RecordSet",
+                    "Properties": {
+                        "HostedZoneId": "Z00296463IS4S0ZO4ABOR",
+                        "Name": project_domain,
+                        "Type": "A",
+                        "AliasTarget": {
+                            "HostedZoneId": "Z2FDTNDATAQYW2", // CloudFront Hosted Zone ID
+                            "DNSName": {
+                                "Fn::GetAtt": [
+                                    format!("EndpointDistribution{project_name}"),
+                                    "DomainName"
+                                ]
+                            }
+                        }
+                    }
+                }),
+            },
+        ]
     }
 
     pub async fn new(
@@ -203,7 +226,7 @@ impl Template {
             bucket: bucket.to_string(),
             client,
             crat: crat.clone(),
-            template: "Resources:".to_string(),
+            template: json!({"Resources": {}}),
             username_escaped: username_escaped.to_string(),
             username: username.to_string(),
             functions,
@@ -212,31 +235,32 @@ impl Template {
 
         // Define global resources from the app's Cargo.toml, e.g. a DB
         for resource in crat.resources.iter() {
-            template.template.push_str(&template.resource(resource));
-            template.template.push('\n');
+            template.add_resource(template.resource(resource));
         }
 
         let secrets_names: Vec<String> = secrets.iter().map(|s| s.unique_name()).collect();
 
         for function in template.functions.clone() {
             if function.role()? == "endpoint" {
-                template
-                    .template
-                    .push_str(&template.endpoint(&function, &secrets_names)?);
+                for resource in template.endpoint(&function, &secrets_names)? {
+                    template.add_resource(resource);
+                }
             }
 
             if function.role()? == "worker" {
-                template.template.push_str(
-                    &template
-                        .worker(&function, &secrets_names)
-                        .wrap_err("Failed to build worker template")?,
-                );
+                for resource in template
+                    .worker(&function, &secrets_names)
+                    .wrap_err("Failed to build worker template")?
+                {
+                    template.add_resource(resource);
+                }
             }
-
-            template.template.push('\n');
         }
 
-        template.template.push_str(&template.routing());
+        for resource in template.routing() {
+            template.add_resource(resource);
+        }
+
         Ok(template)
     }
 
@@ -253,188 +277,243 @@ impl Template {
     /// Policy statements to allow a function to access a resource
     ///
     /// Current all functions in a crate have access to all resources. Including secrets.
-    fn policies(&self, secrets: &[String]) -> String {
-        let mut template = String::default();
+    fn policies(&self, secrets: &[String]) -> Vec<Value> {
+        let mut template = Vec::new();
 
         for resource in self.crat.resources.iter() {
-            template.push_str(&match resource {
-                Resource::KvDb(kvdb) => {
-                    let name = self.prefixed(vec![&kvdb.name]);
+            if let Resource::KvDb(kvdb) = resource {
+                let name = self.prefixed(vec![&kvdb.name]);
 
-                    format!(
-                        "
-                - PolicyName: DynamoPolicy{name}
-                  PolicyDocument:
-                      Version: '2012-10-17'
-                      Statement:
-                      - Effect: Allow
-                        Action:
-                          - dynamodb:BatchGetItem
-                          - dynamodb:BatchWriteItem
-                          - dynamodb:ConditionCheckItem
-                          - dynamodb:PutItem
-                          - dynamodb:DescribeTable
-                          - dynamodb:DeleteItem
-                          - dynamodb:GetItem
-                          - dynamodb:Scan
-                          - dynamodb:Query
-                          - dynamodb:UpdateItem
-                        Resource: !GetAtt
-                          - DynamoDBTable{name}
-                          - Arn",
-                    )
-                }
-
-                _ => String::new(),
-            })
+                template.push(json!({
+                    "PolicyName": format!("DynamoPolicy{name}"),
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [{
+                            "Effect": "Allow",
+                            "Action": [
+                                "dynamodb:BatchGetItem",
+                                "dynamodb:BatchWriteItem",
+                                "dynamodb:ConditionCheckItem",
+                                "dynamodb:PutItem",
+                                "dynamodb:DescribeTable",
+                                "dynamodb:DeleteItem",
+                                "dynamodb:GetItem",
+                                "dynamodb:Scan",
+                                "dynamodb:Query",
+                                "dynamodb:UpdateItem"
+                            ],
+                            "Resource": {
+                                "Fn::GetAtt": [
+                                    format!("DynamoDBTable{name}"),
+                                    "Arn"
+                                ]
+                            }
+                        }]
+                    }
+                }))
+            }
         }
 
         // https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-access.html#sysman-paramstore-access-inst
         for secret in secrets.iter() {
             let name = self.prefixed(vec![&secret]);
 
-            template.push_str(&format!(
-                "
-                - PolicyName: SecretPolicy{name}
-                  PolicyDocument:
-                      Version: '2012-10-17'
-                      Statement:
-                      - Effect: Allow
-                        Action:
-                          - ssm:GetParameter
-                          - ssm:GetParameters
-                          - ssm:ListTagsForResource
-                        Resource:
-                          - arn:aws:ssm:us-east-1:727082259008:parameter/{secret}
-                      - Effect: Allow
-                        Action:
-                          - kms:Decrypt
-                        Resource:
-                          - arn:aws:kms:us-east-1:727082259008:key/1bf38d51-e7e3-4c20-b155-60c6214b0255",
-            ));
+            template.push(json!({
+                "PolicyName": format!("SecretPolicy{name}"),
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "ssm:GetParameter",
+                                "ssm:GetParameters",
+                                "ssm:ListTagsForResource"
+                            ],
+                            "Resource": [format!("arn:aws:ssm:us-east-1:727082259008:parameter/{secret}")]
+                        },
+                        {
+                            "Effect": "Allow",
+                            "Action": ["kms:Decrypt"],
+                            "Resource": ["arn:aws:kms:us-east-1:727082259008:key/1bf38d51-e7e3-4c20-b155-60c6214b0255"]
+                        }
+                    ]
+                }
+            }));
         }
 
         template
     }
 
     /// Define environment variables for a function
-    fn environment(&self, function: &Function, secrets: &[String]) -> eyre::Result<String> {
+    fn environment(&self, function: &Function, secrets: &[String]) -> eyre::Result<Value> {
         let raw = function.environment()?;
-        let mut raw = raw.as_table().unwrap().clone();
+        let raw = raw.as_table().unwrap().clone();
+
+        let mut variables = raw
+            .iter()
+            .map(|(name, resource)| (name.clone(), Value::String(resource.to_string())))
+            .collect::<serde_json::Map<String, Value>>();
 
         // If user tries to redefine these values, insert()s will overwrite them
-        raw.insert(
+        variables.insert(
             "KINETICS_SECRETS_NAMES".into(),
             Value::String(secrets.join(",")),
         );
 
-        raw.insert(
+        variables.insert(
             "KINETICS_USERNAME".into(),
             Value::String(self.username.clone()),
         );
 
-        let variables = raw
-            .iter()
-            .map(|(k, v)| format!("                            {k}: {v}"))
-            .collect::<Vec<String>>()
-            .join("\n");
-
-        if variables.is_empty() {
-            return Ok("".to_string());
-        }
-
-        Ok(format!(
-            "Environment:
-                        Variables:
-{}",
-            variables,
-        ))
+        Ok(json!({"Variables": variables}))
     }
 
     /// CFN template for a REST endpoint function — a function itself and its role
     ///
     /// The "secrets" argument is a list of AWS secrets names.
-    fn endpoint(&self, function: &Function, secrets: &[String]) -> eyre::Result<String> {
-        let policies = self.policies(secrets);
+    fn endpoint(&self, function: &Function, secrets: &[String]) -> eyre::Result<Vec<CfnResource>> {
+        let mut policies = self.policies(secrets);
+        policies.push(json!({
+            "PolicyName": "AppendToLogsPolicy",
+            "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Effect": "Allow",
+                    "Action": [
+                        "logs:CreateLogGroup",
+                        "logs:CreateLogStream",
+                        "logs:PutLogEvents"
+                    ],
+                    "Resource": "*"
+                }]
+            }
+        }));
         let name = self.prefixed(vec![&function.name()?]);
         let environment = self.environment(function, secrets)?;
         let bucket = self.bucket.clone();
-        let username = self.username.clone();
+        let Function { s3key, .. } = function;
 
         // By default a lambda has no permissions to modify its own tags,
         // so it's safe to assign tags with system information and rely on them
         // in other parts of the stack.
-        Ok(format!(
-            "
-            Endpoint{name}:
-              Type: AWS::Lambda::Function
-              Properties:
-                FunctionName: {name}
-                Handler: bootstrap
-                Runtime: provided.al2023
-                {environment}
-                Role:
-                    Fn::GetAtt:
-                    - EndpointRole{name}
-                    - Arn
-                MemorySize: 256
-                Timeout: 1
-                ReservedConcurrentExecutions: 8
-                Tags:
-                    - Key: KINETICS_USERNAME
-                      Value: {username}
-                Code:
-                    S3Bucket: {bucket}
-                    S3Key: {s3key}
-            EndpointRole{name}:
-              Type: AWS::IAM::Role
-              Properties:
-                AssumeRolePolicyDocument:
-                  Version: '2012-10-17'
-                  Statement:
-                  - Effect: Allow
-                    Principal:
-                      Service:
-                      - lambda.amazonaws.com
-                    Action:
-                    - sts:AssumeRole
-                Path: \"/\"
-                Policies:
-                - PolicyName: AppendToLogsPolicy
-                  PolicyDocument:
-                    Version: '2012-10-17'
-                    Statement:
-                    - Effect: Allow
-                      Action:
-                      - logs:CreateLogGroup
-                      - logs:CreateLogStream
-                      - logs:PutLogEvents
-                      Resource: \"*\"
-                {policies}
-            EndpointUrl{name}:
-                Type: AWS::Lambda::Url
-                Properties:
-                    AuthType: NONE
-                    TargetFunctionArn: !Ref Endpoint{name}
-            EndpointUrlPermission{name}:
-                Type: AWS::Lambda::Permission
-                Properties:
-                    Action: lambda:InvokeFunctionUrl
-                    FunctionUrlAuthType: 'NONE'
-                    FunctionName: !Ref Endpoint{name}
-                    Principal: \"*\"
-            ",
-            s3key = function.s3key,
-        ))
+        Ok(vec![
+            CfnResource {
+                name: format!("Endpoint{name}"),
+                resource: json!({
+                        "Type": "AWS::Lambda::Function",
+                        "Properties": {
+                            "FunctionName": name,
+                            "Handler": "bootstrap",
+                            "Runtime": "provided.al2023",
+                            "Environment": environment,
+                            "Role": {
+                                "Fn::GetAtt": [
+                                    format!("EndpointRole{name}"),
+                                    "Arn"
+                                ]
+                            },
+                            "MemorySize": 256,
+                            "Timeout": 1,
+                            "Code": {
+                                "S3Bucket": bucket,
+                                "S3Key": s3key
+                            }
+                        }
+                }),
+            },
+            CfnResource {
+                name: format!("EndpointRole{name}"),
+                resource: json!({
+                    "Type": "AWS::IAM::Role",
+                    "Properties": {
+                        "AssumeRolePolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [{
+                                "Effect": "Allow",
+                                "Principal": {
+                                    "Service": ["lambda.amazonaws.com"]
+                                },
+                                "Action": ["sts:AssumeRole"]
+                            }]
+                        },
+                        "Path": "/",
+                        "Policies": policies
+                    }
+                }),
+            },
+            CfnResource {
+                name: format!("EndpointUrl{name}"),
+                resource: json!({
+                    "Type": "AWS::Lambda::Url",
+                    "Properties": {
+                        "AuthType": "NONE",
+                        "TargetFunctionArn": {"Ref" : format!("Endpoint{name}")}
+                    }
+                }),
+            },
+            CfnResource {
+                name: format!("EndpointUrlPermission{name}"),
+                resource: json!({
+                    "Type": "AWS::Lambda::Permission",
+                    "Properties": {
+                        "Action": "lambda:InvokeFunctionUrl",
+                        "FunctionUrlAuthType": "NONE",
+                        "FunctionName": {"Ref" : format!("Endpoint{name}")},
+                        "Principal": "*"
+                    }
+                }),
+            },
+        ])
     }
 
     /// CFN template for a worker function
-    fn worker(&self, function: &Function, secrets: &[String]) -> eyre::Result<String> {
-        let policies = self.policies(secrets);
+    fn worker(&self, function: &Function, secrets: &[String]) -> eyre::Result<Vec<CfnResource>> {
         let name = self.prefixed(vec![&function.name()?]);
         let environment = self.environment(function, secrets)?;
         let bucket = self.bucket.clone();
         let username = self.username.clone();
+
+        let mut policies = self.policies(secrets);
+        policies.extend([
+            json!({
+                "PolicyName": "AppendToLogsPolicy",
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [{
+                        "Effect": "Allow",
+                        "Action": [
+                            "logs:CreateLogGroup",
+                            "logs:CreateLogStream",
+                            "logs:PutLogEvents"
+                        ],
+                        "Resource": "*"
+                    }]
+                },
+            }),
+            json!({
+                "PolicyName": "QueuePolicy",
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [{
+                        "Effect": "Allow",
+                        "Action": [
+                            "sqs:ChangeMessageVisibility",
+                            "sqs:DeleteMessage",
+                            "sqs:GetQueueAttributes",
+                            "sqs:GetQueueUrl",
+                            "sqs:ReceiveMessage"
+                        ],
+                        "Resource": {
+                            "Fn::GetAtt": [
+                                format!("WorkerQueue{name}"),
+                                "Arn"
+                            ]
+                        }
+                    }]
+                }
+            }),
+        ]);
 
         let queue = function
             .resources()
@@ -445,95 +524,85 @@ impl Template {
             })
             .wrap_err("No queue resource found in Cargo.toml")?;
 
-        Ok(format!(
-            "
-            Worker{name}:
-              Type: AWS::Lambda::Function
-              Properties:
-                    FunctionName: {name}
-                    Handler: bootstrap
-                    Runtime: provided.al2023
-                    {environment}
-                    Role:
-                      Fn::GetAtt:
-                        - WorkerRole{name}
-                        - Arn
-                    MemorySize: 128
-                    Timeout: 3
-                    ReservedConcurrentExecutions: 8
-                    Code:
-                      S3Bucket: {bucket}
-                      S3Key: {s3key}
-                    Tags:
-                        - Key: KINETICS_USERNAME
-                        Value: {username}
-
-            WorkerRole{name}:
-              Type: AWS::IAM::Role
-              Properties:
-                AssumeRolePolicyDocument:
-                  Version: '2012-10-17'
-                  Statement:
-                  - Effect: Allow
-                    Principal:
-                      Service:
-                      - lambda.amazonaws.com
-                    Action:
-                    - sts:AssumeRole
-                Path: \"/\"
-                Policies:
-                - PolicyName: AppendToLogsPolicy
-                  PolicyDocument:
-                    Version: '2012-10-17'
-                    Statement:
-                    - Effect: Allow
-                      Action:
-                      - logs:CreateLogGroup
-                      - logs:CreateLogStream
-                      - logs:PutLogEvents
-                      Resource: \"*\"
-                - PolicyName: QueuePolicy
-                  PolicyDocument:
-                    Version: '2012-10-17'
-                    Statement:
-                    - Effect: Allow
-                      Action:
-                      - sqs:ChangeMessageVisibility
-                      - sqs:DeleteMessage
-                      - sqs:GetQueueAttributes
-                      - sqs:GetQueueUrl
-                      - sqs:ReceiveMessage
-                      Resource:
-                        Fn::GetAtt:
-                          - WorkerQueue{name}
-                          - Arn
-                {policies}
-
-            WorkerQueue{name}:
-                Type: AWS::SQS::Queue
-                Properties:
-                    QueueName: {queue_name}
-                    VisibilityTimeout: 60
-                    MaximumMessageSize: 2048
-                    MessageRetentionPeriod: 345600
-                    ReceiveMessageWaitTimeSeconds: 20
-
-            WorkerQueueEventSourceMapping{name}:
-                Type: AWS::Lambda::EventSourceMapping
-                Properties:
-                    EventSourceArn:
-                        Fn::GetAtt:
-                        - WorkerQueue{name}
-                        - Arn
-                    FunctionName:
-                        Ref: Worker{name}
-                    ScalingConfig:
-                        MaximumConcurrency: {queue_concurrency}
-            ",
-            s3key = function.s3key,
-            queue_name = self.prefixed(vec![&queue.name]),
-            queue_concurrency = queue.concurrency,
-        ))
+        Ok(vec![
+            CfnResource {
+                name: format!("Worker{name}"),
+                resource: json!({
+                    "Type": "AWS::Lambda::Function",
+                    "Properties": {
+                        "FunctionName": name,
+                        "Handler": "bootstrap",
+                        "Runtime": "provided.al2023",
+                        "Environment": environment,
+                        "Role": {
+                            "Fn::GetAtt": [
+                                format!("WorkerRole{name}"),
+                                "Arn"
+                            ]
+                        },
+                        "MemorySize": 128,
+                        "Timeout": 3,
+                        "Code": {
+                            "S3Bucket": bucket,
+                            "S3Key": function.s3key
+                        },
+                        "Tags": [{
+                            "Key": "KINETICS_USERNAME",
+                            "Value": username
+                        }]
+                    }
+                }),
+            },
+            CfnResource {
+                name: format!("WorkerRole{name}"),
+                resource: json!({
+                    "Type": "AWS::IAM::Role",
+                    "Properties": {
+                        "AssumeRolePolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [{
+                                "Effect": "Allow",
+                                "Principal": {
+                                    "Service": ["lambda.amazonaws.com"]
+                                },
+                                "Action": ["sts:AssumeRole"]
+                            }]
+                        },
+                        "Path": "/",
+                        "Policies": policies
+                    }
+                }),
+            },
+            CfnResource {
+                name: format!("WorkerQueue{name}"),
+                resource: json!({
+                    "Type": "AWS::SQS::Queue",
+                    "Properties": {
+                        "QueueName": self.prefixed(vec![&queue.name]),
+                        "VisibilityTimeout": 60,
+                        "MaximumMessageSize": 2048,
+                        "MessageRetentionPeriod": 345600,
+                        "ReceiveMessageWaitTimeSeconds": 20
+                    }
+                }),
+            },
+            CfnResource {
+                name: format!("WorkerQueueEventSourceMapping{name}"),
+                resource: json!({
+                    "Type": "AWS::Lambda::EventSourceMapping",
+                    "Properties": {
+                        "EventSourceArn": {
+                            "Fn::GetAtt": [
+                                format!("WorkerQueue{name}"),
+                                "Arn"
+                            ]
+                        },
+                        "FunctionName": {"Ref": format!("Worker{name}")},
+                        "ScalingConfig": {"MaximumConcurrency": queue.concurrency}
+                    }
+                }),
+            },
+        ])
     }
 
     /// Check if the stack already exists
@@ -568,13 +637,14 @@ impl Template {
         let base_name = self.crat.name.as_str();
         let name = format!("{}-{}", self.username_escaped, base_name);
         let capabilities = aws_sdk_cloudformation::types::Capability::CapabilityIam;
+        let template_string = serde_json::to_string_pretty(&self.template)?;
 
         if self.is_exists(&name).await? {
             self.client
                 .update_stack()
                 .capabilities(capabilities)
                 .stack_name(name)
-                .template_body(self.template.clone())
+                .template_body(template_string)
                 .send()
                 .await
                 .wrap_err("Failed to update stack")?;
@@ -583,7 +653,7 @@ impl Template {
                 .create_stack()
                 .capabilities(capabilities)
                 .stack_name(name)
-                .template_body(self.template.clone())
+                .template_body(template_string)
                 .send()
                 .await
                 .wrap_err("Failed to create stack")?;
