@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 aws-sdk-cloudformation = "1.66.0"
 aws-sdk-cloudwatch = "1.65.0"
+aws-sdk-resourcegroupstagging = "1.59.0"
 lambda_http = "0.14.0"
 uuid = { version = "1.13.2", features = ["v4"] }
 lambda_runtime = "0.13.0"
