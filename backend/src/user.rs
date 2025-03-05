@@ -141,16 +141,7 @@ impl User {
                 response
                     .resource_tag_mapping_list()
                     .iter()
-                    .filter_map(|res| {
-                        // There is seemingly no other way to get function name
-                        res.resource_arn().map(|arn| {
-                            arn.to_string()
-                                .split(":")
-                                .last()
-                                .unwrap_or_default()
-                                .to_string()
-                        })
-                    }),
+                    .filter_map(|res| res.resource_arn().map(|arn| arn.to_string())),
             );
         }
 
@@ -193,7 +184,15 @@ impl User {
                 .dimensions(
                     Dimension::builder()
                         .name("FunctionName")
-                        .value(function.clone())
+                        .value(
+                            // There is seemingly no other way to get function name
+                            function
+                                .clone()
+                                .split(":")
+                                .last()
+                                .unwrap_or_default()
+                                .to_string(),
+                        )
                         .build(),
                 )
                 .start_time(start_time)
@@ -209,7 +208,6 @@ impl User {
                 .iter()
                 .map(|dp| dp.sum().unwrap_or(0.0) as u16)
                 .sum::<u16>();
-
         }
 
         Ok(total)
