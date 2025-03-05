@@ -409,6 +409,7 @@ impl Template {
         let name = self.prefixed(vec![&function.name()?]);
         let environment = self.environment(function, secrets)?;
         let bucket = self.bucket.clone();
+        let username = self.username.clone();
         let Function { s3key, .. } = function;
 
         // By default a lambda has no permissions to modify its own tags,
@@ -435,7 +436,11 @@ impl Template {
                             "Code": {
                                 "S3Bucket": bucket,
                                 "S3Key": s3key
-                            }
+                            },
+                           "Tags": [{
+                               "Key": "KINETICS_USERNAME",
+                               "Value": username
+                           }]
                         }
                 }),
             },
