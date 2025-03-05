@@ -23,7 +23,7 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
         ));
     }
 
-    println!("Please enter the one-time code sent to your email");
+    println!("Please enter the one-time code sent to your email:");
     
     let code = rpassword::read_password()?;
     let code = code.trim();
