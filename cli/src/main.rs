@@ -118,10 +118,25 @@ async fn main() -> eyre::Result<()> {
         }
         Some(Commands::Login { email }) => match login(email).await {
             Ok(_) => {
-                println!("Login successful");
+                println!(
+                    "{} {} {}",
+                    console::style("You have been successfully logged in").green().bold(),
+                    console::style("via").dim(),
+                    console::style(email).underlined().bold()
+                );
+                
                 Ok(())
             }
-            Err(error) => Err(error),
+            Err(error) => {
+                println!(
+                    "{} {} {}",
+                    console::style("Failed to login").red().bold(),
+                    console::style("via").dim(),
+                    console::style(email).underlined().bold()
+                );
+                
+                Err(error)
+            },
         },
         None => Ok(()),
     }
