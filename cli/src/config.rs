@@ -12,7 +12,7 @@ static CONFIG: OnceLock<Config> = OnceLock::new();
 
 pub(crate) fn config() -> &'static Config<'static> {
     let use_production_domain =
-        option_env!("USE_PRODUCTION_CLOUDFRONT_DOMAIN").unwrap_or("true") == "true";
+        option_env!("KINETICS_USE_PRODUCTION_DOMAIN").unwrap_or("true") == "true";
 
     CONFIG.get_or_init(|| Config {
         cloud_front_domain: if use_production_domain {
