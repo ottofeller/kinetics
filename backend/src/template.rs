@@ -8,6 +8,7 @@ use serde_json::{json, Value};
 
 #[derive(Clone, Debug)]
 pub struct Template {
+    account_id: String,
     bucket: String,
     client: aws_sdk_cloudformation::Client,
     crat: Crate,
@@ -127,84 +128,103 @@ impl Template {
             })
             .collect::<Vec<Value>>();
 
-        let project_domain = format!("{project_name}.usekinetics.com");
-        vec![
-            CfnResource {
-                name: format!("EndpointDistribution{project_name}"),
-                resource: json!({
-                    "Type": "AWS::CloudFront::Distribution",
-                    "Properties": {
-                        "DistributionConfig": {
-                            "Aliases": [project_domain],
-                            "Enabled": true,
-                            "CacheBehaviors": behaviors,
-                            "DefaultCacheBehavior": {
-                                "AllowedMethods": [
-                                    "DELETE",
-                                    "GET",
-                                    "HEAD",
-                                    "OPTIONS",
-                                    "PATCH",
-                                    "POST",
-                                    "PUT",
-                                ],
-                                "DefaultTTL": 0,
-                                "MaxTTL": 0,
-                                "MinTTL": 0,
-                                "ForwardedValues": {
-                                    "QueryString": true,
-                                    "Headers": ["*"],
-                                    "Cookies": {"Forward": "all"}
-                                },
-                                "TargetOriginId": format!("EndpointOrigin{default_origin_name}"),
-                                "ViewerProtocolPolicy": "allow-all",
-                                "Compress": true
+        let project_domain = self
+            .domain_name
+            .as_ref()
+            .map(|domain_name| format!("{project_name}.{domain_name}"));
+
+        let mut resources = vec![CfnResource {
+            name: format!("EndpointDistribution{project_name}"),
+            resource: json!({
+                "Type": "AWS::CloudFront::Distribution",
+                "Properties": {
+                    "DistributionConfig": {
+                        "Aliases": if let Some(ref project_domain) = project_domain {
+                            vec![project_domain]
+                        } else {
+                            vec![]
+                        },
+                        "Enabled": true,
+                        "CacheBehaviors": behaviors,
+                        "DefaultCacheBehavior": {
+                            "AllowedMethods": [
+                                "DELETE",
+                                "GET",
+                                "HEAD",
+                                "OPTIONS",
+                                "PATCH",
+                                "POST",
+                                "PUT",
+                            ],
+                            "DefaultTTL": 0,
+                            "MaxTTL": 0,
+                            "MinTTL": 0,
+                            "ForwardedValues": {
+                                "QueryString": true,
+                                "Headers": ["*"],
+                                "Cookies": {"Forward": "all"}
                             },
-                            "Origins": origins,
-                            "ViewerCertificate": {
+                            "TargetOriginId": format!("EndpointOrigin{default_origin_name}"),
+                            "ViewerProtocolPolicy": "allow-all",
+                            "Compress": true
+                        },
+                        "Origins": origins,
+                        "ViewerCertificate": if project_domain.is_some() {
+                            json!({
                                 "AcmCertificateArn": {"Ref": format!("EndpointDistributionDomainCert{project_name}")},
                                 "SslSupportMethod": "sni-only",
                                 "MinimumProtocolVersion": "TLSv1"
-                            }
+                            })
+                        } else {
+                            json!({
+                                "CloudFrontDefaultCertificate": true
+                            })
                         }
                     }
-                }),
-            },
-            CfnResource {
-                name: format!("EndpointDistributionDomainCert{project_name}"),
-                resource: json!({
-                    "Type": "AWS::CertificateManager::Certificate",
-                    "Properties": {
-                        "DomainName": project_domain,
-                        "ValidationMethod": "DNS",
-                        "DomainValidationOptions": [{
+                }
+            }),
+        }];
+
+        if let Some(project_domain) = project_domain {
+            resources.extend([
+                CfnResource {
+                    name: format!("EndpointDistributionDomainCert{project_name}"),
+                    resource: json!({
+                        "Type": "AWS::CertificateManager::Certificate",
+                        "Properties": {
                             "DomainName": project_domain,
-                            "HostedZoneId": "Z00296463IS4S0ZO4ABOR"
-                        }]
-                    }
-                }),
-            },
-            CfnResource {
-                name: format!("EndpointDistributionAliasRecord{project_name}"),
-                resource: json!({
-                    "Type": "AWS::Route53::RecordSet",
-                    "Properties": {
-                        "HostedZoneId": "Z00296463IS4S0ZO4ABOR",
-                        "Name": project_domain,
-                        "Type": "A",
-                        "AliasTarget": {
-                            "HostedZoneId": "Z2FDTNDATAQYW2", // CloudFront Hosted Zone ID
-                            "DNSName": {
-                                "Fn::GetAtt": [
-                                    format!("EndpointDistribution{project_name}"),
-                                    "DomainName"
-                                ]
+                            "ValidationMethod": "DNS",
+                            "DomainValidationOptions": [{
+                                "DomainName": project_domain,
+                                "HostedZoneId": "Z00296463IS4S0ZO4ABOR"
+                            }]
+                        }
+                    }),
+                },
+                CfnResource {
+                    name: format!("EndpointDistributionAliasRecord{project_name}"),
+                    resource: json!({
+                        "Type": "AWS::Route53::RecordSet",
+                        "Properties": {
+                            "HostedZoneId": "Z00296463IS4S0ZO4ABOR",
+                            "Name": project_domain,
+                            "Type": "A",
+                            "AliasTarget": {
+                                "HostedZoneId": "Z2FDTNDATAQYW2", // CloudFront Hosted Zone ID
+                                "DNSName": {
+                                    "Fn::GetAtt": [
+                                        format!("EndpointDistribution{project_name}"),
+                                        "DomainName"
+                                    ]
+                                }
                             }
                         }
-                    }
-                }),
-            },
-        ]
+                    }),
+                },
+            ]);
+        }
+
+        resources
     }
 
     pub async fn new(
@@ -222,7 +242,15 @@ impl Template {
 
         let client = aws_sdk_cloudformation::Client::new(&config);
 
+        let sts_client = aws_sdk_sts::Client::new(&config);
+        let identify = sts_client.get_caller_identity().send().await?;
+
+        let account_id = identify
+            .account()
+            .ok_or_else(|| eyre::Error::msg("Failed to get AWS account ID"))?;
+
         let mut template = Template {
+            account_id: account_id.to_string(),
             bucket: bucket.to_string(),
             client,
             crat: crat.clone(),
@@ -314,6 +342,8 @@ impl Template {
             }
         }
 
+        let account_id = self.account_id.clone();
+
         // https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-access.html#sysman-paramstore-access-inst
         for secret in secrets.iter() {
             let name = self.prefixed(vec![&secret]);
@@ -330,12 +360,14 @@ impl Template {
                                 "ssm:GetParameters",
                                 "ssm:ListTagsForResource"
                             ],
-                            "Resource": [format!("arn:aws:ssm:us-east-1:727082259008:parameter/{secret}")]
+                            "Resource": [format!("arn:aws:ssm:us-east-1:{account_id}:parameter/{secret}")]
                         },
                         {
                             "Effect": "Allow",
                             "Action": ["kms:Decrypt"],
-                            "Resource": ["arn:aws:kms:us-east-1:727082259008:key/1bf38d51-e7e3-4c20-b155-60c6214b0255"]
+
+                            // FIXME Move KMS Key to config
+                            "Resource": [format!("arn:aws:kms:us-east-1:{account_id}:key/1bf38d51-e7e3-4c20-b155-60c6214b0255")]
                         }
                     ]
                 }
@@ -352,7 +384,12 @@ impl Template {
 
         let mut variables = raw
             .iter()
-            .map(|(name, resource)| (name.clone(), Value::String(resource.to_string())))
+            .map(|(name, resource)| {
+                let json_value = serde_json::to_value(resource)
+                    .unwrap_or_else(|_| Value::String(resource.to_string()));
+
+                (name.clone(), json_value)
+            })
             .collect::<serde_json::Map<String, Value>>();
 
         // If user tries to redefine these values, insert()s will overwrite them
