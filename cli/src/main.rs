@@ -38,7 +38,12 @@ fn build_path() -> eyre::Result<PathBuf> {
 }
 
 #[derive(Parser)]
-#[command(version, about, long_about = None)]
+#[command(
+    name = "kinetics",
+    version,
+    about = "CLI tool for building and deploying serverless Rust functions",
+    long_about = "A comprehensive CLI for managing Kinetics serverless Rust functions, including building, deploying and managing your infrastructure."
+)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -46,20 +51,27 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Build your serverless functions
     Build {
+        /// Maximum number of parallel concurrent builds
         #[arg(short, long, default_value_t = 6)]
         max_concurrency: usize,
     },
 
+    /// Deploy your serverless functions to the cloud
     Deploy {
+        /// Upload directly to S3 and bypass the backend service
         #[arg(short, long)]
         is_directly: bool,
 
+        /// Maximum number of parallel concurrent builds
         #[arg(short, long, default_value_t = 6)]
         max_concurrency: usize,
     },
 
+    /// Login to Kinetics platform
     Login {
+        /// Your registered email address
         #[arg()]
         email: String,
     },
