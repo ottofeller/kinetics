@@ -1,7 +1,10 @@
 # Intro
-Sky is a work-in-progress project that aims to provide a simple way to deploy Rust functions to the cloud. In essence it is a macro takes a Rust function and deploys it as AWS Lambda.
+
+Sky is a work-in-progress project that aims to provide a simple way to deploy Rust functions to the cloud. In essence it
+is a macro takes a Rust function and deploys it as AWS Lambda.
 
 # Processes diagrams
+
 ```mermaid
 graph TD;
   subgraph macro
@@ -22,6 +25,7 @@ graph TD;
 ```
 
 # Current state
+
 - [x] Deploy a function to bare-bones AWS Lambda.
 - [x] FunctionURL.
 - [x] Queue worker.
@@ -31,26 +35,59 @@ graph TD;
 - [ ] Login.
 - [ ] User sessions.
 
-# How to run the example
-1. Create `$HOME/.kinetics/` directory.
-1. Clone the repository.
-1. Install [Cargo Lambda](https://www.cargo-lambda.info/guide/getting-started.html#step-1-install-cargo-lambda).
-1. Clone the repository.
-```bash
-git clone https://github.com/ottofeller/sky.git
+# Deploy backend into your AWS account
+
+## Build CLI tool
+
+```shell
+cargo build --release --bin kinetics-cli
 ```
-4. Build `macro` crate.
-```bash
-cd macro
-cargo build
+
+### Export required env variables
+
+```shell
+export KINETICS_USE_PRODUCTION_DOMAIN="false" &&\
+export KINETICS_USERNAME="your-email@domain.com" &&\
+export KINETICS_S3_BUCKET_NAME="your-created-bucket-name" &&\
+export KINETICS_KMS_KEY_ID="your-kms-ssm-key-id"
 ```
-5. Build `cli` crate.
-```bash
-cd cli
-cargo build
+
+Get KMS key from AWS console > AWS managed keys > aws/ssm
+
+### Deploy backend
+
+In the backend directory run:
+
+```shell
+../target/release/kinetics-cli deploy --is-directly
 ```
-6. Open `example/src/main.rs`, add some insignificant changes (e.g. a comment) and save the file. It will trigger the macro to process the file.
-7. Deploy to AWS.
-```bash
-aws-vault exec <profile name> --no-session -- ../cli/target/debug/cli deploy
+
+### Get cloudfront domain name
+
+Now you need to get create cloudfront:
+
+```shell
+aws cloudfront list-distributions --query "DistributionList.Items[*].[DomainName,Status,LastModifiedTime]"
 ```
+
+### Export Cloudfront Domain name with KINETICS_API_BASE
+
+```shell
+export KINETICS_API_BASE="https://<subdomain>.cloudfront.net/"
+```
+
+⚠️ Don't forget trailing slash
+
+### Deploy example using your backend (optional)
+
+⚠️ Before starting, make sure you've built the CLI tool with the required environment variables described above.
+Change directory to example and run command:
+
+1. Login to Kinetics platform
+    ```shell
+    ../target/release/kinetics-cli login your-email@domain.com
+    ```
+2. Run deployment
+    ```shell
+    ../target/release/kinetics-cli deploy 
+    ```
