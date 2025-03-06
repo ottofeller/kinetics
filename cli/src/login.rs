@@ -3,7 +3,7 @@ use chrono::Utc;
 use eyre::Context;
 use regex::Regex;
 use serde_json::json;
-use std::{io, path::Path};
+use std::{path::Path};
 
 /// Request auth code and exchange it for access token
 async fn request(email: &str) -> eyre::Result<Credentials> {
@@ -12,7 +12,7 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
 
     let response = client
         .post(crate::api_url("/auth/code/request"))
-        .json(&serde_json::json!({ "email": email }))
+        .json(&json!({ "email": email }))
         .send()
         .await?;
 
@@ -23,14 +23,14 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
         ));
     }
 
-    println!("Enter the code sent to your email: ");
-    let mut code = String::new();
-    io::stdin().read_line(&mut code)?;
+    println!("Please enter the one-time code sent to your email:");
+    
+    let code = rpassword::read_password()?;
     let code = code.trim();
 
     let response = client
         .post(crate::api_url("/auth/code/exchange"))
-        .json(&serde_json::json!({ "email": email, "code": code }))
+        .json(&json!({ "email": email, "code": code }))
         .send()
         .await?;
 
@@ -69,18 +69,16 @@ pub async fn login(email: &str) -> eyre::Result<()> {
             })
             .unwrap_or(default),
     )
-    .wrap_err("Credentials stored in a wrong format")?;
+    .wrap_err(eyre::eyre!("Credentials stored in a wrong format"))?;
 
     // If credentials expired — request new token
     if !credentials.token.is_empty()
         && credentials.expires_at.timestamp() > Utc::now().timestamp()
         && credentials.email == email
     {
-        println!("Already logged in.");
         return Ok(());
     }
 
     std::fs::write(path, json!(request(email).await?).to_string())?;
-    println!("Logged in successfully!");
     Ok(())
 }
