@@ -1,3 +1,4 @@
+use crate::config::config as build_config;
 use crate::crat::Crate;
 use crate::function::Function;
 use crate::secret::Secret;
@@ -343,6 +344,7 @@ impl Template {
         }
 
         let account_id = self.account_id.clone();
+        let kms_key_id = build_config().kms_key_id;
 
         // https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-access.html#sysman-paramstore-access-inst
         for secret in secrets.iter() {
@@ -365,9 +367,7 @@ impl Template {
                         {
                             "Effect": "Allow",
                             "Action": ["kms:Decrypt"],
-
-                            // FIXME Move KMS Key to config
-                            "Resource": [format!("arn:aws:kms:us-east-1:{account_id}:key/1bf38d51-e7e3-4c20-b155-60c6214b0255")]
+                            "Resource": [format!("arn:aws:kms:us-east-1:{account_id}:key/{kms_key_id}")]
                         }
                     ]
                 }

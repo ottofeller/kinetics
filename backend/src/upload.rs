@@ -1,3 +1,4 @@
+use crate::config::config as build_config;
 use crate::json;
 use crate::{auth::session::Session, env::env};
 use aws_sdk_s3::presigning::PresigningConfig;
@@ -13,7 +14,7 @@ use std::collections::HashMap;
 //     "Action": [
 //         "logs:CreateLogGroup",
 //         "logs:CreateLogStream",
-//         "logs:PutLogEvents"
+//         "logs:PutLogEvents",
 //         "s3:PutObject"
 //     ],
 //     "Resource": [
@@ -28,8 +29,7 @@ use std::collections::HashMap;
     name = "upload",
     url_path = "/upload",
     environment = {
-        "EXPIRES_IN_SECONDS": "15",
-        "BUILDS_BUCKET": "kinetics-rust-builds",
+        "EXPIRES_IN_SECONDS": "60",
         "TABLE_NAME": "kinetics",
         "DANGER_DISABLE_AUTH": "false",
         "S3_KEY_ENCRYPTION_KEY": "fjskoapgpsijtzp"
@@ -69,7 +69,7 @@ pub async fn upload(
 
     let presigned_request = client
         .put_object()
-        .bucket(env("BUILDS_BUCKET")?)
+        .bucket(build_config().s3_bucket_name)
         .key(key)
         .presigned(expires_in)
         .await?;

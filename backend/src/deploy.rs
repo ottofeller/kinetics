@@ -1,3 +1,4 @@
+use crate::config::config as build_config;
 use crate::crat::Crate;
 use crate::function::Function;
 use crate::json;
@@ -97,11 +98,9 @@ Permissions:
 }
 */
 #[endpoint(url_path = "/deploy", environment = {
-    "BUCKET_NAME": "kinetics-rust-builds",
     "TABLE_NAME": "kinetics",
     "DANGER_DISABLE_AUTH": "false",
-    "S3_KEY_ENCRYPTION_KEY": "fjskoapgpsijtzp",
-    "BUILDS_BUCKET": "kinetics-rust-builds"
+    "S3_KEY_ENCRYPTION_KEY": "fjskoapgpsijtzp"
 })]
 pub async fn deploy(
     event: Request,
@@ -139,10 +138,10 @@ pub async fn deploy(
             })
             .collect::<Vec<Function>>(),
         secrets.clone(),
-        &env("BUILDS_BUCKET")?,
+        build_config().s3_bucket_name,
         &session.username(true),
         &session.username(false),
-        Some("usekinetics.com"), // TODO This must be configurable
+        build_config().cloud_front_domain,
     )
     .await?;
 
