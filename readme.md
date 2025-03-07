@@ -48,6 +48,7 @@ cargo build --release --bin kinetics-cli
 ```shell
 export KINETICS_USE_PRODUCTION_DOMAIN="false" &&\
 export KINETICS_USERNAME="your-email@domain.com" &&\
+export KINETICS_USERNAME_ESCAPED="yourEmailAtDomainDotCom" &&\
 export KINETICS_S3_BUCKET_NAME="your-created-bucket-name" &&\
 export KINETICS_KMS_KEY_ID="your-kms-ssm-key-id"
 ```
