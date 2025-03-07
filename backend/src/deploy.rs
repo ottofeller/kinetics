@@ -79,6 +79,7 @@ Permissions:
         "lambda:UpdateFunctionConfiguration",
         "lambda:ListTags",
         "lambda:TagResource",
+        "lambda:GetEventSourceMapping",
         "s3:GetObject",
         "cloudfront:*",
         "dynamodb:DescribeTable",
@@ -91,7 +92,9 @@ Permissions:
         "acm:DeleteCertificate",
         "logs:CreateLogGroup",
         "logs:CreateLogStream",
-        "logs:PutLogEvents"
+        "logs:PutLogEvents",
+        "sqs:*",
+        "lambda:CreateEventSourceMapping"
     ],
     "Resource": "*",
     "Effect": "Allow"
