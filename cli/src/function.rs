@@ -19,7 +19,7 @@ pub struct Function {
 
 impl Function {
     pub fn new(path: &Path) -> eyre::Result<Self> {
-        eyre::Ok(Function {
+        Ok(Function {
             id: uuid::Uuid::new_v4().into(),
             path: path.to_path_buf(),
             crat: Crate::new(path.to_path_buf())?,
@@ -59,7 +59,7 @@ impl Function {
 
     /// User defined name of the function
     pub fn name(&self) -> eyre::Result<String> {
-        eyre::Ok(
+        Ok(
             self.meta()?
                 .get("name")
                 .wrap_err("No [name]")?
@@ -95,7 +95,7 @@ impl Function {
         }
 
         println!("Function {:?} was built successfully", self.path);
-        eyre::Ok(())
+        Ok(())
     }
 
     pub async fn bundle(&self) -> eyre::Result<()> {
@@ -141,13 +141,13 @@ impl Function {
             zip.write_all(&buffer)?;
             zip.finish()?;
 
-            eyre::Ok(())
+            Ok(())
         })
         .await
         .wrap_err("Failed to spawn the blocking task")?
         .wrap_err("Failed to create a Zip archive")?;
 
-        eyre::Ok(())
+        Ok(())
     }
 
     pub fn bundle_path(&self) -> PathBuf {
