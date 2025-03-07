@@ -3,7 +3,7 @@ use chrono::Utc;
 use eyre::Context;
 use regex::Regex;
 use serde_json::json;
-use std::{path::Path};
+use std::path::Path;
 
 /// Request auth code and exchange it for access token
 async fn request(email: &str) -> eyre::Result<Credentials> {
@@ -24,7 +24,7 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
     }
 
     println!("Please enter the one-time code sent to your email:");
-    
+
     let code = rpassword::read_password()?;
     let code = code.trim();
 
