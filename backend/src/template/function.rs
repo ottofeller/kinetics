@@ -1,4 +1,4 @@
-use crate::crat::Crate;
+use crate::template::Crate;
 use crate::Resource;
 use eyre::{ContextCompat, Ok, WrapErr};
 

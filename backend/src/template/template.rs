@@ -1,6 +1,6 @@
-use crate::crat::Crate;
-use crate::function::Function;
-use crate::secret::Secret;
+use crate::template::Crate;
+use crate::template::Function;
+use crate::template::Secret;
 use crate::Resource;
 use aws_config::BehaviorVersion;
 use eyre::{ContextCompat, Ok, WrapErr};

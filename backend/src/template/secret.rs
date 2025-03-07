@@ -1,4 +1,4 @@
-use crate::crat::Crate;
+use crate::template::Crate;
 use eyre::Context;
 
 #[derive(Clone, Debug)]
