@@ -211,7 +211,7 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
             format!(
                 "{import_statement}
                 use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
-                use aws_lambda_events::{{lambda_function_urls::LambdaFunctionUrlRequest, sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
+                use aws_lambda_events::{{sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
                 #[tokio::main]\n\
                 async fn main() -> Result<(), Error> {{\n\
                     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
@@ -266,6 +266,66 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
                 }}\n\n"
             )
         }
+        Role::Cron(_) => {
+            format!(
+                "{import_statement}
+                use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
+                use aws_lambda_events::eventbridge::EventBridgeEvent;\n\
+                #[tokio::main]\n\
+                async fn main() -> Result<(), Error> {{\n\
+                    let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+                    println!(\"Provisioning secrets\");
+                    let secrets_client = aws_sdk_ssm::Client::new(&config);
+                    let secrets_names_env = \"KINETICS_SECRETS_NAMES\";
+                    let mut secrets = std::collections::HashMap::new();
+
+                    for secret_name in std::env::var(secrets_names_env)?
+                        .split(\",\")
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                    {{
+                        let desc = secrets_client
+                            .get_parameter()
+                            .name(secret_name.clone())
+                            .with_decryption(true)
+                            .send()
+                            .await?;
+
+                        let result = desc.parameter.unwrap();
+
+                        let tags = secrets_client
+                            .list_tags_for_resource()
+                            .resource_type(aws_sdk_ssm::types::ResourceTypeForTagging::Parameter)
+                            .resource_id(secret_name.clone())
+                            .send()
+                            .await?
+                            .tag_list
+                            .unwrap_or_default();
+
+                        let name = match tags.iter().find(|t| t.key() == \"original_name\") {{
+                            Some(tag) => tag.value(),
+                            None => &secret_name.clone(),
+                        }};
+
+                        let secret_value = result.value().unwrap();
+                        secrets.insert(name.into(), secret_value.to_string());
+                    }}
+
+                    println!(\"Serving requests\");
+
+                    run(service_fn(|_event: LambdaEvent<EventBridgeEvent<serde_json::Value>>| async {{
+                        match cron(&secrets).await {{
+                            Ok(()) => Ok(()),
+                            Err(err) => {{
+                                eprintln!(\"Error occurred while handling request: {{:?}}\", err);
+                                Err(err)
+                            }}
+                        }}
+                    }}))
+                    .await
+                }}\n\n"
+            )
+        }
     };
 
     let item: syn::File = syn::parse_str(&new_main_code)?;
@@ -293,6 +353,7 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
     {
         let role_str = match &parsed_function.role {
             Role::Endpoint(_) => "endpoint",
+            Role::Cron(_) => "cron",
             Role::Worker(_) => "worker",
         };
 
@@ -327,6 +388,16 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
                     f.extend(endpoint_table)
                 }
             }
+            Role::Cron(params) => {
+                let mut cron_table = toml_edit::Table::new();
+                cron_table["schedule"] = toml_edit::value(&params.schedule.to_string());
+
+                // Update function table with cron configuration
+                // Function table has been created above
+                if let Some(f) = kinetics_meta["function"].as_table_mut() {
+                    f.extend(cron_table)
+                }
+            }
         }
 
         let environment = parsed_function.role.environment().iter();
@@ -338,6 +409,11 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
             e.extend(environment)
         }
     }
+
+    doc["dependencies"]["aws_lambda_events"]
+        .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+        .as_table_mut()
+        .map(|t| t.insert("version", toml_edit::value("0.16.0")));
 
     doc["dependencies"]["aws-config"]
         .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
@@ -419,6 +495,7 @@ fn import_statement(relative_path: &str, rust_name: &str) -> eyre::Result<String
 /// Clean up scaffolding required for deploying a function
 fn cleanup(dst: &Path) -> eyre::Result<()> {
     let re_endpoint = Regex::new(r"(?m)^\s*#\s*\[\s*endpoint[^]]*]\s*$")?;
+    let re_cron = Regex::new(r"(?m)^\s*#\s*\[\s*cron[^]]*]\s*$")?;
     let re_worker = Regex::new(r"(?m)^\s*#\s*\[\s*worker[^]]*]\s*$")?;
 
     let re_import = Regex::new(
@@ -443,8 +520,8 @@ fn cleanup(dst: &Path) -> eyre::Result<()> {
 
         content = re_endpoint.replace_all(&content, "").to_string();
         content = re_worker.replace_all(&content, "").to_string();
+        content = re_cron.replace_all(&content, "").to_string();
         let new_content = re_import.replace_all(&content, "");
-
         write_if_changed(path, new_content.as_ref())?;
     }
 
@@ -458,19 +535,19 @@ fn cleanup(dst: &Path) -> eyre::Result<()> {
 /// function name requirements.
 pub fn func_name(parsed_function: &ParsedFunction) -> String {
     let rust_name = &parsed_function.rust_function_name;
+    let full_path = format!("{}/{rust_name}", parsed_function.relative_path);
 
-    let default_func_name = format!(
-        "{}{rust_name}",
-        parsed_function
-            .relative_path
-            .as_str()
-            .split(&['-', '.', '/'])
-            .map(|s| match s.chars().next() {
-                Some(first) => first.to_uppercase().collect::<String>() + &s[1..],
-                None => String::new(),
-            })
-            .collect::<String>()
-    );
+    let default_func_name = full_path
+        .as_str()
+        .split(&['-', '.', '/'])
+        .into_iter()
+        .filter(|s| !s.eq(&"rs"))
+        .map(|s| match s.chars().next() {
+            Some(first) => first.to_uppercase().collect::<String>() + &s[1..],
+            None => String::new(),
+        })
+        .collect::<String>()
+        .replacen("Src", "", 1);
 
     // TODO Check the name for uniqueness
     parsed_function
