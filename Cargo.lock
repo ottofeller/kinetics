@@ -303,6 +303,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-sdk-lambda"
+version = "1.70.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d38bca84261ef165675a00bc6af3c3135fa2e6aacd4b0720a9f79e02ff68425f"
+dependencies = [
+ "aws-credential-types",
+ "aws-runtime",
+ "aws-smithy-async",
+ "aws-smithy-eventstream",
+ "aws-smithy-http",
+ "aws-smithy-json",
+ "aws-smithy-runtime",
+ "aws-smithy-runtime-api",
+ "aws-smithy-types",
+ "aws-types",
+ "bytes",
+ "http 0.2.12",
+ "once_cell",
+ "regex-lite",
+ "tracing",
+]
+
+[[package]]
 name = "aws-sdk-resourcegroupstagging"
 version = "1.60.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -699,6 +722,7 @@ dependencies = [
  "aws-sdk-cloudformation",
  "aws-sdk-cloudwatch",
  "aws-sdk-dynamodb",
+ "aws-sdk-lambda",
  "aws-sdk-resourcegroupstagging",
  "aws-sdk-s3",
  "aws-sdk-ssm",

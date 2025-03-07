@@ -1,9 +1,9 @@
 use aws_config::BehaviorVersion;
 use aws_sdk_cloudwatch::types::{Dimension, Statistic};
-use aws_sdk_dynamodb::types::AttributeValue::S;
+use aws_sdk_dynamodb::types::AttributeValue::{self, S};
 use aws_sdk_s3::primitives::{DateTime, DateTimeFormat::DateTimeWithOffset};
-use chrono::{Datelike, Timelike, Utc};
-use eyre::{eyre, Context, Ok};
+use chrono::{DateTime as ChronoDateTime, Datelike, Timelike, Utc};
+use eyre::{Context, ContextCompat, Ok};
 use std::collections::HashMap;
 
 pub struct UserBuilder {
@@ -64,13 +64,13 @@ impl UserBuilder {
             return Ok(User {
                 email: email.to_string().clone(),
                 id: user_id,
+                throttled_at: None,
+                db_client: self.db_client.clone(),
+                db_table: self.db_table.clone(),
             });
         }
 
-        return Ok(User {
-            email: email.to_string().clone(),
-            id: item.unwrap()["id"].as_s().unwrap().to_string(),
-        });
+        return self.to_user(item.unwrap());
     }
 
     /// Find existing user by email
@@ -84,15 +84,45 @@ impl UserBuilder {
             .key("id", S(format!("email#{}", email)))
             .send()
             .await?
-            .item;
+            .item
+            .wrap_err(format!("User with email not found: {email}"));
 
-        if item.is_none() {
-            return Err(eyre!("User with email {} not found", email));
-        }
+        let item = item.wrap_err(format!("User record is corrupted: {email}"))?;
+        let id = format!("user#{}", item["userId"].as_s().unwrap());
+
+        let item = self
+            .db_client
+            .get_item()
+            .table_name(&self.db_table)
+            .key("id", S(id.clone()))
+            .send()
+            .await?
+            .item
+            .wrap_err(format!("User with id not found: {id}"))?;
+
+        self.to_user(item)
+    }
+
+    /// Build User struct out of item retrieved from DB
+    fn to_user(&self, item: HashMap<String, AttributeValue>) -> eyre::Result<User> {
+        let throttled_at = item
+            .get("throttled_at")
+            .unwrap_or(&AttributeValue::S(String::default()))
+            .as_s()
+            .unwrap_or(&String::default())
+            .to_owned();
 
         Ok(User {
-            email: email.to_string().clone(),
-            id: item.unwrap()["id"].as_s().unwrap().to_string(),
+            db_client: self.db_client.clone(),
+            db_table: self.db_table.clone(),
+            email: item["email"].as_s().unwrap().to_owned(),
+            id: item["id"].as_s().unwrap().to_owned().replace("user#", ""),
+
+            throttled_at: if throttled_at.is_empty() {
+                None
+            } else {
+                Some(ChronoDateTime::parse_from_rfc3339(&throttled_at)?.to_utc())
+            },
         })
     }
 }
@@ -100,6 +130,9 @@ impl UserBuilder {
 pub struct User {
     pub email: String,
     pub id: String,
+    pub throttled_at: Option<ChronoDateTime<Utc>>,
+    pub db_client: aws_sdk_dynamodb::Client,
+    pub db_table: String,
 }
 
 impl User {
@@ -211,5 +244,48 @@ impl User {
         }
 
         Ok(total)
+    }
+
+    /// Throttle all user's functions and store the state in DB
+    pub async fn throttle(&mut self, state: bool) -> eyre::Result<()> {
+        // Avoid applying same state multiple times
+        if (self.throttled_at.is_some() && state) || (self.throttled_at.is_none() && !state) {
+            return Ok(());
+        }
+
+        let config = aws_config::load_defaults(BehaviorVersion::latest()).await;
+        let lambda_client = aws_sdk_lambda::Client::new(&config);
+        let functions = self.functions().await?;
+
+        for function in functions {
+            lambda_client
+                .put_function_concurrency()
+                .function_name(function)
+                .reserved_concurrent_executions(if state { 0 } else { 8 })
+                .send()
+                .await?;
+        }
+
+        self.throttled_at = if state {
+            Some(chrono::Utc::now())
+        } else {
+            None
+        };
+
+        self.db_client
+            .update_item()
+            .table_name(&self.db_table)
+            .key("id", S(format!("user#{}", self.id)))
+            .update_expression("SET throttled_at = :t")
+            .expression_attribute_values(
+                ":t",
+                S(self
+                    .throttled_at
+                    .map_or(String::default(), |t| t.to_rfc3339())),
+            )
+            .send()
+            .await?;
+
+        Ok(())
     }
 }

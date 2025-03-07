@@ -13,7 +13,8 @@ use std::collections::HashMap;
 //         "logs:CreateLogStream",
 //         "logs:PutLogEvents",
 //         "cloudwatch:GetMetricStatistics",
-//         "tag:GetResources"
+//         "tag:GetResources",
+//         "lambda:PutFunctionConcurrency"
 //     ],
 //     "Resource": [
 //         "*",
@@ -24,11 +25,15 @@ use std::collections::HashMap;
 /// Bill users for usage
 ///
 /// Also block free users if they go over free tier.
-#[cron(schedule = "rate(1 minute)", environment = {"TABLE_NAME": "kinetics"})]
+#[cron(schedule = "rate(1 minute)", environment = {
+    "TABLE_NAME": "kinetics",
+    "INVOCATIONS_LIMIT": "50000",
+})]
 pub async fn cron(_secrets: &HashMap<String, String>) -> Result<(), Box<dyn std::error::Error>> {
     let config = aws_config::load_defaults(BehaviorVersion::latest()).await;
     let db_client = Client::new(&config);
     let table = env("TABLE_NAME")?;
+    let limit = env("INVOCATIONS_LIMIT")?.parse::<u16>()?;
 
     let request = db_client
         .scan()
@@ -47,7 +52,7 @@ pub async fn cron(_secrets: &HashMap<String, String>) -> Result<(), Box<dyn std:
             .to_string()
             .replace("email#", "");
 
-        let user = builder
+        let mut user = builder
             .by_email(&email)
             .await
             .wrap_err("Failed to get user by email")?;
@@ -59,6 +64,9 @@ pub async fn cron(_secrets: &HashMap<String, String>) -> Result<(), Box<dyn std:
                 .await
                 .wrap_err("Failed to count invoications for user")?
         );
+
+        user.throttle(user.invocations("month").await? >= limit)
+            .await?;
     }
 
     Ok(())
