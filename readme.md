@@ -77,8 +77,6 @@ aws cloudfront list-distributions --query "DistributionList.Items[*].[DomainName
 export KINETICS_API_BASE="https://<subdomain>.cloudfront.net/"
 ```
 
-⚠️ Don't forget trailing slash
-
 ### Deploy example using your backend (optional)
 
 ⚠️ Before starting, make sure you've built the CLI tool with the required environment variables described above.
