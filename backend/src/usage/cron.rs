@@ -27,7 +27,8 @@ use std::collections::HashMap;
 /// Also block free users if they go over free tier.
 #[cron(schedule = "rate(1 minute)", environment = {
     "TABLE_NAME": "kinetics",
-    "INVOCATIONS_LIMIT": "50000",
+    "INVOCATIONS_LIMIT": "500",
+    "DO_NOT_THROTTLE_USER": "artem@ottofeller.com"
 })]
 pub async fn cron(_secrets: &HashMap<String, String>) -> Result<(), Box<dyn std::error::Error>> {
     let config = aws_config::load_defaults(BehaviorVersion::latest()).await;
@@ -51,6 +52,10 @@ pub async fn cron(_secrets: &HashMap<String, String>) -> Result<(), Box<dyn std:
             .unwrap()
             .to_string()
             .replace("email#", "");
+
+        if email == env("DO_NOT_THROTTLE_USER")? {
+            continue;
+        }
 
         let mut user = builder
             .by_email(&email)
