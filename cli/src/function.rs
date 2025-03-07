@@ -1,6 +1,7 @@
 use crate::crat::Crate;
 use aws_sdk_s3::primitives::ByteStream;
-use eyre::{eyre, ContextCompat, Ok, WrapErr};
+use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
+use regex::Regex;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
@@ -18,7 +19,7 @@ pub struct Function {
 
 impl Function {
     pub fn new(path: &Path) -> eyre::Result<Self> {
-        Ok(Function {
+        eyre::Ok(Function {
             id: uuid::Uuid::new_v4().into(),
             path: path.to_path_buf(),
             crat: Crate::new(path.to_path_buf())?,
@@ -58,13 +59,14 @@ impl Function {
 
     /// User defined name of the function
     pub fn name(&self) -> eyre::Result<String> {
-        Ok(self
-            .meta()?
-            .get("name")
-            .wrap_err("No [name]")?
-            .as_str()
-            .wrap_err("Not a string")?
-            .to_string())
+        eyre::Ok(
+            self.meta()?
+                .get("name")
+                .wrap_err("No [name]")?
+                .as_str()
+                .wrap_err("Not a string")?
+                .to_string(),
+        )
     }
 
     pub async fn build(&self) -> eyre::Result<()> {
@@ -93,16 +95,35 @@ impl Function {
         }
 
         println!("Function {:?} was built successfully", self.path);
-        Ok(())
+        eyre::Ok(())
     }
 
     pub async fn bundle(&self) -> eyre::Result<()> {
         println!("Bundling {:?}...", self.path);
 
+        // Clean up the previous bundle artifacts
+        if let Ok(mut dir_listing) = tokio::fs::read_dir(&self.path).await {
+            static BUNDLE_REGEX: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.zip$")
+                    .expect("The regex is valid")
+            });
+            while let Ok(Some(entry)) = dir_listing.next_entry().await {
+                let Ok(file_name) = entry.file_name().into_string() else {
+                    continue;
+                };
+                if BUNDLE_REGEX.is_match(&file_name) {
+                    if let Err(error) = tokio::fs::remove_file(entry.path()).await {
+                        eprintln!("Failed to remove file {file_name} with error {error}");
+                    };
+                }
+            }
+        };
+
+        // Create the new artifact
         let mut f = tokio::fs::File::open(
-            self.build_path()?
+            self.build_path()
                 .to_str()
-                .ok_or(eyre!("Failed to construct bundle path"))?,
+                .ok_or_eyre("Failed to construct bundle path")?,
         )
         .await?;
 
@@ -120,13 +141,13 @@ impl Function {
             zip.write_all(&buffer)?;
             zip.finish()?;
 
-            Ok(())
+            eyre::Ok(())
         })
         .await
         .wrap_err("Failed to spawn the blocking task")?
         .wrap_err("Failed to create a Zip archive")?;
 
-        Ok(())
+        eyre::Ok(())
     }
 
     pub fn bundle_path(&self) -> PathBuf {
@@ -138,12 +159,11 @@ impl Function {
             .wrap_err("Failed to read function's Cargo.toml")
     }
 
-    fn build_path(&self) -> eyre::Result<PathBuf> {
-        Ok(self
-            .path
+    fn build_path(&self) -> PathBuf {
+        self.path
             .join("target")
             .join("lambda")
             .join("bootstrap")
-            .join("bootstrap"))
+            .join("bootstrap")
     }
 }
