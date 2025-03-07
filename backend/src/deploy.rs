@@ -1,7 +1,7 @@
-use crate::crat::Crate;
-use crate::function::Function;
+use crate::template::Crate;
+use crate::template::Function;
 use crate::json;
-use crate::secret::Secret;
+use crate::template::Secret;
 use crate::template::Template;
 use crate::{auth::session::Session, env::env};
 use eyre::Context;
