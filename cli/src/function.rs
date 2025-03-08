@@ -1,7 +1,6 @@
 use crate::crat::Crate;
 use aws_sdk_s3::primitives::ByteStream;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
-use regex::Regex;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
@@ -59,14 +58,13 @@ impl Function {
 
     /// User defined name of the function
     pub fn name(&self) -> eyre::Result<String> {
-        Ok(
-            self.meta()?
-                .get("name")
-                .wrap_err("No [name]")?
-                .as_str()
-                .wrap_err("Not a string")?
-                .to_string(),
-        )
+        Ok(self
+            .meta()?
+            .get("name")
+            .wrap_err("No [name]")?
+            .as_str()
+            .wrap_err("Not a string")?
+            .to_string())
     }
 
     pub async fn build(&self) -> eyre::Result<()> {
@@ -101,25 +99,6 @@ impl Function {
     pub async fn bundle(&self) -> eyre::Result<()> {
         println!("Bundling {:?}...", self.path);
 
-        // Clean up the previous bundle artifacts
-        if let Ok(mut dir_listing) = tokio::fs::read_dir(&self.path).await {
-            static BUNDLE_REGEX: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.zip$")
-                    .expect("The regex is valid")
-            });
-            while let Ok(Some(entry)) = dir_listing.next_entry().await {
-                let Ok(file_name) = entry.file_name().into_string() else {
-                    continue;
-                };
-                if BUNDLE_REGEX.is_match(&file_name) {
-                    if let Err(error) = tokio::fs::remove_file(entry.path()).await {
-                        eprintln!("Failed to remove file {file_name} with error {error}");
-                    };
-                }
-            }
-        };
-
-        // Create the new artifact
         let mut f = tokio::fs::File::open(
             self.build_path()
                 .to_str()
