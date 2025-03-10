@@ -26,7 +26,6 @@ use std::collections::HashMap;
 
 /// Generate S3 presigned URL for upload
 #[endpoint(
-    name = "upload",
     url_path = "/upload",
     environment = {
         "EXPIRES_IN_SECONDS": "60",

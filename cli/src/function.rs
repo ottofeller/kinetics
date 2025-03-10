@@ -1,6 +1,6 @@
 use crate::crat::Crate;
 use aws_sdk_s3::primitives::ByteStream;
-use eyre::{eyre, ContextCompat, Ok, WrapErr};
+use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
@@ -100,9 +100,9 @@ impl Function {
         println!("Bundling {:?}...", self.path);
 
         let mut f = tokio::fs::File::open(
-            self.build_path()?
+            self.build_path()
                 .to_str()
-                .ok_or(eyre!("Failed to construct bundle path"))?,
+                .ok_or_eyre("Failed to construct bundle path")?,
         )
         .await?;
 
@@ -138,12 +138,11 @@ impl Function {
             .wrap_err("Failed to read function's Cargo.toml")
     }
 
-    fn build_path(&self) -> eyre::Result<PathBuf> {
-        Ok(self
-            .path
+    fn build_path(&self) -> PathBuf {
+        self.path
             .join("target")
             .join("lambda")
             .join("bootstrap")
-            .join("bootstrap"))
+            .join("bootstrap")
     }
 }

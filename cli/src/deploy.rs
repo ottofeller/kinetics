@@ -3,9 +3,9 @@ use crate::config::config as build_config;
 use crate::crat::Crate;
 use crate::function::Function;
 use crate::secret::Secret;
-use backend::crat::Crate as BackendCrate;
+use backend::template::Crate as BackendCrate;
 use backend::deploy::{self, BodyCrate};
-use backend::function::Function as BackendFunction;
+use backend::template::Function as BackendFunction;
 use eyre::{Ok, WrapErr};
 use reqwest::StatusCode;
 use std::collections::HashMap;
@@ -87,8 +87,8 @@ pub async fn deploy(crat: &Crate, functions: &[Function], is_directly: &bool) ->
 
         let secrets = secrets
             .iter()
-            .map(|(k, v)| backend::secret::Secret::new(k, v, &crat, build_config.username_escaped))
-            .collect::<Vec<backend::secret::Secret>>();
+            .map(|(k, v)| backend::template::Secret::new(k, v, &crat, build_config.username_escaped))
+            .collect::<Vec<backend::template::Secret>>();
 
         let template = backend::template::Template::new(
             &crat,

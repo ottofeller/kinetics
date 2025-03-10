@@ -1,4 +1,4 @@
-use crate::crat::Crate;
+use crate::template::Crate;
 use crate::Resource;
 use eyre::{ContextCompat, Ok, WrapErr};
 
@@ -78,6 +78,19 @@ impl Function {
         let meta = self.meta().unwrap();
 
         Some(meta.get("url_path")?.as_str().unwrap().to_string())
+    }
+
+    /// Cron schedule
+    ///
+    /// Optional property, only available for cron type of functions.
+    pub fn schedule(&self) -> Option<String> {
+        if self.meta().is_err() || self.role().unwrap() != "cron" {
+            return None;
+        }
+
+        let meta = self.meta().unwrap();
+
+        Some(meta.get("schedule")?.as_str().unwrap().to_string())
     }
 
     /// User defined name of the function

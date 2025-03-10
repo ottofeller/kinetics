@@ -1,7 +1,7 @@
 use crate::config::config as build_config;
-use crate::crat::Crate;
-use crate::function::Function;
-use crate::secret::Secret;
+use crate::template::Crate;
+use crate::template::Function;
+use crate::template::Secret;
 use crate::Resource;
 use aws_config::BehaviorVersion;
 use eyre::{ContextCompat, Ok, WrapErr};
@@ -276,6 +276,15 @@ impl Template {
                 }
             }
 
+            if function.role()? == "cron" {
+                for resource in template
+                    .cron(&function, &secrets_names)
+                    .wrap_err("Failed to build cron template")?
+                {
+                    template.add_resource(resource);
+                }
+            }
+
             if function.role()? == "worker" {
                 for resource in template
                     .worker(&function, &secrets_names)
@@ -385,10 +394,12 @@ impl Template {
         let mut variables = raw
             .iter()
             .map(|(name, resource)| {
-                let json_value = serde_json::to_value(resource)
-                    .unwrap_or_else(|_| Value::String(resource.to_string()));
-
-                (name.clone(), json_value)
+                (
+                    name.clone(),
+                    serde_json::to_value(resource)
+                        .wrap_err("Failed to serialize environment variable")
+                        .unwrap(),
+                )
             })
             .collect::<serde_json::Map<String, Value>>();
 
@@ -429,6 +440,7 @@ impl Template {
         let name = self.prefixed(vec![&function.name()?]);
         let environment = self.environment(function, secrets)?;
         let bucket = self.bucket.clone();
+        let username = self.username.clone();
         let Function { s3key, .. } = function;
 
         // By default a lambda has no permissions to modify its own tags,
@@ -455,7 +467,11 @@ impl Template {
                             "Code": {
                                 "S3Bucket": bucket,
                                 "S3Key": s3key
-                            }
+                            },
+                           "Tags": [{
+                               "Key": "KINETICS_USERNAME",
+                               "Value": username
+                           }]
                         }
                 }),
             },
@@ -636,6 +652,101 @@ impl Template {
                         },
                         "FunctionName": {"Ref": format!("Worker{name}")},
                         "ScalingConfig": {"MaximumConcurrency": queue.concurrency}
+                    }
+                }),
+            },
+        ])
+    }
+
+    /// CFN template for a worker function
+    fn cron(&self, function: &Function, secrets: &[String]) -> eyre::Result<Vec<CfnResource>> {
+        let name = self.prefixed(vec![&function.name()?]);
+        let environment = self.environment(function, secrets)?;
+        let bucket = self.bucket.clone();
+        let username = self.username.clone();
+        let mut policies = self.policies(secrets);
+
+        policies.extend([json!({
+            "PolicyName": "AppendToLogsPolicy",
+            "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Effect": "Allow",
+                    "Action": [
+                        "logs:CreateLogGroup",
+                        "logs:CreateLogStream",
+                        "logs:PutLogEvents"
+                    ],
+                    "Resource": "*"
+                }]
+            },
+        })]);
+
+        Ok(vec![
+            CfnResource {
+                name: format!("Cron{name}"),
+
+                resource: json!({
+                    "Type": "AWS::Lambda::Function",
+                    "Properties": {
+                        "FunctionName": name,
+                        "Handler": "bootstrap",
+                        "Runtime": "provided.al2023",
+                        "Environment": environment,
+                        "Role": {"Fn::GetAtt": [format!("CronRole{name}"), "Arn"]},
+                        "MemorySize": 128,
+                        "Timeout": 3,
+                        "ReservedConcurrentExecutions": 8,
+                        "Code": {"S3Bucket": bucket, "S3Key": function.s3key},
+                        "Tags": [{"Key": "KINETICS_USERNAME", "Value": username}]
+                    }
+                }),
+            },
+            CfnResource {
+                name: format!("CronRole{name}"),
+
+                resource: json!({
+                    "Type": "AWS::IAM::Role",
+                    "Properties": {
+                        "AssumeRolePolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [{
+                                "Effect": "Allow",
+                                "Principal": {"Service": ["lambda.amazonaws.com"]},
+                                "Action": ["sts:AssumeRole"]
+                            }]
+                        },
+                        "Path": "/",
+                        "Policies": policies
+                    }
+                }),
+            },
+            CfnResource {
+                name: format!("CronEventBridgeRule{name}"),
+
+                resource: json!({
+                    "Type": "AWS::Events::Rule",
+                    "Properties": {
+                        "Description": "EventBridge rule to trigger cron lambda",
+                        "ScheduleExpression": function.schedule().unwrap(),
+                        "State": "ENABLED",
+                        "Targets": [{
+                            "Arn": {"Fn::GetAtt": [format!("Cron{name}"), "Arn"]},
+                            "Id": format!("CronTarget{name}")
+                        }]
+                    }
+                }),
+            },
+            CfnResource {
+                name: format!("CronEventBridgePermission{name}"),
+
+                resource: json!({
+                    "Type": "AWS::Lambda::Permission",
+                    "Properties": {
+                        "Action": "lambda:InvokeFunction",
+                        "FunctionName": {"Ref": format!("Cron{name}")},
+                        "Principal": "events.amazonaws.com",
+                        "SourceArn": {"Fn::GetAtt": [format!("CronEventBridgeRule{name}"), "Arn"]}
                     }
                 }),
             },

@@ -132,11 +132,13 @@ async fn main() -> eyre::Result<()> {
             Ok(_) => {
                 println!(
                     "{} {} {}",
-                    console::style("You have been successfully logged in").green().bold(),
+                    console::style("You have been successfully logged in")
+                        .green()
+                        .bold(),
                     console::style("via").dim(),
                     console::style(email).underlined().bold()
                 );
-                
+
                 Ok(())
             }
             Err(error) => {
@@ -146,9 +148,9 @@ async fn main() -> eyre::Result<()> {
                     console::style("via").dim(),
                     console::style(email).underlined().bold()
                 );
-                
+
                 Err(error)
-            },
+            }
         },
         None => Ok(()),
     }
