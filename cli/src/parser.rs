@@ -22,6 +22,7 @@ pub(crate) struct ParsedFunction {
 #[derive(Debug)]
 pub(crate) enum Role {
     Endpoint(Endpoint),
+    Cron(Cron),
     Worker(Worker),
 }
 
@@ -29,6 +30,7 @@ impl Role {
     pub fn name(&self) -> Option<&String> {
         match self {
             Role::Endpoint(params) => params.name.as_ref(),
+            Role::Cron(params) => params.name.as_ref(),
             Role::Worker(params) => params.name.as_ref(),
         }
     }
@@ -36,6 +38,7 @@ impl Role {
     pub fn environment(&self) -> &Environment {
         match self {
             Role::Endpoint(params) => &params.environment,
+            Role::Cron(params) => &params.environment,
             Role::Worker(params) => &params.environment,
         }
     }
@@ -45,6 +48,13 @@ impl Role {
 pub(crate) struct Endpoint {
     pub(crate) name: Option<String>,
     pub(crate) url_path: String,
+    pub(crate) environment: Environment,
+}
+
+#[derive(Debug)]
+pub(crate) struct Cron {
+    pub(crate) name: Option<String>,
+    pub(crate) schedule: String,
     pub(crate) environment: Environment,
 }
 
@@ -168,7 +178,49 @@ impl Parser {
         })
     }
 
+    fn parse_cron(&mut self, attr: &Attribute) -> eyre::Result<Cron, SynError> {
+        attr.parse_args_with(|input: ParseStream| {
+            let mut name = None;
+            let mut environment = Environment::default();
+            let mut schedule = None;
+
+            while !input.is_empty() {
+                let ident: Ident = input.parse()?;
+                input.parse::<token::Eq>()?;
+
+                match ident.to_string().as_str() {
+                    "name" => {
+                        name = Some(input.parse::<LitStr>()?.value());
+                    }
+                    "environment" => {
+                        environment = self.parse_environment(input)?;
+                    }
+                    "schedule" => {
+                        schedule = Some(input.parse::<LitStr>()?.value());
+                    }
+                    // Ignore unknown attributes
+                    _ => {}
+                }
+
+                if !input.is_empty() {
+                    input.parse::<token::Comma>()?;
+                }
+            }
+
+            if schedule.is_none() {
+                return Err(input.error("Cron validation failed: no schedule provided"));
+            }
+
+            Ok(Cron {
+                name,
+                environment,
+                schedule: schedule.unwrap(),
+            })
+        })
+    }
+
     /// Checks if the input is a valid kinetics_macro definition and returns its role
+    /// Checks if the input is a valid kinetics_macro definition
     /// Known definitions:
     /// kinetics_macro::<role> or <role>
     fn parse_attr_role(&self, input: &Attribute) -> String {
@@ -201,6 +253,10 @@ impl Visit<'_> for Parser {
                 "worker" => {
                     let params = self.parse_worker(attr).unwrap();
                     Role::Worker(params)
+                }
+                "cron" => {
+                    let params = self.parse_cron(attr).unwrap();
+                    Role::Cron(params)
                 }
                 _ => continue,
             };

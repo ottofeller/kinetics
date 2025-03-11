@@ -85,6 +85,14 @@ impl Pipeline {
                 function_progress.done();
                 pipeline_progress.increase_current_function_position();
 
+                if let Err(error) = tokio::fs::remove_file(function.bundle_path()).await {
+                    eprintln!(
+                        "Failed to remove file {:?} with error {}",
+                        function.bundle_path(),
+                        error,
+                    );
+                };
+
                 Ok::<Function, Report>(function)
             })
         });

@@ -1,4 +1,4 @@
-use crate::env::env;
+use crate::{env::env, user};
 use aws_config::BehaviorVersion;
 use aws_sdk_dynamodb::types::AttributeValue::S;
 use aws_sdk_dynamodb::Client;
@@ -29,10 +29,7 @@ pub async fn request(
         .put_item()
         .table_name(env("TABLE_NAME")?)
         .set_item(Some(HashMap::from([
-            (
-                "id".to_string(),
-                S(format!("authcode#{}", body.email)),
-            ),
+            ("id".to_string(), S(format!("authcode#{}", body.email))),
             ("created_at".to_string(), S(now.to_rfc3339())),
             (
                 "expires_at".to_string(),
@@ -90,11 +87,12 @@ pub async fn exchange(
     let client = Client::new(&aws_config::load_defaults(BehaviorVersion::latest()).await);
     let now = chrono::Utc::now();
     let email = body.email.to_string();
+    let table = env("TABLE_NAME")?;
 
     // Mark the auth code as exchanged
     let result = client
         .update_item()
-        .table_name(env("TABLE_NAME")?)
+        .table_name(&table)
         .key("id", S(format!("authcode#{}", email)))
         .update_expression("SET exchanged_at = :now")
         .condition_expression(
@@ -136,7 +134,7 @@ pub async fn exchange(
 
     client
         .put_item()
-        .table_name(env("TABLE_NAME")?)
+        .table_name(&table)
         .set_item(Some(HashMap::from([
             ("id".to_string(), S(format!("accesstoken#{}", token_hash))),
             ("email".to_string(), S(email.clone())),
@@ -145,6 +143,11 @@ pub async fn exchange(
         ])))
         .send()
         .await?;
+
+    user::UserBuilder::new(&client, &table)
+        .create(email.clone())
+        .await
+        .wrap_err("Faile to create user")?;
 
     crate::json::response(
         json!({"email": email, "token": token_hash, "expiresAt": expires_at}),
