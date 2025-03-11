@@ -100,7 +100,7 @@ Permissions:
     "Effect": "Allow"
 }
 */
-#[endpoint(url_path = "/deploy", environment = {
+#[endpoint(url_path = "/stack/deploy", environment = {
     "TABLE_NAME": "kinetics",
     "DANGER_DISABLE_AUTH": "false",
     "S3_KEY_ENCRYPTION_KEY": "fjskoapgpsijtzp"

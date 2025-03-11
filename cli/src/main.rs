@@ -3,6 +3,7 @@ mod client;
 mod config;
 mod crat;
 mod deploy;
+mod destroy;
 mod function;
 mod login;
 mod parser;
@@ -11,6 +12,7 @@ mod secret;
 
 use crate::build::prepare_crates;
 use crate::config::config;
+use crate::destroy::destroy;
 use crate::pipeline::Pipeline;
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
@@ -68,6 +70,9 @@ enum Commands {
         #[arg(short, long, default_value_t = 6)]
         max_concurrency: usize,
     },
+
+    /// Destroy your serverless functions
+    Destroy {},
 
     /// Login to Kinetics platform
     Login {
@@ -149,6 +154,18 @@ async fn main() -> eyre::Result<()> {
                     console::style(email).underlined().bold()
                 );
 
+                Err(error)
+            }
+        },
+        Some(Commands::Destroy {}) => match destroy(&crat()?).await {
+            Ok(_) => Ok(()),
+            Err(error) => {
+                println!(
+                    "{}",
+                    console::style("Failed to destroy serverless functions")
+                        .red()
+                        .bold()
+                );
                 Err(error)
             }
         },

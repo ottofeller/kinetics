@@ -3,8 +3,8 @@ use crate::config::config as build_config;
 use crate::crat::Crate;
 use crate::function::Function;
 use crate::secret::Secret;
+use backend::stack::deploy::{self, BodyCrate};
 use backend::template::Crate as BackendCrate;
-use backend::deploy::{self, BodyCrate};
 use backend::template::Function as BackendFunction;
 use eyre::{Ok, WrapErr};
 use reqwest::StatusCode;
@@ -87,7 +87,9 @@ pub async fn deploy(crat: &Crate, functions: &[Function], is_directly: &bool) ->
 
         let secrets = secrets
             .iter()
-            .map(|(k, v)| backend::template::Secret::new(k, v, &crat, build_config.username_escaped))
+            .map(|(k, v)| {
+                backend::template::Secret::new(k, v, &crat, build_config.username_escaped)
+            })
             .collect::<Vec<backend::template::Secret>>();
 
         let template = backend::template::Template::new(
@@ -125,7 +127,7 @@ pub async fn deploy(crat: &Crate, functions: &[Function], is_directly: &bool) ->
     }
 
     let result = client
-        .post("/deploy")
+        .post("/stack/deploy")
         .json(&serde_json::json!(deploy::JsonBody {
             crat: BodyCrate {
                 toml: crat.toml_string.clone(),
