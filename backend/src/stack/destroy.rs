@@ -58,6 +58,8 @@ pub async fn destroy(
     let client = aws_sdk_cloudformation::Client::new(&config);
     let name = format!("{}-{}", session.username(true), body.crate_name);
 
+    // It's safe to delete the stack without checking if it exists.
+    // CloudFormation will return success even if the stack does not exist.
     client
         .delete_stack()
         .deletion_mode(DeletionMode::Standard)
