@@ -18,7 +18,15 @@ pub struct JsonBody {
 Permissions:
 {
     "Action": [
-        "cloudformation:DeleteStack"
+        "cloudfront:*",
+        "sqs:*",
+        "cloudformation:DeleteStack",
+        "lambda:RemovePermission",
+        "lambda:DeleteEventSourceMapping",
+        "lambda:GetEventSourceMapping",
+        "lambda:DeleteFunction",
+        "iam:DeleteRolePolicy",
+        "iam:DeleteRole"
     ],
     "Resource": "*",
     "Effect": "Allow"
@@ -47,17 +55,12 @@ pub async fn destroy(
     let client = aws_sdk_cloudformation::Client::new(&config);
     let name = format!("{}-{}", session.username(true), body.crate_name);
 
-    match client
+    client
         .delete_stack()
-        .deletion_mode(DeletionMode::ForceDeleteStack)
+        .deletion_mode(DeletionMode::Standard)
         .stack_name(name)
         .send()
-        .await
-    {
-        Ok(_) => Ok(json::response(json!({"message": "Destroyed"}), Some(200))?),
-        Err(e) => {
-            eprintln!("Error deleting stack: {}", e);
-            json::response(json!({"error": "Failed to destroy stack"}), Some(500))
-        }
-    }
+        .await?;
+
+    Ok(json::response(json!({"message": "Destroyed"}), Some(200))?)
 }
