@@ -5,7 +5,7 @@ if [ ! -f "backend/local.env" ]; then
     touch backend/local.env
     echo "KINETICS_USE_PRODUCTION_DOMAIN=false" >> backend/local.env
 
-    read -r -p "Enter KINETICS_USERNAME: " kinetics_username
+    read -r -p "Enter your email: " kinetics_username
     echo "KINETICS_USERNAME=\"$kinetics_username\"" >> backend/local.env
 
     # Replace @ to AT and . to DOT in $kinetics_username
@@ -38,15 +38,28 @@ fi
 
 # Get the latest Cloudfront domain name
 if ! grep -q "KINETICS_API_BASE" backend/local.env; then
-  echo "Getting latest CloudFront domain name..."
-  CLOUDFRONT_DOMAIN=$(aws cloudfront list-distributions --query "DistributionList.Items[*].[DomainName,Status,LastModifiedTime]" --output json | \
-                      jq -r 'sort_by(.[2]) | reverse | .[0][0]')
+  source backend/local.env
 
-  if [ -z "$CLOUDFRONT_DOMAIN" ] || [ "$CLOUDFRONT_DOMAIN" == "null" ]; then
-      echo "Error: Could not retrieve CloudFront domain name."
-      echo "Please deploy backend with \`cargo run -p kinetics-cli deploy --is-directly\`"
-      exit 1
+  if ! cd ./backend/; then
+    echo "Error: Failed to change to the backend directory"
+    exit 1
   fi
+
+  # Deploy application with --is-directly
+  cargo run -p kinetics-cli deploy --is-directly
+
+  # Wait until cloudfront created
+  echo "Getting latest CloudFront domain name..."
+  CLOUDFRONT_DOMAIN=""
+
+  while [ -z "$CLOUDFRONT_DOMAIN" ] || [ "$CLOUDFRONT_DOMAIN" == "null" ]; do
+    sleep 10s
+    CLOUDFRONT_DOMAIN=$(aws cloudfront list-distributions --query "DistributionList.Items[*].[DomainName,Status,LastModifiedTime]" --output json | \
+                      jq -r 'sort_by(.[2]) | reverse | .[0][0]')
+  done
+
+  # Return back to the project root
+  cd .. || exit
 
   echo "KINETICS_API_BASE=https://$CLOUDFRONT_DOMAIN" >> backend/local.env
 fi

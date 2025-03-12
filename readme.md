@@ -37,44 +37,26 @@ graph TD;
 
 # Deploy backend into your AWS account
 
-### Export required env variables
+### Initialize environment and deploy backend
 
-Adjust environment variables in `backend/local.env` and run:
-
-```shell
-source backend/local.env
-```
-
-Get KMS key from AWS console > AWS managed keys > aws/ssm
-
-### Deploy backend
-
-In the backend directory run:
+Run the script and enter your email:
 
 ```shell
-cargo run -p kinetics-cli deploy --is-directly
+./bin/init-local.sh
 ```
 
-### Get cloudfront domain name
-
-Now you need to get created by the previous command CloudFront domain name:
-
-```shell
-aws cloudfront list-distributions --query "DistributionList.Items[*].[DomainName,Status,LastModifiedTime]"
-```
-
-### Export Cloudfront Domain name with KINETICS_API_BASE
-
-Adjust KINETICS_API_BASE in `backend/local.env` and run:
-
-```shell
-source backend/local.env
-```
+The script will create `./backend/local.env` which you'll be needed for deploying
 
 ### Deploy example using your backend (optional)
 
-⚠️ Before starting, make sure you've deployed backend app.
-Change directory to example and run command:
+⚠️ Before starting, make sure you've run `./bin/init-local.sh` before.
+
+1. Use environment variables
+    ```shell
+    source ./backend/local.env  
+    ```       
+
+2. Change directory to `examples`
 
 1. Login to Kinetics platform
     ```shell
