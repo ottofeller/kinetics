@@ -9,8 +9,8 @@ pub async fn destroy(crat: &Crate) -> Result<()> {
 
     print!(
         "{} {}: ",
-        console::style("Do you want to proceed?").red().bold(),
-        console::style("[y/N]").yellow().bold()
+        console::style("Do you want to proceed?").bold(),
+        console::style("[y/N]").dim()
     );
     io::stdout().flush()?;
 
@@ -29,7 +29,11 @@ pub async fn destroy(crat: &Crate) -> Result<()> {
         return Ok(());
     }
 
-    println!("Destroying \"{}\"...", crat.name);
+    println!(
+        "{}: {}",
+        console::style("Destroying").bold(),
+        console::style(&crat.name)
+    );
 
     client
         .post("/stack/destroy")
@@ -37,5 +41,6 @@ pub async fn destroy(crat: &Crate) -> Result<()> {
         .send()
         .await?;
 
+    println!("{}", console::style("Application destroyed").green());
     Ok(())
 }
