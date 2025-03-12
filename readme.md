@@ -1,5 +1,5 @@
 # Intro
-Sky is a work-in-progress project that aims to provide a simple way to deploy Rust functions to the cloud. In essence it is a macro takes a Rust function and deploys it as AWS Lambda.
+Kinetics is a work-in-progress project that aims to provide a simple way to deploy Rust functions to the cloud. In essence it is a macro takes a Rust function and deploys it as AWS Lambda.
 
 # Processes diagrams
 ```mermaid
@@ -37,7 +37,7 @@ graph TD;
 1. Install [Cargo Lambda](https://www.cargo-lambda.info/guide/getting-started.html#step-1-install-cargo-lambda).
 1. Clone the repository.
 ```bash
-git clone https://github.com/ottofeller/sky.git
+git clone https://github.com/ottofeller/kinetics.git
 ```
 4. Build `macro` crate.
 ```bash
