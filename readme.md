@@ -39,12 +39,10 @@ graph TD;
 
 ### Export required env variables
 
+Adjust environment variables in `backend/local.env` and run:
+
 ```shell
-export KINETICS_USE_PRODUCTION_DOMAIN="false" &&\
-export KINETICS_USERNAME="your-email@domain.com" &&\
-export KINETICS_USERNAME_ESCAPED="yourEmailAtDomainDotCom" &&\
-export KINETICS_S3_BUCKET_NAME="your-created-bucket-name" &&\
-export KINETICS_KMS_KEY_ID="your-kms-ssm-key-id"
+source backend/local.env
 ```
 
 Get KMS key from AWS console > AWS managed keys > aws/ssm
@@ -59,7 +57,7 @@ cargo run -p kinetics-cli deploy --is-directly
 
 ### Get cloudfront domain name
 
-Now you need to get create cloudfront:
+Now you need to get created by the previous command CloudFront domain name:
 
 ```shell
 aws cloudfront list-distributions --query "DistributionList.Items[*].[DomainName,Status,LastModifiedTime]"
@@ -67,13 +65,15 @@ aws cloudfront list-distributions --query "DistributionList.Items[*].[DomainName
 
 ### Export Cloudfront Domain name with KINETICS_API_BASE
 
+Adjust KINETICS_API_BASE in `backend/local.env` and run:
+
 ```shell
-export KINETICS_API_BASE="https://<subdomain>.cloudfront.net/"
+source backend/local.env
 ```
 
 ### Deploy example using your backend (optional)
 
-⚠️ Before starting, make sure you've built the CLI tool with the required environment variables described above.
+⚠️ Before starting, make sure you've deployed backend app.
 Change directory to example and run command:
 
 1. Login to Kinetics platform
