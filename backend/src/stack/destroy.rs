@@ -25,6 +25,9 @@ Permissions:
         "lambda:DeleteEventSourceMapping",
         "lambda:GetEventSourceMapping",
         "lambda:DeleteFunction",
+        "lambda:DeleteFunctionUrlConfig",
+        "dynamodb:DescribeTable",
+        "dynamodb:DeleteTAble",
         "iam:DeleteRolePolicy",
         "iam:DeleteRole"
     ],
