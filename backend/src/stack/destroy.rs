@@ -18,13 +18,15 @@ pub struct JsonBody {
 Permissions:
 {
     "Action": [
-        "cloudformation:DeleteStack",
+        "cloudformation:DeleteStack"
     ],
     "Resource": "*",
     "Effect": "Allow"
 }
 */
-#[endpoint(url_path = "/stack/destroy")]
+#[endpoint(url_path = "/stack/destroy", environment = {
+    "TABLE_NAME": "kinetics",
+})]
 pub async fn destroy(
     event: Request,
     _secrets: &HashMap<String, String>,
