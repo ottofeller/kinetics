@@ -37,12 +37,6 @@ graph TD;
 
 # Deploy backend into your AWS account
 
-## Build CLI tool
-
-```shell
-cargo build --release --bin kinetics-cli
-```
-
 ### Export required env variables
 
 ```shell
@@ -60,7 +54,7 @@ Get KMS key from AWS console > AWS managed keys > aws/ssm
 In the backend directory run:
 
 ```shell
-../target/release/kinetics-cli deploy --is-directly
+cargo run -p kinetics-cli deploy --is-directly
 ```
 
 ### Get cloudfront domain name
@@ -84,9 +78,9 @@ Change directory to example and run command:
 
 1. Login to Kinetics platform
     ```shell
-    ../target/release/kinetics-cli login your-email@domain.com
+    cargo run -p kinetics-cli login your-email@domain.com
     ```
 2. Run deployment
     ```shell
-    ../target/release/kinetics-cli deploy 
+    cargo run -p kinetics-cli deploy 
     ```
