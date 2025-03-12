@@ -25,7 +25,7 @@ pub async fn destroy(crat: &Crate) -> Result<()> {
     };
 
     if !confirmed {
-        println!("{}", console::style("Destroying canceled").green().bold());
+        println!("{}", console::style("Destroying canceled").dim().bold());
         return Ok(());
     }
 
