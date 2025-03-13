@@ -90,7 +90,8 @@ Permissions:
         "acm:DeleteCertificate",
         "logs:CreateLogGroup",
         "logs:CreateLogStream",
-        "logs:PutLogEvents"
+        "logs:PutLogEvents",
+        "events:DescribeRule"
     ],
     "Resource": "*",
     "Effect": "Allow"
