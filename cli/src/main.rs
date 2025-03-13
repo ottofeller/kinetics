@@ -39,6 +39,7 @@ fn build_path() -> eyre::Result<PathBuf> {
 
 #[derive(Parser)]
 #[command(
+    arg_required_else_help = true,
     name = "kinetics",
     version,
     about = "CLI tool for building and deploying serverless Rust functions",
