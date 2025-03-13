@@ -5,7 +5,7 @@ if [ ! -f "backend/local.env" ]; then
     touch backend/local.env
     echo "export KINETICS_USE_PRODUCTION_DOMAIN=false" >> backend/local.env
 
-    read -r -p "Enter your email: " kinetics_username
+    read -r -p "Enter email to use as kinetics username: " kinetics_username
     echo "export KINETICS_USERNAME=$kinetics_username" >> backend/local.env
 
     # Replace @ to AT and . to DOT in $kinetics_username
