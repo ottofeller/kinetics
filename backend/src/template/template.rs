@@ -9,7 +9,9 @@ use serde_json::{json, Value};
 
 #[derive(Clone, Debug)]
 pub struct Template {
+    /// AWS account ID
     account_id: String,
+
     bucket: String,
     client: aws_sdk_cloudformation::Client,
     crat: Crate,
