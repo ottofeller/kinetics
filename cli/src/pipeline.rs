@@ -4,11 +4,11 @@ use crate::function::Function;
 use eyre::{eyre, Context, OptionExt, Report};
 use futures::future;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use std::sync::{Arc};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Semaphore;
 use tokio::time::Duration;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Debug, Clone)]
 pub struct Pipeline {
@@ -229,7 +229,10 @@ impl PipelineProgress {
     }
 
     fn increase_current_function_position(&self) {
-        let count = self.completed_functions_count.fetch_add(1, Ordering::SeqCst) + 1;
+        let count = self
+            .completed_functions_count
+            .fetch_add(1, Ordering::SeqCst)
+            + 1;
         self.total_progress_bar.set_position(count as u64);
     }
 
