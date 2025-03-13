@@ -49,7 +49,7 @@ if ! grep -q "KINETICS_API_BASE" backend/local.env; then
   cargo run -p kinetics-cli deploy --is-directly
 
   # Wait until cloudfront created
-  echo "Getting latest CloudFront domain name..."
+  echo "Getting the CloudFront domain name... It can take a couple of minutes"
   CLOUDFRONT_DOMAIN=""
 
   while [ -z "$CLOUDFRONT_DOMAIN" ] || [ "$CLOUDFRONT_DOMAIN" == "null" ]; do
