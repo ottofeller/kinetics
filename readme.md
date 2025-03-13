@@ -1,6 +1,6 @@
 # Intro
 
-Sky is a work-in-progress project that aims to provide a simple way to deploy Rust functions to the cloud. In essence it
+Kinetics is a work-in-progress project that aims to provide a simple way to deploy Rust functions to the cloud. In essence it
 is a macro takes a Rust function and deploys it as AWS Lambda.
 
 # Processes diagrams
