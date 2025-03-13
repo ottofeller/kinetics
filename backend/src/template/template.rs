@@ -188,7 +188,10 @@ impl Template {
             }),
         }];
 
+        // Add Certificate Manager resources for custom defined domain
         if let Some(project_domain) = project_domain {
+            let hosted_zone_id = build_config().hosted_zone_id;
+
             resources.extend([
                 CfnResource {
                     name: format!("EndpointDistributionDomainCert{project_name}"),
@@ -199,7 +202,7 @@ impl Template {
                             "ValidationMethod": "DNS",
                             "DomainValidationOptions": [{
                                 "DomainName": project_domain,
-                                "HostedZoneId": "Z00296463IS4S0ZO4ABOR"
+                                "HostedZoneId": hosted_zone_id,
                             }]
                         }
                     }),
@@ -209,7 +212,7 @@ impl Template {
                     resource: json!({
                         "Type": "AWS::Route53::RecordSet",
                         "Properties": {
-                            "HostedZoneId": "Z00296463IS4S0ZO4ABOR",
+                            "HostedZoneId": hosted_zone_id,
                             "Name": project_domain,
                             "Type": "A",
                             "AliasTarget": {
