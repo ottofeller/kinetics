@@ -1,9 +1,6 @@
 use crate::config::config as build_config;
 use crate::json;
-use crate::template::Crate;
-use crate::template::Function;
-use crate::template::Secret;
-use crate::template::Template;
+use crate::template::{Crate, Function, Secret, Template};
 use crate::{auth::session::Session, env::env};
 use eyre::Context;
 use kinetics_macro::endpoint;

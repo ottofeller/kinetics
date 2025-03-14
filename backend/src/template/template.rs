@@ -1,7 +1,6 @@
 use crate::config::config as build_config;
-use crate::template::Crate;
-use crate::template::Function;
-use crate::template::Secret;
+use crate::stack::Stack;
+use crate::template::{Crate, Function, Secret};
 use crate::Resource;
 use aws_config::BehaviorVersion;
 use eyre::{ContextCompat, Ok, WrapErr};
@@ -787,7 +786,7 @@ impl Template {
 
     /// Provision the template in CloudFormation
     pub async fn provision(&self) -> eyre::Result<()> {
-        let name = Self::stack_name(self.username.as_str(), self.crat.name.as_str());
+        let name = Stack::new(self.username.as_str(), self.crat.name.as_str()).name;
         let capabilities = aws_sdk_cloudformation::types::Capability::CapabilityIam;
         let template_string = serde_json::to_string_pretty(&self.template)?;
 
