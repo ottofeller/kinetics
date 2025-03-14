@@ -456,9 +456,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sdk-sts"
-version = "1.60.0"
+version = "1.61.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc1cfe5e16b90421ea031f4c6348b534ef442e76f6bf4a1b2b592c12cc2c6af9"
+checksum = "c5c1cac7677179d622b4448b0d31bcb359185295dc6fca891920cfb17e2b5156"
 dependencies = [
  "aws-credential-types",
  "aws-runtime",
@@ -732,6 +732,7 @@ dependencies = [
  "aws-sdk-resourcegroupstagging",
  "aws-sdk-s3",
  "aws-sdk-ssm",
+ "aws-sdk-sts",
  "chrono",
  "eyre",
  "kinetics-macro",
@@ -1349,6 +1350,19 @@ checksum = "33d852cb9b869c2a9b3df2f71a3074817f01e1844f839a144f5fcef059a4eb5d"
 dependencies = [
  "libc",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "example"
+version = "0.1.0"
+dependencies = [
+ "aws-config",
+ "aws-sdk-dynamodb",
+ "aws_lambda_events",
+ "kinetics-macro",
+ "lambda_http",
+ "lambda_runtime",
+ "tokio",
 ]
 
 [[package]]
@@ -2124,19 +2138,6 @@ dependencies = [
  "uuid",
  "walkdir",
  "zip",
-]
-
-[[package]]
-name = "kinetics-example"
-version = "0.1.0"
-dependencies = [
- "aws-config",
- "aws-sdk-dynamodb",
- "aws_lambda_events",
- "kinetics-macro",
- "lambda_http",
- "lambda_runtime",
- "tokio",
 ]
 
 [[package]]
