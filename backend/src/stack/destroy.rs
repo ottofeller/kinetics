@@ -1,6 +1,7 @@
 use crate::auth::session::Session;
 use crate::env::env;
 use crate::json;
+use crate::template::Template;
 use aws_config::BehaviorVersion;
 use aws_sdk_cloudformation::types::DeletionMode;
 use eyre::Result;
@@ -56,7 +57,7 @@ pub async fn destroy(
         .await;
 
     let client = aws_sdk_cloudformation::Client::new(&config);
-    let name = format!("{}-{}", session.username(true), body.crate_name);
+    let name = Template::stack_name(&session.username(true), &body.crate_name);
 
     // It's safe to delete the stack without checking if it exists.
     // CloudFormation will return success even if the stack does not exist.

@@ -787,8 +787,7 @@ impl Template {
 
     /// Provision the template in CloudFormation
     pub async fn provision(&self) -> eyre::Result<()> {
-        let base_name = self.crat.name.as_str();
-        let name = format!("{}-{}", self.username_escaped, base_name);
+        let name = Self::stack_name(self.username.as_str(), self.crat.name.as_str());
         let capabilities = aws_sdk_cloudformation::types::Capability::CapabilityIam;
         let template_string = serde_json::to_string_pretty(&self.template)?;
 
@@ -813,6 +812,10 @@ impl Template {
         }
 
         Ok(())
+    }
+
+    pub fn stack_name(user_name: &str, crate_name: &str) -> String {
+        format!("{}-{}", user_name, crate_name)
     }
 }
 
