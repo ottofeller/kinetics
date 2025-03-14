@@ -54,8 +54,14 @@ if ! grep -q "KINETICS_API_BASE" backend/local.env; then
 
   while [ -z "$CLOUDFRONT_DOMAIN" ] || [ "$CLOUDFRONT_DOMAIN" == "null" ]; do
     sleep 10s
-    CLOUDFRONT_DOMAIN=$(aws cloudfront list-distributions --query "DistributionList.Items[*].[DomainName,Status,LastModifiedTime]" --output json | \
-                      jq -r 'sort_by(.[2]) | reverse | .[0][0]')
+    RESULT=$(aws cloudfront list-distributions --query "DistributionList.Items[*].[DomainName,Status,LastModifiedTime]" --output json)
+
+    if [ "$RESULT" != "[]" ] && [ "$RESULT" != "null" ]; then
+      CLOUDFRONT_DOMAIN=$(echo "$RESULT" | jq -r 'sort_by(.[2]) | reverse | .[0][0]' 2>/dev/null)
+    else
+      echo "Waiting..."
+      CLOUDFRONT_DOMAIN="null"
+    fi
   done
 
   # Return back to the project root
