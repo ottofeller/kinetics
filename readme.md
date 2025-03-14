@@ -1,6 +1,6 @@
 # Intro
 
-Sky is a work-in-progress project that aims to provide a simple way to deploy Rust functions to the cloud. In essence it
+Kinetics is a work-in-progress project that aims to provide a simple way to deploy Rust functions to the cloud. In essence it
 is a macro takes a Rust function and deploys it as AWS Lambda.
 
 # Processes diagrams
@@ -37,56 +37,32 @@ graph TD;
 
 # Deploy backend into your AWS account
 
-## Build CLI tool
+### Initialize environment and deploy backend
+
+Run the script and enter your email:
 
 ```shell
-cargo build --release --bin kinetics-cli
+./bin/init-local.sh
 ```
 
-### Export required env variables
-
-```shell
-export KINETICS_USE_PRODUCTION_DOMAIN="false" &&\
-export KINETICS_USERNAME="your-email@domain.com" &&\
-export KINETICS_USERNAME_ESCAPED="yourEmailAtDomainDotCom" &&\
-export KINETICS_S3_BUCKET_NAME="your-created-bucket-name" &&\
-export KINETICS_KMS_KEY_ID="your-kms-ssm-key-id"
-```
-
-Get KMS key from AWS console > AWS managed keys > aws/ssm
-
-### Deploy backend
-
-In the backend directory run:
-
-```shell
-../target/release/kinetics-cli deploy --is-directly
-```
-
-### Get cloudfront domain name
-
-Now you need to get create cloudfront:
-
-```shell
-aws cloudfront list-distributions --query "DistributionList.Items[*].[DomainName,Status,LastModifiedTime]"
-```
-
-### Export Cloudfront Domain name with KINETICS_API_BASE
-
-```shell
-export KINETICS_API_BASE="https://<subdomain>.cloudfront.net/"
-```
+The script will create `./backend/local.env` which you'll be needed for deploying
 
 ### Deploy example using your backend (optional)
 
-⚠️ Before starting, make sure you've built the CLI tool with the required environment variables described above.
-Change directory to example and run command:
+⚠️ Before starting, make sure you've run `./bin/init-local.sh` before.
+
+1. Use environment variables
+    ```shell
+    source ./backend/local.env  
+    ```       
+
+2. Change directory to `examples`
 
 1. Login to Kinetics platform
     ```shell
-    ../target/release/kinetics-cli login your-email@domain.com
+    cargo run -p kinetics-cli login your-email@domain.com
     ```
 2. Run deployment
     ```shell
-    ../target/release/kinetics-cli deploy 
+    cargo run -p kinetics-cli deploy 
     ```

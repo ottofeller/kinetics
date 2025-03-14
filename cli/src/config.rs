@@ -1,5 +1,6 @@
 use std::sync::OnceLock;
 
+#[derive(Debug)]
 pub(crate) struct Config<'a> {
     pub(crate) api_base: &'a str,
     pub(crate) username: &'a str,
