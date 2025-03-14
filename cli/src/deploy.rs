@@ -1,9 +1,10 @@
 use crate::client::Client;
+use crate::config::config as build_config;
 use crate::crat::Crate;
 use crate::function::Function;
 use crate::secret::Secret;
-use backend::template::Crate as BackendCrate;
 use backend::deploy::{self, BodyCrate};
+use backend::template::Crate as BackendCrate;
 use backend::template::Function as BackendFunction;
 use eyre::{Ok, WrapErr};
 use reqwest::StatusCode;
@@ -38,7 +39,7 @@ pub async fn upload(
 
         client
             .put_object()
-            .bucket("kinetics-rust-builds")
+            .bucket(build_config().s3_bucket_name)
             .key(direct_s3key)
             .body(body)
             .send()
@@ -80,11 +81,14 @@ pub async fn deploy(crat: &Crate, functions: &[Function], is_directly: &bool) ->
 
     // Provision the template directly if the flag is set
     if *is_directly {
+        let build_config = build_config();
         let crat = BackendCrate::new(crat.toml_string.clone()).wrap_err("Invalid crate toml")?;
 
         let secrets = secrets
             .iter()
-            .map(|(k, v)| backend::template::Secret::new(k, v, &crat, "artemATottofellerDOTcom"))
+            .map(|(k, v)| {
+                backend::template::Secret::new(k, v, &crat, build_config.username_escaped)
+            })
             .collect::<Vec<backend::template::Secret>>();
 
         let template = backend::template::Template::new(
@@ -102,9 +106,10 @@ pub async fn deploy(crat: &Crate, functions: &[Function], is_directly: &bool) ->
                 })
                 .collect::<Vec<BackendFunction>>(),
             secrets.clone(),
-            "kinetics-rust-builds",
-            "artemATottofellerDOTcom",
-            "artem@ottofeller.com",
+            build_config.s3_bucket_name,
+            build_config.username_escaped,
+            build_config.username,
+            build_config.cloud_front_domain,
         )
         .await?;
 
