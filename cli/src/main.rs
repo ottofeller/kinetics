@@ -1,5 +1,6 @@
 mod build;
 mod client;
+mod config;
 mod crat;
 mod deploy;
 mod function;
@@ -9,6 +10,7 @@ mod pipeline;
 mod secret;
 
 use crate::build::prepare_crates;
+use crate::config::config;
 use crate::pipeline::Pipeline;
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
@@ -17,8 +19,6 @@ use eyre::WrapErr;
 use function::Function;
 use login::login;
 use std::path::{Path, PathBuf};
-
-static API_BASE: &str = "https://backend.usekinetics.com";
 
 /// Credentials to be used with API
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -30,7 +30,7 @@ struct Credentials {
 }
 
 fn api_url(path: &str) -> String {
-    format!("{}{}", API_BASE, path)
+    format!("{}{}", config().api_base, path)
 }
 
 fn build_path() -> eyre::Result<PathBuf> {

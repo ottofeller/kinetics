@@ -1,6 +1,7 @@
+use crate::config::config as build_config;
+use crate::json;
 use crate::template::Crate;
 use crate::template::Function;
-use crate::json;
 use crate::template::Secret;
 use crate::template::Template;
 use crate::{auth::session::Session, env::env};
@@ -78,6 +79,7 @@ Permissions:
         "lambda:UpdateFunctionConfiguration",
         "lambda:ListTags",
         "lambda:TagResource",
+        "lambda:GetEventSourceMapping",
         "s3:GetObject",
         "cloudfront:*",
         "dynamodb:DescribeTable",
@@ -91,18 +93,18 @@ Permissions:
         "logs:CreateLogGroup",
         "logs:CreateLogStream",
         "logs:PutLogEvents",
-        "events:DescribeRule"
+        "events:DescribeRule",
+        "sqs:*",
+        "lambda:CreateEventSourceMapping"
     ],
     "Resource": "*",
     "Effect": "Allow"
 }
 */
 #[endpoint(url_path = "/deploy", environment = {
-    "BUCKET_NAME": "kinetics-rust-builds",
     "TABLE_NAME": "kinetics",
     "DANGER_DISABLE_AUTH": "false",
-    "S3_KEY_ENCRYPTION_KEY": "fjskoapgpsijtzp",
-    "BUILDS_BUCKET": "kinetics-rust-builds"
+    "S3_KEY_ENCRYPTION_KEY": "fjskoapgpsijtzp"
 })]
 pub async fn deploy(
     event: Request,
@@ -140,9 +142,10 @@ pub async fn deploy(
             })
             .collect::<Vec<Function>>(),
         secrets.clone(),
-        &env("BUILDS_BUCKET")?,
+        build_config().s3_bucket_name,
         &session.username(true),
         &session.username(false),
+        build_config().cloud_front_domain,
     )
     .await?;
 
