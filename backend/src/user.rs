@@ -70,7 +70,13 @@ impl UserBuilder {
             });
         }
 
-        return self.to_user(item.unwrap());
+        return Ok(User {
+            email: email.to_string().clone(),
+            id: item.unwrap()["id"].as_s().unwrap().to_owned(),
+            throttled_at: None,
+            db_client: self.db_client.clone(),
+            db_table: self.db_table.clone(),
+        });
     }
 
     /// Find existing user by email
