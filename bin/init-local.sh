@@ -73,3 +73,6 @@ fi
 source backend/local.env
 echo "Environment initialized successfully!"
 echo "KINETICS_API_BASE: $KINETICS_API_BASE"
+
+# Apply additional permissions to backend functions
+"$(dirname "$0")/../backend/bin/permissions.sh" "$kinetics_username"
