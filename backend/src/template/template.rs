@@ -812,10 +812,6 @@ impl Template {
 
         Ok(())
     }
-
-    pub fn stack_name(user_name: &str, crate_name: &str) -> String {
-        format!("{}-{}", user_name, crate_name)
-    }
 }
 
 impl std::fmt::Display for Template {
