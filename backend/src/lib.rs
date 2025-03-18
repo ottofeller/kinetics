@@ -1,8 +1,8 @@
 pub mod auth;
 pub mod config;
-pub mod deploy;
 pub mod env;
 pub mod json;
+pub mod stack;
 pub mod template;
 pub mod upload;
 pub mod usage;
