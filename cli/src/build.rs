@@ -539,7 +539,9 @@ pub fn func_name(parsed_function: &ParsedFunction) -> String {
 
     let default_func_name = full_path
         .as_str()
-        .split(&['-', '.', '/'])
+        .replace("_", "Undrscr")
+        .replace("_", "Dash")
+        .split(&['.', '/'])
         .into_iter()
         .filter(|s| !s.eq(&"rs"))
         .map(|s| match s.chars().next() {

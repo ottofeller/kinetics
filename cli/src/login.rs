@@ -47,9 +47,12 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
 
 /// Obtain the access token
 ///
+/// Returns boolean, indicating whether the new login session was
+/// created or not (the old one not expired).
+///
 /// The procedure is rather simple and should be improved as the CLI develops. It sends a one-time code to email
 /// and after user enters it in stdin exhcbages it for short lived access token.
-pub async fn login(email: &str) -> eyre::Result<()> {
+pub async fn login(email: &str) -> eyre::Result<bool> {
     // Validate email
     if !Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")?.is_match(email) {
         return Err(eyre::eyre!("Invalid email format"));
@@ -76,9 +79,9 @@ pub async fn login(email: &str) -> eyre::Result<()> {
         && credentials.expires_at.timestamp() > Utc::now().timestamp()
         && credentials.email == email
     {
-        return Ok(());
+        return Ok(false);
     }
 
     std::fs::write(path, json!(request(email).await?).to_string())?;
-    Ok(())
+    Ok(true)
 }

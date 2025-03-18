@@ -1,5 +1,3 @@
-pub mod some;
-
-fn main() {
-    println!("Hello, world!");
-}
+pub mod endpoint;
+pub mod worker;
+fn main() {}
