@@ -1,17 +1,14 @@
-use aws_lambda_events::sqs::{SqsBatchResponse, SqsEvent};
 use aws_sdk_dynamodb::types::AttributeValue::S;
 use aws_sdk_dynamodb::Client;
-use kinetics_macro::{endpoint, worker};
+use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, RequestExt, Response};
-use lambda_runtime::LambdaEvent;
 use std::collections::HashMap;
 
 #[endpoint(
-    name = "Some",
     url_path = "/some",
     environment = {"DEFAULT_NAME": "John"},
 )]
-pub async fn some_endpoint(
+pub async fn endpoint(
     event: Request,
     secrets: &HashMap<String, String>,
 ) -> Result<Response<Body>, Error> {
@@ -47,24 +44,4 @@ pub async fn some_endpoint(
         .body("Hello AWS Lambda HTTP request".into())
         .map_err(Box::new)?;
     Ok(resp)
-}
-
-#[worker(
-    name = "aworker",
-    concurrency = 3,
-    fifo = true,
-    environment = {"CURRENCY": "USD"},
-)]
-pub async fn some_worker(
-    event: LambdaEvent<SqsEvent>,
-    secrets: &HashMap<String, String>,
-) -> Result<SqsBatchResponse, Error> {
-    println!(
-        "Environment: {:?}",
-        std::env::vars().collect::<HashMap<_, _>>()
-    );
-    println!("{event:?}");
-    println!("Secrets: {secrets:?}");
-    let sqs_batch_response = SqsBatchResponse::default();
-    Ok(sqs_batch_response)
 }

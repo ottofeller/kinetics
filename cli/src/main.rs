@@ -136,12 +136,16 @@ async fn main() -> eyre::Result<()> {
             Ok(())
         }
         Some(Commands::Login { email }) => match login(email).await {
-            Ok(_) => {
+            Ok(is_new_session) => {
                 println!(
                     "{} {} {}",
-                    console::style("You have been successfully logged in")
-                        .green()
-                        .bold(),
+                    console::style(if is_new_session {
+                        "You have been successfully logged in"
+                    } else {
+                        "You are already logged in"
+                    })
+                    .green()
+                    .bold(),
                     console::style("via").dim(),
                     console::style(email).underlined().bold()
                 );
