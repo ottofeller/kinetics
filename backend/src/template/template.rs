@@ -242,7 +242,7 @@ impl Template {
         username: &str,
         domain_name: Option<&str>,
     ) -> eyre::Result<Self> {
-        let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
+        let config = aws_config::defaults(BehaviorVersion::v2025_01_17())
             .load()
             .await;
 
