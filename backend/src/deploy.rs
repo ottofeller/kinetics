@@ -95,7 +95,9 @@ Permissions:
         "logs:PutLogEvents",
         "events:DescribeRule",
         "sqs:*",
-        "lambda:CreateEventSourceMapping"
+        "lambda:CreateEventSourceMapping",
+        "lambda:CreateEventSourceMapping",
+        "lambda:GetEventSourceMapping"
     ],
     "Resource": "*",
     "Effect": "Allow"
