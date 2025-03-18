@@ -3,7 +3,7 @@ use crate::config::config as build_config;
 use crate::crat::Crate;
 use crate::function::Function;
 use crate::secret::Secret;
-use backend::deploy::{self, BodyCrate};
+use backend::stack::deploy::{self, BodyCrate};
 use backend::template::Crate as BackendCrate;
 use backend::template::Function as BackendFunction;
 use eyre::{Ok, WrapErr};
@@ -126,7 +126,7 @@ pub async fn deploy(crat: &Crate, functions: &[Function], is_directly: &bool) ->
     }
 
     let result = client
-        .post("/deploy")
+        .post("/stack/deploy")
         .json(&serde_json::json!(deploy::JsonBody {
             crat: BodyCrate {
                 toml: crat.toml_string.clone(),
