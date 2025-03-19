@@ -77,6 +77,7 @@ Permissions:
         "lambda:ListTags",
         "lambda:TagResource",
         "lambda:GetEventSourceMapping",
+        "lambda:PutFunctionConcurrency",
         "s3:GetObject",
         "cloudfront:*",
         "dynamodb:DescribeTable",
@@ -91,7 +92,10 @@ Permissions:
         "logs:CreateLogStream",
         "logs:PutLogEvents",
         "events:DescribeRule",
+        "events:PutRule",
+        "events:PutTargets",
         "sqs:*",
+        "lambda:CreateEventSourceMapping",
         "lambda:CreateEventSourceMapping",
         "lambda:GetEventSourceMapping"
     ],

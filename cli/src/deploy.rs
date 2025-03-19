@@ -29,7 +29,7 @@ pub async fn upload(
         use aws_config::BehaviorVersion;
         use aws_sdk_s3::Client;
         let body = function.zip_stream().await?;
-        let config = aws_config::defaults(BehaviorVersion::v2024_03_28())
+        let config = aws_config::defaults(BehaviorVersion::v2025_01_17())
             .load()
             .await;
 
