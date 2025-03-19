@@ -54,7 +54,7 @@ impl Pipeline {
                     format!("{} ({})", function_name, function.path.display()).as_str(),
                 );
 
-                function_progress.log_stage("    Building");
+                function_progress.log_stage("Building");
                 
                 function.build().await.map_err(|e| {
                     function_progress.error();
@@ -67,7 +67,7 @@ impl Pipeline {
                 }
 
                 pipeline_progress.increase_current_function_position();
-                function_progress.log_stage("    Bundling");
+                function_progress.log_stage("Bundling");
                 
                 function.bundle().await.map_err(|e| {
                     function_progress.error();
@@ -75,7 +75,7 @@ impl Pipeline {
                 })?;
 
                 pipeline_progress.increase_current_function_position();
-                function_progress.log_stage("   Uploading");
+                function_progress.log_stage("Uploading");
                 
                 crate::deploy::upload(
                     &client.ok_or_eyre("Client must be initialized when deployment is enabled")?,
@@ -139,7 +139,7 @@ impl Pipeline {
 
         let deploying_progress = pipeline_progress.new_progress(&self.crat.name);
 
-        deploying_progress.log_stage("   Deploying");
+        deploying_progress.log_stage("Deploying");
 
         // It's safe to unwrap here because the errors have already been caught
         let functions: Vec<_> = ok_results.drain(..).map(Result::unwrap).collect();
@@ -282,16 +282,23 @@ impl Progress {
     fn log_stage(&self, stage: &str) {
         self.progress_bar.println(format!(
             "{} {}",
-            console::style(stage).green().bold(),
+            console::style(self.with_padding(stage)).green().bold(),
             self.resource_name,
         ));
     }
 
     fn error(&self) {
         self.progress_bar.finish_with_message(format!(
-            "       {} {}",
-            console::style("Error").red().bold(),
+            "{} {}",
+            console::style(self.with_padding("Error")).red().bold(),
             self.resource_name,
         ));
+    }
+
+    // Required padding to make the message centered in the cargo-like style
+    fn with_padding(&self, message: &str) -> String {
+        let len = message.len();
+        let padding = " ".repeat(12 - len);
+        format!("{}{}", padding, message)
     }
 }
