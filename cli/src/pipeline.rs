@@ -58,7 +58,7 @@ impl Pipeline {
                 
                 function.build().await.map_err(|e| {
                     function_progress.error();
-                    e.wrap_err(eyre!("Failed to build function: \"{}\"", function_name))
+                    e.wrap_err(format!("Failed to build function: \"{}\"", function_name))
                 })?;
 
                 if !self.is_deploy_enabled {
@@ -71,7 +71,7 @@ impl Pipeline {
                 
                 function.bundle().await.map_err(|e| {
                     function_progress.error();
-                    e.wrap_err(eyre!("Failed to bundle function: \"{}\"", function_name))
+                    e.wrap_err(format!("Failed to bundle function: \"{}\"", function_name))
                 })?;
 
                 pipeline_progress.increase_current_function_position();
@@ -85,7 +85,7 @@ impl Pipeline {
                 .await
                 .map_err(|e| {
                     function_progress.error();
-                    e.wrap_err(eyre!("Failed to upload function: \"{}\"", function_name))
+                    e.wrap_err(format!("Failed to upload function: \"{}\"", function_name))
                 })?;
                 
                 pipeline_progress.increase_current_function_position();
@@ -146,7 +146,7 @@ impl Pipeline {
         
         crate::deploy::deploy(&self.crat, &functions, &self.is_directly)
             .await
-            .wrap_err(eyre!("Failed to deploy functions"))?;
+            .wrap_err("Failed to deploy functions")?;
 
         deploying_progress.progress_bar.finish_and_clear();
 
