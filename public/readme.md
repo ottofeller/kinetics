@@ -101,13 +101,13 @@ Attribute macro parameters:
 - `fifo`: Set to true to enable FIFO processing.
 - `environment`: Environment variables.
 
-**Cron**
+#### Cron
 Attribute macro parameters:
 
 - `schedule`: [Schedule expression](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-scheduleexpression).
 - `environment`: Environment variables.
 
-**Secrets**
+#### Secrets
 Store secrets in `.env.secrets` file in the root directory of your crate. Kinetics will automatically pick it up and provision to all of your workloads in the second parameter of the function as `HashMap<String, String>`.
 
 Example:
@@ -125,7 +125,7 @@ pub async fn endpoint(
     println!("API key: {}", secrets.get("API_KEY").unwrap());
 ```
 
-**Database**
+#### Database
 Database is defined in `Cargo.toml`:
 ```toml
 [package.metadata.kinetics.kvdb.test]
