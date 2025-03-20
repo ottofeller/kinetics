@@ -87,5 +87,5 @@ All configuration can be done through attribute macro parameters, or by editing 
 
 ## Support & Community
 
-- Email. Help with builds, deployments, and runtime. Mail us at support@usekinetics.com.
+- support@usekinetics.com. Help with builds, deployments, and runtime.
 - [GitHub Issues](https://github.com/usekinetics/kinetics/issues). Persistent bugs, and feature requests.
