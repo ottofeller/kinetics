@@ -2,11 +2,6 @@
 Kinetics is a hosting platform for Rust applications built with the goal to be as simple, seamless, and cheap as possible.
 
 ```rust
-use kinetics_macro::endpoint;
-use lambda_http::{Body, Error, Request, RequestExt, Response};
-use std::collections::HashMap;
-
-// Deploy a REST API endpoint
 #[endpoint(url_path = "/path", environment = {"SOME_VAR": "SomeVal"})]
 pub async fn endpoint(
     _event: Request,
