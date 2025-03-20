@@ -4,6 +4,11 @@ use eyre::Context;
 use regex::Regex;
 use serde_json::json;
 use std::path::Path;
+use crossterm::{
+    event::{self, Event, KeyCode},
+    terminal::{disable_raw_mode, enable_raw_mode},
+};
+use std::io::{self, Write};
 
 /// Request auth code and exchange it for access token
 async fn request(email: &str) -> eyre::Result<Credentials> {
@@ -25,7 +30,7 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
 
     println!("Please enter the one-time code sent to your email:");
 
-    let code = rpassword::read_password()?;
+    let code = read_masked_password()?;
     let code = code.trim();
 
     let response = client
@@ -84,4 +89,44 @@ pub async fn login(email: &str) -> eyre::Result<bool> {
 
     std::fs::write(path, json!(request(email).await?).to_string())?;
     Ok(true)
+}
+
+fn read_masked_password() -> eyre::Result<String> {
+    let mut password = String::new();
+    enable_raw_mode()?;
+
+    loop {
+        // Read a key event
+        if let Event::Key(key_event) = event::read()? {
+            match key_event.code {
+                KeyCode::Enter => {
+                    break;
+                }
+                KeyCode::Backspace => {
+                    if !password.is_empty() {
+                        password.pop();
+                        // Erase the last asterisk (use actual backspace character)
+                        print!("\x08 \x08");
+                        io::stdout().flush()?;
+                    }
+                }
+                // Handle Ctrl+C to exit
+                KeyCode::Char('c') if key_event.modifiers == event::KeyModifiers::CONTROL => {
+                    disable_raw_mode()?;
+                    return Err(eyre::eyre!("Password input cancelled by user"));
+                }
+                KeyCode::Char(c) => {
+                    password.push(c);
+                    print!("*");
+                    io::stdout().flush()?;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    disable_raw_mode()?;
+    println!();
+
+    Ok(password)
 }
