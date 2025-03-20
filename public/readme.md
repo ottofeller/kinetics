@@ -88,13 +88,13 @@ All configuration can be done through attribute macro parameters, or through mod
 > [!TIP]
 > All types of workloads support environment variables. These can be changed **without redeploying**.
 
-**Endpoint**
+#### Endpoint
 The following attribute macro parameters are available:
 
 - `url_path`: The URL path of the endpoint.
 - `environment`: Environment variables.
 
-**Worker**
+#### Worker
 Attribute macro parameters:
 
 - `concurrency`: Max number of concurrent workers.
