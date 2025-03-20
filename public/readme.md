@@ -1,8 +1,6 @@
 # Kinetics
 Kinetics is a hosting platform for Rust applications built with the goal to be as simple, seamless, and cheap as possible.
 
-Deploying to Kinetics is as simple as assigning an attribute macro:
-
 ```rust
 use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, RequestExt, Response};
@@ -17,8 +15,7 @@ pub async fn endpoint(
     let resp = Response::builder()
         .status(200)
         .header("content-type", "text/html")
-        .body("Hello!".into())
-        .map_err(Box::new)?;
+        .body("Hello!".into())?;
 
     Ok(resp)
 }
