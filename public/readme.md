@@ -16,6 +16,11 @@ pub async fn endpoint(
 }
 ```
 
+And then:
+```bash
+cargo kinetics deploy
+```
+
 ## Features
 
 🦀 **Only Rust code required**
