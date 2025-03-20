@@ -47,10 +47,6 @@ Automatically provision secrets from `.env` file.
 
 REST API endpoints are served through a Content Delivery Network (CDN).
 
-🔄 **Zero-downtime updates**
-
-Redeploy your applications without service interruption.
-
 ## Examples
 
 Check out complete ready-to-use [examples](https://github.com/kinetics-dev/examples). There are examples for REST API endpoints, queue workers, and cron jobs.
