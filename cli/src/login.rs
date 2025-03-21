@@ -72,7 +72,7 @@ pub async fn login(email: &str) -> eyre::Result<bool> {
             })
             .unwrap_or(default),
     )
-    .wrap_err(eyre::eyre!("Credentials stored in a wrong format"))?;
+    .wrap_err("Credentials stored in a wrong format")?;
 
     // If credentials expired — request new token
     if !credentials.token.is_empty()
