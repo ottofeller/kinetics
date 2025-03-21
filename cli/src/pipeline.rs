@@ -8,7 +8,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Semaphore;
-use tokio::time::Duration;
 
 #[derive(Debug, Clone)]
 pub struct Pipeline {
@@ -28,7 +27,10 @@ impl Pipeline {
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
 
         let start_time = Instant::now();
-        let pipeline_progress = PipelineProgress::new(functions.len() as u64);
+
+        let pipeline_progress = PipelineProgress::new(
+            functions.len() as u64 * if self.is_deploy_enabled { 3 } else { 1 },
+        );
 
         let client = if self.is_deploy_enabled {
             Some(Client::new(&self.is_directly).wrap_err("Failed to create client")?)
@@ -48,27 +50,31 @@ impl Pipeline {
 
                 let function_name = function.name()?;
 
-                let function_progress = pipeline_progress.new_progress(&function_name);
-                function_progress.log_stage("Building ");
+                let function_progress = pipeline_progress.new_progress(
+                    format!("{} ({})", function_name, function.path.display()).as_str(),
+                );
+
+                function_progress.log_stage("Building");
 
                 function.build().await.map_err(|e| {
                     function_progress.error();
-                    e.wrap_err(eyre!("Failed to build function: \"{}\"", function_name))
+                    e.wrap_err(format!("Failed to build function: \"{}\"", function_name))
                 })?;
 
                 if !self.is_deploy_enabled {
-                    function_progress.done();
                     pipeline_progress.increase_current_function_position();
                     return Ok(function);
                 }
 
-                function_progress.log_stage("Bundling ");
+                pipeline_progress.increase_current_function_position();
+                function_progress.log_stage("Bundling");
 
                 function.bundle().await.map_err(|e| {
                     function_progress.error();
-                    e.wrap_err(eyre!("Failed to bundle function: \"{}\"", function_name))
+                    e.wrap_err(format!("Failed to bundle function: \"{}\"", function_name))
                 })?;
 
+                pipeline_progress.increase_current_function_position();
                 function_progress.log_stage("Uploading");
 
                 crate::deploy::upload(
@@ -79,10 +85,9 @@ impl Pipeline {
                 .await
                 .map_err(|e| {
                     function_progress.error();
-                    e.wrap_err(eyre!("Failed to upload function: \"{}\"", function_name))
+                    e.wrap_err(format!("Failed to upload function: \"{}\"", function_name))
                 })?;
 
-                function_progress.done();
                 pipeline_progress.increase_current_function_position();
 
                 if let Err(error) = tokio::fs::remove_file(function.bundle_path()).await {
@@ -123,7 +128,7 @@ impl Pipeline {
 
         if !self.is_deploy_enabled {
             println!(
-                "{} \"{}\" building and uploading in {:.2}s",
+                "    {} `{}` crate building in {:.2}s",
                 console::style("Finished").green().bold(),
                 self.crat.name,
                 start_time.elapsed().as_secs_f64(),
@@ -141,12 +146,12 @@ impl Pipeline {
 
         crate::deploy::deploy(&self.crat, &functions, &self.is_directly)
             .await
-            .wrap_err(eyre!("Failed to deploy functions"))?;
+            .wrap_err("Failed to deploy functions")?;
 
         deploying_progress.progress_bar.finish_and_clear();
 
         println!(
-            "{} \"{}\" has been successfully deployed in {:.2}s",
+            "    {} `{}` crate deploying in {:.2}s",
             console::style("Finished").green().bold(),
             self.crat.name,
             start_time.elapsed().as_secs_f64(),
@@ -214,7 +219,13 @@ impl PipelineProgress {
 
         total_progress_bar.set_style(
             ProgressStyle::default_bar()
-                .template("[{pos}/{len}] functions uploaded [{bar:40}] {percent}%")
+                .template(
+                    format!(
+                        "    {} [{{bar:40}}] {{percent}}%",
+                        console::style("Building").cyan().bold()
+                    )
+                    .as_str(),
+                )
                 .unwrap()
                 .progress_chars("=> "),
         );
@@ -259,14 +270,8 @@ impl Progress {
         let function_progress_bar =
             multi_progress.insert_before(&total_progress_bar, ProgressBar::new_spinner());
 
-        function_progress_bar.set_style(
-            ProgressStyle::default_spinner()
-                .template("{spinner:.green} {msg}")
-                .unwrap()
-                .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ "),
-        );
-
-        function_progress_bar.enable_steady_tick(Duration::from_millis(50));
+        function_progress_bar
+            .set_style(ProgressStyle::default_spinner().template("{msg}").unwrap());
 
         Self {
             progress_bar: function_progress_bar,
@@ -275,26 +280,25 @@ impl Progress {
     }
 
     fn log_stage(&self, stage: &str) {
-        self.progress_bar.set_message(format!(
+        self.progress_bar.println(format!(
             "{} {}",
-            console::style(stage).green().bold(),
-            self.resource_name,
-        ));
-    }
-
-    fn done(&self) {
-        self.progress_bar.finish_with_message(format!(
-            "{}      {}",
-            console::style("Done").green().bold(),
+            console::style(self.with_padding(stage)).green().bold(),
             self.resource_name,
         ));
     }
 
     fn error(&self) {
         self.progress_bar.finish_with_message(format!(
-            "{}     {}",
-            console::style("Error").red().bold(),
+            "{} {}",
+            console::style(self.with_padding("Error")).red().bold(),
             self.resource_name,
         ));
+    }
+
+    // Required padding to make the message centered in the cargo-like style
+    fn with_padding(&self, message: &str) -> String {
+        let len = message.len();
+        let padding = " ".repeat(12 - len);
+        format!("{}{}", padding, message)
     }
 }
