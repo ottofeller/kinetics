@@ -410,6 +410,13 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
         }
     }
 
+    if matches!(parsed_function.role, Role::Cron(_) | Role::Worker(_)) {
+        doc["dependencies"]["serde_json"]
+            .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+            .as_table_mut()
+            .map(|t| t.insert("version", toml_edit::value("1.0.140")));
+    }
+
     doc["dependencies"]["aws_lambda_events"]
         .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
         .as_table_mut()
