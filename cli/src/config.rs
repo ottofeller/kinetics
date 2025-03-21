@@ -25,6 +25,7 @@ pub(crate) fn config() -> &'static Config<'static> {
         username: option_env!("KINETICS_USERNAME").unwrap_or("artem@ottofeller.com"),
         username_escaped: option_env!("KINETICS_USERNAME_ESCAPED")
             .unwrap_or("artemATottofellerDOTcom"),
-        s3_bucket_name: option_env!("KINETICS_S3_BUCKET_NAME").unwrap_or("kinetics-rust-builds-production"),
+        s3_bucket_name: option_env!("KINETICS_S3_BUCKET_NAME")
+            .unwrap_or("kinetics-rust-builds-production"),
     })
 }

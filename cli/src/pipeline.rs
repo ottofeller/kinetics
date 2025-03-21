@@ -27,9 +27,9 @@ impl Pipeline {
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
 
         let start_time = Instant::now();
-        
+
         let pipeline_progress = PipelineProgress::new(
-            functions.len() as u64 * if self.is_deploy_enabled { 3 } else { 1 }
+            functions.len() as u64 * if self.is_deploy_enabled { 3 } else { 1 },
         );
 
         let client = if self.is_deploy_enabled {
@@ -55,7 +55,7 @@ impl Pipeline {
                 );
 
                 function_progress.log_stage("Building");
-                
+
                 function.build().await.map_err(|e| {
                     function_progress.error();
                     e.wrap_err(format!("Failed to build function: \"{}\"", function_name))
@@ -68,7 +68,7 @@ impl Pipeline {
 
                 pipeline_progress.increase_current_function_position();
                 function_progress.log_stage("Bundling");
-                
+
                 function.bundle().await.map_err(|e| {
                     function_progress.error();
                     e.wrap_err(format!("Failed to bundle function: \"{}\"", function_name))
@@ -76,7 +76,7 @@ impl Pipeline {
 
                 pipeline_progress.increase_current_function_position();
                 function_progress.log_stage("Uploading");
-                
+
                 crate::deploy::upload(
                     &client.ok_or_eyre("Client must be initialized when deployment is enabled")?,
                     &mut function,
@@ -87,7 +87,7 @@ impl Pipeline {
                     function_progress.error();
                     e.wrap_err(format!("Failed to upload function: \"{}\"", function_name))
                 })?;
-                
+
                 pipeline_progress.increase_current_function_position();
 
                 if let Err(error) = tokio::fs::remove_file(function.bundle_path()).await {
@@ -143,7 +143,7 @@ impl Pipeline {
 
         // It's safe to unwrap here because the errors have already been caught
         let functions: Vec<_> = ok_results.drain(..).map(Result::unwrap).collect();
-        
+
         crate::deploy::deploy(&self.crat, &functions, &self.is_directly)
             .await
             .wrap_err("Failed to deploy functions")?;
@@ -216,13 +216,16 @@ impl PipelineProgress {
         let multi_progress = MultiProgress::new();
         let completed_functions_count = Arc::new(AtomicUsize::new(0));
         let total_progress_bar = multi_progress.add(ProgressBar::new(total_functions));
-        
+
         total_progress_bar.set_style(
             ProgressStyle::default_bar()
-                .template(format!(
-                    "    {} [{{bar:40}}] {{percent}}%",
-                    console::style("Building").cyan().bold()
-                ).as_str())
+                .template(
+                    format!(
+                        "    {} [{{bar:40}}] {{percent}}%",
+                        console::style("Building").cyan().bold()
+                    )
+                    .as_str(),
+                )
                 .unwrap()
                 .progress_chars("=> "),
         );
@@ -267,11 +270,8 @@ impl Progress {
         let function_progress_bar =
             multi_progress.insert_before(&total_progress_bar, ProgressBar::new_spinner());
 
-        function_progress_bar.set_style(
-            ProgressStyle::default_spinner()
-                .template("{msg}")
-                .unwrap()
-        );
+        function_progress_bar
+            .set_style(ProgressStyle::default_spinner().template("{msg}").unwrap());
 
         Self {
             progress_bar: function_progress_bar,
