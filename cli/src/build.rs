@@ -101,8 +101,50 @@ fn clone(src: &Path, dst: &Path) -> eyre::Result<()> {
 
     checksum.save().wrap_err("Failed to save checksums")?;
 
-    // TODO Remove files that are not present in the source directory
-    // but still exist in the target directory
+    // Remove files that are not present in the source directory
+    // but still exist in the target directory.
+    for entry in WalkDir::new(dst).into_iter().filter_map(|e| e.ok()) {
+        let path = entry.path();
+
+        let Ok(src_relative) = path.strip_prefix(dst) else {
+            continue;
+        };
+
+        // Leave intact:
+        // - the `target` folder;
+        // - `Cargo.lock` file;
+        // - `.checksums` file.
+        if src_relative.strip_prefix("target").is_ok()
+            || [".checksums", "Cargo.lock"].contains(&src_relative.to_str().unwrap_or_default())
+        {
+            continue;
+        };
+
+        if path.is_dir() {
+            // Delete all folders except those known from file paths in .checksums.
+            if checksum
+                .inner
+                .iter()
+                .find_map(|(key, _hash)| key.strip_prefix(src_relative).ok())
+                .is_none()
+            {
+                println!("Remove obsolete folder {src_relative:?}");
+
+                fs::remove_dir_all(path).wrap_err(format!(
+                    "Failed to delete an obsolete folder {src_relative:?}"
+                ))?;
+            }
+            continue;
+        }
+
+        // Delete files not in .checksums.
+        if !checksum.inner.contains_key(src_relative) {
+            fs::remove_file(path).wrap_err(format!(
+                "failed to delete an obsolete file {src_relative:?}"
+            ))?;
+        };
+    }
+
     Ok(())
 }
 
@@ -390,7 +432,7 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
             }
             Role::Cron(params) => {
                 let mut cron_table = toml_edit::Table::new();
-                cron_table["schedule"] = toml_edit::value(&params.schedule.to_string());
+                cron_table["schedule"] = toml_edit::value(params.schedule.to_string());
 
                 // Update function table with cron configuration
                 // Function table has been created above
@@ -549,7 +591,6 @@ pub fn func_name(parsed_function: &ParsedFunction) -> String {
         .replace("_", "Undrscr")
         .replace("_", "Dash")
         .split(&['.', '/'])
-        .into_iter()
         .filter(|s| !s.eq(&"rs"))
         .map(|s| match s.chars().next() {
             Some(first) => first.to_uppercase().collect::<String>() + &s[1..],
@@ -566,8 +607,8 @@ pub fn func_name(parsed_function: &ParsedFunction) -> String {
         .to_string()
 }
 
-/// Stores files hashes on the disk to avoid rebuilding on unchanged files
-/// cargo lambda rebuilds crate if file timestamp changed
+/// Stores files hashes on the disk to avoid rebuilding on unchanged files.
+/// NOTE: `cargo lambda` rebuilds crate if file timestamp changed.
 struct FileHash {
     path: PathBuf,
     inner: HashMap<PathBuf, String>,
