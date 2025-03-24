@@ -145,9 +145,9 @@ async fn main() -> eyre::Result<()> {
                 println!(
                     "{} {} {}",
                     console::style(if is_new_session {
-                        "You have been successfully logged in"
+                        "Successfully logged in"
                     } else {
-                        "You are already logged in"
+                        "Already logged in"
                     })
                     .green()
                     .bold(),
