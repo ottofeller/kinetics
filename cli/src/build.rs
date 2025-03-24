@@ -128,9 +128,10 @@ fn clone(src: &Path, dst: &Path) -> eyre::Result<()> {
                 .find_map(|(key, _hash)| key.strip_prefix(src_relative).ok())
                 .is_none()
             {
-                println!("Remove folder {src_relative:?}");
+                println!("Remove obsolete folder {src_relative:?}");
+
                 fs::remove_dir_all(path).wrap_err(format!(
-                    "failed to delete an obsolete folder {src_relative:?}"
+                    "Failed to delete an obsolete folder {src_relative:?}"
                 ))?;
             }
             continue;
