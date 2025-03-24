@@ -9,7 +9,7 @@ use std::collections::HashMap;
     fifo = true,
     environment = {"CURRENCY": "USD"},
 )]
-pub async fn some_worker(
+pub async fn worker(
     event: LambdaEvent<SqsEvent>,
     secrets: &HashMap<String, String>,
 ) -> Result<SqsBatchResponse, Error> {
