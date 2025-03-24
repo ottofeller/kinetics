@@ -55,9 +55,10 @@ REST API endpoints are served through a Content Delivery Network (CDN).
 Check out complete ready-to-use [examples](https://github.com/kinetics-dev/examples). There are examples for REST API endpoints, queue workers, and cron jobs.
 
 ## Try it
+The service is currently free for the first **100,000 invocations** of your functions, regardless of the type of workload.
 
 > [!WARNING]
-> The service is currently in beta. It is in active development and may contain bugs or unexpected behavior. It's free for the first **100,000 invocations** of your functions, regardless of the type of workload.
+> Kinetics is currently in active development and may contain bugs or result in unexpected behavior.
 
 1. Install
 ```bash
@@ -81,6 +82,8 @@ cargo kinetics deploy
 ```
 curl <URL from cargo kinetics deploy>
 ```
+
+If you have any issues, please contact us at support@usekinetics.com.
 
 ## Documentation
 
