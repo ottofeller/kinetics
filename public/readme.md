@@ -2,7 +2,10 @@
 Kinetics is a hosting platform for Rust applications that allows you to deploy all types of workloads by writing **only Rust code**.
 
 ```rust
-#[endpoint(url_path = "/path", environment = {"SOME_VAR": "SomeVal"})]
+#[endpoint(
+    url_path = "/path",
+    environment = {"SOME_VAR": "SomeVal"},
+)]
 pub async fn endpoint(
     _event: Request,
     _secrets: &HashMap<String, String>,
@@ -25,15 +28,15 @@ cargo kinetics deploy
 
 🦀 **Only Rust code required**
 
-No other tools needed to deploy Rust applications. Just apply attribute macro to your function, and Kinetics will handle the rest.
+Just apply attribute macro to your function, and Kinetics will handle the rest. No other tools required.
 
 🚀 **Supports any workload**
 
-With Kinetics you can deploy REST API endpoints, queue workers, and cron jobs.
+Deploy REST API endpoints, queue workers, and cron jobs.
 
 🤖 **No infrastructure management**
 
-The necessary infrastructure is provisioned automatically, e.g. a queue for the worker workload.
+The infrastructure is provisioned automatically, e.g. a queue for the worker workload.
 
 💿 **Comes with DB**
 
