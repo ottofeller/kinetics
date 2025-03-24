@@ -1,8 +1,11 @@
 # Kinetics
-Kinetics is a hosting platform for Rust applications that allows you to deploy all types of workloads by writing only Rust code.
+Kinetics is a hosting platform for Rust applications that allows you to deploy all types of workloads by writing **only Rust code**.
 
 ```rust
-#[endpoint(url_path = "/path", environment = {"SOME_VAR": "SomeVal"})]
+#[endpoint(
+    url_path = "/path",
+    environment = {"SOME_VAR": "SomeVal"},
+)]
 pub async fn endpoint(
     _event: Request,
     _secrets: &HashMap<String, String>,
@@ -25,15 +28,15 @@ cargo kinetics deploy
 
 🦀 **Only Rust code required**
 
-No other tools needed to deploy Rust applications. Just apply attribute macro to your function, and Kinetics will handle the rest.
+Just apply attribute macro to your function, and Kinetics will handle the rest. No other tools required.
 
 🚀 **Supports any workload**
 
-With Kinetics you can deploy REST API endpoints, queue workers, and cron jobs.
+Deploy REST API endpoints, queue workers, and cron jobs.
 
 🤖 **No infrastructure management**
 
-The necessary infrastructure is provisioned automatically, e.g. a queue for the worker workload.
+The infrastructure is provisioned automatically, e.g. a queue for the worker workload.
 
 💿 **Comes with DB**
 
@@ -54,10 +57,7 @@ Check out complete ready-to-use [examples](https://github.com/kinetics-dev/examp
 ## Try it
 
 > [!WARNING]
-> The service is currently in beta. It is in active development and may contain bugs or unexpected behavior.
-
-> [!NOTE]
-> The service will always be free for the first **100,000 invocations** of your functions, regardless of the type of workload.
+> The service is currently in beta. It is in active development and may contain bugs or unexpected behavior. It's free for the first **100,000 invocations** of your functions, regardless of the type of workload.
 
 1. Install
 ```bash
@@ -87,7 +87,7 @@ curl <URL from cargo kinetics deploy>
 All configuration can be done through attribute macro parameters, or through modifications to existing `Cargo.toml` file in your project.
 
 > [!TIP]
-> All types of workloads support environment variables. These can be changed **without redeploying**.
+> All types of workloads support environment variables. These can be changed **without redeploying** (this feature is WIP).
 
 #### Endpoint
 The following attribute macro parameters are available:
