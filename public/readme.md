@@ -57,10 +57,7 @@ Check out complete ready-to-use [examples](https://github.com/kinetics-dev/examp
 ## Try it
 
 > [!WARNING]
-> The service is currently in beta. It is in active development and may contain bugs or unexpected behavior.
-
-> [!NOTE]
-> The service will always be free for the first **100,000 invocations** of your functions, regardless of the type of workload.
+> The service is currently in beta. It is in active development and may contain bugs or unexpected behavior. It's free for the first **100,000 invocations** of your functions, regardless of the type of workload.
 
 1. Install
 ```bash
@@ -90,7 +87,7 @@ curl <URL from cargo kinetics deploy>
 All configuration can be done through attribute macro parameters, or through modifications to existing `Cargo.toml` file in your project.
 
 > [!TIP]
-> All types of workloads support environment variables. These can be changed **without redeploying**.
+> All types of workloads support environment variables. These can be changed **without redeploying** (this feature is WIP).
 
 #### Endpoint
 The following attribute macro parameters are available:
