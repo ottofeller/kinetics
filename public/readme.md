@@ -42,9 +42,9 @@ The infrastructure is provisioned automatically, e.g. a queue for the worker wor
 
 Seamlessly provision KV DB if your workload needs a persistent storage.
 
-🔑 **Secrets from .env file**
+🔑 **Secrets**
 
-Automatically provision secrets from `.env` file.
+Automatically provision secrets from `.env.secrets` file.
 
 🌍 **CDN**
 
