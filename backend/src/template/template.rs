@@ -319,7 +319,7 @@ impl Template {
     /// Policy statements to allow a function to access a resource
     ///
     /// Current all functions in a crate have access to all resources. Including secrets.
-    fn policies(&self, secrets: &[String]) -> Vec<Value> {
+    fn policies(&self, secrets: &[String], queues: &Vec<Queue>) -> Vec<Value> {
         let mut template = Vec::new();
 
         for resource in self.crat.resources.iter() {
@@ -354,6 +354,26 @@ impl Template {
                     }
                 }))
             }
+        }
+
+        for queue in queues.iter() {
+            let queue_cfn_name = queue.clone().cfn_name.unwrap();
+
+            template.push(json!({
+                "PolicyName": format!("QueuePolicy{}", queue_cfn_name),
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [{
+                        "Effect": "Allow",
+                        "Action": [
+                            "sqs:SendMessage",
+                        ],
+                        "Resource": {
+                            "Fn::GetAtt": [queue_cfn_name, "Arn"]
+                        }
+                    }]
+                }
+            }))
         }
 
         let account_id = self.account_id.clone();
