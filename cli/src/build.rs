@@ -452,6 +452,7 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
             Role::Worker(params) => {
                 let mut queue_table = toml_edit::Table::new();
                 queue_table["name"] = toml_edit::value(&name);
+                queue_table["alias"] = toml_edit::value(&params.queue_alias.clone().unwrap());
                 queue_table["concurrency"] = toml_edit::value(params.concurrency as i64);
                 queue_table["fifo"] = toml_edit::value(params.fifo);
 
@@ -464,6 +465,10 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
             Role::Endpoint(params) => {
                 let mut endpoint_table = toml_edit::Table::new();
                 endpoint_table["url_path"] = toml_edit::value(&params.url_path);
+
+                endpoint_table["queues"] = toml_edit::value(
+                    &serde_json::to_string(&params.queues.clone().unwrap_or(vec![])).unwrap(),
+                );
 
                 // Update function table with endpoint configuration
                 // Function table has been created above
