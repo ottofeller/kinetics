@@ -98,7 +98,10 @@ Permissions:
         "sqs:*",
         "lambda:CreateEventSourceMapping",
         "lambda:CreateEventSourceMapping",
-        "lambda:GetEventSourceMapping"
+        "lambda:GetEventSourceMapping",
+        "lambda:UntagResource",
+        "iam:UntagRole",
+        "iam:TagRole"
     ],
     "Resource": "*",
     "Effect": "Allow"
