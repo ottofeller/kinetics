@@ -11,6 +11,7 @@ lambda_runtime = "0.13.0"
 kinetics-macro = { path = "../macro" }
 lambda_http = "0.14.0"
 tokio = "1.44.1"
+aws-sdk-sqs = "1.62.0"
 
 [package.metadata.kinetics.kvdb.users]
 name = "users"

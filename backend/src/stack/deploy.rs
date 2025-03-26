@@ -2,6 +2,7 @@ use crate::config::config as build_config;
 use crate::json;
 use crate::template::{Crate, Function, Secret, Template};
 use crate::{auth::session::Session, env::env};
+use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use eyre::Context;
 use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, Response};
@@ -97,7 +98,10 @@ Permissions:
         "sqs:*",
         "lambda:CreateEventSourceMapping",
         "lambda:CreateEventSourceMapping",
-        "lambda:GetEventSourceMapping"
+        "lambda:GetEventSourceMapping",
+        "lambda:UntagResource",
+        "iam:UntagRole",
+        "iam:TagRole"
     ],
     "Resource": "*",
     "Effect": "Allow"
@@ -111,6 +115,7 @@ Permissions:
 pub async fn deploy(
     event: Request,
     _secrets: &HashMap<String, String>,
+    _queues: &HashMap<String, SendMessageFluentBuilder>,
 ) -> Result<Response<Body>, Error> {
     let session = Session::new(&event, &env("TABLE_NAME")?).await;
 

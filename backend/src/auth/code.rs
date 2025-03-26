@@ -2,6 +2,7 @@ use crate::{env::env, user};
 use aws_config::BehaviorVersion;
 use aws_sdk_dynamodb::types::AttributeValue::S;
 use aws_sdk_dynamodb::Client;
+use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use eyre::Context;
 use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, Response};
@@ -13,6 +14,7 @@ use std::collections::HashMap;
 pub async fn request(
     event: Request,
     secrets: &HashMap<String, String>,
+    _queues: &HashMap<String, SendMessageFluentBuilder>,
 ) -> Result<Response<Body>, Error> {
     #[derive(serde::Deserialize)]
     struct JsonBody {
@@ -76,6 +78,7 @@ pub async fn request(
 pub async fn exchange(
     event: Request,
     secrets: &HashMap<String, String>,
+    _queues: &HashMap<String, SendMessageFluentBuilder>,
 ) -> Result<Response<Body>, Error> {
     #[derive(serde::Deserialize)]
     struct JsonBody {

@@ -93,6 +93,20 @@ impl Function {
         Some(meta.get("schedule")?.as_str().unwrap().to_string())
     }
 
+    /// Queues
+    ///
+    /// Optional property, only available for endpoint type of functions.
+    pub fn queues(&self) -> Option<Vec<String>> {
+        if self.meta().is_err() || self.role().unwrap() != "endpoint" {
+            return None;
+        }
+
+        Some(
+            serde_json::from_str::<Vec<String>>(self.meta().unwrap().get("queues")?.as_str()?)
+                .unwrap(),
+        )
+    }
+
     /// User defined name of the function
     pub fn name(&self) -> eyre::Result<String> {
         Ok(self

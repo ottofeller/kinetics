@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+aws-sdk-sqs = "1.62.0"
 aws-sdk-cloudformation = "1.69.0"
 aws-sdk-cloudwatch = "1.68.0"
 aws-sdk-lambda = "1.72.0"

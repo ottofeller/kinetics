@@ -79,7 +79,17 @@ impl Crate {
 
                 result.push(match category_name {
                     "queue" => crate::Resource::Queue(crate::Queue {
+                        alias: resource
+                            .get("alias")
+                            .unwrap_or(&toml::Value::String(resource_name.clone()))
+                            .as_str()
+                            .unwrap_or("")
+                            .to_string(),
+
                         name: resource_name.clone(),
+
+                        // Defined later
+                        cfn_name: None,
 
                         concurrency: resource
                             .get("concurrency")

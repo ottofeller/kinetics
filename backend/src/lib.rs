@@ -10,6 +10,8 @@ pub mod user;
 
 #[derive(Clone, Debug)]
 pub struct Queue {
+    alias: String,
+    cfn_name: Option<String>,
     name: String,
     concurrency: u32,
 }

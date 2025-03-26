@@ -2,6 +2,7 @@ use crate::{env::env, user::UserBuilder};
 use aws_config::BehaviorVersion;
 use aws_sdk_dynamodb::types::AttributeValue::S;
 use aws_sdk_dynamodb::Client;
+use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use eyre::Context;
 use kinetics_macro::cron;
 use std::collections::HashMap;
@@ -30,7 +31,10 @@ use std::collections::HashMap;
     "INVOCATIONS_LIMIT": "500",
     "DO_NOT_THROTTLE_USER": "artem@ottofeller.com"
 })]
-pub async fn cron(_secrets: &HashMap<String, String>) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn cron(
+    _secrets: &HashMap<String, String>,
+    _queues: &HashMap<String, SendMessageFluentBuilder>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let config = aws_config::load_defaults(BehaviorVersion::latest()).await;
     let db_client = Client::new(&config);
     let table = env("TABLE_NAME")?;

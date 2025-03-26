@@ -237,10 +237,23 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
                     secrets.insert(name.into(), secret_value.to_string());
                 }}
 
+                println!(\"Provisioning queues\");
+                let mut queues = std::collections::HashMap::new();
+
+                for (k, v) in std::env::vars() {{
+                    if k.starts_with(\"KINETICS_QUEUE_\") {{
+                        let queue_client = aws_sdk_sqs::Client::new(&config)
+                            .send_message()
+                            .queue_url(v);
+
+                        queues.insert(k.replace(\"KINETICS_QUEUE_\", \"\"), queue_client);
+                    }}
+                }}
+
                 println!(\"Serving requests\");
 
                 run(service_fn(|event| async {{
-                    match {rust_function_name}(event, &secrets).await {{
+                    match {rust_function_name}(event, &secrets, &queues).await {{
                         Ok(response) => Ok(response),
                         Err(err) => {{
                             eprintln!(\"Error occurred while handling request: {{:?}}\", err);
@@ -296,10 +309,23 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
                         secrets.insert(name.into(), secret_value.to_string());
                     }}
 
+                    println!(\"Provisioning queues\");
+                    let mut queues = std::collections::HashMap::new();
+
+                    for (k, v) in std::env::vars() {{
+                        if k.starts_with(\"KINETICS_QUEUE_\") {{
+                            let queue_client = aws_sdk_sqs::Client::new(&config)
+                                .send_message()
+                                .queue_url(v);
+
+                            queues.insert(k.replace(\"KINETICS_QUEUE_\", \"\"), queue_client);
+                        }}
+                    }}
+
                     println!(\"Serving requests\");
 
                     run(service_fn(|event| async {{
-                        match {rust_function_name}(event, &secrets).await {{
+                        match {rust_function_name}(event, &secrets, &queues).await {{
                             Ok(response) => Ok(response),
                             Err(err) => {{
                                 eprintln!(\"Error occurred while handling request: {{:?}}\", err);
@@ -355,10 +381,23 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
                         secrets.insert(name.into(), secret_value.to_string());
                     }}
 
+                    println!(\"Provisioning queues\");
+                    let mut queues = std::collections::HashMap::new();
+
+                    for (k, v) in std::env::vars() {{
+                        if k.starts_with(\"KINETICS_QUEUE_\") {{
+                            let queue_client = aws_sdk_sqs::Client::new(&config)
+                                .send_message()
+                                .queue_url(v);
+
+                            queues.insert(k.replace(\"KINETICS_QUEUE_\", \"\"), queue_client);
+                        }}
+                    }}
+
                     println!(\"Serving requests\");
 
                     run(service_fn(|_event: LambdaEvent<EventBridgeEvent<serde_json::Value>>| async {{
-                        match cron(&secrets).await {{
+                        match cron(&secrets, &queues).await {{
                             Ok(()) => Ok(()),
                             Err(err) => {{
                                 eprintln!(\"Error occurred while handling request: {{:?}}\", err);
@@ -413,6 +452,7 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
             Role::Worker(params) => {
                 let mut queue_table = toml_edit::Table::new();
                 queue_table["name"] = toml_edit::value(&name);
+                queue_table["alias"] = toml_edit::value(&params.queue_alias.clone().unwrap());
                 queue_table["concurrency"] = toml_edit::value(params.concurrency as i64);
                 queue_table["fifo"] = toml_edit::value(params.fifo);
 
@@ -425,6 +465,10 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
             Role::Endpoint(params) => {
                 let mut endpoint_table = toml_edit::Table::new();
                 endpoint_table["url_path"] = toml_edit::value(&params.url_path);
+
+                endpoint_table["queues"] = toml_edit::value(
+                    &serde_json::to_string(&params.queues.clone().unwrap_or(vec![])).unwrap(),
+                );
 
                 // Update function table with endpoint configuration
                 // Function table has been created above
@@ -475,6 +519,11 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
         .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
         .as_table_mut()
         .map(|t| t.insert("version", toml_edit::value("1.59.0")));
+
+    doc["dependencies"]["aws-sdk-sqs"]
+        .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+        .as_table_mut()
+        .map(|t| t.insert("version", toml_edit::value("1.62.0")));
 
     if let Some(tokio_dep) = doc["dependencies"]["tokio"]
         .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))

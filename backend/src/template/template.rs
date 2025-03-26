@@ -1,7 +1,7 @@
 use crate::config::config as build_config;
 use crate::stack::Stack;
 use crate::template::{Crate, Function, Secret};
-use crate::Resource;
+use crate::{Queue, Resource};
 use aws_config::BehaviorVersion;
 use eyre::{ContextCompat, Ok, WrapErr};
 use serde_json::{json, Value};
@@ -273,26 +273,37 @@ impl Template {
 
         let secrets_names: Vec<String> = secrets.iter().map(|s| s.unique_name()).collect();
 
+        // URLs of the SQS queues
+        let mut queues: Vec<Queue> = vec![];
+
+        for function in template
+            .functions
+            .clone()
+            .iter()
+            .filter(|f| f.role().unwrap() == "worker")
+        {
+            let resources = template
+                .worker(&function, &secrets_names)
+                .wrap_err("Failed to build worker template")?;
+
+            for resource in resources.clone().0 {
+                template.add_resource(resource);
+            }
+
+            queues.push(resources.1);
+        }
+
         for function in template.functions.clone() {
             if function.role()? == "endpoint" {
-                for resource in template.endpoint(&function, &secrets_names)? {
+                for resource in template.endpoint(&function, &secrets_names, &queues)? {
                     template.add_resource(resource);
                 }
             }
 
             if function.role()? == "cron" {
                 for resource in template
-                    .cron(&function, &secrets_names)
+                    .cron(&function, &secrets_names, &queues)
                     .wrap_err("Failed to build cron template")?
-                {
-                    template.add_resource(resource);
-                }
-            }
-
-            if function.role()? == "worker" {
-                for resource in template
-                    .worker(&function, &secrets_names)
-                    .wrap_err("Failed to build worker template")?
                 {
                     template.add_resource(resource);
                 }
@@ -319,7 +330,7 @@ impl Template {
     /// Policy statements to allow a function to access a resource
     ///
     /// Current all functions in a crate have access to all resources. Including secrets.
-    fn policies(&self, secrets: &[String]) -> Vec<Value> {
+    fn policies(&self, secrets: &[String], queues: &Vec<Queue>) -> Vec<Value> {
         let mut template = Vec::new();
 
         for resource in self.crat.resources.iter() {
@@ -354,6 +365,26 @@ impl Template {
                     }
                 }))
             }
+        }
+
+        for queue in queues.iter() {
+            let queue_cfn_name = queue.clone().cfn_name.unwrap();
+
+            template.push(json!({
+                "PolicyName": format!("QueuePolicy{}", queue_cfn_name),
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [{
+                        "Effect": "Allow",
+                        "Action": [
+                            "sqs:SendMessage",
+                        ],
+                        "Resource": {
+                            "Fn::GetAtt": [queue_cfn_name, "Arn"]
+                        }
+                    }]
+                }
+            }))
         }
 
         let account_id = self.account_id.clone();
@@ -391,7 +422,12 @@ impl Template {
     }
 
     /// Define environment variables for a function
-    fn environment(&self, function: &Function, secrets: &[String]) -> eyre::Result<Value> {
+    fn environment(
+        &self,
+        function: &Function,
+        secrets: &[String],
+        queues: &Vec<Queue>,
+    ) -> eyre::Result<Value> {
         let raw = function.environment()?;
         let raw = raw.as_table().unwrap().clone();
 
@@ -418,14 +454,27 @@ impl Template {
             Value::String(self.username.clone()),
         );
 
+        for queue in queues {
+            variables.insert(
+                format!("KINETICS_QUEUE_{}", queue.alias),
+                json!({"Ref": queue.cfn_name}),
+            );
+        }
+
         Ok(json!({"Variables": variables}))
     }
 
     /// CFN template for a REST endpoint function — a function itself and its role
     ///
     /// The "secrets" argument is a list of AWS secrets names.
-    fn endpoint(&self, function: &Function, secrets: &[String]) -> eyre::Result<Vec<CfnResource>> {
-        let mut policies = self.policies(secrets);
+    fn endpoint(
+        &self,
+        function: &Function,
+        secrets: &[String],
+        queues: &Vec<Queue>,
+    ) -> eyre::Result<Vec<CfnResource>> {
+        let mut policies = self.policies(secrets, queues);
+
         policies.push(json!({
             "PolicyName": "AppendToLogsPolicy",
             "PolicyDocument": {
@@ -442,7 +491,7 @@ impl Template {
             }
         }));
         let name = self.prefixed(vec![&function.name()?]);
-        let environment = self.environment(function, secrets)?;
+        let environment = self.environment(function, secrets, queues)?;
         let bucket = self.bucket.clone();
         let username = self.username.clone();
         let Function { s3key, .. } = function;
@@ -472,10 +521,10 @@ impl Template {
                                 "S3Bucket": bucket,
                                 "S3Key": s3key
                             },
-                           "Tags": [{
-                               "Key": "KINETICS_USERNAME",
-                               "Value": username
-                           }]
+                            "Tags": [{
+                                "Key": "KINETICS_USERNAME",
+                                "Value": username
+                            }]
                         }
                 }),
             },
@@ -495,7 +544,11 @@ impl Template {
                             }]
                         },
                         "Path": "/",
-                        "Policies": policies
+                        "Policies": policies,
+                        "Tags": [{
+                            "Key": "KINETICS_USERNAME",
+                            "Value": username
+                        }]
                     }
                 }),
             },
@@ -525,13 +578,17 @@ impl Template {
     }
 
     /// CFN template for a worker function
-    fn worker(&self, function: &Function, secrets: &[String]) -> eyre::Result<Vec<CfnResource>> {
+    fn worker(
+        &self,
+        function: &Function,
+        secrets: &[String],
+    ) -> eyre::Result<(Vec<CfnResource>, Queue)> {
         let name = self.prefixed(vec![&function.name()?]);
-        let environment = self.environment(function, secrets)?;
+        let environment = self.environment(function, secrets, &vec![])?;
         let bucket = self.bucket.clone();
         let username = self.username.clone();
+        let mut policies = self.policies(secrets, &vec![]);
 
-        let mut policies = self.policies(secrets);
         policies.extend([
             json!({
                 "PolicyName": "AppendToLogsPolicy",
@@ -572,103 +629,114 @@ impl Template {
             }),
         ]);
 
-        let queue = function
+        let mut queue = function
             .resources()
             .iter()
             .find_map(|r| match r {
                 Resource::Queue(queue) => Some(queue),
                 _ => None,
             })
-            .wrap_err("No queue resource found in Cargo.toml")?;
+            .wrap_err("No queue resource found in Cargo.toml")?
+            .to_owned();
 
-        Ok(vec![
-            CfnResource {
-                name: format!("Worker{name}"),
-                resource: json!({
-                    "Type": "AWS::Lambda::Function",
-                    "Properties": {
-                        "FunctionName": name,
-                        "Handler": "bootstrap",
-                        "Runtime": "provided.al2023",
-                        "Environment": environment,
-                        "Role": {
-                            "Fn::GetAtt": [
-                                format!("WorkerRole{name}"),
-                                "Arn"
+        queue.cfn_name = Some(format!("WorkerQueue{name}"));
+
+        Ok((
+            vec![
+                CfnResource {
+                    name: format!("Worker{name}"),
+                    resource: json!({
+                        "Type": "AWS::Lambda::Function",
+                        "Properties": {
+                            "FunctionName": name,
+                            "Handler": "bootstrap",
+                            "Runtime": "provided.al2023",
+                            "Environment": environment,
+                            "Role": {
+                                "Fn::GetAtt": [
+                                    format!("WorkerRole{name}"),
+                                    "Arn"
+                                ]
+                            },
+                            "MemorySize": 128,
+                            "Timeout": 3,
+                            "Code": {
+                                "S3Bucket": bucket,
+                                "S3Key": function.s3key
+                            },
+                            "Tags": [
+                                {"Key": "KINETICS_USERNAME", "Value": username},
                             ]
-                        },
-                        "MemorySize": 128,
-                        "Timeout": 3,
-                        "Code": {
-                            "S3Bucket": bucket,
-                            "S3Key": function.s3key
-                        },
-                        "Tags": [{
-                            "Key": "KINETICS_USERNAME",
-                            "Value": username
-                        }]
-                    }
-                }),
-            },
-            CfnResource {
-                name: format!("WorkerRole{name}"),
-                resource: json!({
-                    "Type": "AWS::IAM::Role",
-                    "Properties": {
-                        "AssumeRolePolicyDocument": {
-                            "Version": "2012-10-17",
-                            "Statement": [{
-                                "Effect": "Allow",
-                                "Principal": {
-                                    "Service": ["lambda.amazonaws.com"]
-                                },
-                                "Action": ["sts:AssumeRole"]
-                            }]
-                        },
-                        "Path": "/",
-                        "Policies": policies
-                    }
-                }),
-            },
-            CfnResource {
-                name: format!("WorkerQueue{name}"),
-                resource: json!({
-                    "Type": "AWS::SQS::Queue",
-                    "Properties": {
-                        "QueueName": self.prefixed(vec![&queue.name]),
-                        "VisibilityTimeout": 60,
-                        "MaximumMessageSize": 2048,
-                        "MessageRetentionPeriod": 345600,
-                        "ReceiveMessageWaitTimeSeconds": 20
-                    }
-                }),
-            },
-            CfnResource {
-                name: format!("WorkerQueueEventSourceMapping{name}"),
-                resource: json!({
-                    "Type": "AWS::Lambda::EventSourceMapping",
-                    "Properties": {
-                        "EventSourceArn": {
-                            "Fn::GetAtt": [
-                                format!("WorkerQueue{name}"),
-                                "Arn"
-                            ]
-                        },
-                        "FunctionName": {"Ref": format!("Worker{name}")},
-                        "ScalingConfig": {"MaximumConcurrency": queue.concurrency}
-                    }
-                }),
-            },
-        ])
+                        }
+                    }),
+                },
+                CfnResource {
+                    name: format!("WorkerRole{name}"),
+                    resource: json!({
+                        "Type": "AWS::IAM::Role",
+                        "Properties": {
+                            "AssumeRolePolicyDocument": {
+                                "Version": "2012-10-17",
+                                "Statement": [{
+                                    "Effect": "Allow",
+                                    "Principal": {
+                                        "Service": ["lambda.amazonaws.com"]
+                                    },
+                                    "Action": ["sts:AssumeRole"]
+                                }]
+                            },
+                            "Path": "/",
+                            "Policies": policies
+                        }
+                    }),
+                },
+                CfnResource {
+                    name: queue.cfn_name.clone().unwrap(),
+
+                    resource: json!({
+                        "Type": "AWS::SQS::Queue",
+                        "Properties": {
+                            "QueueName": self.prefixed(vec![&queue.name]),
+                            "VisibilityTimeout": 60,
+                            "MaximumMessageSize": 2048,
+                            "MessageRetentionPeriod": 345600,
+                            "ReceiveMessageWaitTimeSeconds": 20,
+                        }
+                    }),
+                },
+                CfnResource {
+                    name: format!("WorkerQueueEventSourceMapping{name}"),
+                    resource: json!({
+                        "Type": "AWS::Lambda::EventSourceMapping",
+                        "Properties": {
+                            "EventSourceArn": {
+                                "Fn::GetAtt": [
+                                    format!("WorkerQueue{name}"),
+                                    "Arn"
+                                ]
+                            },
+                            "FunctionName": {"Ref": format!("Worker{name}")},
+                            "ScalingConfig": {"MaximumConcurrency": queue.concurrency}
+                        }
+                    }),
+                },
+            ],
+            queue.to_owned(),
+        ))
     }
 
     /// CFN template for a worker function
-    fn cron(&self, function: &Function, secrets: &[String]) -> eyre::Result<Vec<CfnResource>> {
+    fn cron(
+        &self,
+        function: &Function,
+        secrets: &[String],
+        queues: &Vec<Queue>,
+    ) -> eyre::Result<Vec<CfnResource>> {
         let name = self.prefixed(vec![&function.name()?]);
-        let environment = self.environment(function, secrets)?;
+        let environment = self.environment(function, secrets, queues)?;
         let bucket = self.bucket.clone();
         let username = self.username.clone();
-        let mut policies = self.policies(secrets);
+        let mut policies = self.policies(secrets, queues);
 
         policies.extend([json!({
             "PolicyName": "AppendToLogsPolicy",

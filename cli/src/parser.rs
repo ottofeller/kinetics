@@ -49,6 +49,7 @@ pub(crate) struct Endpoint {
     pub(crate) name: Option<String>,
     pub(crate) url_path: String,
     pub(crate) environment: Environment,
+    pub(crate) queues: Option<Vec<String>>,
 }
 
 #[derive(Debug)]
@@ -61,6 +62,7 @@ pub(crate) struct Cron {
 #[derive(Debug)]
 pub(crate) struct Worker {
     pub(crate) name: Option<String>,
+    pub(crate) queue_alias: Option<String>,
     pub(crate) concurrency: i16,
     pub(crate) fifo: bool,
     pub(crate) environment: Environment,
@@ -70,6 +72,7 @@ impl Default for Worker {
     fn default() -> Self {
         Worker {
             name: None,
+            queue_alias: None,
             concurrency: 1,
             fifo: false,
             environment: Environment::new(),
@@ -126,6 +129,17 @@ impl Parser {
                     "environment" => {
                         endpoint.environment = self.parse_environment(input)?;
                     }
+                    "queues" => {
+                        let content;
+                        syn::bracketed!(content in input);
+                        let queue_list = content.parse::<LitStr>()?.value();
+
+                        // Remove square brackets and quotes
+                        let queue_list =
+                            queue_list.trim_matches(|c| c == '[' || c == ']' || c == '"');
+
+                        endpoint.queues = Some(vec![queue_list.to_string()]);
+                    }
                     // Ignore unknown attributes
                     _ => {}
                 }
@@ -150,6 +164,9 @@ impl Parser {
                 match ident.to_string().as_str() {
                     "name" => {
                         worker.name = Some(input.parse::<LitStr>()?.value());
+                    }
+                    "queue_alias" => {
+                        worker.queue_alias = Some(input.parse::<LitStr>()?.value());
                     }
                     "environment" => {
                         worker.environment = self.parse_environment(input)?;
