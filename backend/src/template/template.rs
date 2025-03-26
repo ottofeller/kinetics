@@ -411,7 +411,12 @@ impl Template {
     }
 
     /// Define environment variables for a function
-    fn environment(&self, function: &Function, secrets: &[String]) -> eyre::Result<Value> {
+    fn environment(
+        &self,
+        function: &Function,
+        secrets: &[String],
+        queues: &Vec<Queue>,
+    ) -> eyre::Result<Value> {
         let raw = function.environment()?;
         let raw = raw.as_table().unwrap().clone();
 
@@ -437,6 +442,13 @@ impl Template {
             "KINETICS_USERNAME".into(),
             Value::String(self.username.clone()),
         );
+
+        for queue in queues {
+            variables.insert(
+                format!("KINETICS_QUEUE_{}", queue.alias),
+                json!({"Ref": queue.cfn_name}),
+            );
+        }
 
         Ok(json!({"Variables": variables}))
     }
