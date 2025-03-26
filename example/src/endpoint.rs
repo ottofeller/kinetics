@@ -1,16 +1,18 @@
 use aws_sdk_dynamodb::types::AttributeValue::S;
 use aws_sdk_dynamodb::Client;
+use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, RequestExt, Response};
 use std::collections::HashMap;
 
 #[endpoint(
-    url_path = "/some",
+    url_path = "/endpoint",
     environment = {"DEFAULT_NAME": "John"},
 )]
 pub async fn endpoint(
     event: Request,
     secrets: &HashMap<String, String>,
+    queues: &HashMap<String, SendMessageFluentBuilder>,
 ) -> Result<Response<Body>, Error> {
     let default = String::from("Nobody");
     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
@@ -20,6 +22,19 @@ pub async fn endpoint(
         std::env::vars().collect::<HashMap<_, _>>()
     );
     println!("Secrets: {secrets:?}");
+    println!("Queues: {queues:?}");
+
+    queues["example_worker"]
+        .clone()
+        .message_body("Test message")
+        .send()
+        .await?;
+
+    queues["example_worker"]
+        .clone()
+        .message_body("Another test message")
+        .send()
+        .await?;
 
     client
         .put_item()

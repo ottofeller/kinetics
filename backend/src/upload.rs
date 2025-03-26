@@ -3,6 +3,7 @@ use crate::json;
 use crate::{auth::session::Session, env::env};
 use aws_sdk_s3::presigning::PresigningConfig;
 use aws_sdk_s3::Client;
+use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use eyre::Context;
 use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, Response};
@@ -37,6 +38,7 @@ use std::collections::HashMap;
 pub async fn upload(
     event: Request,
     _secrets: &HashMap<String, String>,
+    _queues: &HashMap<String, SendMessageFluentBuilder>,
 ) -> Result<Response<Body>, Error> {
     let session = Session::new(&event, &env("TABLE_NAME")?).await;
 
