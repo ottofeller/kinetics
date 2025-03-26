@@ -527,7 +527,11 @@ impl Template {
                             }]
                         },
                         "Path": "/",
-                        "Policies": policies
+                        "Policies": policies,
+                        "Tags": [{
+                            "Key": "KINETICS_USERNAME",
+                            "Value": username
+                        }]
                     }
                 }),
             },
