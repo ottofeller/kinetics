@@ -515,6 +515,11 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
         .as_table_mut()
         .map(|t| t.insert("version", toml_edit::value("1.59.0")));
 
+    doc["dependencies"]["aws-sdk-sqs"]
+        .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+        .as_table_mut()
+        .map(|t| t.insert("version", toml_edit::value("1.62.0")));
+
     if let Some(tokio_dep) = doc["dependencies"]["tokio"]
         .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
         .as_table_mut()
