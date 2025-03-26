@@ -467,8 +467,14 @@ impl Template {
     /// CFN template for a REST endpoint function — a function itself and its role
     ///
     /// The "secrets" argument is a list of AWS secrets names.
-    fn endpoint(&self, function: &Function, secrets: &[String]) -> eyre::Result<Vec<CfnResource>> {
-        let mut policies = self.policies(secrets);
+    fn endpoint(
+        &self,
+        function: &Function,
+        secrets: &[String],
+        queues: &Vec<Queue>,
+    ) -> eyre::Result<Vec<CfnResource>> {
+        let mut policies = self.policies(secrets, queues);
+
         policies.push(json!({
             "PolicyName": "AppendToLogsPolicy",
             "PolicyDocument": {
@@ -485,7 +491,7 @@ impl Template {
             }
         }));
         let name = self.prefixed(vec![&function.name()?]);
-        let environment = self.environment(function, secrets)?;
+        let environment = self.environment(function, secrets, queues)?;
         let bucket = self.bucket.clone();
         let username = self.username.clone();
         let Function { s3key, .. } = function;
@@ -572,13 +578,17 @@ impl Template {
     }
 
     /// CFN template for a worker function
-    fn worker(&self, function: &Function, secrets: &[String]) -> eyre::Result<Vec<CfnResource>> {
+    fn worker(
+        &self,
+        function: &Function,
+        secrets: &[String],
+    ) -> eyre::Result<(Vec<CfnResource>, Queue)> {
         let name = self.prefixed(vec![&function.name()?]);
-        let environment = self.environment(function, secrets)?;
+        let environment = self.environment(function, secrets, &vec![])?;
         let bucket = self.bucket.clone();
         let username = self.username.clone();
+        let mut policies = self.policies(secrets, &vec![]);
 
-        let mut policies = self.policies(secrets);
         policies.extend([
             json!({
                 "PolicyName": "AppendToLogsPolicy",
@@ -619,103 +629,114 @@ impl Template {
             }),
         ]);
 
-        let queue = function
+        let mut queue = function
             .resources()
             .iter()
             .find_map(|r| match r {
                 Resource::Queue(queue) => Some(queue),
                 _ => None,
             })
-            .wrap_err("No queue resource found in Cargo.toml")?;
+            .wrap_err("No queue resource found in Cargo.toml")?
+            .to_owned();
 
-        Ok(vec![
-            CfnResource {
-                name: format!("Worker{name}"),
-                resource: json!({
-                    "Type": "AWS::Lambda::Function",
-                    "Properties": {
-                        "FunctionName": name,
-                        "Handler": "bootstrap",
-                        "Runtime": "provided.al2023",
-                        "Environment": environment,
-                        "Role": {
-                            "Fn::GetAtt": [
-                                format!("WorkerRole{name}"),
-                                "Arn"
+        queue.cfn_name = Some(format!("WorkerQueue{name}"));
+
+        Ok((
+            vec![
+                CfnResource {
+                    name: format!("Worker{name}"),
+                    resource: json!({
+                        "Type": "AWS::Lambda::Function",
+                        "Properties": {
+                            "FunctionName": name,
+                            "Handler": "bootstrap",
+                            "Runtime": "provided.al2023",
+                            "Environment": environment,
+                            "Role": {
+                                "Fn::GetAtt": [
+                                    format!("WorkerRole{name}"),
+                                    "Arn"
+                                ]
+                            },
+                            "MemorySize": 128,
+                            "Timeout": 3,
+                            "Code": {
+                                "S3Bucket": bucket,
+                                "S3Key": function.s3key
+                            },
+                            "Tags": [
+                                {"Key": "KINETICS_USERNAME", "Value": username},
                             ]
-                        },
-                        "MemorySize": 128,
-                        "Timeout": 3,
-                        "Code": {
-                            "S3Bucket": bucket,
-                            "S3Key": function.s3key
-                        },
-                        "Tags": [{
-                            "Key": "KINETICS_USERNAME",
-                            "Value": username
-                        }]
-                    }
-                }),
-            },
-            CfnResource {
-                name: format!("WorkerRole{name}"),
-                resource: json!({
-                    "Type": "AWS::IAM::Role",
-                    "Properties": {
-                        "AssumeRolePolicyDocument": {
-                            "Version": "2012-10-17",
-                            "Statement": [{
-                                "Effect": "Allow",
-                                "Principal": {
-                                    "Service": ["lambda.amazonaws.com"]
-                                },
-                                "Action": ["sts:AssumeRole"]
-                            }]
-                        },
-                        "Path": "/",
-                        "Policies": policies
-                    }
-                }),
-            },
-            CfnResource {
-                name: format!("WorkerQueue{name}"),
-                resource: json!({
-                    "Type": "AWS::SQS::Queue",
-                    "Properties": {
-                        "QueueName": self.prefixed(vec![&queue.name]),
-                        "VisibilityTimeout": 60,
-                        "MaximumMessageSize": 2048,
-                        "MessageRetentionPeriod": 345600,
-                        "ReceiveMessageWaitTimeSeconds": 20
-                    }
-                }),
-            },
-            CfnResource {
-                name: format!("WorkerQueueEventSourceMapping{name}"),
-                resource: json!({
-                    "Type": "AWS::Lambda::EventSourceMapping",
-                    "Properties": {
-                        "EventSourceArn": {
-                            "Fn::GetAtt": [
-                                format!("WorkerQueue{name}"),
-                                "Arn"
-                            ]
-                        },
-                        "FunctionName": {"Ref": format!("Worker{name}")},
-                        "ScalingConfig": {"MaximumConcurrency": queue.concurrency}
-                    }
-                }),
-            },
-        ])
+                        }
+                    }),
+                },
+                CfnResource {
+                    name: format!("WorkerRole{name}"),
+                    resource: json!({
+                        "Type": "AWS::IAM::Role",
+                        "Properties": {
+                            "AssumeRolePolicyDocument": {
+                                "Version": "2012-10-17",
+                                "Statement": [{
+                                    "Effect": "Allow",
+                                    "Principal": {
+                                        "Service": ["lambda.amazonaws.com"]
+                                    },
+                                    "Action": ["sts:AssumeRole"]
+                                }]
+                            },
+                            "Path": "/",
+                            "Policies": policies
+                        }
+                    }),
+                },
+                CfnResource {
+                    name: queue.cfn_name.clone().unwrap(),
+
+                    resource: json!({
+                        "Type": "AWS::SQS::Queue",
+                        "Properties": {
+                            "QueueName": self.prefixed(vec![&queue.name]),
+                            "VisibilityTimeout": 60,
+                            "MaximumMessageSize": 2048,
+                            "MessageRetentionPeriod": 345600,
+                            "ReceiveMessageWaitTimeSeconds": 20,
+                        }
+                    }),
+                },
+                CfnResource {
+                    name: format!("WorkerQueueEventSourceMapping{name}"),
+                    resource: json!({
+                        "Type": "AWS::Lambda::EventSourceMapping",
+                        "Properties": {
+                            "EventSourceArn": {
+                                "Fn::GetAtt": [
+                                    format!("WorkerQueue{name}"),
+                                    "Arn"
+                                ]
+                            },
+                            "FunctionName": {"Ref": format!("Worker{name}")},
+                            "ScalingConfig": {"MaximumConcurrency": queue.concurrency}
+                        }
+                    }),
+                },
+            ],
+            queue.to_owned(),
+        ))
     }
 
     /// CFN template for a worker function
-    fn cron(&self, function: &Function, secrets: &[String]) -> eyre::Result<Vec<CfnResource>> {
+    fn cron(
+        &self,
+        function: &Function,
+        secrets: &[String],
+        queues: &Vec<Queue>,
+    ) -> eyre::Result<Vec<CfnResource>> {
         let name = self.prefixed(vec![&function.name()?]);
-        let environment = self.environment(function, secrets)?;
+        let environment = self.environment(function, secrets, queues)?;
         let bucket = self.bucket.clone();
         let username = self.username.clone();
-        let mut policies = self.policies(secrets);
+        let mut policies = self.policies(secrets, queues);
 
         policies.extend([json!({
             "PolicyName": "AppendToLogsPolicy",
