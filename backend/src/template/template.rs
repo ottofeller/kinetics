@@ -504,10 +504,10 @@ impl Template {
                                 "S3Bucket": bucket,
                                 "S3Key": s3key
                             },
-                           "Tags": [{
-                               "Key": "KINETICS_USERNAME",
-                               "Value": username
-                           }]
+                            "Tags": [{
+                                "Key": "KINETICS_USERNAME",
+                                "Value": username
+                            }]
                         }
                 }),
             },
