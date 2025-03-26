@@ -49,6 +49,7 @@ pub(crate) struct Endpoint {
     pub(crate) name: Option<String>,
     pub(crate) url_path: String,
     pub(crate) environment: Environment,
+    pub(crate) queues: Option<Vec<String>>,
 }
 
 #[derive(Debug)]
@@ -127,6 +128,17 @@ impl Parser {
                     }
                     "environment" => {
                         endpoint.environment = self.parse_environment(input)?;
+                    }
+                    "queues" => {
+                        let content;
+                        syn::bracketed!(content in input);
+                        let queue_list = content.parse::<LitStr>()?.value();
+
+                        // Remove square brackets and quotes
+                        let queue_list =
+                            queue_list.trim_matches(|c| c == '[' || c == ']' || c == '"');
+
+                        endpoint.queues = Some(vec![queue_list.to_string()]);
                     }
                     // Ignore unknown attributes
                     _ => {}
