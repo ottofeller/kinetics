@@ -1,7 +1,7 @@
 use crate::config::config as build_config;
 use crate::stack::Stack;
 use crate::template::{Crate, Function, Secret};
-use crate::Resource;
+use crate::{Queue, Resource};
 use aws_config::BehaviorVersion;
 use eyre::{ContextCompat, Ok, WrapErr};
 use serde_json::{json, Value};
@@ -273,26 +273,37 @@ impl Template {
 
         let secrets_names: Vec<String> = secrets.iter().map(|s| s.unique_name()).collect();
 
+        // URLs of the SQS queues
+        let mut queues: Vec<Queue> = vec![];
+
+        for function in template
+            .functions
+            .clone()
+            .iter()
+            .filter(|f| f.role().unwrap() == "worker")
+        {
+            let resources = template
+                .worker(&function, &secrets_names)
+                .wrap_err("Failed to build worker template")?;
+
+            for resource in resources.clone().0 {
+                template.add_resource(resource);
+            }
+
+            queues.push(resources.1);
+        }
+
         for function in template.functions.clone() {
             if function.role()? == "endpoint" {
-                for resource in template.endpoint(&function, &secrets_names)? {
+                for resource in template.endpoint(&function, &secrets_names, &queues)? {
                     template.add_resource(resource);
                 }
             }
 
             if function.role()? == "cron" {
                 for resource in template
-                    .cron(&function, &secrets_names)
+                    .cron(&function, &secrets_names, &queues)
                     .wrap_err("Failed to build cron template")?
-                {
-                    template.add_resource(resource);
-                }
-            }
-
-            if function.role()? == "worker" {
-                for resource in template
-                    .worker(&function, &secrets_names)
-                    .wrap_err("Failed to build worker template")?
                 {
                     template.add_resource(resource);
                 }
