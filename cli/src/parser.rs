@@ -61,6 +61,7 @@ pub(crate) struct Cron {
 #[derive(Debug)]
 pub(crate) struct Worker {
     pub(crate) name: Option<String>,
+    pub(crate) queue_alias: Option<String>,
     pub(crate) concurrency: i16,
     pub(crate) fifo: bool,
     pub(crate) environment: Environment,
@@ -70,6 +71,7 @@ impl Default for Worker {
     fn default() -> Self {
         Worker {
             name: None,
+            queue_alias: None,
             concurrency: 1,
             fifo: false,
             environment: Environment::new(),
@@ -150,6 +152,9 @@ impl Parser {
                 match ident.to_string().as_str() {
                     "name" => {
                         worker.name = Some(input.parse::<LitStr>()?.value());
+                    }
+                    "queue_alias" => {
+                        worker.queue_alias = Some(input.parse::<LitStr>()?.value());
                     }
                     "environment" => {
                         worker.environment = self.parse_environment(input)?;
