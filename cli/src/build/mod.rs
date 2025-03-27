@@ -1,18 +1,16 @@
+mod filehash;
 mod parser;
 pub mod pipeline;
 mod templates;
 use crate::crat::Crate;
 use eyre::Context;
+use filehash::FileHash;
 use parser::{ParsedFunction, Parser, Role};
 use regex::Regex;
-use std::collections::HashMap;
-use std::fs::{self, File};
-use std::hash::Hasher;
-use std::io::Read;
+use std::fs::{self};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use syn::visit::Visit;
-use twox_hash::XxHash64;
 use walkdir::WalkDir;
 
 /// Parses source code and prepares crates for deployment
@@ -446,61 +444,6 @@ pub fn func_name(parsed_function: &ParsedFunction) -> String {
         .name()
         .unwrap_or(&default_func_name)
         .to_string()
-}
-
-/// Stores files hashes on the disk to avoid rebuilding on unchanged files.
-/// NOTE: `cargo lambda` rebuilds crate if file timestamp changed.
-struct FileHash {
-    path: PathBuf,
-    inner: HashMap<PathBuf, String>,
-}
-
-impl FileHash {
-    fn new(dst: PathBuf) -> Self {
-        let path = dst.join(".checksums");
-
-        // Relative path -> hash of the file
-        let checksums: HashMap<PathBuf, String> = {
-            match fs::read_to_string(&path) {
-                Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
-                Err(_) => HashMap::new(),
-            }
-        };
-
-        FileHash {
-            inner: checksums,
-            path,
-        }
-    }
-
-    fn save(&self) -> eyre::Result<()> {
-        Ok(fs::write(
-            &self.path,
-            serde_json::to_string_pretty(&self.inner)?,
-        )?)
-    }
-
-    fn hash_from_path<P: AsRef<Path>>(path: P) -> eyre::Result<String> {
-        let mut file = File::open(path).wrap_err("Failed to open file")?;
-        let mut hasher = XxHash64::default();
-        let mut buffer = [0; 8192];
-
-        loop {
-            let bytes_read = file.read(&mut buffer)?;
-            if bytes_read == 0 {
-                break;
-            }
-            hasher.write(&buffer[..bytes_read]);
-        }
-
-        Ok(format!("{:x}", hasher.finish()))
-    }
-
-    fn hash_from_bytes<C: AsRef<[u8]>>(contents: C) -> eyre::Result<String> {
-        let mut hasher = XxHash64::default();
-        hasher.write(contents.as_ref());
-        Ok(format!("{:x}", hasher.finish()))
-    }
 }
 
 /// Check the checksum of a file before write to ensure it hasn't changed
