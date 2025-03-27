@@ -134,14 +134,13 @@ impl Parser {
                         syn::bracketed!(content in input);
                         let queue_list = content.parse::<LitStr>()?.value();
 
-                        // Remove square brackets and quotes
-                        let queue_list =
-                            queue_list.trim_matches(|c| c == '[' || c == ']' || c == '"');
-
                         endpoint.queues = Some(
                             queue_list
+                                // Remove square brackets
+                                .trim_matches(|c| c == '[' || c == ']')
                                 .split(',')
-                                .map(|i| i.trim().to_string())
+                                // Remove whitespaces and quotes per item
+                                .map(|i| i.trim().trim_matches('"').to_string())
                                 .collect::<Vec<String>>(),
                         );
                     }
