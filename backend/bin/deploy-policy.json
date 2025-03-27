@@ -30,6 +30,8 @@
         "lambda:UpdateFunctionConfiguration",
         "lambda:ListTags",
         "lambda:TagResource",
+        "lambda:GetEventSourceMapping",
+        "lambda:PutFunctionConcurrency",
         "s3:GetObject",
         "cloudfront:*",
         "dynamodb:DescribeTable",
@@ -42,7 +44,17 @@
         "acm:DeleteCertificate",
         "logs:CreateLogGroup",
         "logs:CreateLogStream",
-        "logs:PutLogEvents"
+        "logs:PutLogEvents",
+        "events:DescribeRule",
+        "events:PutRule",
+        "events:PutTargets",
+        "sqs:*",
+        "lambda:CreateEventSourceMapping",
+        "lambda:CreateEventSourceMapping",
+        "lambda:GetEventSourceMapping",
+        "lambda:UntagResource",
+        "iam:UntagRole",
+        "iam:TagRole"
       ],
       "Resource": "*",
       "Effect": "Allow"
