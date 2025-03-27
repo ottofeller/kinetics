@@ -79,10 +79,7 @@ If you have any issues, please contact us at support@usekinetics.com.
 
 ## Documentation
 
-All configuration can be done through attribute macro parameters, or through modifications to existing `Cargo.toml` file in your project.
-
-> [!TIP]
-> All types of workloads support environment variables. These can be changed **without redeploying** (this feature is WIP).
+All configuration can be done through attribute macro parameters, or through modifications to existing `Cargo.toml` file in your project. All types of workloads support environment variables. These can be changed **without redeploying** (this feature is WIP).
 
 #### Endpoint
 The following attribute macro parameters are available:
