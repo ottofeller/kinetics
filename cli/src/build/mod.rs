@@ -44,7 +44,7 @@ pub fn prepare_crates(
         // Path example: /home/some-user/.kinetics/<crate-name>/<function-name>/<rust-function-name>
         let dst = dst
             .join(&current_crate.name)
-            .join(func_name(&parsed_function));
+            .join(&parsed_function.func_name());
 
         let src = &current_crate.path;
         clone(src, &dst)?;
@@ -228,7 +228,7 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
             Role::Worker(_) => "worker",
         };
 
-        let name = func_name(parsed_function);
+        let name = parsed_function.func_name();
 
         // Create a function table for both roles
         let mut function_table = toml_edit::Table::new();
@@ -414,36 +414,6 @@ fn cleanup(dst: &Path) -> eyre::Result<()> {
     }
 
     Ok(())
-}
-
-/// Generate lambda function name out of Rust function name or macro attribute
-///
-/// By default use the Rust function plus crate path as the function name. Convert
-/// some-name to SomeName, and do other transformations in order to comply with Lambda
-/// function name requirements.
-pub fn func_name(parsed_function: &ParsedFunction) -> String {
-    let rust_name = &parsed_function.rust_function_name;
-    let full_path = format!("{}/{rust_name}", parsed_function.relative_path);
-
-    let default_func_name = full_path
-        .as_str()
-        .replace("_", "Undrscr")
-        .replace("_", "Dash")
-        .split(&['.', '/'])
-        .filter(|s| !s.eq(&"rs"))
-        .map(|s| match s.chars().next() {
-            Some(first) => first.to_uppercase().collect::<String>() + &s[1..],
-            None => String::new(),
-        })
-        .collect::<String>()
-        .replacen("Src", "", 1);
-
-    // TODO Check the name for uniqueness
-    parsed_function
-        .role
-        .name()
-        .unwrap_or(&default_func_name)
-        .to_string()
 }
 
 /// Check the checksum of a file before write to ensure it hasn't changed
