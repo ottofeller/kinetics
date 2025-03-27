@@ -138,7 +138,12 @@ impl Parser {
                         let queue_list =
                             queue_list.trim_matches(|c| c == '[' || c == ']' || c == '"');
 
-                        endpoint.queues = Some(vec![queue_list.to_string()]);
+                        endpoint.queues = Some(
+                            queue_list
+                                .split(',')
+                                .map(|i| i.trim().to_string())
+                                .collect::<Vec<String>>(),
+                        );
                     }
                     // Ignore unknown attributes
                     _ => {}
