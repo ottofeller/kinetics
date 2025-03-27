@@ -19,11 +19,6 @@ pub async fn endpoint(
 }
 ```
 
-And then:
-```bash
-cargo kinetics deploy
-```
-
 ## Features
 
 🦀 **Only Rust code required**
@@ -55,42 +50,31 @@ REST API endpoints are served through a Content Delivery Network (CDN).
 Check out complete ready-to-use [examples](https://github.com/kinetics-dev/examples). There are examples for REST API endpoints, queue workers, and cron jobs.
 
 ## Try it
-The service is currently free for the first **100,000 invocations** of your functions, regardless of the type of workload.
-
-> [!WARNING]
-> Kinetics is currently in active development and may contain bugs or result in unexpected behavior.
-
-1. Install
 ```bash
+# 1. Install
 cargo install kinetics
-```
-2. Login
-```bash
+
+# 2. Login
 cargo kinetics login <email>
-```
-3. Apply one of attribute macro
-```rust
-// Add this to the function you want to deploy as REST API endpoint
-#[endpoint()]
-```
-4. Deploy
-```bash
+
+# 3. Apply one of attribute macro
+# E.g. add #[endpoint()] to your function
+
+# 4. Deploy
 # Run in the dir of your crate
 cargo kinetics deploy
-```
-5. Test it with `curl`
-```
+
+# 5. Test it with curl
 curl <URL from cargo kinetics deploy>
 ```
+
+Kinetics is currently in ⚠️ **active development** and may contain bugs or result in unexpected behavior. The service is free for the first **100,000 invocations** of your functions, regardless of the type of workload.
 
 If you have any issues, please contact us at support@usekinetics.com.
 
 ## Documentation
 
-All configuration can be done through attribute macro parameters, or through modifications to existing `Cargo.toml` file in your project.
-
-> [!TIP]
-> All types of workloads support environment variables. These can be changed **without redeploying** (this feature is WIP).
+All configuration can be done through attribute macro parameters, or through modifications to existing `Cargo.toml` file in your project. All types of workloads support environment variables. These can be changed **without redeploying** (this feature is WIP).
 
 #### Endpoint
 The following attribute macro parameters are available:
