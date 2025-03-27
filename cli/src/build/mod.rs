@@ -16,7 +16,7 @@ use walkdir::WalkDir;
 /// Parses source code and prepares crates for deployment
 /// Stores crates inside target_directory and returns list of created paths
 pub fn prepare_crates(
-    target_directory: PathBuf,
+    dst: PathBuf,
     current_crate: Crate,
 ) -> eyre::Result<Vec<PathBuf>> {
     let mut result: Vec<PathBuf> = vec![];
@@ -42,7 +42,7 @@ pub fn prepare_crates(
     for parsed_function in parser.functions {
         // Function name is parsed value from kinetics_macro name attribute
         // Path example: /home/some-user/.kinetics/<crate-name>/<function-name>/<rust-function-name>
-        let dst = target_directory
+        let dst = dst
             .join(&current_crate.name)
             .join(func_name(&parsed_function));
 
