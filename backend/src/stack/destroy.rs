@@ -16,27 +16,6 @@ pub struct JsonBody {
     pub crate_name: String,
 }
 
-/*
-Permissions:
-{
-    "Action": [
-        "cloudfront:*",
-        "sqs:*",
-        "cloudformation:DeleteStack",
-        "lambda:RemovePermission",
-        "lambda:DeleteEventSourceMapping",
-        "lambda:GetEventSourceMapping",
-        "lambda:DeleteFunction",
-        "lambda:DeleteFunctionUrlConfig",
-        "dynamodb:DescribeTable",
-        "dynamodb:DeleteTAble",
-        "iam:DeleteRolePolicy",
-        "iam:DeleteRole"
-    ],
-    "Resource": "*",
-    "Effect": "Allow"
-}
-*/
 #[endpoint(url_path = "/stack/destroy", environment = {
     "TABLE_NAME": "kinetics",
 })]
