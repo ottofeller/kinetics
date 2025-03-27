@@ -1,5 +1,7 @@
+mod parser;
+pub mod pipeline;
 use crate::crat::Crate;
-use crate::parser::{ParsedFunction, Role};
+use parser::{ParsedFunction, Role, Parser};
 use eyre::Context;
 use regex::Regex;
 use std::collections::HashMap;
@@ -21,7 +23,7 @@ pub fn prepare_crates(
     let mut result: Vec<PathBuf> = vec![];
 
     // Parse functions from source code
-    let mut parser = crate::parser::Parser::new();
+    let mut parser = Parser::new();
 
     for entry in WalkDir::new(&current_crate.path)
         .into_iter()
