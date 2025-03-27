@@ -10,7 +10,7 @@ stack_name="$kinetics_username_escaped-$crate_name"
 aws iam put-role-policy \
     --role-name $(aws cloudformation describe-stack-resource \
         --stack-name $stack_name \
-        --logical-resource-id "EndpointRole${kinetics_username_escaped}DbackendDDeployDeploy" | \
+        --logical-resource-id "EndpointRole${kinetics_username_escaped}DbackendDStackDeployDeploy" | \
         jq -r .StackResourceDetail.PhysicalResourceId) \
     --policy-name DeployResourcesPolicy \
     --policy-document file://$dir/deploy-policy.json
@@ -18,7 +18,7 @@ aws iam put-role-policy \
 aws iam put-role-policy \
     --role-name $(aws cloudformation describe-stack-resource \
         --stack-name $stack_name \
-        --logical-resource-id "EndpointRoleDbackendDUploadUpload" | \
+        --logical-resource-id "EndpointRole${kinetics_username_escaped}DbackendDUploadUpload" | \
         jq -r .StackResourceDetail.PhysicalResourceId) \
     --policy-name UploadLoggingPolicy \
     --policy-document file://$dir/upload-policy.json
