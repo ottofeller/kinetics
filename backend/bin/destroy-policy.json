@@ -3,18 +3,18 @@
   "Statement": [
     {
       "Action": [
-        "cloudfront:*",
-        "sqs:*",
         "cloudformation:DeleteStack",
-        "lambda:RemovePermission",
+        "cloudfront:*",
+        "dynamodb:DeleteTAble",
+        "dynamodb:DescribeTable",
+        "iam:DeleteRole",
+        "iam:DeleteRolePolicy",
         "lambda:DeleteEventSourceMapping",
-        "lambda:GetEventSourceMapping",
         "lambda:DeleteFunction",
         "lambda:DeleteFunctionUrlConfig",
-        "dynamodb:DescribeTable",
-        "dynamodb:DeleteTAble",
-        "iam:DeleteRolePolicy",
-        "iam:DeleteRole"
+        "lambda:GetEventSourceMapping",
+        "lambda:RemovePermission",
+        "sqs:*"
       ],
       "Resource": "*",
       "Effect": "Allow"

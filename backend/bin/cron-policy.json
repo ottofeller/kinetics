@@ -3,12 +3,12 @@
   "Statement": [
     {
       "Action": [
+        "cloudwatch:GetMetricStatistics",
+        "lambda:PutFunctionConcurrency",
         "logs:CreateLogGroup",
         "logs:CreateLogStream",
         "logs:PutLogEvents",
-        "cloudwatch:GetMetricStatistics",
-        "tag:GetResources",
-        "lambda:PutFunctionConcurrency"
+        "tag:GetResources"
       ],
       "Resource": "*",
       "Effect": "Allow"
