@@ -19,6 +19,34 @@ pub(crate) struct ParsedFunction {
     pub(crate) role: Role,
 }
 
+impl ParsedFunction {
+    /// Generate lambda function name out of Rust function name or macro attribute
+    ///
+    /// By default use the Rust function plus crate path as the function name. Convert
+    /// some-name to SomeName, and do other transformations in order to comply with Lambda
+    /// function name requirements.
+    pub fn func_name(&self) -> String {
+        let rust_name = &self.rust_function_name;
+        let full_path = format!("{}/{rust_name}", self.relative_path);
+
+        let default_func_name = full_path
+            .as_str()
+            .replace("_", "Undrscr")
+            .replace("_", "Dash")
+            .split(&['.', '/'])
+            .filter(|s| !s.eq(&"rs"))
+            .map(|s| match s.chars().next() {
+                Some(first) => first.to_uppercase().collect::<String>() + &s[1..],
+                None => String::new(),
+            })
+            .collect::<String>()
+            .replacen("Src", "", 1);
+
+        // TODO Check the name for uniqueness
+        self.role.name().unwrap_or(&default_func_name).to_string()
+    }
+}
+
 #[derive(Debug)]
 pub(crate) enum Role {
     Endpoint(Endpoint),

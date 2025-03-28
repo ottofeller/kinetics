@@ -1,27 +1,28 @@
+mod filehash;
+mod parser;
+pub mod pipeline;
+mod templates;
 use crate::crat::Crate;
-use crate::parser::{ParsedFunction, Role};
 use eyre::Context;
+use filehash::FileHash;
+use parser::{ParsedFunction, Parser, Role};
 use regex::Regex;
-use std::collections::HashMap;
-use std::fs::{self, File};
-use std::hash::Hasher;
-use std::io::Read;
+use std::fs::{self};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use syn::visit::Visit;
-use twox_hash::XxHash64;
 use walkdir::WalkDir;
 
 /// Parses source code and prepares crates for deployment
 /// Stores crates inside target_directory and returns list of created paths
 pub fn prepare_crates(
-    target_directory: PathBuf,
+    dst: PathBuf,
     current_crate: Crate,
 ) -> eyre::Result<Vec<PathBuf>> {
     let mut result: Vec<PathBuf> = vec![];
 
     // Parse functions from source code
-    let mut parser = crate::parser::Parser::new();
+    let mut parser = Parser::new();
 
     for entry in WalkDir::new(&current_crate.path)
         .into_iter()
@@ -41,9 +42,9 @@ pub fn prepare_crates(
     for parsed_function in parser.functions {
         // Function name is parsed value from kinetics_macro name attribute
         // Path example: /home/some-user/.kinetics/<crate-name>/<function-name>/<rust-function-name>
-        let dst = target_directory
+        let dst = dst
             .join(&current_crate.name)
-            .join(func_name(&parsed_function));
+            .join(&parsed_function.func_name());
 
         let src = &current_crate.path;
         clone(src, &dst)?;
@@ -193,222 +194,9 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
     let rust_function_name = parsed_function.rust_function_name.clone();
 
     let new_main_code = match &parsed_function.role {
-        Role::Endpoint(_) => {
-            format!(
-                "{import_statement}
-            use lambda_http::{{run, service_fn}};\n\
-            #[tokio::main]\n\
-            async fn main() -> Result<(), lambda_http::Error> {{\n\
-                let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-                println!(\"Fetching secrets\");
-                let secrets_client = aws_sdk_ssm::Client::new(&config);
-                let secrets_names_env = \"KINETICS_SECRETS_NAMES\";
-                let mut secrets = std::collections::HashMap::new();
-
-                for secret_name in std::env::var(secrets_names_env)?
-                    .split(\",\")
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                {{
-                    let desc = secrets_client
-                        .get_parameter()
-                        .name(secret_name.clone())
-                        .with_decryption(true)
-                        .send()
-                        .await?;
-
-                    let result = desc.parameter.unwrap();
-
-                    let tags = secrets_client
-                        .list_tags_for_resource()
-                        .resource_type(aws_sdk_ssm::types::ResourceTypeForTagging::Parameter)
-                        .resource_id(secret_name.clone())
-                        .send()
-                        .await?
-                        .tag_list
-                        .unwrap_or_default();
-
-                    let name = match tags.iter().find(|t| t.key() == \"original_name\") {{
-                        Some(tag) => tag.value(),
-                        None => &secret_name.clone(),
-                    }};
-
-                    let secret_value = result.value().unwrap();
-                    secrets.insert(name.into(), secret_value.to_string());
-                }}
-
-                println!(\"Provisioning queues\");
-                let mut queues = std::collections::HashMap::new();
-
-                for (k, v) in std::env::vars() {{
-                    if k.starts_with(\"KINETICS_QUEUE_\") {{
-                        let queue_client = aws_sdk_sqs::Client::new(&config)
-                            .send_message()
-                            .queue_url(v);
-
-                        queues.insert(k.replace(\"KINETICS_QUEUE_\", \"\"), queue_client);
-                    }}
-                }}
-
-                println!(\"Serving requests\");
-
-                run(service_fn(|event| async {{
-                    match {rust_function_name}(event, &secrets, &queues).await {{
-                        Ok(response) => Ok(response),
-                        Err(err) => {{
-                            eprintln!(\"Error occurred while handling request: {{:?}}\", err);
-                            Err(err)
-                        }}
-                    }}
-                }})).await
-            }}\n\n"
-            )
-        }
-        Role::Worker(_) => {
-            format!(
-                "{import_statement}
-                use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
-                use aws_lambda_events::{{sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
-                #[tokio::main]\n\
-                async fn main() -> Result<(), Error> {{\n\
-                    let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-                    println!(\"Provisioning secrets\");
-                    let secrets_client = aws_sdk_ssm::Client::new(&config);
-                    let secrets_names_env = \"KINETICS_SECRETS_NAMES\";
-                    let mut secrets = std::collections::HashMap::new();
-
-                    for secret_name in std::env::var(secrets_names_env)?
-                        .split(\",\")
-                        .map(|s| s.trim().to_string())
-                        .filter(|s| !s.is_empty())
-                    {{
-                        let desc = secrets_client
-                            .get_parameter()
-                            .name(secret_name.clone())
-                            .with_decryption(true)
-                            .send()
-                            .await?;
-
-                        let result = desc.parameter.unwrap();
-
-                        let tags = secrets_client
-                            .list_tags_for_resource()
-                            .resource_type(aws_sdk_ssm::types::ResourceTypeForTagging::Parameter)
-                            .resource_id(secret_name.clone())
-                            .send()
-                            .await?
-                            .tag_list
-                            .unwrap_or_default();
-
-                        let name = match tags.iter().find(|t| t.key() == \"original_name\") {{
-                            Some(tag) => tag.value(),
-                            None => &secret_name.clone(),
-                        }};
-
-                        let secret_value = result.value().unwrap();
-                        secrets.insert(name.into(), secret_value.to_string());
-                    }}
-
-                    println!(\"Provisioning queues\");
-                    let mut queues = std::collections::HashMap::new();
-
-                    for (k, v) in std::env::vars() {{
-                        if k.starts_with(\"KINETICS_QUEUE_\") {{
-                            let queue_client = aws_sdk_sqs::Client::new(&config)
-                                .send_message()
-                                .queue_url(v);
-
-                            queues.insert(k.replace(\"KINETICS_QUEUE_\", \"\"), queue_client);
-                        }}
-                    }}
-
-                    println!(\"Serving requests\");
-
-                    run(service_fn(|event| async {{
-                        match {rust_function_name}(event, &secrets, &queues).await {{
-                            Ok(response) => Ok(response),
-                            Err(err) => {{
-                                eprintln!(\"Error occurred while handling request: {{:?}}\", err);
-                                Err(err)
-                            }}
-                        }}
-                    }})).await
-                }}\n\n"
-            )
-        }
-        Role::Cron(_) => {
-            format!(
-                "{import_statement}
-                use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
-                use aws_lambda_events::eventbridge::EventBridgeEvent;\n\
-                #[tokio::main]\n\
-                async fn main() -> Result<(), Error> {{\n\
-                    let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-                    println!(\"Provisioning secrets\");
-                    let secrets_client = aws_sdk_ssm::Client::new(&config);
-                    let secrets_names_env = \"KINETICS_SECRETS_NAMES\";
-                    let mut secrets = std::collections::HashMap::new();
-
-                    for secret_name in std::env::var(secrets_names_env)?
-                        .split(\",\")
-                        .map(|s| s.trim().to_string())
-                        .filter(|s| !s.is_empty())
-                    {{
-                        let desc = secrets_client
-                            .get_parameter()
-                            .name(secret_name.clone())
-                            .with_decryption(true)
-                            .send()
-                            .await?;
-
-                        let result = desc.parameter.unwrap();
-
-                        let tags = secrets_client
-                            .list_tags_for_resource()
-                            .resource_type(aws_sdk_ssm::types::ResourceTypeForTagging::Parameter)
-                            .resource_id(secret_name.clone())
-                            .send()
-                            .await?
-                            .tag_list
-                            .unwrap_or_default();
-
-                        let name = match tags.iter().find(|t| t.key() == \"original_name\") {{
-                            Some(tag) => tag.value(),
-                            None => &secret_name.clone(),
-                        }};
-
-                        let secret_value = result.value().unwrap();
-                        secrets.insert(name.into(), secret_value.to_string());
-                    }}
-
-                    println!(\"Provisioning queues\");
-                    let mut queues = std::collections::HashMap::new();
-
-                    for (k, v) in std::env::vars() {{
-                        if k.starts_with(\"KINETICS_QUEUE_\") {{
-                            let queue_client = aws_sdk_sqs::Client::new(&config)
-                                .send_message()
-                                .queue_url(v);
-
-                            queues.insert(k.replace(\"KINETICS_QUEUE_\", \"\"), queue_client);
-                        }}
-                    }}
-
-                    println!(\"Serving requests\");
-
-                    run(service_fn(|_event: LambdaEvent<EventBridgeEvent<serde_json::Value>>| async {{
-                        match cron(&secrets, &queues).await {{
-                            Ok(()) => Ok(()),
-                            Err(err) => {{
-                                eprintln!(\"Error occurred while handling request: {{:?}}\", err);
-                                Err(err)
-                            }}
-                        }}
-                    }}))
-                    .await
-                }}\n\n"
-            )
-        }
+        Role::Endpoint(_) => templates::endpoint(&import_statement, &rust_function_name),
+        Role::Worker(_) => templates::worker(&import_statement, &rust_function_name),
+        Role::Cron(_) => templates::cron(&import_statement, &rust_function_name),
     };
 
     let item: syn::File = syn::parse_str(&new_main_code)?;
@@ -440,7 +228,7 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
             Role::Worker(_) => "worker",
         };
 
-        let name = func_name(parsed_function);
+        let name = parsed_function.func_name();
 
         // Create a function table for both roles
         let mut function_table = toml_edit::Table::new();
@@ -626,91 +414,6 @@ fn cleanup(dst: &Path) -> eyre::Result<()> {
     }
 
     Ok(())
-}
-
-/// Generate lambda function name out of Rust function name or macro attribute
-///
-/// By default use the Rust function plus crate path as the function name. Convert
-/// some-name to SomeName, and do other transformations in order to comply with Lambda
-/// function name requirements.
-pub fn func_name(parsed_function: &ParsedFunction) -> String {
-    let rust_name = &parsed_function.rust_function_name;
-    let full_path = format!("{}/{rust_name}", parsed_function.relative_path);
-
-    let default_func_name = full_path
-        .as_str()
-        .replace("_", "Undrscr")
-        .replace("_", "Dash")
-        .split(&['.', '/'])
-        .filter(|s| !s.eq(&"rs"))
-        .map(|s| match s.chars().next() {
-            Some(first) => first.to_uppercase().collect::<String>() + &s[1..],
-            None => String::new(),
-        })
-        .collect::<String>()
-        .replacen("Src", "", 1);
-
-    // TODO Check the name for uniqueness
-    parsed_function
-        .role
-        .name()
-        .unwrap_or(&default_func_name)
-        .to_string()
-}
-
-/// Stores files hashes on the disk to avoid rebuilding on unchanged files.
-/// NOTE: `cargo lambda` rebuilds crate if file timestamp changed.
-struct FileHash {
-    path: PathBuf,
-    inner: HashMap<PathBuf, String>,
-}
-
-impl FileHash {
-    fn new(dst: PathBuf) -> Self {
-        let path = dst.join(".checksums");
-
-        // Relative path -> hash of the file
-        let checksums: HashMap<PathBuf, String> = {
-            match fs::read_to_string(&path) {
-                Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
-                Err(_) => HashMap::new(),
-            }
-        };
-
-        FileHash {
-            inner: checksums,
-            path,
-        }
-    }
-
-    fn save(&self) -> eyre::Result<()> {
-        Ok(fs::write(
-            &self.path,
-            serde_json::to_string_pretty(&self.inner)?,
-        )?)
-    }
-
-    fn hash_from_path<P: AsRef<Path>>(path: P) -> eyre::Result<String> {
-        let mut file = File::open(path).wrap_err("Failed to open file")?;
-        let mut hasher = XxHash64::default();
-        let mut buffer = [0; 8192];
-
-        loop {
-            let bytes_read = file.read(&mut buffer)?;
-            if bytes_read == 0 {
-                break;
-            }
-            hasher.write(&buffer[..bytes_read]);
-        }
-
-        Ok(format!("{:x}", hasher.finish()))
-    }
-
-    fn hash_from_bytes<C: AsRef<[u8]>>(contents: C) -> eyre::Result<String> {
-        let mut hasher = XxHash64::default();
-        hasher.write(contents.as_ref());
-        Ok(format!("{:x}", hasher.finish()))
-    }
 }
 
 /// Check the checksum of a file before write to ensure it hasn't changed

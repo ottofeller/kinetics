@@ -6,14 +6,12 @@ mod deploy;
 mod destroy;
 mod function;
 mod login;
-mod parser;
-mod pipeline;
 mod secret;
 
+use crate::build::pipeline::Pipeline;
 use crate::build::prepare_crates;
 use crate::config::config;
 use crate::destroy::destroy;
-use crate::pipeline::Pipeline;
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use crat::Crate;
