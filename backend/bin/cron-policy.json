@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "cloudwatch:GetMetricStatistics",
+        "tag:GetResources",
+        "lambda:PutFunctionConcurrency"
+      ],
+      "Resource": "*",
+      "Effect": "Allow"
+    }
+  ]
+}

@@ -7,22 +7,6 @@ use eyre::Context;
 use kinetics_macro::cron;
 use std::collections::HashMap;
 
-// Permissions:
-// {
-//     "Action": [
-//         "logs:CreateLogGroup",
-//         "logs:CreateLogStream",
-//         "logs:PutLogEvents",
-//         "cloudwatch:GetMetricStatistics",
-//         "tag:GetResources",
-//         "lambda:PutFunctionConcurrency"
-//     ],
-//     "Resource": [
-//         "*",
-//     ],
-//     "Effect": "Allow"
-// }
-
 /// Bill users for usage
 ///
 /// Also block free users if they go over free tier.

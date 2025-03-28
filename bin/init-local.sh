@@ -73,3 +73,4 @@ fi
 source backend/local.env
 echo "Environment initialized successfully!"
 echo "KINETICS_API_BASE: $KINETICS_API_BASE"
+echo "[!] Make sure the stack has been deployed and run ./backend/bin/permissions.sh manually to apply the required permissions"

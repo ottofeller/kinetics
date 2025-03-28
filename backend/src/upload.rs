@@ -10,21 +10,6 @@ use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
 use std::collections::HashMap;
 
-// Permissions:
-// {
-//     "Action": [
-//         "logs:CreateLogGroup",
-//         "logs:CreateLogStream",
-//         "logs:PutLogEvents",
-//         "s3:PutObject"
-//     ],
-//     "Resource": [
-//         "*",
-//         "arn:aws:s3:::kinetics-rust-builds/*"
-//     ],
-//     "Effect": "Allow"
-// }
-
 /// Generate S3 presigned URL for upload
 #[endpoint(
     url_path = "/upload",
