@@ -171,12 +171,8 @@ pub struct PipelineBuilder {
 
 impl PipelineBuilder {
     pub fn build(self) -> eyre::Result<Pipeline> {
-        if self.crat.is_none() {
-            return Err(eyre!("No crate provided to the pipeline"));
-        }
-
         Ok(Pipeline {
-            crat: self.crat.unwrap(),
+            crat: self.crat.ok_or_eyre("No crate provided to the pipeline")?,
             is_deploy_enabled: self.is_deploy_enabled.unwrap_or(false),
             is_directly: self.is_directly.unwrap_or(false),
             max_concurrent: self.max_concurrent.unwrap_or(4),
@@ -268,7 +264,7 @@ impl Progress {
         function_name: &str,
     ) -> Self {
         let function_progress_bar =
-            multi_progress.insert_before(&total_progress_bar, ProgressBar::new_spinner());
+            multi_progress.insert_before(total_progress_bar, ProgressBar::new_spinner());
 
         function_progress_bar
             .set_style(ProgressStyle::default_spinner().template("{msg}").unwrap());

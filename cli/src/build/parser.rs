@@ -119,10 +119,7 @@ pub(crate) struct Parser {
 
 impl Parser {
     pub(crate) fn new() -> Self {
-        Self {
-            functions: Vec::new(),
-            relative_path: String::new(),
-        }
+        Default::default()
     }
 
     pub(crate) fn set_relative_path(&mut self, file_path: Option<&str>) {

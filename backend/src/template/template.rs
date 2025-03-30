@@ -283,7 +283,7 @@ impl Template {
             .filter(|f| f.role().unwrap() == "worker")
         {
             let resources = template
-                .worker(&function, &secrets_names)
+                .worker(function, &secrets_names)
                 .wrap_err("Failed to build worker template")?;
 
             for resource in resources.clone().0 {
@@ -330,7 +330,7 @@ impl Template {
     /// Policy statements to allow a function to access a resource
     ///
     /// Current all functions in a crate have access to all resources. Including secrets.
-    fn policies(&self, secrets: &[String], queues: &Vec<Queue>) -> Vec<Value> {
+    fn policies(&self, secrets: &[String], queues: &[Queue]) -> Vec<Value> {
         let mut template = Vec::new();
 
         for resource in self.crat.resources.iter() {
@@ -587,7 +587,7 @@ impl Template {
         let environment = self.environment(function, secrets, &vec![])?;
         let bucket = self.bucket.clone();
         let username = self.username.clone();
-        let mut policies = self.policies(secrets, &vec![]);
+        let mut policies = self.policies(secrets, &[]);
 
         policies.extend([
             json!({
