@@ -1,6 +1,7 @@
 use eyre::Context;
 use std::collections::HashMap;
 use std::fs::{self, File};
+use std::hash::Hash;
 use std::hash::Hasher;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -36,6 +37,16 @@ impl FileHash {
             &self.path,
             serde_json::to_string_pretty(&self.inner)?,
         )?)
+    }
+
+    /// Insert a value into the checksum map.
+    /// Returns:
+    /// - 'true' if the value was updated;
+    /// - 'false' is the value did not exist or existed but was not updated.
+    pub fn update(&mut self, path: PathBuf, new_hash: &str) -> bool {
+        self.inner
+            .insert(path, new_hash.to_owned())
+            .is_some_and(|old_hash| new_hash != old_hash)
     }
 
     pub fn hash_from_path<P: AsRef<Path>>(path: P) -> eyre::Result<String> {
