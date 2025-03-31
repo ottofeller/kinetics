@@ -1,7 +1,6 @@
 use eyre::Context;
 use std::collections::HashMap;
 use std::fs::{self, File};
-use std::hash::Hash;
 use std::hash::Hasher;
 use std::io::Read;
 use std::path::{Path, PathBuf};
