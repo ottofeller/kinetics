@@ -44,7 +44,7 @@ pub fn prepare_crates(
         // Path example: /home/some-user/.kinetics/<crate-name>/<function-name>/<rust-function-name>
         let dst = dst
             .join(&current_crate.name)
-            .join(&parsed_function.func_name());
+            .join(parsed_function.func_name());
 
         let src = &current_crate.path;
         clone(src, &dst)?;
@@ -240,7 +240,7 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
             Role::Worker(params) => {
                 let mut queue_table = toml_edit::Table::new();
                 queue_table["name"] = toml_edit::value(&name);
-                queue_table["alias"] = toml_edit::value(&params.queue_alias.clone().unwrap());
+                queue_table["alias"] = toml_edit::value(params.queue_alias.clone().unwrap());
                 queue_table["concurrency"] = toml_edit::value(params.concurrency as i64);
                 queue_table["fifo"] = toml_edit::value(params.fifo);
 
@@ -255,7 +255,7 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
                 endpoint_table["url_path"] = toml_edit::value(&params.url_path);
 
                 endpoint_table["queues"] = toml_edit::value(
-                    &serde_json::to_string(&params.queues.clone().unwrap_or(vec![])).unwrap(),
+                    serde_json::to_string(&params.queues.clone().unwrap_or(vec![])).unwrap(),
                 );
 
                 // Update function table with endpoint configuration

@@ -1,14 +1,14 @@
 use crate::Credentials;
 use chrono::Utc;
-use eyre::Context;
-use regex::Regex;
-use serde_json::json;
-use std::path::Path;
 use crossterm::{
     event::{self, Event, KeyCode},
     terminal::{disable_raw_mode, enable_raw_mode},
 };
+use eyre::Context;
+use regex::Regex;
+use serde_json::json;
 use std::io::{self, Write};
+use std::path::Path;
 
 /// Request auth code and exchange it for access token
 async fn request(email: &str) -> eyre::Result<Credentials> {
