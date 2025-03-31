@@ -19,10 +19,7 @@ pub async fn destroy(crat: &Crate) -> Result<()> {
         .read_line(&mut input)
         .wrap_err("Failed to read input")?;
 
-    let confirmed = match input.trim().to_lowercase().as_ref() {
-        "y" | "yes" => true,
-        _ => false,
-    };
+    let confirmed = matches!(input.trim().to_lowercase().as_ref(), "y" | "yes");
 
     if !confirmed {
         println!("{}", console::style("Destroying canceled").dim().bold());

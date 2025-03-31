@@ -49,5 +49,5 @@ pub async fn destroy(
         .send()
         .await?;
 
-    Ok(json::response(json!({"message": "Destroyed"}), Some(200))?)
+    json::response(json!({"message": "Destroyed"}), Some(200))
 }
