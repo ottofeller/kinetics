@@ -51,13 +51,13 @@ impl Pipeline {
                 let function_name = function.name()?;
 
                 let function_progress = pipeline_progress.new_progress(
-                    format!("{} ({})", function_name, function.path.display()).as_str(),
+                    format!("{}", function_name).as_str(),
                 );
 
                 function_progress.log_stage("Building");
 
                 function.build().await.map_err(|e| {
-                    function_progress.error();
+                    function_progress.error("Building");
                     e.wrap_err(format!("Failed to build function: \"{}\"", function_name))
                 })?;
 
@@ -70,7 +70,7 @@ impl Pipeline {
                 function_progress.log_stage("Bundling");
 
                 function.bundle().await.map_err(|e| {
-                    function_progress.error();
+                    function_progress.error("Bundling");
                     e.wrap_err(format!("Failed to bundle function: \"{}\"", function_name))
                 })?;
 
@@ -84,7 +84,7 @@ impl Pipeline {
                 )
                 .await
                 .map_err(|e| {
-                    function_progress.error();
+                    function_progress.error("Uploading");
                     e.wrap_err(format!("Failed to upload function: \"{}\"", function_name))
                 })?;
 
@@ -283,10 +283,10 @@ impl Progress {
         ));
     }
 
-    fn error(&self) {
+    fn error(&self, stage: &str) {
         self.progress_bar.finish_with_message(format!(
             "{} {}",
-            console::style(self.with_padding("Error")).red().bold(),
+            console::style(self.with_padding(stage)).red().bold(),
             self.resource_name,
         ));
     }
