@@ -153,7 +153,6 @@ pub async fn status(
             if status.contains("FAILED") {
                 if let Some(resource_type) = event.get("ResourceType").and_then(|t| t.as_str()) {
                     if resource_type != "AWS::CloudFormation::Stack" {
-                        println!("ERROR: {:?}", event.get("Reason"));
                         errors.push(event.get("Reason"));
                     }
                 }
