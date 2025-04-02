@@ -13,7 +13,7 @@ use std::collections::HashMap;
 
 #[derive(serde::Deserialize, Debug)]
 pub struct JsonBody {
-    pub stack_name: String,
+    pub name: String,
 }
 
 /*
@@ -64,7 +64,7 @@ pub async fn status(
         .await;
 
     let client = aws_sdk_cloudformation::Client::new(&config);
-    let stack = Stack::new(&session.username(true), &body.stack_name);
+    let stack = Stack::new(&session.username(true), &body.name);
     let mut next_token = None;
     let mut all_events = Vec::new();
     let mut start_event = None;
