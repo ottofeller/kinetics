@@ -16,23 +16,6 @@ pub struct JsonBody {
     pub name: String,
 }
 
-/*
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Action": [
-                "logs:CreateLogGroup",
-                "logs:CreateLogStream",
-                "logs:PutLogEvents",
-                "cloudformation:DescribeStackEvents"
-            ],
-            "Resource": "*",
-            "Effect": "Allow"
-        }
-    ]
-}
-*/
 #[endpoint(url_path = "/stack/status", environment = {
     "TABLE_NAME": "kinetics",
 })]
