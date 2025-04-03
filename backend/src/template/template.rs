@@ -516,7 +516,7 @@ impl Template {
                                 ]
                             },
                             "MemorySize": 256,
-                            "Timeout": 1,
+                            "Timeout": 3,
                             "Code": {
                                 "S3Bucket": bucket,
                                 "S3Key": s3key
