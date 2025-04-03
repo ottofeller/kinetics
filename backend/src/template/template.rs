@@ -858,12 +858,37 @@ impl Template {
         let capabilities = aws_sdk_cloudformation::types::Capability::CapabilityIam;
         let template_string = serde_json::to_string_pretty(&self.template)?;
 
+        // Upload template to S3 first
+        let config = aws_config::defaults(BehaviorVersion::v2025_01_17())
+            .load()
+            .await;
+
+        let s3_client = aws_sdk_s3::Client::new(&config);
+
+        let template_key = format!(
+            "templates/{}-{}-{}.json",
+            self.username_escaped,
+            self.crat.name,
+            chrono::Utc::now().format("%Y%m%d-%H%M%S-%3f")
+        );
+
+        s3_client
+            .put_object()
+            .bucket(&self.bucket)
+            .key(&template_key)
+            .body(template_string.into_bytes().into())
+            .send()
+            .await
+            .wrap_err("Failed to upload template to S3")?;
+
+        let template_url = format!("https://{}.s3.amazonaws.com/{}", self.bucket, template_key);
+
         if self.is_exists(&name).await? {
             self.client
                 .update_stack()
                 .capabilities(capabilities)
                 .stack_name(name)
-                .template_body(template_string)
+                .template_url(template_url)
                 .send()
                 .await
                 .wrap_err("Failed to update stack")?;
@@ -872,7 +897,7 @@ impl Template {
                 .create_stack()
                 .capabilities(capabilities)
                 .stack_name(name)
-                .template_body(template_string)
+                .template_url(template_url)
                 .send()
                 .await
                 .wrap_err("Failed to create stack")?;
