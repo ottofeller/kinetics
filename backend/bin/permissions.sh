@@ -38,3 +38,11 @@ aws iam put-role-policy \
         jq -r .StackResourceDetail.PhysicalResourceId) \
     --policy-name UploadLoggingPolicy \
     --policy-document file://$dir/upload-policy.json
+
+aws iam put-role-policy \
+    --role-name $(aws cloudformation describe-stack-resource \
+        --stack-name $stack_name \
+        --logical-resource-id "EndpointRole${kinetics_username_escaped}DbackendDStackStatusStatus" | \
+        jq -r .StackResourceDetail.PhysicalResourceId) \
+    --policy-name StatusPolicy \
+    --policy-document file://$dir/status-policy.json
