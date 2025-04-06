@@ -65,7 +65,7 @@ pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<Pa
 
 /// Clone the crate dir to a new directory
 fn clone(src: &Path, dst: &Path) -> eyre::Result<Crate> {
-    fs::create_dir_all(&dst).wrap_err("Failed to create dir to cole the crate")?;
+    fs::create_dir_all(&dst).wrap_err("Failed to create dir to clone the crate to")?;
     // Checksums of source files for preventing rewrite existing files
     let mut checksum = FileHash::new(dst.to_path_buf());
 
@@ -104,7 +104,7 @@ fn clone(src: &Path, dst: &Path) -> eyre::Result<Crate> {
             &FileHash::hash_from_path(src_path)
                 .wrap_err(format!("Failed to calculate hash for path {src_path:?}"))?,
         ) {
-            fs::copy(src_path, &dst_path).wrap_err("Copying file failed")?;
+            clean_copy(src_path, &dst_path, &mut checksum)?;
         }
     }
 
@@ -412,8 +412,9 @@ fn import_statement(
     Ok(import_statement)
 }
 
-/// Clean up scaffolding required for deploying a function
-fn _cleanup(dst: &Path) -> eyre::Result<()> {
+/// Delete the macro attributes from a file
+/// and copy it to the destination folder.
+fn clean_copy(src: &Path, dst: &Path, checksum: &mut FileHash) -> eyre::Result<()> {
     let re_endpoint = Regex::new(r"(?m)^\s*#\s*\[\s*endpoint[^]]*]\s*$")?;
     let re_cron = Regex::new(r"(?m)^\s*#\s*\[\s*cron[^]]*]\s*$")?;
     let re_worker = Regex::new(r"(?m)^\s*#\s*\[\s*worker[^]]*]\s*$")?;
@@ -422,26 +423,18 @@ fn _cleanup(dst: &Path) -> eyre::Result<()> {
         r"(?m)^\s*use\s+kinetics_macro(\s*::\s*(\w+|\{\s*\w+(\s*,\s*\w+)*\s*}))?\s*;\s*$",
     )?;
 
-    // Delete the macro attributes from everywhere in the crate
-    for entry in WalkDir::new(dst.join("src"))
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
-    {
-        let path = entry.path();
+    let mut content = fs::read_to_string(src).wrap_err(format!("Failed to read file {src:?}"))?;
 
-        if path.is_dir() {
-            continue;
-        }
-
-        let mut content =
-            fs::read_to_string(path).wrap_err(format!("Failed to read file {path:?}"))?;
-
-        content = re_endpoint.replace_all(&content, "").to_string();
-        content = re_worker.replace_all(&content, "").to_string();
-        content = re_cron.replace_all(&content, "").to_string();
-        let new_content = re_import.replace_all(&content, "");
-        _write_if_changed(path, new_content.as_ref())?;
+    content = re_endpoint.replace_all(&content, "").to_string();
+    content = re_worker.replace_all(&content, "").to_string();
+    content = re_cron.replace_all(&content, "").to_string();
+    let new_content = re_import.replace_all(&content, "").into_owned();
+    if checksum.update(
+        dst.to_path_buf(),
+        &FileHash::hash_from_bytes(&new_content)
+            .wrap_err(format!("Failed to calculate hash from bytes of {src:?}"))?,
+    ) {
+        fs::write(&dst, &new_content).wrap_err("Failed to write {dst:?}")?;
     }
 
     Ok(())
