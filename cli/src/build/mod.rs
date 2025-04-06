@@ -84,7 +84,8 @@ fn _clone(src: &Path, dst: &Path) -> eyre::Result<()> {
             continue;
         }
 
-        let new_hash = FileHash::hash_from_path(src_path).wrap_err("Failed to calculate hash")?;
+        let new_hash = FileHash::hash_from_path(src_path)
+            .wrap_err(format!("Failed to calculate hash for path {src_path:?}"))?;
 
         // If src file has been modified, copy it to the destination
         let old_hash = checksum
@@ -178,7 +179,6 @@ fn inject(
     )?;
 
     let rust_function_name = parsed_function.rust_function_name.clone();
-
     let new_main_code = match &parsed_function.role {
         Role::Endpoint(_) => templates::endpoint(&fn_import, &rust_function_name),
         Role::Worker(_) => templates::worker(&fn_import, &rust_function_name),
@@ -188,8 +188,9 @@ fn inject(
     let item: syn::File = syn::parse_str(&new_main_code)?;
     let main_rs_content = prettyplease::unparse(&item);
     if checksum.update(
-        main_rs_path.clone(),
-        &FileHash::hash_from_path(&main_rs_content).wrap_err("Failed to calculate hash")?,
+        main_rs_path.strip_prefix(dst)?.to_path_buf(),
+        &FileHash::hash_from_bytes(&main_rs_content)
+            .wrap_err(format!("Failed to calculate hash for bytes of main.rs"))?,
     ) {
         fs::write(&main_rs_path, &main_rs_content).wrap_err("Failed to write main.rs")?;
     }
@@ -326,8 +327,9 @@ fn inject(
 
     let doc_string = doc.to_string();
     if checksum.update(
-        target_cargo_path.clone(),
-        &FileHash::hash_from_path(&doc_string).wrap_err("Failed to calculate hash")?,
+        target_cargo_path.strip_prefix(dst)?.to_path_buf(),
+        &FileHash::hash_from_bytes(&doc_string)
+            .wrap_err(format!("Failed to calculate hash from bytes of Cargo.toml"))?,
     ) {
         fs::write(&target_cargo_path, &doc_string).wrap_err("Failed to write Cargo.toml")?;
     }
@@ -408,9 +410,8 @@ fn _cleanup(dst: &Path) -> eyre::Result<()> {
             continue;
         }
 
-        let mut content = fs::read_to_string(path)
-            .wrap_err(format!("Failed to read: {path:?}"))
-            .wrap_err("Failed to read file")?;
+        let mut content =
+            fs::read_to_string(path).wrap_err(format!("Failed to read file {path:?}"))?;
 
         content = re_endpoint.replace_all(&content, "").to_string();
         content = re_worker.replace_all(&content, "").to_string();

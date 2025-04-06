@@ -45,7 +45,7 @@ impl FileHash {
     pub fn update(&mut self, path: PathBuf, new_hash: &str) -> bool {
         self.inner
             .insert(path, new_hash.to_owned())
-            .is_some_and(|old_hash| new_hash != old_hash)
+            .is_none_or(|old_hash| new_hash != old_hash)
     }
 
     pub fn hash_from_path<P: AsRef<Path>>(path: P) -> eyre::Result<String> {
