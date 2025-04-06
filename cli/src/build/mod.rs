@@ -4,7 +4,7 @@ pub mod pipeline;
 mod templates;
 use crate::crat::Crate;
 use eyre::{eyre, Context};
-use filehash::FileHash;
+use filehash::{FileHash, CHECKSUMS_FILENAME};
 use parser::{ParsedFunction, Parser, Role};
 use regex::Regex;
 use std::fs::{self};
@@ -36,18 +36,26 @@ pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<Pa
         parser.visit_file(&syntax);
     }
 
+    // Clone user project into the build folder.
+    let project_path = dst.join(&current_crate.name);
+    let crate_clone = clone(&current_crate.path, &project_path.join("kinetics-clone"))?;
+
     for parsed_function in parser.functions {
         // Function name is parsed value from kinetics_macro name attribute
         // Path example: /home/some-user/.kinetics/<crate-name>/<function-name>/<rust-function-name>
-        let dst = dst
-            .join(&current_crate.name)
-            .join(parsed_function.func_name());
+        let dst = project_path.join(parsed_function.func_name());
         if !matches!(fs::exists(&dst), Ok(true)) {
             fs::create_dir_all(&dst).wrap_err("Failed to provision temp dir")?;
         }
 
         let src = &current_crate.path;
-        inject(src, &dst, &parsed_function, &current_crate)?;
+        inject(
+            src,
+            &dst,
+            &parsed_function,
+            &current_crate.name,
+            &crate_clone,
+        )?;
 
         result.push(dst);
     }
@@ -56,18 +64,24 @@ pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<Pa
 }
 
 /// Clone the crate dir to a new directory
-fn _clone(src: &Path, dst: &Path) -> eyre::Result<()> {
+fn clone(src: &Path, dst: &Path) -> eyre::Result<Crate> {
+    fs::create_dir_all(&dst).wrap_err("Failed to create dir to cole the crate")?;
     // Checksums of source files for preventing rewrite existing files
     let mut checksum = FileHash::new(dst.to_path_buf());
 
     // Skip source target from copying
     let src_target = src.join("target");
+    let src_cargo_path = src.join("Cargo.toml");
 
     for entry in WalkDir::new(src)
         .into_iter()
         .filter_map(|e| e.ok())
-        // Skip the target dir, cargo lambda use it (if exist) for incremental builds
-        .filter(|entry| !entry.path().starts_with(&src_target))
+        .filter(|entry| {
+            // Skip the target dir, cargo lambda use it (if exist) for incremental builds.
+            !entry.path().starts_with(&src_target)
+            // Skip Cargo.toml in order to handle it as a special case otside the loop.
+            && entry.path() != src_cargo_path
+        })
     {
         let src_path = entry.path();
 
@@ -84,25 +98,39 @@ fn _clone(src: &Path, dst: &Path) -> eyre::Result<()> {
             continue;
         }
 
-        let new_hash = FileHash::hash_from_path(src_path)
-            .wrap_err(format!("Failed to calculate hash for path {src_path:?}"))?;
-
         // If src file has been modified, copy it to the destination
-        let old_hash = checksum
-            .inner
-            // insert() returns the old value if it exists and updates it
-            .insert(src_relative.to_path_buf(), new_hash.clone())
-            .unwrap_or_default();
-
-        if new_hash != old_hash {
+        if checksum.update(
+            src_relative.to_path_buf(),
+            &FileHash::hash_from_path(src_path)
+                .wrap_err(format!("Failed to calculate hash for path {src_path:?}"))?,
+        ) {
             fs::copy(src_path, &dst_path).wrap_err("Copying file failed")?;
         }
     }
 
-    checksum.save().wrap_err("Failed to save checksums")?;
-    clear_dir(dst, &checksum, &[".checksums", "Cargo.lock", "src/main.rs"])?;
+    // Copy Cargo.toml with modifications
+    let mut doc: toml_edit::DocumentMut = fs::read_to_string(src_cargo_path)?.parse()?;
+    if let Some(deps_table) = doc["dependencies"].as_table_mut() {
+        deps_table.remove("kinetics-macro");
+    }
+    let dst_cargo_path = dst.join("Cargo.toml");
+    let doc_string = doc.to_string();
+    if checksum.update(
+        dst_cargo_path.strip_prefix(dst)?.to_path_buf(),
+        &FileHash::hash_from_bytes(&doc_string)
+            .wrap_err(format!("Failed to calculate hash from bytes of Cargo.toml"))?,
+    ) {
+        fs::write(&dst_cargo_path, &doc_string).wrap_err("Failed to write Cargo.toml")?;
+    }
 
-    Ok(())
+    checksum.save().wrap_err("Failed to save checksums")?;
+    clear_dir(
+        dst,
+        &checksum,
+        &[CHECKSUMS_FILENAME, "Cargo.lock", "src/main.rs"],
+    )?;
+
+    Crate::new(dst.to_path_buf())
 }
 
 /// Remove files that are not present in the source directory
@@ -128,12 +156,7 @@ fn clear_dir(dst: &Path, checksum: &FileHash, filter: &[&str]) -> eyre::Result<(
 
         if path.is_dir() {
             // Delete all folders except those known from file paths in .checksums.
-            if checksum
-                .inner
-                .iter()
-                .find_map(|(key, _hash)| key.strip_prefix(src_relative).ok())
-                .is_none()
-            {
+            if !checksum.has_folder(src_relative) {
                 println!("Remove obsolete folder {src_relative:?}");
 
                 fs::remove_dir_all(path).wrap_err(format!(
@@ -144,7 +167,7 @@ fn clear_dir(dst: &Path, checksum: &FileHash, filter: &[&str]) -> eyre::Result<(
         }
 
         // Delete files not in .checksums.
-        if !checksum.inner.contains_key(src_relative) {
+        if !checksum.has_file(src_relative) {
             fs::remove_file(path).wrap_err(format!(
                 "failed to delete an obsolete file {src_relative:?}"
             ))?;
@@ -161,7 +184,8 @@ fn inject(
     src: &Path,
     dst: &Path,
     parsed_function: &ParsedFunction,
-    crat: &Crate,
+    project_name: &str,
+    crate_clone: &Crate,
 ) -> eyre::Result<()> {
     let mut checksum = FileHash::new(dst.to_path_buf());
 
@@ -175,7 +199,7 @@ fn inject(
     let fn_import = import_statement(
         &parsed_function.relative_path,
         &parsed_function.rust_function_name,
-        &crat.name,
+        &crate_clone.name,
     )?;
 
     let rust_function_name = parsed_function.rust_function_name.clone();
@@ -197,7 +221,7 @@ fn inject(
 
     let mut doc: toml_edit::DocumentMut = fs::read_to_string(src.join("Cargo.toml"))?.parse()?;
 
-    doc["package"]["name"] = format!("{}-kinetics-build", crat.name).into();
+    doc["package"]["name"] = format!("{}-kinetics-build", project_name).into();
     if !doc.contains_array_of_tables("bin") {
         let mut aot = toml_edit::ArrayOfTables::new();
         let mut new_bin = toml_edit::Table::new();
@@ -319,8 +343,8 @@ fn inject(
     }
 
     let target_cargo_path = dst.join("Cargo.toml");
-    let crate_path = relative_path(dst, &crat.path)?;
-    doc["dependencies"][crat.name.clone()]
+    let crate_path = relative_path(dst, &crate_clone.path)?;
+    doc["dependencies"][crate_clone.name.clone()]
         .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
         .as_table_mut()
         .map(|t| t.insert("path", toml_edit::value(crate_path.to_str().unwrap())));
@@ -335,7 +359,7 @@ fn inject(
     }
 
     checksum.save().wrap_err("Failed to save checksums")?;
-    clear_dir(dst, &checksum, &[".checksums", "Cargo.lock"])?;
+    clear_dir(dst, &checksum, &[CHECKSUMS_FILENAME, "Cargo.lock"])?;
 
     Ok(())
 }

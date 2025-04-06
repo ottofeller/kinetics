@@ -6,6 +6,8 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use twox_hash::XxHash64;
 
+pub const CHECKSUMS_FILENAME: &str = ".checksums";
+
 /// Stores files hashes on the disk to avoid rebuilding on unchanged files.
 /// NOTE: `cargo lambda` rebuilds crate if file timestamp changed.
 pub struct FileHash {
@@ -15,7 +17,7 @@ pub struct FileHash {
 
 impl FileHash {
     pub fn new(dst: PathBuf) -> Self {
-        let path = dst.join(".checksums");
+        let path = dst.join(CHECKSUMS_FILENAME);
 
         // Relative path -> hash of the file
         let checksums: HashMap<PathBuf, String> = {
@@ -29,6 +31,17 @@ impl FileHash {
             inner: checksums,
             path,
         }
+    }
+
+    pub fn has_folder(&self, path: &Path) -> bool {
+        self.inner
+            .iter()
+            .find_map(|(key, _hash)| key.strip_prefix(path).ok())
+            .is_some()
+    }
+
+    pub fn has_file(&self, path: &Path) -> bool {
+        self.inner.contains_key(path)
     }
 
     pub fn save(&self) -> eyre::Result<()> {
