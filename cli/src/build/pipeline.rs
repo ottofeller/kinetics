@@ -77,9 +77,8 @@ impl Pipeline {
                 pipeline_progress.increase_current_function_position();
                 function_progress.log_stage("Uploading");
 
-                crate::deploy::upload(
+                function.upload(
                     &client.ok_or_eyre("Client must be initialized when deployment is enabled")?,
-                    &mut function,
                     &self.is_directly,
                 )
                 .await
