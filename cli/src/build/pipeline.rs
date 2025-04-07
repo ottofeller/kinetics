@@ -124,8 +124,6 @@ impl Pipeline {
             ));
         }
 
-        pipeline_progress.total_progress_bar.finish_and_clear();
-
         if !self.is_deploy_enabled {
             println!(
                 "    {} `{}` crate building in {:.2}s",
@@ -150,6 +148,14 @@ impl Pipeline {
             .wrap_err("Failed to deploy functions")?;
 
         deploying_progress.progress_bar.finish_and_clear();
+        let mut status = self.crat.status().await?;
+
+        while status.status == "IN_PROGRESS" {
+            status = self.crat.status().await?;
+        }
+
+        pipeline_progress.increase_current_function_position();
+        pipeline_progress.total_progress_bar.finish_and_clear();
 
         println!(
             "    {} `{}` crate deployed in {:.2}s",
