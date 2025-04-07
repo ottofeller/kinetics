@@ -139,7 +139,7 @@ impl Pipeline {
 
         let deploying_progress = pipeline_progress.new_progress(&self.crat.name);
 
-        deploying_progress.log_stage("Deploying");
+        deploying_progress.log_stage("Provisioning");
 
         // It's safe to unwrap here because the errors have already been caught
         let functions: Vec<_> = ok_results.drain(..).map(Result::unwrap).collect();
@@ -152,7 +152,7 @@ impl Pipeline {
         deploying_progress.progress_bar.finish_and_clear();
 
         println!(
-            "    {} `{}` crate deploying in {:.2}s",
+            "    {} `{}` crate deployed in {:.2}s",
             console::style("Finished").green().bold(),
             self.crat.name,
             start_time.elapsed().as_secs_f64(),
@@ -212,14 +212,16 @@ impl PipelineProgress {
     fn new(total_functions: u64) -> Self {
         let multi_progress = MultiProgress::new();
         let completed_functions_count = Arc::new(AtomicUsize::new(0));
-        let total_progress_bar = multi_progress.add(ProgressBar::new(total_functions));
+
+        // +1 for provisioning phase
+        let total_progress_bar = multi_progress.add(ProgressBar::new(total_functions + 1));
 
         total_progress_bar.set_style(
             ProgressStyle::default_bar()
                 .template(
                     format!(
-                        "    {} [{{bar:40}}] {{percent}}%",
-                        console::style("Building").cyan().bold()
+                        "   {} [{{bar:40}}] {{percent}}%",
+                        console::style("Deploying").cyan().bold()
                     )
                     .as_str(),
                 )
