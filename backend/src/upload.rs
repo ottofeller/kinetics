@@ -1,0 +1,70 @@
+use crate::config::config as build_config;
+use crate::json;
+use crate::{auth::session::Session, env::env};
+use aws_sdk_s3::presigning::PresigningConfig;
+use aws_sdk_s3::Client;
+use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
+use eyre::Context;
+use kinetics_macro::endpoint;
+use lambda_http::{Body, Error, Request, Response};
+use serde_json::json;
+use std::collections::HashMap;
+
+/// Generate S3 presigned URL for upload
+#[endpoint(
+    url_path = "/upload",
+    environment = {
+        "EXPIRES_IN_SECONDS": "60",
+        "TABLE_NAME": "kinetics",
+        "DANGER_DISABLE_AUTH": "false",
+        "S3_KEY_ENCRYPTION_KEY": "fjskoapgpsijtzp"
+    },
+)]
+pub async fn upload(
+    event: Request,
+    _secrets: &HashMap<String, String>,
+    _queues: &HashMap<String, SendMessageFluentBuilder>,
+) -> Result<Response<Body>, Error> {
+    let session = Session::new(&event, &env("TABLE_NAME")?).await;
+
+    if env("DANGER_DISABLE_AUTH")? == "false" && !session.as_ref().unwrap().is_valid() {
+        eprintln!("Not authorized");
+        return json::response(json!({"error": "Unauthorized"}), None);
+    }
+
+    let session = session.unwrap();
+    let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+    let client = Client::new(&config);
+
+    let expires_in: std::time::Duration = std::time::Duration::from_secs(
+        env("EXPIRES_IN_SECONDS")?
+            .parse()
+            .wrap_err("Env var has wrong format (expcted int, seconds)")?,
+    );
+
+    let expires_in: PresigningConfig =
+        PresigningConfig::expires_in(expires_in).wrap_err("Failed to prepare duration")?;
+
+    let key = format!("{}-{}.zip", session.username(true), uuid::Uuid::new_v4());
+
+    let encrypted_key = {
+        use magic_crypt::{new_magic_crypt, MagicCryptTrait};
+        let mc = new_magic_crypt!(env("S3_KEY_ENCRYPTION_KEY")?, 256);
+        mc.encrypt_str_to_base64(&key)
+    };
+
+    let presigned_request = client
+        .put_object()
+        .bucket(build_config().s3_bucket_name)
+        .key(key)
+        .presigned(expires_in)
+        .await?;
+
+    json::response(
+        json!({
+            "url":  presigned_request.uri(),
+            "s3key_encrypted": encrypted_key,
+        }),
+        None,
+    )
+}
