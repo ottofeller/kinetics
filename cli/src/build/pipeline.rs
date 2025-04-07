@@ -50,9 +50,8 @@ impl Pipeline {
 
                 let function_name = function.name()?;
 
-                let function_progress = pipeline_progress.new_progress(
-                    format!("{}", function_name).as_str(),
-                );
+                let function_progress =
+                    pipeline_progress.new_progress(format!("{}", function_name).as_str());
 
                 function_progress.log_stage("Building");
 
@@ -77,15 +76,17 @@ impl Pipeline {
                 pipeline_progress.increase_current_function_position();
                 function_progress.log_stage("Uploading");
 
-                function.upload(
-                    &client.ok_or_eyre("Client must be initialized when deployment is enabled")?,
-                    &self.is_directly,
-                )
-                .await
-                .map_err(|e| {
-                    function_progress.error("Uploading");
-                    e.wrap_err(format!("Failed to upload function: \"{}\"", function_name))
-                })?;
+                function
+                    .upload(
+                        &client
+                            .ok_or_eyre("Client must be initialized when deployment is enabled")?,
+                        &self.is_directly,
+                    )
+                    .await
+                    .map_err(|e| {
+                        function_progress.error("Uploading");
+                        e.wrap_err(format!("Failed to upload function: \"{}\"", function_name))
+                    })?;
 
                 pipeline_progress.increase_current_function_position();
 

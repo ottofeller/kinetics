@@ -1,5 +1,3 @@
-use eyre::{ContextCompat, Ok, WrapErr};
-use std::path::PathBuf;
 use crate::client::Client;
 use crate::config::config as build_config;
 use crate::function::Function;
@@ -7,8 +5,10 @@ use crate::secret::Secret;
 use backend::stack::deploy::{self, BodyCrate};
 use backend::template::Crate as BackendCrate;
 use backend::template::Function as BackendFunction;
+use eyre::{ContextCompat, Ok, WrapErr};
 use reqwest::StatusCode;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 #[derive(Clone, Debug)]
 pub struct Crate {
@@ -54,7 +54,8 @@ impl Crate {
         // Provision the template directly if the flag is set
         if *is_directly {
             let build_config = build_config();
-            let crat = BackendCrate::new(self.toml_string.clone()).wrap_err("Invalid crate toml")?;
+            let crat =
+                BackendCrate::new(self.toml_string.clone()).wrap_err("Invalid crate toml")?;
 
             let secrets = secrets
                 .iter()

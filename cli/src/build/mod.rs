@@ -15,10 +15,7 @@ use walkdir::WalkDir;
 
 /// Parses source code and prepares crates for deployment
 /// Stores crates inside target_directory and returns list of created paths
-pub fn prepare_crates(
-    dst: PathBuf,
-    current_crate: Crate,
-) -> eyre::Result<Vec<PathBuf>> {
+pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<PathBuf>> {
     let mut result: Vec<PathBuf> = vec![];
 
     // Parse functions from source code
