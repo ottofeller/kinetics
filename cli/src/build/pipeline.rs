@@ -143,7 +143,8 @@ impl Pipeline {
         // It's safe to unwrap here because the errors have already been caught
         let functions: Vec<_> = ok_results.drain(..).map(Result::unwrap).collect();
 
-        crate::deploy::deploy(&self.crat, &functions, &self.is_directly)
+        self.crat
+            .deploy(&functions, &self.is_directly)
             .await
             .wrap_err("Failed to deploy functions")?;
 

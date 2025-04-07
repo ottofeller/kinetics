@@ -2,7 +2,6 @@ mod build;
 mod client;
 mod config;
 mod crat;
-mod deploy;
 mod destroy;
 mod function;
 mod login;
