@@ -61,7 +61,7 @@ impl FileHash {
             .is_none_or(|old_hash| new_hash != old_hash)
     }
 
-    pub fn hash_from_path<P: AsRef<Path>>(path: P) -> eyre::Result<String> {
+    pub fn _hash_from_path<P: AsRef<Path>>(path: P) -> eyre::Result<String> {
         let mut file = File::open(path).wrap_err("Failed to open file")?;
         let mut hasher = XxHash64::default();
         let mut buffer = [0; 8192];
