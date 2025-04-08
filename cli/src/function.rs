@@ -1,3 +1,5 @@
+use crate::client::Client;
+use crate::config::config as build_config;
 use crate::crat::Crate;
 use aws_sdk_s3::primitives::ByteStream;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
@@ -130,5 +132,60 @@ impl Function {
             .join("lambda")
             .join("bootstrap")
             .join("bootstrap")
+    }
+
+    /// Call the /upload endpoint to get the presigned URL and upload the file
+    pub async fn upload(&mut self, client: &Client, is_directly: &bool) -> eyre::Result<()> {
+        #[derive(serde::Deserialize, Debug)]
+        struct PreSignedUrl {
+            url: String,
+            s3key_encrypted: String,
+        }
+
+        let path = self.bundle_path();
+
+        if *is_directly {
+            // Upload the backend manually if the /upload endpoint gets deleted accidentally
+            use aws_config::BehaviorVersion;
+            use aws_sdk_s3::Client;
+            let body = self.zip_stream().await?;
+            let config = aws_config::defaults(BehaviorVersion::v2025_01_17())
+                .load()
+                .await;
+
+            let client = Client::new(&config);
+            let direct_s3key = uuid::Uuid::new_v4().to_string();
+            self.set_s3key_encrypted(direct_s3key.clone());
+
+            client
+                .put_object()
+                .bucket(build_config().s3_bucket_name)
+                .key(direct_s3key)
+                .body(body)
+                .send()
+                .await
+                .wrap_err("Failed to upload file to S3")?;
+
+            return Ok(());
+        }
+
+        let presigned = client
+            .post("/upload")
+            .send()
+            .await?
+            .json::<PreSignedUrl>()
+            .await?;
+
+        let public_client = reqwest::Client::new();
+
+        public_client
+            .put(&presigned.url)
+            .body(tokio::fs::read(&path).await?)
+            .send()
+            .await?
+            .error_for_status()?;
+
+        self.set_s3key_encrypted(presigned.s3key_encrypted);
+        Ok(())
     }
 }

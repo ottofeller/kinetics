@@ -76,16 +76,17 @@ impl Pipeline {
                 pipeline_progress.increase_current_function_position();
                 function_progress.log_stage("Uploading");
 
-                crate::deploy::upload(
-                    &client.ok_or_eyre("Client must be initialized when deployment is enabled")?,
-                    &mut function,
-                    &self.is_directly,
-                )
-                .await
-                .map_err(|e| {
-                    function_progress.error("Uploading");
-                    e.wrap_err(format!("Failed to upload function: \"{}\"", function_name))
-                })?;
+                function
+                    .upload(
+                        &client
+                            .ok_or_eyre("Client must be initialized when deployment is enabled")?,
+                        &self.is_directly,
+                    )
+                    .await
+                    .map_err(|e| {
+                        function_progress.error("Uploading");
+                        e.wrap_err(format!("Failed to upload function: \"{}\"", function_name))
+                    })?;
 
                 pipeline_progress.increase_current_function_position();
 
@@ -143,7 +144,8 @@ impl Pipeline {
         // It's safe to unwrap here because the errors have already been caught
         let functions: Vec<_> = ok_results.drain(..).map(Result::unwrap).collect();
 
-        crate::deploy::deploy(&self.crat, &functions, &self.is_directly)
+        self.crat
+            .deploy(&functions, &self.is_directly)
             .await
             .wrap_err("Failed to deploy functions")?;
 
