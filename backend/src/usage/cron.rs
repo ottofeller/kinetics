@@ -13,7 +13,7 @@ use std::collections::HashMap;
 #[cron(schedule = "rate(1 minute)", environment = {
     "TABLE_NAME": "kinetics",
     "INVOCATIONS_LIMIT": "500",
-    "DO_NOT_THROTTLE_USER": "alex@ottofeller.com"
+    "DO_NOT_THROTTLE_USER": "artem@ottofeller.com"
 })]
 pub async fn cron(
     _secrets: &HashMap<String, String>,
