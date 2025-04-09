@@ -86,21 +86,17 @@ fn crat() -> eyre::Result<Crate> {
     Crate::new(path)
 }
 
-/// Return the list of dirs with functions to deploy
-fn functions() -> eyre::Result<Vec<Function>> {
+#[tokio::main]
+async fn main() -> eyre::Result<()> {
+    let cli = Cli::parse();
+
     let directories = prepare_crates(build_path()?, crat()?)?;
 
+    // Functions to deploy
     let functions = directories
         .into_iter()
         .map(|p| Function::new(&p).unwrap())
         .collect();
-
-    Ok(functions)
-}
-
-#[tokio::main]
-async fn main() -> eyre::Result<()> {
-    let cli = Cli::parse();
 
     color_eyre::config::HookBuilder::default()
         .display_location_section(false)
@@ -116,7 +112,7 @@ async fn main() -> eyre::Result<()> {
                 .set_crat(crat()?)
                 .build()
                 .wrap_err("Failed to build pipeline")?
-                .run(functions()?)
+                .run(functions)
                 .await?;
 
             Ok(())
@@ -132,7 +128,7 @@ async fn main() -> eyre::Result<()> {
                 .with_directly(*is_directly)
                 .build()
                 .wrap_err("Failed to build pipeline")?
-                .run(functions()?)
+                .run(functions)
                 .await?;
 
             Ok(())
