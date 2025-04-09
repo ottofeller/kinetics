@@ -1,5 +1,6 @@
 [workspace.dependencies]
-toml = "0.8.19"
+toml = "0.8.20"
+tokio = "1.44.2"
 
 [workspace]
 resolver = "2"
