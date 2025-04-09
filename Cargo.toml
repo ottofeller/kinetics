@@ -6,5 +6,4 @@ resolver = "2"
 
 members = [
     "backend",
-    "cli",
 ]
