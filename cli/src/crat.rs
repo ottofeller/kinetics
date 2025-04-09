@@ -3,6 +3,7 @@ use crate::config::config as build_config;
 use crate::function::Function;
 use crate::secret::Secret;
 use backend::stack::deploy::{self, BodyCrate};
+use backend::stack::status;
 use backend::template::Crate as BackendCrate;
 use backend::template::Function as BackendFunction;
 use eyre::{ContextCompat, Ok, WrapErr};
@@ -125,5 +126,29 @@ impl Crate {
         }
 
         Ok(())
+    }
+
+    pub async fn status(&self) -> eyre::Result<status::ResponseBody> {
+        let client = Client::new(&false).wrap_err("Failed to create client")?;
+
+        let result = client
+            .post("/stack/status")
+            .json(&serde_json::json!(status::JsonBody {
+                name: self.name.clone()
+            }))
+            .send()
+            .await
+            .wrap_err("Status request failed")?;
+
+        if result.status() != StatusCode::OK {
+            return Err(eyre::eyre!("Deployment failed: {:?}", result));
+        }
+
+        let status: status::ResponseBody = result
+            .json()
+            .await
+            .wrap_err("Failed to parse status response")?;
+
+        Ok(status)
     }
 }

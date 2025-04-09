@@ -11,9 +11,15 @@ use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
 use std::collections::HashMap;
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct JsonBody {
     pub name: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct ResponseBody {
+    pub status: String,
+    pub errors: Option<Vec<String>>,
 }
 
 #[endpoint(url_path = "/stack/status", environment = {
@@ -129,11 +135,23 @@ pub async fn status(
     }
 
     if end_event_success.is_none() && end_event_failure.is_none() {
-        return json::response(json!({"status": "IN_PROGRESS"}), None);
+        return json::response(
+            ResponseBody {
+                status: "IN_PROGRESS".to_string(),
+                errors: None,
+            },
+            None,
+        );
     }
 
     if end_event_success.is_some() {
-        return json::response(json!({"status": "COMPLETE"}), None);
+        return json::response(
+            ResponseBody {
+                status: "COMPLETE".to_string(),
+                errors: None,
+            },
+            None,
+        );
     }
 
     // Find all failed events and accumulate the error response
@@ -177,5 +195,11 @@ pub async fn status(
         }
     }
 
-    return json::response(json!({"status": "FAILED", "errors": errors}), None);
+    return json::response(
+        ResponseBody {
+            status: "FAILED".to_string(),
+            errors: Some(errors),
+        },
+        None,
+    );
 }
