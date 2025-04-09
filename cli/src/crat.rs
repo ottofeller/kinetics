@@ -43,6 +43,11 @@ impl Crate {
         })
     }
 
+    /// Return crate info from Cargo.toml
+    pub fn from_current_dir() -> eyre::Result<Self> {
+        Self::new(std::env::current_dir().wrap_err("Failed to get current dir")?)
+    }
+
     /// Deploy all assets using CFN template
     pub async fn deploy(&self, functions: &[Function], is_directly: &bool) -> eyre::Result<()> {
         let client = Client::new(is_directly).wrap_err("Failed to create client")?;

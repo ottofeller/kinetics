@@ -80,17 +80,10 @@ enum Commands {
     },
 }
 
-/// Return crate info from Cargo.toml
-fn crat() -> eyre::Result<Crate> {
-    let path = std::env::current_dir().wrap_err("Failed to get current dir")?;
-    Crate::new(path)
-}
-
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     let cli = Cli::parse();
-
-    let directories = prepare_crates(build_path()?, crat()?)?;
+    let directories = prepare_crates(build_path()?, Crate::from_current_dir()?)?;
 
     // Functions to deploy
     let functions = directories
@@ -109,7 +102,7 @@ async fn main() -> eyre::Result<()> {
             Pipeline::builder()
                 .set_max_concurrent(*max_concurrency)
                 .with_deploy_enabled(false)
-                .set_crat(crat()?)
+                .set_crat(Crate::from_current_dir()?)
                 .build()
                 .wrap_err("Failed to build pipeline")?
                 .run(functions)
@@ -124,7 +117,7 @@ async fn main() -> eyre::Result<()> {
             Pipeline::builder()
                 .set_max_concurrent(*max_concurrency)
                 .with_deploy_enabled(true)
-                .set_crat(crat()?)
+                .set_crat(Crate::from_current_dir()?)
                 .with_directly(*is_directly)
                 .build()
                 .wrap_err("Failed to build pipeline")?
@@ -161,7 +154,7 @@ async fn main() -> eyre::Result<()> {
                 Err(error)
             }
         },
-        Some(Commands::Destroy {}) => match destroy(&crat()?).await {
+        Some(Commands::Destroy {}) => match destroy(&Crate::from_current_dir()?).await {
             Ok(_) => Ok(()),
             Err(error) => {
                 println!(
