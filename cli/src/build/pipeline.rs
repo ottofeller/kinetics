@@ -142,16 +142,35 @@ impl Pipeline {
         // It's safe to unwrap here because the errors have already been caught
         let functions: Vec<_> = ok_results.drain(..).map(Result::unwrap).collect();
 
-        self.crat
+        let deploy = self
+            .crat
             .deploy(&functions, &self.is_directly)
             .await
-            .wrap_err("Failed to deploy functions")?;
+            .wrap_err("Failed to deploy functions");
+
+        if deploy.is_err() {
+            deploying_progress.error("Provisioning");
+            pipeline_progress.total_progress_bar.finish_and_clear();
+            return Err(deploy.err().unwrap());
+        }
 
         deploying_progress.progress_bar.finish_and_clear();
         let mut status = self.crat.status().await?;
 
+        // Poll the status of the deployment
         while status.status == "IN_PROGRESS" {
+            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
             status = self.crat.status().await?;
+        }
+
+        if status.status == "FAILED" {
+            deploying_progress.error("Provisioning");
+            pipeline_progress.total_progress_bar.finish_and_clear();
+
+            return Err(eyre!(
+                "Provisioning failed: {:?}",
+                status.errors.unwrap().join("\n")
+            ));
         }
 
         pipeline_progress.increase_current_function_position();
