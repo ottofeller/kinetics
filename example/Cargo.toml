@@ -14,4 +14,4 @@ tokio = "1.44.2"
 aws-sdk-sqs = "1.64.0"
 
 [package.metadata.kinetics.kvdb.users]
-name = "kinetics"
+name = "users"
