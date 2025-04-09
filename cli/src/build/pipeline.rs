@@ -166,11 +166,7 @@ impl Pipeline {
         if status.status == "FAILED" {
             deploying_progress.error("Provisioning");
             pipeline_progress.total_progress_bar.finish_and_clear();
-
-            return Err(eyre!(
-                "Provisioning failed: {:?}",
-                status.errors.unwrap().join("\n")
-            ));
+            return Err(eyre!("{}", status.errors.unwrap().join("\n")));
         }
 
         pipeline_progress.increase_current_function_position();
