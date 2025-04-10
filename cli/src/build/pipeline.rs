@@ -50,7 +50,7 @@ impl Pipeline {
                 let function_name = function.name()?;
 
                 let function_progress =
-                    pipeline_progress.new_progress(function_name.to_string().as_str());
+                    pipeline_progress.new_progress(function_name.as_str());
 
                 function_progress.log_stage("Building");
 
