@@ -40,7 +40,7 @@ pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<Pa
     let project_path = dst.join(&current_crate.name);
     let crate_clone = clone(
         &current_crate.path,
-        &project_path.join("kinetics-clone"),
+        &project_path.join("clone"),
         &parser.functions,
     )?;
 
