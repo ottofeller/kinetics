@@ -93,10 +93,10 @@ fn clone(src: &Path, dst: &Path, functions: &[ParsedFunction]) -> eyre::Result<C
             .strip_prefix(src)
             .unwrap_or_else(|_| entry.path());
 
-        let dst = dst.join(src_relative);
+        let dst_path = dst.join(src_relative);
 
         if src_path.is_dir() {
-            fs::create_dir_all(&dst).wrap_err("Create dir failed")?;
+            fs::create_dir_all(&dst_path).wrap_err("Create dir failed")?;
             continue;
         }
 
@@ -113,7 +113,7 @@ fn clone(src: &Path, dst: &Path, functions: &[ParsedFunction]) -> eyre::Result<C
                 &FileHash::hash_from_bytes(&cargo_toml_string)
                     .wrap_err("Failed to calculate hash from bytes of Cargo.toml")?,
             ) {
-                fs::write(&dst, &cargo_toml_string).wrap_err("Failed to write Cargo.toml")?;
+                fs::write(&dst_path, &cargo_toml_string).wrap_err("Failed to write Cargo.toml")?;
             }
             continue;
         }
@@ -457,11 +457,20 @@ fn import_statement(
 /// Delete the macro attributes from a file
 /// and copy it to the destination folder.
 fn clean_copy(
-    src: &Path,
-    dst_root: &Path,
-    dst_relative: &Path,
+    src_path_full: &Path,
+    dst_dir: &Path,
+    file_path_relative: &Path,
     checksum: &mut FileHash,
 ) -> eyre::Result<()> {
+    let dst_path_full = dst_dir.join(file_path_relative);
+    // For all non .rs files just copy it.
+    if src_path_full.extension().is_some_and(|ext| ext != "rs") {
+        return fs::copy(src_path_full, &dst_path_full)
+            .wrap_err_with(|| format!("Failed to copy file {src_path_full:?} -> {dst_path_full:?}"))
+            .map(|_| ());
+    }
+
+    // Attempt kinetics macro replacements in .rs files.
     let re_endpoint = Regex::new(r"(?m)^\s*#\s*\[\s*endpoint[^]]*]\s*$")?;
     let re_cron = Regex::new(r"(?m)^\s*#\s*\[\s*cron[^]]*]\s*$")?;
     let re_worker = Regex::new(r"(?m)^\s*#\s*\[\s*worker[^]]*]\s*$")?;
@@ -470,19 +479,21 @@ fn clean_copy(
         r"(?m)^\s*use\s+kinetics_macro(\s*::\s*(\w+|\{\s*\w+(\s*,\s*\w+)*\s*}))?\s*;\s*$",
     )?;
 
-    let mut content = fs::read_to_string(src).wrap_err(format!("Failed to read file {src:?}"))?;
+    let mut content = fs::read_to_string(src_path_full)
+        .wrap_err(format!("Failed to read file {src_path_full:?}"))?;
 
     content = re_endpoint.replace_all(&content, "").to_string();
     content = re_worker.replace_all(&content, "").to_string();
     content = re_cron.replace_all(&content, "").to_string();
     let new_content = re_import.replace_all(&content, "").into_owned();
     if checksum.update(
-        dst_relative.to_path_buf(),
-        &FileHash::hash_from_bytes(&new_content)
-            .wrap_err(format!("Failed to calculate hash from bytes of {src:?}"))?,
+        file_path_relative.to_path_buf(),
+        &FileHash::hash_from_bytes(&new_content).wrap_err_with(|| {
+            format!("Failed to calculate hash from bytes of {src_path_full:?}")
+        })?,
     ) {
-        fs::write(dst_root.join(dst_relative), &new_content)
-            .wrap_err("Failed to write {dst:?}")?;
+        fs::write(&dst_path_full, &new_content)
+            .wrap_err_with(|| format!("Failed to write {dst_path_full:?}"))?;
     }
 
     Ok(())
