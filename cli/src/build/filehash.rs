@@ -1,8 +1,6 @@
-use eyre::Context;
 use std::collections::HashMap;
-use std::fs::{self, File};
+use std::fs;
 use std::hash::Hasher;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use twox_hash::XxHash64;
 
@@ -59,22 +57,6 @@ impl FileHash {
         self.inner
             .insert(path, new_hash.to_owned())
             .is_none_or(|old_hash| new_hash != old_hash)
-    }
-
-    pub fn _hash_from_path<P: AsRef<Path>>(path: P) -> eyre::Result<String> {
-        let mut file = File::open(path).wrap_err("Failed to open file")?;
-        let mut hasher = XxHash64::default();
-        let mut buffer = [0; 8192];
-
-        loop {
-            let bytes_read = file.read(&mut buffer)?;
-            if bytes_read == 0 {
-                break;
-            }
-            hasher.write(&buffer[..bytes_read]);
-        }
-
-        Ok(format!("{:x}", hasher.finish()))
     }
 
     pub fn hash_from_bytes<C: AsRef<[u8]>>(contents: C) -> eyre::Result<String> {

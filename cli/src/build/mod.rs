@@ -499,19 +499,6 @@ fn clean_copy(
     Ok(())
 }
 
-/// Check the checksum of a file before write to ensure it hasn't changed
-fn _write_if_changed<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> eyre::Result<()> {
-    let path_hash = FileHash::_hash_from_path(&path).unwrap_or("path".to_string());
-    let contents_hash = FileHash::hash_from_bytes(&contents).unwrap_or("content".to_string());
-
-    if path_hash == contents_hash {
-        Ok(())
-    } else {
-        fs::write(&path, &contents)
-            .wrap_err(format!("Failed to write: {}", path.as_ref().display()))
-    }
-}
-
 fn relative_path(src: &Path, dst: &Path) -> eyre::Result<PathBuf> {
     let mut parent = src;
     while let Some(new_parent) = parent.parent() {
