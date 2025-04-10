@@ -1,5 +1,6 @@
-use crate::backend::{deploy, status};
+use crate::backend::{self, deploy, status};
 use crate::client::Client;
+use crate::config;
 use crate::function::Function;
 use crate::secret::Secret;
 use eyre::{ContextCompat, Ok, WrapErr};
@@ -49,56 +50,8 @@ impl Crate {
         });
 
         // Provision the template directly if the flag is set
-        #[cfg(feature = "enable-direct-deploy")]
-        {
-            use crate::config::backend::template::{
-                Crate as BackendCrate, Function as BackendFunction,
-            };
-            use crate::config::build_config;
-
-            let build_config = build_config();
-            let crat =
-                BackendCrate::new(self.toml_string.clone()).wrap_err("Invalid crate toml")?;
-
-            let secrets = secrets
-                .iter()
-                .map(|(k, v)| {
-                    backend::template::Secret::new(k, v, &crat, build_config.username_escaped)
-                })
-                .collect::<Vec<backend::template::Secret>>();
-
-            let template = backend::template::Template::new(
-                &crat,
-                functions
-                    .iter()
-                    .map(|f| {
-                        BackendFunction::new(
-                            &f.toml_string().unwrap(),
-                            &f.s3key_encrypted.to_owned().unwrap(),
-                            "",
-                            false,
-                        )
-                        .unwrap()
-                    })
-                    .collect::<Vec<BackendFunction>>(),
-                secrets.clone(),
-                build_config.s3_bucket_name,
-                build_config.username_escaped,
-                build_config.username,
-                build_config.cloud_front_domain,
-            )
-            .await?;
-
-            for secret in secrets.iter() {
-                secret.sync().await?;
-            }
-
-            template
-                .provision()
-                .await
-                .wrap_err("Failed to provision template")?;
-
-            return Ok(());
+        if config::DIRECT_DEPLOY_ENABLED {
+            return backend::deploy_directly().await;
         }
 
         let result = client

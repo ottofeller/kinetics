@@ -1,4 +1,6 @@
+use crate::backend;
 use crate::client::Client;
+use crate::config;
 use crate::crat::Crate;
 use aws_sdk_s3::primitives::ByteStream;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
@@ -143,32 +145,8 @@ impl Function {
 
         let path = self.bundle_path();
 
-        #[cfg(feature = "enable-direct-deploy")]
-        {
-            // Upload the backend manually if the /upload endpoint gets deleted accidentally
-            use crate::config::build_config;
-            use aws_config::BehaviorVersion;
-            use aws_sdk_s3::Client;
-
-            let body = self.zip_stream().await?;
-            let config = aws_config::defaults(BehaviorVersion::v2025_01_17())
-                .load()
-                .await;
-
-            let client = Client::new(&config);
-            let direct_s3key = uuid::Uuid::new_v4().to_string();
-            self.set_s3key_encrypted(direct_s3key.clone());
-
-            client
-                .put_object()
-                .bucket(build_config().s3_bucket_name)
-                .key(direct_s3key)
-                .body(body)
-                .send()
-                .await
-                .wrap_err("Failed to upload file to S3")?;
-
-            return Ok(());
+        if config::DIRECT_DEPLOY_ENABLED {
+            return backend::upload().await;
         }
 
         let presigned = client

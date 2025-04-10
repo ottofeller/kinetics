@@ -51,9 +51,3 @@ pub(crate) fn build_config() -> &'static Config<'static> {
         }
     })
 }
-
-#[cfg(feature = "enable-direct-deploy")]
-pub mod backend {
-    // Re-export optional backend modules for direct deploy feature
-    pub use ::backend::*;
-}
