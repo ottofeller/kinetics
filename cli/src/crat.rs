@@ -1,11 +1,7 @@
+use crate::backend::{deploy, status};
 use crate::client::Client;
-use crate::config::config as build_config;
 use crate::function::Function;
 use crate::secret::Secret;
-use backend::stack::deploy::{self, BodyCrate};
-use backend::stack::status;
-use backend::template::Crate as BackendCrate;
-use backend::template::Function as BackendFunction;
 use eyre::{ContextCompat, Ok, WrapErr};
 use reqwest::StatusCode;
 use std::collections::HashMap;
@@ -44,8 +40,8 @@ impl Crate {
     }
 
     /// Deploy all assets using CFN template
-    pub async fn deploy(&self, functions: &[Function], is_directly: &bool) -> eyre::Result<()> {
-        let client = Client::new(is_directly).wrap_err("Failed to create client")?;
+    pub async fn deploy(&self, functions: &[Function]) -> eyre::Result<()> {
+        let client = Client::new().wrap_err("Failed to create client")?;
         let mut secrets = HashMap::new();
 
         Secret::from_dotenv()?.iter().for_each(|s| {
@@ -53,7 +49,13 @@ impl Crate {
         });
 
         // Provision the template directly if the flag is set
-        if *is_directly {
+        #[cfg(feature = "enable-direct-deploy")]
+        {
+            use crate::config::backend::template::{
+                Crate as BackendCrate, Function as BackendFunction,
+            };
+            use crate::config::build_config;
+
             let build_config = build_config();
             let crat =
                 BackendCrate::new(self.toml_string.clone()).wrap_err("Invalid crate toml")?;
@@ -102,7 +104,7 @@ impl Crate {
         let result = client
             .post("/stack/deploy")
             .json(&serde_json::json!(deploy::JsonBody {
-                crat: BodyCrate {
+                crat: deploy::BodyCrate {
                     toml: self.toml_string.clone(),
                 },
                 functions: functions
@@ -129,7 +131,7 @@ impl Crate {
     }
 
     pub async fn status(&self) -> eyre::Result<status::ResponseBody> {
-        let client = Client::new(&false).wrap_err("Failed to create client")?;
+        let client = Client::new().wrap_err("Failed to create client")?;
 
         let result = client
             .post("/stack/status")

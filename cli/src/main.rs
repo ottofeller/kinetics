@@ -1,3 +1,4 @@
+mod backend;
 mod build;
 mod client;
 mod config;
@@ -9,7 +10,7 @@ mod secret;
 
 use crate::build::pipeline::Pipeline;
 use crate::build::prepare_crates;
-use crate::config::config;
+use crate::config::build_config;
 use crate::destroy::destroy;
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
@@ -29,7 +30,7 @@ struct Credentials {
 }
 
 fn api_url(path: &str) -> String {
-    format!("{}{}", config().api_base, path)
+    format!("{}{}", build_config().api_base, path)
 }
 
 fn build_path() -> eyre::Result<PathBuf> {
@@ -60,10 +61,6 @@ enum Commands {
 
     /// Deploy your serverless functions to the cloud
     Deploy {
-        /// Upload directly to S3 and bypass the backend service
-        #[arg(short, long)]
-        is_directly: bool,
-
         /// Maximum number of parallel concurrent builds
         #[arg(short, long, default_value_t = 6)]
         max_concurrency: usize,
@@ -117,15 +114,11 @@ async fn main() -> eyre::Result<()> {
 
             Ok(())
         }
-        Some(Commands::Deploy {
-            is_directly,
-            max_concurrency,
-        }) => {
+        Some(Commands::Deploy { max_concurrency }) => {
             Pipeline::builder()
                 .set_max_concurrent(*max_concurrency)
                 .with_deploy_enabled(true)
                 .set_crat(crat()?)
-                .with_directly(*is_directly)
                 .build()
                 .wrap_err("Failed to build pipeline")?
                 .run(functions)

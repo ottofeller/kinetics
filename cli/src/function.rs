@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::config::config as build_config;
 use crate::crat::Crate;
 use aws_sdk_s3::primitives::ByteStream;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
@@ -39,7 +38,7 @@ impl Function {
     // Upload the backend manually if the /upload endpoint gets
     // use aws_sdk_s3::primitives::ByteStream;
     pub async fn zip_stream(&self) -> eyre::Result<ByteStream> {
-        aws_sdk_s3::primitives::ByteStream::from_path(self.bundle_path())
+        ByteStream::from_path(self.bundle_path())
             .await
             .wrap_err("Failed to read bundled zip")
     }
@@ -135,7 +134,7 @@ impl Function {
     }
 
     /// Call the /upload endpoint to get the presigned URL and upload the file
-    pub async fn upload(&mut self, client: &Client, is_directly: &bool) -> eyre::Result<()> {
+    pub async fn upload(&mut self, client: &Client) -> eyre::Result<()> {
         #[derive(serde::Deserialize, Debug)]
         struct PreSignedUrl {
             url: String,
@@ -144,10 +143,13 @@ impl Function {
 
         let path = self.bundle_path();
 
-        if *is_directly {
+        #[cfg(feature = "enable-direct-deploy")]
+        {
             // Upload the backend manually if the /upload endpoint gets deleted accidentally
+            use crate::config::build_config;
             use aws_config::BehaviorVersion;
             use aws_sdk_s3::Client;
+
             let body = self.zip_stream().await?;
             let config = aws_config::defaults(BehaviorVersion::v2025_01_17())
                 .load()

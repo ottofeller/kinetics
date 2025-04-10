@@ -6,7 +6,6 @@ tokio = "1.44.2"
 resolver = "2"
 
 members = [
-    "backend",
     "cli",
     "example",
     "macro",

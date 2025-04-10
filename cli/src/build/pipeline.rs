@@ -12,7 +12,6 @@ use tokio::sync::Semaphore;
 #[derive(Debug, Clone)]
 pub struct Pipeline {
     is_deploy_enabled: bool,
-    is_directly: bool,
     crat: Crate,
     max_concurrent: usize,
 }
@@ -33,7 +32,7 @@ impl Pipeline {
         );
 
         let client = if self.is_deploy_enabled {
-            Some(Client::new(&self.is_directly).wrap_err("Failed to create client")?)
+            Some(Client::new().wrap_err("Failed to create client")?)
         } else {
             None
         };
@@ -80,7 +79,6 @@ impl Pipeline {
                     .upload(
                         &client
                             .ok_or_eyre("Client must be initialized when deployment is enabled")?,
-                        &self.is_directly,
                     )
                     .await
                     .map_err(|e| {
@@ -144,7 +142,7 @@ impl Pipeline {
 
         let deploy = self
             .crat
-            .deploy(&functions, &self.is_directly)
+            .deploy(&functions)
             .await
             .wrap_err("Failed to deploy functions");
 
@@ -186,7 +184,6 @@ impl Pipeline {
 #[derive(Default)]
 pub struct PipelineBuilder {
     is_deploy_enabled: Option<bool>,
-    is_directly: Option<bool>,
     crat: Option<Crate>,
     max_concurrent: Option<usize>,
 }
@@ -196,18 +193,12 @@ impl PipelineBuilder {
         Ok(Pipeline {
             crat: self.crat.ok_or_eyre("No crate provided to the pipeline")?,
             is_deploy_enabled: self.is_deploy_enabled.unwrap_or(false),
-            is_directly: self.is_directly.unwrap_or(false),
             max_concurrent: self.max_concurrent.unwrap_or(4),
         })
     }
 
     pub fn with_deploy_enabled(mut self, is_deploy_enabled: bool) -> Self {
         self.is_deploy_enabled = Some(is_deploy_enabled);
-        self
-    }
-
-    pub fn with_directly(mut self, is_directly: bool) -> Self {
-        self.is_directly = Some(is_directly);
         self
     }
 
