@@ -18,7 +18,7 @@ pub mod implementation {
         secrets: HashMap<String, String>,
         functions: &[Function],
     ) -> eyre::Result<()> {
-        // WARN This will be moved into kinetics-backend crate
+        // WARN This will be moved into kinetics-backend crate to hide details of backend implementation
         let build_config = build_config();
         let crat = template::Crate::new(toml_string.clone()).wrap_err("Invalid crate toml")?;
 
@@ -62,7 +62,7 @@ pub mod implementation {
     }
 
     pub async fn upload(function: &mut Function) -> eyre::Result<()> {
-        // WARN This will be moved into kinetics-backend
+        // WARN This will be moved into kinetics-backend to hide details of backend implementation
         // Upload the backend manually if the /upload endpoint gets deleted accidentally
 
         let body = function.zip_stream().await?;
