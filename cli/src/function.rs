@@ -146,7 +146,7 @@ impl Function {
         let path = self.bundle_path();
 
         if config::DIRECT_DEPLOY_ENABLED {
-            return backend::upload().await;
+            return backend::upload(self).await;
         }
 
         let presigned = client

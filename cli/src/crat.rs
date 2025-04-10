@@ -51,7 +51,7 @@ impl Crate {
 
         // Provision the template directly if the flag is set
         if config::DIRECT_DEPLOY_ENABLED {
-            return backend::deploy_directly().await;
+            return backend::deploy_directly(self.toml_string.clone(), secrets, functions).await;
         }
 
         let result = client

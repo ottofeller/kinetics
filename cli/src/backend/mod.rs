@@ -6,29 +6,33 @@ pub mod implementation {
     // Re-export optional backend modules for direct deploy feature
     pub use ::backend::*;
 
-    pub async fn deploy_directly() -> eyre::Result<()> {
-        // WARN This will be moved into kinetics-backend
-        use crate::config::backend::template::{
-            Crate as BackendCrate, Function as BackendFunction,
-        };
-        use crate::config::build_config;
+    use crate::config::build_config;
+    use crate::function::Function;
+    use aws_config::BehaviorVersion;
+    use aws_sdk_s3::Client;
+    use eyre::Context;
+    use std::collections::HashMap;
 
+    pub async fn deploy_directly(
+        toml_string: String,
+        secrets: HashMap<String, String>,
+        functions: &[Function],
+    ) -> eyre::Result<()> {
+        // WARN This will be moved into kinetics-backend crate
         let build_config = build_config();
-        let crat = BackendCrate::new(self.toml_string.clone()).wrap_err("Invalid crate toml")?;
+        let crat = template::Crate::new(toml_string.clone()).wrap_err("Invalid crate toml")?;
 
         let secrets = secrets
             .iter()
-            .map(|(k, v)| {
-                backend::template::Secret::new(k, v, &crat, build_config.username_escaped)
-            })
-            .collect::<Vec<backend::template::Secret>>();
+            .map(|(k, v)| template::Secret::new(k, v, &crat, build_config.username_escaped))
+            .collect::<Vec<template::Secret>>();
 
-        let template = backend::template::Template::new(
+        let template = template::Template::new(
             &crat,
             functions
                 .iter()
                 .map(|f| {
-                    BackendFunction::new(
+                    template::Function::new(
                         &f.toml_string().unwrap(),
                         &f.s3key_encrypted.to_owned().unwrap(),
                         "",
@@ -36,7 +40,7 @@ pub mod implementation {
                     )
                     .unwrap()
                 })
-                .collect::<Vec<BackendFunction>>(),
+                .collect::<Vec<template::Function>>(),
             secrets.clone(),
             build_config.s3_bucket_name,
             build_config.username_escaped,
@@ -54,24 +58,21 @@ pub mod implementation {
             .await
             .wrap_err("Failed to provision template")?;
 
-        return Ok(());
+        Ok(())
     }
 
-    pub async fn upload() -> eyre::Result<()> {
+    pub async fn upload(function: &mut Function) -> eyre::Result<()> {
         // WARN This will be moved into kinetics-backend
         // Upload the backend manually if the /upload endpoint gets deleted accidentally
-        use crate::config::build_config;
-        use aws_config::BehaviorVersion;
-        use aws_sdk_s3::Client;
 
-        let body = self.zip_stream().await?;
+        let body = function.zip_stream().await?;
         let config = aws_config::defaults(BehaviorVersion::v2025_01_17())
             .load()
             .await;
 
         let client = Client::new(&config);
         let direct_s3key = uuid::Uuid::new_v4().to_string();
-        self.set_s3key_encrypted(direct_s3key.clone());
+        function.set_s3key_encrypted(direct_s3key.clone());
 
         client
             .put_object()
@@ -82,19 +83,27 @@ pub mod implementation {
             .await
             .wrap_err("Failed to upload file to S3")?;
 
-        return Ok(());
+        Ok(())
     }
 }
 
 #[cfg(not(feature = "enable-direct-deploy"))]
 pub mod implementation {
-    pub async fn deploy_directly() -> eyre::Result<()> {
+    use crate::function::Function;
+    use std::collections::HashMap;
+
+    pub async fn deploy_directly(
+        _toml_string: String,
+        _secrets: HashMap<String, String>,
+        _functions: &[Function],
+    ) -> eyre::Result<()> {
         Ok(())
     }
 
-    pub async fn upload() -> eyre::Result<()> {
+    pub async fn upload(_function: &mut Function) -> eyre::Result<()> {
         Ok(())
     }
 }
 
+// Re-export plugin functionality
 pub use self::implementation::*;
