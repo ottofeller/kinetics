@@ -53,7 +53,7 @@ pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<Pa
             fs::create_dir_all(&dst).wrap_err("Failed to provision temp dir")?;
         }
 
-        create_crate(
+        create_lambda_crate(
             &current_crate.path,
             &dst,
             &parsed_function,
@@ -224,7 +224,7 @@ fn create_lib(
 ///
 /// Set up the main() function according to cargo lambda guides,
 /// and add the lambda code right to main.rs
-fn create_crate(
+fn create_lambda_crate(
     src: &Path,
     dst: &Path,
     parsed_function: &ParsedFunction,
