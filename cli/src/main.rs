@@ -126,46 +126,31 @@ async fn main() -> eyre::Result<()> {
 
             Ok(())
         }
-        Some(Commands::Login { email }) => match login(email).await {
-            Ok(is_new_session) => {
-                println!(
-                    "{} {} {}",
-                    console::style(if is_new_session {
-                        "Successfully logged in"
-                    } else {
-                        "Already logged in"
-                    })
-                    .green()
-                    .bold(),
-                    console::style("via").dim(),
-                    console::style(email).underlined().bold()
-                );
+        Some(Commands::Login { email }) => {
+            let is_new_session = login(email).await.wrap_err("Login failed")?;
 
-                Ok(())
-            }
-            Err(error) => {
-                println!(
-                    "{} {} {}",
-                    console::style("Failed to login").red().bold(),
-                    console::style("via").dim(),
-                    console::style(email).underlined().bold()
-                );
+            println!(
+                "{} {} {}",
+                console::style(if is_new_session {
+                    "Successfully logged in"
+                } else {
+                    "Already logged in"
+                })
+                .green()
+                .bold(),
+                console::style("via").dim(),
+                console::style(email).underlined().bold()
+            );
 
-                Err(error)
-            }
-        },
-        Some(Commands::Destroy {}) => match destroy(&Crate::from_current_dir()?).await {
-            Ok(_) => Ok(()),
-            Err(error) => {
-                println!(
-                    "{}",
-                    console::style("Failed to destroy serverless functions")
-                        .red()
-                        .bold()
-                );
-                Err(error)
-            }
-        },
+            Ok(())
+        }
+        Some(Commands::Destroy {}) => {
+            destroy(&Crate::from_current_dir()?)
+                .await
+                .wrap_err("Failed to destroy the project")?;
+
+            Ok(())
+        }
         None => Ok(()),
     }
 }
