@@ -100,6 +100,7 @@ fn clone(src: &Path, dst: &Path, functions: &[ParsedFunction]) -> eyre::Result<C
             continue;
         }
 
+        // Cargo.toml found
         if src_relative == relative_cargo_path {
             // Copy Cargo.toml with modifications
             let mut cargo_toml: toml_edit::DocumentMut =
