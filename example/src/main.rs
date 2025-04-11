@@ -1,4 +1,5 @@
 pub mod cron;
 pub mod endpoint;
-pub mod worker;
+// If the crate does not import a module, it still would be processed correctly.
+mod worker;
 fn main() {}
