@@ -25,7 +25,7 @@ impl ParsedFunction {
     /// By default use the Rust function plus crate path as the function name. Convert
     /// some-name to SomeName, and do other transformations in order to comply with Lambda
     /// function name requirements.
-    pub fn func_name(&self) -> String {
+    pub fn func_name(&self, is_local: bool) -> String {
         let rust_name = &self.rust_function_name;
         let full_path = format!("{}/{rust_name}", self.relative_path);
 
@@ -43,7 +43,11 @@ impl ParsedFunction {
             .replacen("Src", "", 1);
 
         // TODO Check the name for uniqueness
-        self.role.name().unwrap_or(&default_func_name).to_string()
+        format!(
+            "{}{}",
+            self.role.name().unwrap_or(&default_func_name),
+            if is_local { "Local" } else { "" }
+        )
     }
 }
 
