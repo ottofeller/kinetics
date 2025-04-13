@@ -64,7 +64,7 @@ pub async fn deploy(
     }
 
     let body = json::body::<JsonBody>(event)?;
-    let crat = Crate::new(body.crat.toml.clone()).wrap_err("Invalid crate toml")?;
+    let crat = Crate::new(&body.crat.toml).wrap_err("Invalid crate toml")?;
     let session = session.unwrap();
 
     let secrets = body

@@ -61,8 +61,7 @@ impl Crate {
         // Provision the template directly if the flag is set
         if *is_directly {
             let build_config = build_config();
-            let crat =
-                BackendCrate::new(self.toml_string.clone()).wrap_err("Invalid crate toml")?;
+            let crat = BackendCrate::new(&self.toml_string).wrap_err("Invalid crate toml")?;
 
             let secrets = secrets
                 .iter()

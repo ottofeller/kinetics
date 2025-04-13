@@ -13,12 +13,12 @@ impl Secret {
         Secret {
             name: name.to_string(),
             value: value.to_string(),
-            unique: format!("{username}-{crate_name}", crate_name = crat.name),
+            unique: format!("{username}-{crate_name}", crate_name = crat.name_escaped),
         }
     }
 
     pub fn unique_name(&self) -> String {
-        format!("{}-{}", self.unique.clone(), self.name.clone())
+        format!("{}-{}", self.unique, self.name)
     }
 
     pub async fn sync(&self) -> eyre::Result<()> {

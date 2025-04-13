@@ -120,7 +120,7 @@ fn clone(src: &Path, dst: &Path, functions: &[ParsedFunction]) -> eyre::Result<C
         }
 
         // If src file has been modified, copy it to the destination
-        clean_copy(src_path, &dst, src_relative, &mut checksum)?;
+        clean_copy(src_path, dst, src_relative, &mut checksum)?;
     }
 
     create_lib(src, dst, functions, &mut checksum)?;

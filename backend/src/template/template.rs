@@ -72,7 +72,7 @@ impl Template {
 
     /// Domain and paths for endpoint lambdas
     fn routing(&self) -> Vec<CfnResource> {
-        let project_name = self.crat.name.clone();
+        let project_name = &self.crat.name;
         let functions: Vec<Function> = self.functions.clone();
 
         let functions = functions
@@ -323,7 +323,7 @@ impl Template {
         format!(
             "{username}D{crat_name}D{joined}",
             username = &self.username_escaped,
-            crat_name = &self.crat.name
+            crat_name = &self.crat.name_escaped
         )
     }
 
@@ -854,7 +854,7 @@ impl Template {
 
     /// Provision the template in CloudFormation
     pub async fn provision(&self) -> eyre::Result<()> {
-        let name = Stack::new(self.username_escaped.as_str(), self.crat.name.as_str()).name;
+        let name = Stack::new(&self.username_escaped, &self.crat.name_escaped).name;
         let capabilities = aws_sdk_cloudformation::types::Capability::CapabilityIam;
         let template_string = serde_json::to_string_pretty(&self.template)?;
 
@@ -868,7 +868,7 @@ impl Template {
         let template_key = format!(
             "templates/{}-{}-{}.json",
             self.username_escaped,
-            self.crat.name,
+            self.crat.name_escaped,
             chrono::Utc::now().format("%Y%m%d-%H%M%S-%3f")
         );
 
