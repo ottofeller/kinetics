@@ -39,6 +39,7 @@ impl Function {
 
     // Upload the backend manually if the /upload endpoint gets
     // use aws_sdk_s3::primitives::ByteStream;
+    #[cfg(feature = "enable-direct-deploy")]
     pub async fn zip_stream(&self) -> eyre::Result<ByteStream> {
         ByteStream::from_path(self.bundle_path())
             .await
