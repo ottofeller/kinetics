@@ -95,11 +95,11 @@ pub mod implementation {
         _secrets: HashMap<String, String>,
         _functions: &[Function],
     ) -> eyre::Result<()> {
-        Ok(())
+        unreachable!()
     }
 
     pub async fn upload(_function: &mut Function) -> eyre::Result<()> {
-        Ok(())
+        unreachable!()
     }
 }
 
