@@ -4,6 +4,7 @@ mod config;
 mod crat;
 mod destroy;
 mod function;
+mod invoke;
 mod login;
 mod secret;
 
@@ -16,6 +17,7 @@ use clap::{Parser, Subcommand};
 use crat::Crate;
 use eyre::WrapErr;
 use function::Function;
+use invoke::invoke;
 use login::login;
 use std::path::{Path, PathBuf};
 
@@ -78,12 +80,19 @@ enum Commands {
         #[arg()]
         email: String,
     },
+
+    /// Invoke a functions
+    Invoke {
+        #[arg()]
+        name: String,
+    },
 }
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     let cli = Cli::parse();
-    let directories = prepare_crates(build_path()?, Crate::from_current_dir()?)?;
+    let crat = Crate::from_current_dir()?;
+    let directories = prepare_crates(build_path()?, crat.clone())?;
 
     // Functions to deploy
     let functions = directories
@@ -149,6 +158,18 @@ async fn main() -> eyre::Result<()> {
                 .await
                 .wrap_err("Failed to destroy the project")?;
 
+            Ok(())
+        }
+        Some(Commands::Invoke { name }) => {
+            invoke(
+                functions
+                    .iter()
+                    .find(|f| name.eq(&f.name().wrap_err("Function's meta is invalid").unwrap()))
+                    .unwrap(),
+
+                &crat,
+            )
+            .wrap_err("Failed to invoke the function")?;
             Ok(())
         }
         None => Ok(()),
