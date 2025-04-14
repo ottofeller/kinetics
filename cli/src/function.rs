@@ -1,7 +1,7 @@
-use crate::backend;
 use crate::client::Client;
 use crate::config;
 use crate::crat::Crate;
+use crate::deploy::upload;
 use aws_sdk_s3::primitives::ByteStream;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
 use std::io::Write;
@@ -146,7 +146,7 @@ impl Function {
         let path = self.bundle_path();
 
         if config::DIRECT_DEPLOY_ENABLED {
-            return backend::upload(self).await;
+            return upload(self).await;
         }
 
         let presigned = client

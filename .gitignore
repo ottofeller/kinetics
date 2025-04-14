@@ -1,4 +1,5 @@
 target
 .DS_Store
-.env.secrets
+backend/.env.secrets
 backend/local.env
+.cargo/

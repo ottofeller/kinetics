@@ -7,7 +7,9 @@ pub(crate) struct Config<'a> {
     pub(crate) username: &'a str,
     pub(crate) username_escaped: &'a str,
     pub(crate) cloud_front_domain: Option<&'a str>,
+    pub(crate) kms_key_id: &'a str,
     pub(crate) s3_bucket_name: &'a str,
+    pub(crate) hosted_zone_id: Option<&'a str>,
 }
 
 #[cfg(not(feature = "enable-direct-deploy"))]
@@ -31,17 +33,20 @@ pub(crate) fn build_config() -> &'static Config<'static> {
                 option_env!("KINETICS_USE_PRODUCTION_DOMAIN").unwrap_or("true") == "true";
 
             Config {
+                api_base,
                 cloud_front_domain: if use_production_domain {
                     Some("usekinetics.com")
                 } else {
                     None
                 },
-                api_base,
                 username: option_env!("KINETICS_USERNAME").unwrap_or("artem@ottofeller.com"),
                 username_escaped: option_env!("KINETICS_USERNAME_ESCAPED")
                     .unwrap_or("artemATottofellerDOTcom"),
                 s3_bucket_name: option_env!("KINETICS_S3_BUCKET_NAME")
                     .unwrap_or("kinetics-rust-builds-production"),
+                kms_key_id: option_env!("KINETICS_KMS_KEY_ID")
+                    .unwrap_or("f1e08622-51cb-4868-adf5-9bb8aa8c0a87"),
+                hosted_zone_id: option_env!("KINETICS_HOSTED_ZONE_ID"),
             }
         }
 

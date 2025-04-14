@@ -1,15 +1,11 @@
-pub mod deploy;
-pub mod status;
-
 #[cfg(feature = "enable-direct-deploy")]
 pub mod implementation {
     // Re-export optional backend modules for direct deploy feature
-    pub use ::backend::*;
-
     use crate::config::build_config;
     use crate::function::Function;
     use aws_config::BehaviorVersion;
     use aws_sdk_s3::Client;
+    use common::template;
     use eyre::Context;
     use std::collections::HashMap;
 
@@ -46,6 +42,8 @@ pub mod implementation {
             build_config.username_escaped,
             build_config.username,
             build_config.cloud_front_domain,
+            build_config.hosted_zone_id,
+            build_config.kms_key_id,
         )
         .await?;
 
