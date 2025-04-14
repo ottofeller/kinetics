@@ -1,4 +1,5 @@
 use eyre::{ContextCompat, WrapErr};
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -6,6 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::crat::Crate;
 use crate::function::Function;
+use crate::secret::Secret;
 
 /// Create a thread for printing out a line, and accumulating for later full output
 fn thread(
@@ -36,6 +38,16 @@ fn thread(
 pub fn invoke(function: &Function, crat: &Crate) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
 
+    // Load secrets from .env.secrets if it exists
+    let mut secrets = HashMap::new();
+
+    for secret in Secret::from_dotenv().wrap_err("Failed to read secrets")? {
+        secrets.insert(
+            format!("KINETICS_SECRET_{}", secret.name.clone()),
+            secret.value(),
+        );
+    }
+
     let invoke_dir =
         Path::new(&home).join(format!(".kinetics/{}/{}Local", crat.name, function.name()?));
 
@@ -54,6 +66,7 @@ pub fn invoke(function: &Function, crat: &Crate) -> eyre::Result<()> {
     // Start the command with piped stdout and stderr
     let mut child = Command::new("cargo")
         .args(["run"])
+        .envs(secrets)
         .current_dir(&invoke_dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

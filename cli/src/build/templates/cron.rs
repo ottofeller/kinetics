@@ -7,6 +7,14 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
             async fn main() -> Result<(), Box<dyn std::error::Error>> {{\n\
                 let mut queues = std::collections::HashMap::new();
                 let mut secrets = std::collections::HashMap::new();
+
+                for (k, v) in std::env::vars() {{
+                    if k.starts_with(\"KINETICS_SECRET_\") {{
+                        let key = k.replace(\"KINETICS_SECRET_\", \"\");
+                        secrets.insert(key, v);
+                    }}
+                }}
+
                 {rust_function_name}(&secrets, &queues).await?;
                 Ok(())
             }}\n\n"
