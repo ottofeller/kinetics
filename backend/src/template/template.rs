@@ -1,6 +1,6 @@
+use super::{Crate, Function, Secret};
 use crate::config::config as build_config;
 use crate::stack::Stack;
-use crate::template::{Crate, Function, Secret};
 use crate::{Queue, Resource};
 use aws_config::BehaviorVersion;
 use eyre::{ContextCompat, Ok, WrapErr};
@@ -235,7 +235,7 @@ impl Template {
     pub async fn new(
         crat: &Crate,
         functions: Vec<Function>,
-        secrets: Vec<Secret>,
+        secrets: &[Secret],
         bucket: &str,
         username_escaped: &str,
         username: &str,

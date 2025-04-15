@@ -66,7 +66,12 @@ impl Crate {
             let secrets = secrets
                 .iter()
                 .map(|(k, v)| {
-                    backend::template::Secret::new(k, v, &crat, build_config.username_escaped)
+                    backend::template::Secret::new(
+                        k,
+                        v,
+                        &crat.name_escaped,
+                        build_config.username_escaped,
+                    )
                 })
                 .collect::<Vec<backend::template::Secret>>();
 
@@ -84,7 +89,7 @@ impl Crate {
                         .unwrap()
                     })
                     .collect::<Vec<BackendFunction>>(),
-                secrets.clone(),
+                &secrets,
                 build_config.s3_bucket_name,
                 build_config.username_escaped,
                 build_config.username,

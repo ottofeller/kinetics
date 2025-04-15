@@ -1,4 +1,4 @@
-use crate::template::Crate;
+use super::{sanitize::escape_resource_name, Crate};
 use crate::Resource;
 use eyre::{ContextCompat, Ok, WrapErr};
 
@@ -108,14 +108,15 @@ impl Function {
     }
 
     /// User defined name of the function
+    /// with resource name escaping applied
     pub fn name(&self) -> eyre::Result<String> {
-        Ok(self
-            .meta()?
-            .get("name")
-            .wrap_err("No [name]")?
-            .as_str()
-            .wrap_err("Not a string")?
-            .to_string())
+        Ok(escape_resource_name(
+            self.meta()?
+                .get("name")
+                .wrap_err("No [name]")?
+                .as_str()
+                .wrap_err("Not a string")?,
+        ))
     }
 
     pub fn role(&self) -> eyre::Result<String> {
