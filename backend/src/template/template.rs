@@ -72,7 +72,6 @@ impl Template {
 
     /// Domain and paths for endpoint lambdas
     fn routing(&self) -> Vec<CfnResource> {
-        let project_name = &self.crat.name;
         let functions: Vec<Function> = self.functions.clone();
 
         let functions = functions
@@ -130,11 +129,13 @@ impl Template {
             })
             .collect::<Vec<Value>>();
 
+        let subdomain_name = self.crat.name.replace('_', "-");
         let project_domain = self
             .domain_name
             .as_ref()
-            .map(|domain_name| format!("{project_name}.{domain_name}"));
+            .map(|domain_name| format!("{subdomain_name}.{domain_name}"));
 
+        let project_name = &self.crat.name_escaped;
         let mut resources = vec![CfnResource {
             name: format!("EndpointDistribution{project_name}"),
             resource: json!({
