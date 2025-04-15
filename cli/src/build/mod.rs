@@ -158,8 +158,6 @@ fn clear_dir(dst: &Path, checksum: &FileHash) -> eyre::Result<()> {
         if path.is_dir() {
             // Delete all folders except those known from file paths in .checksums.
             if !checksum.has_folder(src_relative) {
-                println!("Remove obsolete folder {src_relative:?}");
-
                 fs::remove_dir_all(path).wrap_err(format!(
                     "Failed to delete an obsolete folder {src_relative:?}"
                 ))?;
