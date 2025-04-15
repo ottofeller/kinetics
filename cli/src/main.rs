@@ -5,6 +5,7 @@ mod crat;
 mod deploy;
 mod destroy;
 mod function;
+mod invoke;
 mod login;
 mod secret;
 
@@ -17,6 +18,7 @@ use clap::{Parser, Subcommand};
 use crat::Crate;
 use eyre::WrapErr;
 use function::Function;
+use invoke::invoke;
 use login::login;
 use std::path::{Path, PathBuf};
 
@@ -75,19 +77,19 @@ enum Commands {
         #[arg()]
         email: String,
     },
-}
 
-/// Return crate info from Cargo.toml
-fn crat() -> eyre::Result<Crate> {
-    let path = std::env::current_dir().wrap_err("Failed to get current dir")?;
-    Crate::new(path)
+    /// Invoke a functions
+    Invoke {
+        #[arg()]
+        name: String,
+    },
 }
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     let cli = Cli::parse();
-
-    let directories = prepare_crates(build_path()?, crat()?)?;
+    let crat = Crate::from_current_dir()?;
+    let directories = prepare_crates(build_path()?, crat.clone())?;
 
     // Functions to deploy
     let functions = directories
@@ -106,7 +108,7 @@ async fn main() -> eyre::Result<()> {
             Pipeline::builder()
                 .set_max_concurrent(*max_concurrency)
                 .with_deploy_enabled(false)
-                .set_crat(crat()?)
+                .set_crat(Crate::from_current_dir()?)
                 .build()
                 .wrap_err("Failed to build pipeline")?
                 .run(functions)
@@ -118,7 +120,7 @@ async fn main() -> eyre::Result<()> {
             Pipeline::builder()
                 .set_max_concurrent(*max_concurrency)
                 .with_deploy_enabled(true)
-                .set_crat(crat()?)
+                .set_crat(Crate::from_current_dir()?)
                 .build()
                 .wrap_err("Failed to build pipeline")?
                 .run(functions)
@@ -126,46 +128,43 @@ async fn main() -> eyre::Result<()> {
 
             Ok(())
         }
-        Some(Commands::Login { email }) => match login(email).await {
-            Ok(is_new_session) => {
-                println!(
-                    "{} {} {}",
-                    console::style(if is_new_session {
-                        "Successfully logged in"
-                    } else {
-                        "Already logged in"
-                    })
-                    .green()
-                    .bold(),
-                    console::style("via").dim(),
-                    console::style(email).underlined().bold()
-                );
+        Some(Commands::Login { email }) => {
+            let is_new_session = login(email).await.wrap_err("Login failed")?;
 
-                Ok(())
-            }
-            Err(error) => {
-                println!(
-                    "{} {} {}",
-                    console::style("Failed to login").red().bold(),
-                    console::style("via").dim(),
-                    console::style(email).underlined().bold()
-                );
+            println!(
+                "{} {} {}",
+                console::style(if is_new_session {
+                    "Successfully logged in"
+                } else {
+                    "Already logged in"
+                })
+                .green()
+                .bold(),
+                console::style("via").dim(),
+                console::style(email).underlined().bold()
+            );
 
-                Err(error)
-            }
-        },
-        Some(Commands::Destroy {}) => match destroy(&crat()?).await {
-            Ok(_) => Ok(()),
-            Err(error) => {
-                println!(
-                    "{}",
-                    console::style("Failed to destroy serverless functions")
-                        .red()
-                        .bold()
-                );
-                Err(error)
-            }
-        },
+            Ok(())
+        }
+        Some(Commands::Destroy {}) => {
+            destroy(&Crate::from_current_dir()?)
+                .await
+                .wrap_err("Failed to destroy the project")?;
+
+            Ok(())
+        }
+        Some(Commands::Invoke { name }) => {
+            invoke(
+                functions
+                    .iter()
+                    .find(|f| name.eq(&f.name().wrap_err("Function's meta is invalid").unwrap()))
+                    .unwrap(),
+
+                &crat,
+            )
+            .wrap_err("Failed to invoke the function")?;
+            Ok(())
+        }
         None => Ok(()),
     }
 }

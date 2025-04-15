@@ -20,8 +20,9 @@ pub struct Crate {
 
 impl Crate {
     pub fn new(path: PathBuf) -> eyre::Result<Self> {
-        let cargo_toml_string = std::fs::read_to_string(path.join("Cargo.toml"))
-            .wrap_err("Failed to read Cargo.toml: {cargo_toml_path:?}")?;
+        let cargo_toml_path = path.join("Cargo.toml");
+        let cargo_toml_string = std::fs::read_to_string(&cargo_toml_path)
+            .wrap_err(format!("Failed to read Cargo.toml: {cargo_toml_path:?}"))?;
 
         let cargo_toml: toml::Value = cargo_toml_string
             .parse::<toml::Value>()
@@ -39,6 +40,11 @@ impl Crate {
             toml: cargo_toml,
             toml_string: cargo_toml_string,
         })
+    }
+
+    /// Return crate info from Cargo.toml
+    pub fn from_current_dir() -> eyre::Result<Self> {
+        Self::new(std::env::current_dir().wrap_err("Failed to get current dir")?)
     }
 
     /// Deploy all assets using CFN template

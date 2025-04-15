@@ -7,10 +7,6 @@ pub struct Secret {
 
 impl Secret {
     /// Read secrets from the .env file
-    ///
-    /// # Arguments
-    ///
-    /// * `unique` - Configurable unique part of the name
     pub fn from_dotenv() -> eyre::Result<Vec<Self>> {
         let mut result = vec![];
         let dotenv = DotEnv::new("secrets");

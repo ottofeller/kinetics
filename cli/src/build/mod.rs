@@ -3,12 +3,12 @@ mod parser;
 pub mod pipeline;
 mod templates;
 use crate::crat::Crate;
-use eyre::Context;
-use filehash::FileHash;
+use eyre::{eyre, Context};
+use filehash::{FileHash, CHECKSUMS_FILENAME};
 use parser::{ParsedFunction, Parser, Role};
 use regex::Regex;
 use std::fs::{self};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 use syn::visit::Visit;
 use walkdir::WalkDir;
@@ -36,36 +36,56 @@ pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<Pa
         parser.visit_file(&syntax);
     }
 
+    // Clone user project into the build folder.
+    let project_path = dst.join(&current_crate.name);
+    let crate_clone = clone(
+        &current_crate.path,
+        &project_path.join("clone"),
+        &parser.functions,
+    )?;
+
+    // For each function create a deployment crate
     for parsed_function in parser.functions {
-        // Function name is parsed value from kinetics_macro name attribute
-        // Path example: /home/some-user/.kinetics/<crate-name>/<function-name>/<rust-function-name>
-        let dst = dst
-            .join(&current_crate.name)
-            .join(parsed_function.func_name());
+        for is_local in vec![false, true] {
+            // Function name is parsed value from kinetics_macro name attribute
+            // Path example: /home/some-user/.kinetics/<crate-name>/<function-name>/<rust-function-name>
+            let dst = project_path.join(parsed_function.func_name(is_local));
+            if !matches!(fs::exists(&dst), Ok(true)) {
+                fs::create_dir_all(&dst).wrap_err("Failed to provision temp dir")?;
+            }
 
-        let src = &current_crate.path;
-        clone(src, &dst)?;
-        cleanup(&dst)?;
-        inject(src, &dst, &parsed_function)?;
+            create_lambda_crate(
+                &current_crate.path,
+                &dst,
+                &parsed_function,
+                &current_crate.name,
+                &crate_clone,
+                is_local,
+            )?;
 
-        result.push(dst);
+            result.push(dst);
+        }
     }
 
     Ok(result)
 }
 
 /// Clone the crate dir to a new directory
-fn clone(src: &Path, dst: &Path) -> eyre::Result<()> {
+fn clone(src: &Path, dst: &Path, functions: &[ParsedFunction]) -> eyre::Result<Crate> {
+    fs::create_dir_all(dst).wrap_err("Failed to create dir to clone the crate to")?;
     // Checksums of source files for preventing rewrite existing files
     let mut checksum = FileHash::new(dst.to_path_buf());
 
     // Skip source target from copying
     let src_target = src.join("target");
+    // Handle Cargo.toml as a special case
+    let relative_cargo_path = Path::new("Cargo.toml");
+    let src_cargo_path = src.join("Cargo.toml");
 
     for entry in WalkDir::new(src)
         .into_iter()
         .filter_map(|e| e.ok())
-        // Skip the target dir, cargo lambda use it (if exist) for incremental builds
+        // Skip the target dir, cargo lambda use it (if exist) for incremental builds.
         .filter(|entry| !entry.path().starts_with(&src_target))
     {
         let src_path = entry.path();
@@ -83,24 +103,40 @@ fn clone(src: &Path, dst: &Path) -> eyre::Result<()> {
             continue;
         }
 
-        let new_hash = FileHash::hash_from_path(src_path).wrap_err("Failed to calculate hash")?;
+        // Cargo.toml found
+        if src_relative == relative_cargo_path {
+            // Copy Cargo.toml with modifications
+            let mut cargo_toml: toml_edit::DocumentMut =
+                fs::read_to_string(&src_cargo_path)?.parse()?;
+            if let Some(deps_table) = cargo_toml["dependencies"].as_table_mut() {
+                deps_table.remove("kinetics-macro");
+            }
+            let cargo_toml_string = cargo_toml.to_string();
+            if checksum.update(
+                relative_cargo_path.to_path_buf(),
+                &FileHash::hash_from_bytes(&cargo_toml_string)
+                    .wrap_err("Failed to calculate hash from bytes of Cargo.toml")?,
+            ) {
+                fs::write(&dst_path, &cargo_toml_string).wrap_err("Failed to write Cargo.toml")?;
+            }
+            continue;
+        }
 
         // If src file has been modified, copy it to the destination
-        let old_hash = checksum
-            .inner
-            // insert() returns the old value if it exists and updates it
-            .insert(src_relative.to_path_buf(), new_hash.clone())
-            .unwrap_or_default();
-
-        if new_hash != old_hash {
-            fs::copy(src_path, &dst_path).wrap_err("Copying file failed")?;
-        }
+        clean_copy(src_path, &dst, src_relative, &mut checksum)?;
     }
 
-    checksum.save().wrap_err("Failed to save checksums")?;
+    create_lib(src, dst, functions, &mut checksum)?;
 
-    // Remove files that are not present in the source directory
-    // but still exist in the target directory.
+    checksum.save().wrap_err("Failed to save checksums")?;
+    clear_dir(dst, &checksum)?;
+
+    Crate::new(dst.to_path_buf())
+}
+
+/// Remove files that are not present in the source directory
+/// but still exist in the target directory.
+fn clear_dir(dst: &Path, checksum: &FileHash) -> eyre::Result<()> {
     for entry in WalkDir::new(dst).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
 
@@ -110,24 +146,18 @@ fn clone(src: &Path, dst: &Path) -> eyre::Result<()> {
 
         // Leave intact:
         // - the `target` folder;
-        // - `Cargo.lock` file;
         // - `.checksums` file.
-        // - src/main.rs is always present in the target directory because it's generated by cli
         if src_relative.strip_prefix("target").is_ok()
-            || [".checksums", "Cargo.lock", "src/main.rs"]
-                .contains(&src_relative.to_str().unwrap_or_default())
+            || src_relative
+                .to_str()
+                .is_some_and(|p| p == CHECKSUMS_FILENAME)
         {
             continue;
         };
 
         if path.is_dir() {
             // Delete all folders except those known from file paths in .checksums.
-            if checksum
-                .inner
-                .iter()
-                .find_map(|(key, _hash)| key.strip_prefix(src_relative).ok())
-                .is_none()
-            {
+            if !checksum.has_folder(src_relative) {
                 println!("Remove obsolete folder {src_relative:?}");
 
                 fs::remove_dir_all(path).wrap_err(format!(
@@ -138,7 +168,7 @@ fn clone(src: &Path, dst: &Path) -> eyre::Result<()> {
         }
 
         // Delete files not in .checksums.
-        if !checksum.inner.contains_key(src_relative) {
+        if !checksum.has_file(src_relative) {
             fs::remove_file(path).wrap_err(format!(
                 "failed to delete an obsolete file {src_relative:?}"
             ))?;
@@ -148,72 +178,105 @@ fn clone(src: &Path, dst: &Path) -> eyre::Result<()> {
     Ok(())
 }
 
-/// Inject the code which is necessary to build lambda
+/// Create lib.rs file for the cloned crate.
+/// The file is used as an export point for all the functions.
+fn create_lib(
+    src: &Path,
+    dst: &Path,
+    functions: &[ParsedFunction],
+    checksum: &mut FileHash,
+) -> eyre::Result<()> {
+    let relative_lib_path = Path::new("src").join("lib.rs");
+    let src_lib_rs_path = src.join(&relative_lib_path);
+    // Leave an existing lib.rs as is.
+    if src_lib_rs_path.exists() {
+        return Ok(());
+    }
+
+    let module_definitions = functions
+        .iter()
+        .filter_map(|f| {
+            // Take the first path component from each module in the src folder, and export it.
+            match Path::new(&f.relative_path)
+                .strip_prefix("src")
+                .ok()?
+                .with_extension("")
+                .components()
+                .next()
+            {
+                Some(Component::Normal(comp)) => {
+                    comp.to_str().map(|module| format!("pub mod {module};\n"))
+                }
+                _ => None,
+            }
+        })
+        .collect::<String>();
+
+    if checksum.update(
+        relative_lib_path.to_path_buf(),
+        &FileHash::hash_from_bytes(&module_definitions)
+            .wrap_err("Failed to calculate hash from bytes of src/lib.rs")?,
+    ) {
+        fs::write(dst.join(&relative_lib_path), module_definitions)
+            .wrap_err("Failed to write src/lib.rs")?;
+    }
+
+    Ok(())
+}
+
+/// Create crate with the code necessary to build lambda
 ///
-/// Set up the main() function according to cargo lambda guides, and add the lambda code right to main.rs
-fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Result<()> {
-    let tmp_dir = &dst.join(".temp");
-    fs::create_dir_all(tmp_dir).wrap_err("Failed to create .temp directory")?;
+/// Set up the main() function according to cargo lambda guides,
+/// and add the lambda code right to main.rs
+fn create_lambda_crate(
+    src: &Path,
+    dst: &Path,
+    parsed_function: &ParsedFunction,
+    project_name: &str,
+    crate_clone: &Crate,
+    is_local: bool,
+) -> eyre::Result<()> {
+    let mut checksum = FileHash::new(dst.to_path_buf());
 
-    // Work with the tmp file to avoid modifying the original file without real changes.
-    let tmp_main_rs_path = tmp_dir.join("main.rs");
-    let main_rs_path = dst.join("src").join("main.rs");
-    let lib_rs_path = dst.join("src").join("lib.rs");
-
-    // Copy existing main.rs to a temporary file
-    let _ = fs::copy(&main_rs_path, &tmp_main_rs_path);
-
-    // Move lib.rs to main.rs
-    if lib_rs_path.exists() {
-        let lib_content = fs::read_to_string(&lib_rs_path).wrap_err("Failed to read lib.rs")?;
-
-        fs::write(
-            &tmp_main_rs_path,
-            format!("{}\nfn main() {{}}", lib_content),
-        )
-        .wrap_err("Failed to write main.rs")?;
-
-        fs::remove_file(&lib_rs_path).wrap_err("Failed to delete lib.rs")?;
+    let src_dir_path = dst.join("src");
+    if !matches!(fs::exists(&src_dir_path), Ok(true)) {
+        fs::create_dir(&src_dir_path).wrap_err("Failed to create src folder")?;
     }
 
-    if !tmp_main_rs_path.exists() {
-        fs::write(&tmp_main_rs_path, "fn main() {}").wrap_err("Failed to create main.rs")?;
-    }
+    let main_rs_path = src_dir_path.join("main.rs");
 
-    let source_code = fs::read_to_string(&tmp_main_rs_path).wrap_err("Reading main.rs failed")?;
-    let re = Regex::new(r"fn\s+main\s*\(.*?\)\s*\{[^}]*}").wrap_err("Failed to prepare regex")?;
-
-    let import_statement = import_statement(
-        parsed_function.relative_path.as_str(),
-        parsed_function.rust_function_name.as_str(),
+    let fn_import = import_statement(
+        &parsed_function.relative_path,
+        &parsed_function.rust_function_name,
+        &crate_clone.name,
     )?;
 
     let rust_function_name = parsed_function.rust_function_name.clone();
-
-    let new_main_code = match &parsed_function.role {
-        Role::Endpoint(_) => templates::endpoint(&import_statement, &rust_function_name),
-        Role::Worker(_) => templates::worker(&import_statement, &rust_function_name),
-        Role::Cron(_) => templates::cron(&import_statement, &rust_function_name),
+    let main_code = match &parsed_function.role {
+        Role::Endpoint(_) => templates::endpoint(&fn_import, &rust_function_name),
+        Role::Worker(_) => templates::worker(&fn_import, &rust_function_name),
+        Role::Cron(_) => templates::cron(&fn_import, &rust_function_name, is_local),
     };
 
-    let item: syn::File = syn::parse_str(&new_main_code)?;
-
-    write_if_changed(
-        &main_rs_path,
-        re.replace(&source_code, prettyplease::unparse(&item))
-            .to_string(),
-    )?;
+    let item: syn::File = syn::parse_str(&main_code)?;
+    let main_rs_content = prettyplease::unparse(&item);
+    if checksum.update(
+        main_rs_path.strip_prefix(dst)?.to_path_buf(),
+        &FileHash::hash_from_bytes(&main_rs_content)
+            .wrap_err("Failed to calculate hash for bytes of main.rs")?,
+    ) {
+        fs::write(&main_rs_path, &main_rs_content).wrap_err("Failed to write main.rs")?;
+    }
 
     let mut doc: toml_edit::DocumentMut = fs::read_to_string(src.join("Cargo.toml"))?.parse()?;
 
-    if !doc.contains_array_of_tables("bin") {
-        let mut aot = toml_edit::ArrayOfTables::new();
-        let mut new_bin = toml_edit::Table::new();
-        new_bin["name"] = toml_edit::value("bootstrap");
-        new_bin["path"] = toml_edit::value("src/main.rs");
-        aot.push(new_bin);
-        doc["bin"] = toml_edit::Item::ArrayOfTables(aot);
-    }
+    doc["package"]["name"] = format!("{}-kinetics-build", project_name).into();
+    let mut aot = toml_edit::ArrayOfTables::new();
+    let mut new_bin = toml_edit::Table::new();
+    new_bin["name"] = toml_edit::value("bootstrap");
+    new_bin["path"] = toml_edit::value("src/main.rs");
+    aot.push(new_bin);
+    doc["bin"] = toml_edit::Item::ArrayOfTables(aot);
 
     if let Some(kinetics_meta) = doc["package"]["metadata"]["kinetics"]
         .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
@@ -225,7 +288,7 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
             Role::Worker(_) => "worker",
         };
 
-        let name = parsed_function.func_name();
+        let name = parsed_function.func_name(is_local);
 
         // Create a function table for both roles
         let mut function_table = toml_edit::Table::new();
@@ -326,16 +389,35 @@ fn inject(src: &Path, dst: &Path, parsed_function: &ParsedFunction) -> eyre::Res
         deps_table.remove("kinetics-macro");
     }
 
-    write_if_changed(dst.join("Cargo.toml"), doc.to_string())
-        .wrap_err("Failed to replace Cargo.toml")?;
+    let target_cargo_path = dst.join("Cargo.toml");
+    let crate_path = relative_path(dst, &crate_clone.path)?;
+    doc["dependencies"][crate_clone.name.clone()]
+        .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+        .as_table_mut()
+        .map(|t| t.insert("path", toml_edit::value(crate_path.to_str().unwrap())));
 
-    let _ = fs::remove_dir_all(tmp_dir).wrap_err("Failed to remove temporary directory");
+    let doc_string = doc.to_string();
+    if checksum.update(
+        target_cargo_path.strip_prefix(dst)?.to_path_buf(),
+        &FileHash::hash_from_bytes(&doc_string)
+            .wrap_err("Failed to calculate hash from bytes of Cargo.toml")?,
+    ) {
+        fs::write(&target_cargo_path, &doc_string).wrap_err("Failed to write Cargo.toml")?;
+    }
+
+    checksum.save().wrap_err("Failed to save checksums")?;
+    clear_dir(dst, &checksum)?;
+
     Ok(())
 }
 
-/// Generate the import statement for the function which is being deployed
-/// as a lambda
-fn import_statement(relative_path: &str, rust_name: &str) -> eyre::Result<String> {
+/// Generate the import statement for the function
+/// which is being deployed as a lambda
+fn import_statement(
+    relative_path: &str,
+    rust_name: &str,
+    crate_name: &str,
+) -> eyre::Result<String> {
     let relative_path =
         PathBuf::from_str(relative_path.strip_prefix("src/").unwrap_or(relative_path))?;
 
@@ -371,14 +453,29 @@ fn import_statement(relative_path: &str, rust_name: &str) -> eyre::Result<String
     let import_statement = if module_path.is_empty() {
         "".to_string()
     } else {
-        format!("use {}::{};", module_path, rust_name)
+        format!("use {crate_name}::{}::{};", module_path, rust_name)
     };
 
     Ok(import_statement)
 }
 
-/// Clean up scaffolding required for deploying a function
-fn cleanup(dst: &Path) -> eyre::Result<()> {
+/// Delete the macro attributes from a file
+/// and copy it to the destination folder.
+fn clean_copy(
+    src_path_full: &Path,
+    dst_dir: &Path,
+    file_path_relative: &Path,
+    checksum: &mut FileHash,
+) -> eyre::Result<()> {
+    let dst_path_full = dst_dir.join(file_path_relative);
+    // For all non .rs files just copy it.
+    if src_path_full.extension().is_some_and(|ext| ext != "rs") {
+        return fs::copy(src_path_full, &dst_path_full)
+            .wrap_err_with(|| format!("Failed to copy file {src_path_full:?} -> {dst_path_full:?}"))
+            .map(|_| ());
+    }
+
+    // Attempt kinetics macro replacements in .rs files.
     let re_endpoint = Regex::new(r"(?m)^\s*#\s*\[\s*endpoint[^]]*]\s*$")?;
     let re_cron = Regex::new(r"(?m)^\s*#\s*\[\s*cron[^]]*]\s*$")?;
     let re_worker = Regex::new(r"(?m)^\s*#\s*\[\s*worker[^]]*]\s*$")?;
@@ -387,41 +484,42 @@ fn cleanup(dst: &Path) -> eyre::Result<()> {
         r"(?m)^\s*use\s+kinetics_macro(\s*::\s*(\w+|\{\s*\w+(\s*,\s*\w+)*\s*}))?\s*;\s*$",
     )?;
 
-    // Delete the macro attributes from everywhere in the crate
-    for entry in WalkDir::new(dst.join("src"))
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
-    {
-        let path = entry.path();
+    let mut content = fs::read_to_string(src_path_full)
+        .wrap_err(format!("Failed to read file {src_path_full:?}"))?;
 
-        if path.is_dir() {
-            continue;
-        }
-
-        let mut content = fs::read_to_string(path)
-            .wrap_err(format!("Failed to read: {path:?}"))
-            .wrap_err("Failed to read file")?;
-
-        content = re_endpoint.replace_all(&content, "").to_string();
-        content = re_worker.replace_all(&content, "").to_string();
-        content = re_cron.replace_all(&content, "").to_string();
-        let new_content = re_import.replace_all(&content, "");
-        write_if_changed(path, new_content.as_ref())?;
+    content = re_endpoint.replace_all(&content, "").to_string();
+    content = re_worker.replace_all(&content, "").to_string();
+    content = re_cron.replace_all(&content, "").to_string();
+    let new_content = re_import.replace_all(&content, "").into_owned();
+    if checksum.update(
+        file_path_relative.to_path_buf(),
+        &FileHash::hash_from_bytes(&new_content).wrap_err_with(|| {
+            format!("Failed to calculate hash from bytes of {src_path_full:?}")
+        })?,
+    ) {
+        fs::write(&dst_path_full, &new_content)
+            .wrap_err_with(|| format!("Failed to write {dst_path_full:?}"))?;
     }
 
     Ok(())
 }
 
-/// Check the checksum of a file before write to ensure it hasn't changed
-fn write_if_changed<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> eyre::Result<()> {
-    let path_hash = FileHash::hash_from_path(&path).unwrap_or("path".to_string());
-    let contents_hash = FileHash::hash_from_bytes(&contents).unwrap_or("content".to_string());
-
-    if path_hash == contents_hash {
-        Ok(())
-    } else {
-        fs::write(&path, &contents)
-            .wrap_err(format!("Failed to write: {}", path.as_ref().display()))
+fn relative_path(src: &Path, dst: &Path) -> eyre::Result<PathBuf> {
+    let mut parent = src;
+    while let Some(new_parent) = parent.parent() {
+        parent = new_parent;
+        if let Ok(stripped_dst) = dst.strip_prefix(parent) {
+            // Found mutual parent
+            return Ok(src
+                .strip_prefix(parent)?
+                .iter()
+                .map(|_c| Component::ParentDir.as_os_str())
+                .chain(stripped_dst.iter())
+                .collect());
+        }
     }
+
+    Err(eyre!(
+        "No common ancestor found of paths {src:?} and {dst:?}"
+    ))
 }
