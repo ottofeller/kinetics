@@ -251,7 +251,7 @@ fn create_lambda_crate(
 
     let rust_function_name = parsed_function.rust_function_name.clone();
     let main_code = match &parsed_function.role {
-        Role::Endpoint(_) => templates::endpoint(&fn_import, &rust_function_name),
+        Role::Endpoint(_) => templates::endpoint(&fn_import, &rust_function_name, is_local),
         Role::Worker(_) => templates::worker(&fn_import, &rust_function_name),
         Role::Cron(_) => templates::cron(&fn_import, &rust_function_name, is_local),
     };
