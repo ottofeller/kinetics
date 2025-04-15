@@ -46,22 +46,25 @@ pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<Pa
 
     // For each function create a deployment crate
     for parsed_function in parser.functions {
-        // Function name is parsed value from kinetics_macro name attribute
-        // Path example: /home/some-user/.kinetics/<crate-name>/<function-name>/<rust-function-name>
-        let dst = project_path.join(parsed_function.func_name());
-        if !matches!(fs::exists(&dst), Ok(true)) {
-            fs::create_dir_all(&dst).wrap_err("Failed to provision temp dir")?;
+        for is_local in vec![false, true] {
+            // Function name is parsed value from kinetics_macro name attribute
+            // Path example: /home/some-user/.kinetics/<crate-name>/<function-name>/<rust-function-name>
+            let dst = project_path.join(parsed_function.func_name(is_local));
+            if !matches!(fs::exists(&dst), Ok(true)) {
+                fs::create_dir_all(&dst).wrap_err("Failed to provision temp dir")?;
+            }
+
+            create_lambda_crate(
+                &current_crate.path,
+                &dst,
+                &parsed_function,
+                &current_crate.name,
+                &crate_clone,
+                is_local,
+            )?;
+
+            result.push(dst);
         }
-
-        create_lambda_crate(
-            &current_crate.path,
-            &dst,
-            &parsed_function,
-            &current_crate.name,
-            &crate_clone,
-        )?;
-
-        result.push(dst);
     }
 
     Ok(result)
@@ -231,6 +234,7 @@ fn create_lambda_crate(
     parsed_function: &ParsedFunction,
     project_name: &str,
     crate_clone: &Crate,
+    is_local: bool,
 ) -> eyre::Result<()> {
     let mut checksum = FileHash::new(dst.to_path_buf());
 
@@ -251,7 +255,7 @@ fn create_lambda_crate(
     let main_code = match &parsed_function.role {
         Role::Endpoint(_) => templates::endpoint(&fn_import, &rust_function_name),
         Role::Worker(_) => templates::worker(&fn_import, &rust_function_name),
-        Role::Cron(_) => templates::cron(&fn_import, &rust_function_name),
+        Role::Cron(_) => templates::cron(&fn_import, &rust_function_name, is_local),
     };
 
     let item: syn::File = syn::parse_str(&main_code)?;
@@ -284,7 +288,7 @@ fn create_lambda_crate(
             Role::Worker(_) => "worker",
         };
 
-        let name = parsed_function.func_name();
+        let name = parsed_function.func_name(is_local);
 
         // Create a function table for both roles
         let mut function_table = toml_edit::Table::new();
