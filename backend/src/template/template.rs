@@ -318,13 +318,7 @@ impl Template {
     }
 
     fn prefixed(&self, names: Vec<&str>) -> String {
-        let joined = names.join("D");
-
-        format!(
-            "{username}D{crat_name}D{joined}",
-            username = &self.username_escaped,
-            crat_name = &self.crat.name
-        )
+        Function::full_name(&self.username_escaped, &self.crat.name, &names.join("D"))
     }
 
     /// Policy statements to allow a function to access a resource
