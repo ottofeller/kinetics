@@ -158,8 +158,6 @@ fn clear_dir(dst: &Path, checksum: &FileHash) -> eyre::Result<()> {
         if path.is_dir() {
             // Delete all folders except those known from file paths in .checksums.
             if !checksum.has_folder(src_relative) {
-                println!("Remove obsolete folder {src_relative:?}");
-
                 fs::remove_dir_all(path).wrap_err(format!(
                     "Failed to delete an obsolete folder {src_relative:?}"
                 ))?;
@@ -294,6 +292,7 @@ fn create_lambda_crate(
         let mut function_table = toml_edit::Table::new();
         function_table["name"] = toml_edit::value(&name);
         function_table["role"] = toml_edit::value(role_str);
+        function_table["is_local"] = toml_edit::value(is_local);
         kinetics_meta.insert("function", toml_edit::Item::Table(function_table));
 
         match &parsed_function.role {

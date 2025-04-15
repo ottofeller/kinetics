@@ -188,4 +188,19 @@ impl Function {
         self.set_s3key_encrypted(presigned.s3key_encrypted);
         Ok(())
     }
+
+    /// Return true if the function is the only supposed for local invocations
+    pub fn is_local(&self) -> eyre::Result<bool> {
+        if self.meta().is_err() {
+            return Err(eyre!("Could not get function's meta"));
+        }
+
+        Ok(self
+            .meta()
+            .unwrap()
+            .get("is_local")
+            .unwrap_or(&toml::Value::Boolean(false))
+            .as_bool()
+            .unwrap_or(false))
+    }
 }
