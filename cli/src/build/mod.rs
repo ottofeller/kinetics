@@ -294,6 +294,7 @@ fn create_lambda_crate(
         let mut function_table = toml_edit::Table::new();
         function_table["name"] = toml_edit::value(&name);
         function_table["role"] = toml_edit::value(role_str);
+        function_table["is_local"] = toml_edit::value(is_local);
         kinetics_meta.insert("function", toml_edit::Item::Table(function_table));
 
         match &parsed_function.role {
