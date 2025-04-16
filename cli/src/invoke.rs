@@ -2,6 +2,7 @@ use crate::client::Client;
 use crate::crat::Crate;
 use crate::function::Function;
 use crate::secret::Secret;
+use color_eyre::owo_colors::OwoColorize;
 use common::auth::lambda;
 use eyre::{ContextCompat, WrapErr};
 use std::collections::HashMap;
@@ -25,7 +26,15 @@ fn thread(
 
                 // Clear the line and print normal (non-red) output
                 print!("\r\x1B[K");
-                print!("{}", console::style(&line.trim()).dim());
+
+                // Trim the line to 48 characters with ellipsis if necessary
+                let line_trimmed = if line.trim().len() > 48 {
+                    format!("{}...", line.trim().chars().take(45).collect::<String>())
+                } else {
+                    line.trim().to_string()
+                };
+
+                print!("{}", console::style(&line_trimmed.trim()).dim());
                 let _ = std::io::stdout().flush();
             }
         }
@@ -33,7 +42,7 @@ fn thread(
 }
 
 /// Invoke the function locally
-pub async fn invoke(function: &Function, crat: &Crate) -> eyre::Result<()> {
+pub async fn invoke(function: &Function, crat: &Crate, payload: &str) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
 
     // Load secrets from .env.secrets if it exists
@@ -67,8 +76,9 @@ pub async fn invoke(function: &Function, crat: &Crate) -> eyre::Result<()> {
     let display_path = format!("{}", invoke_dir.display());
 
     println!(
-        "\n{} from {}",
+        "\n{} {} {}",
         console::style("Invoking function").green().bold(),
+        console::style("from").dimmed(),
         console::style(&display_path).underlined().bold()
     );
 
@@ -83,6 +93,7 @@ pub async fn invoke(function: &Function, crat: &Crate) -> eyre::Result<()> {
         .env("AWS_ACCESS_KEY_ID", credentials.access_key_id)
         .env("AWS_SECRET_ACCESS_KEY", credentials.secret_access_key)
         .env("AWS_SESSION_TOKEN", credentials.session_token)
+        .env("KINETICS_INVOKE_PAYLOAD", payload)
         .current_dir(&invoke_dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
