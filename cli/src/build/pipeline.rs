@@ -141,7 +141,12 @@ impl Pipeline {
 
         let deploy = self
             .crat
-            .deploy(&functions)
+            .deploy(
+                &functions
+                    .into_iter()
+                    .filter(|f| !f.is_local().unwrap())
+                    .collect::<Vec<_>>(),
+            )
             .await
             .wrap_err("Failed to deploy functions");
 

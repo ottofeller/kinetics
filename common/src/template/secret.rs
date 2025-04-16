@@ -1,4 +1,3 @@
-use crate::template::Crate;
 use eyre::Context;
 
 #[derive(Clone, Debug)]
@@ -9,16 +8,16 @@ pub struct Secret {
 }
 
 impl Secret {
-    pub fn new(name: &str, value: &str, crat: &Crate, username: &str) -> Self {
+    pub fn new(name: &str, value: &str, crate_name: &str, username: &str) -> Self {
         Secret {
             name: name.to_string(),
             value: value.to_string(),
-            unique: format!("{username}-{crate_name}", crate_name = crat.name),
+            unique: format!("{username}-{crate_name}"),
         }
     }
 
     pub fn unique_name(&self) -> String {
-        format!("{}-{}", self.unique.clone(), self.name.clone())
+        format!("{}-{}", self.unique, self.name)
     }
 
     pub async fn sync(&self) -> eyre::Result<()> {

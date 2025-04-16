@@ -10,6 +10,7 @@ pub(crate) struct Config<'a> {
     pub(crate) kms_key_id: &'a str,
     pub(crate) s3_bucket_name: &'a str,
     pub(crate) hosted_zone_id: Option<&'a str>,
+    pub(crate) lambda_credentials_role_arn: &'a str,
 }
 
 #[cfg(not(feature = "enable-direct-deploy"))]

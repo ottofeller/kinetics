@@ -1,10 +1,11 @@
+use common::auth::lambda;
 use eyre::{ContextCompat, WrapErr};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
-
+use crate::client::Client;
 use crate::crat::Crate;
 use crate::function::Function;
 use crate::secret::Secret;
@@ -32,10 +33,7 @@ fn thread(
 }
 
 /// Invoke the function locally
-///
-/// Crate is the original crate that the function belongs to. function.crate is the one where the function
-/// was copied to, it does not preserve the original name.
-pub fn invoke(function: &Function, crat: &Crate) -> eyre::Result<()> {
+pub async fn invoke(function: &Function, crat: &Crate) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
 
     // Load secrets from .env.secrets if it exists
@@ -47,6 +45,21 @@ pub fn invoke(function: &Function, crat: &Crate) -> eyre::Result<()> {
             secret.value(),
         );
     }
+
+    let client = Client::new().wrap_err("Failed to create client")?;
+
+    let credentials: lambda::JsonResponse = client
+        .post("/auth/lambda")
+        .json(&serde_json::json!(lambda::JsonBody {
+            crate_name: crat.name.clone(),
+            function_name: function.name()?.clone(),
+        }))
+        .send()
+        .await
+        .wrap_err("Failed to get auth credentials")?
+        .json()
+        .await
+        .wrap_err("Invalid response")?;
 
     let invoke_dir =
         Path::new(&home).join(format!(".kinetics/{}/{}Local", crat.name, function.name()?));
@@ -67,6 +80,9 @@ pub fn invoke(function: &Function, crat: &Crate) -> eyre::Result<()> {
     let mut child = Command::new("cargo")
         .args(["run"])
         .envs(secrets)
+        .env("AWS_ACCESS_KEY_ID", credentials.access_key_id)
+        .env("AWS_SECRET_ACCESS_KEY", credentials.secret_access_key)
+        .env("AWS_SESSION_TOKEN", credentials.session_token)
         .current_dir(&invoke_dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

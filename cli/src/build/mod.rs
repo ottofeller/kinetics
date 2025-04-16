@@ -123,7 +123,7 @@ fn clone(src: &Path, dst: &Path, functions: &[ParsedFunction]) -> eyre::Result<C
         }
 
         // If src file has been modified, copy it to the destination
-        clean_copy(src_path, &dst, src_relative, &mut checksum)?;
+        clean_copy(src_path, dst, src_relative, &mut checksum)?;
     }
 
     create_lib(src, dst, functions, &mut checksum)?;
@@ -158,8 +158,6 @@ fn clear_dir(dst: &Path, checksum: &FileHash) -> eyre::Result<()> {
         if path.is_dir() {
             // Delete all folders except those known from file paths in .checksums.
             if !checksum.has_folder(src_relative) {
-                println!("Remove obsolete folder {src_relative:?}");
-
                 fs::remove_dir_all(path).wrap_err(format!(
                     "Failed to delete an obsolete folder {src_relative:?}"
                 ))?;
@@ -253,7 +251,7 @@ fn create_lambda_crate(
 
     let rust_function_name = parsed_function.rust_function_name.clone();
     let main_code = match &parsed_function.role {
-        Role::Endpoint(_) => templates::endpoint(&fn_import, &rust_function_name),
+        Role::Endpoint(_) => templates::endpoint(&fn_import, &rust_function_name, is_local),
         Role::Worker(_) => templates::worker(&fn_import, &rust_function_name),
         Role::Cron(_) => templates::cron(&fn_import, &rust_function_name, is_local),
     };
@@ -294,6 +292,7 @@ fn create_lambda_crate(
         let mut function_table = toml_edit::Table::new();
         function_table["name"] = toml_edit::value(&name);
         function_table["role"] = toml_edit::value(role_str);
+        function_table["is_local"] = toml_edit::value(is_local);
         kinetics_meta.insert("function", toml_edit::Item::Table(function_table));
 
         match &parsed_function.role {
@@ -346,7 +345,9 @@ fn create_lambda_crate(
         }
     }
 
-    if matches!(parsed_function.role, Role::Cron(_) | Role::Worker(_)) {
+    if matches!(parsed_function.role, Role::Cron(_) | Role::Worker(_))
+        || (matches!(parsed_function.role, Role::Endpoint(_)) && is_local)
+    {
         doc["dependencies"]["serde_json"]
             .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
             .as_table_mut()

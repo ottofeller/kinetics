@@ -16,11 +16,11 @@ pub mod implementation {
     ) -> eyre::Result<()> {
         // WARN This will be moved into kinetics-backend crate to hide details of backend implementation
         let build_config = build_config();
-        let crat = template::Crate::new(toml_string.clone()).wrap_err("Invalid crate toml")?;
+        let crat = template::Crate::new(&toml_string).wrap_err("Invalid crate toml")?;
 
         let secrets = secrets
             .iter()
-            .map(|(k, v)| template::Secret::new(k, v, &crat, build_config.username_escaped))
+            .map(|(k, v)| template::Secret::new(k, v, &crat.name_escaped, build_config.username_escaped))
             .collect::<Vec<template::Secret>>();
 
         let template = template::Template::new(
@@ -37,13 +37,14 @@ pub mod implementation {
                     .unwrap()
                 })
                 .collect::<Vec<template::Function>>(),
-            secrets.clone(),
+            &secrets,
             build_config.s3_bucket_name,
             build_config.username_escaped,
             build_config.username,
             build_config.cloud_front_domain,
             build_config.hosted_zone_id,
             build_config.kms_key_id,
+            build_config.lambda_credentials_role_arn,
         )
         .await?;
 

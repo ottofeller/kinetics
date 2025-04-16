@@ -1,5 +1,6 @@
 mod crat;
 mod function;
+mod sanitize;
 mod secret;
 mod template;
 

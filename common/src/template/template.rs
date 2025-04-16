@@ -1,5 +1,5 @@
+use super::{Crate, Function, Secret};
 use crate::stack::Stack;
-use crate::template::{Crate, Function, Secret};
 use crate::{Queue, Resource};
 use aws_config::BehaviorVersion;
 use eyre::{ContextCompat, Ok, WrapErr};
@@ -11,6 +11,7 @@ pub struct Template {
     account_id: String,
     kms_key_id: String,
     hosted_zone_id: Option<String>,
+    lambda_credentials_role_arn: String,
 
     bucket: String,
     client: aws_sdk_cloudformation::Client,
@@ -73,7 +74,6 @@ impl Template {
 
     /// Domain and paths for endpoint lambdas
     fn routing(&self) -> Vec<CfnResource> {
-        let project_name = self.crat.name.clone();
         let functions: Vec<Function> = self.functions.clone();
 
         let functions = functions
@@ -131,11 +131,13 @@ impl Template {
             })
             .collect::<Vec<Value>>();
 
+        let subdomain_name = self.crat.name.replace('_', "-");
         let project_domain = self
             .domain_name
             .as_ref()
-            .map(|domain_name| format!("{project_name}.{domain_name}"));
+            .map(|domain_name| format!("{subdomain_name}.{domain_name}"));
 
+        let project_name = &self.crat.name_escaped;
         let mut resources = vec![CfnResource {
             name: format!("EndpointDistribution{project_name}"),
             resource: json!({
@@ -237,13 +239,14 @@ impl Template {
     pub async fn new(
         crat: &Crate,
         functions: Vec<Function>,
-        secrets: Vec<Secret>,
+        secrets: &[Secret],
         bucket: &str,
         username_escaped: &str,
         username: &str,
         domain_name: Option<&str>,
         hosted_zone_id: Option<&str>,
         kms_key_id: &str,
+        lambda_credentials_role_arn: &str,
     ) -> eyre::Result<Self> {
         let config = aws_config::defaults(BehaviorVersion::v2025_01_17())
             .load()
@@ -270,6 +273,7 @@ impl Template {
             domain_name: domain_name.map(|d| d.to_string()),
             hosted_zone_id: hosted_zone_id.map(|h| h.to_string()),
             kms_key_id: kms_key_id.to_string(),
+            lambda_credentials_role_arn: lambda_credentials_role_arn.to_string(),
         };
 
         // Define global resources from the app's Cargo.toml, e.g. a DB
@@ -324,12 +328,10 @@ impl Template {
     }
 
     fn prefixed(&self, names: Vec<&str>) -> String {
-        let joined = names.join("D");
-
-        format!(
-            "{username}D{crat_name}D{joined}",
-            username = &self.username_escaped,
-            crat_name = &self.crat.name
+        Function::full_name(
+            &self.username_escaped,
+            &self.crat.name_escaped,
+            &names.join("D"),
         )
     }
 
@@ -427,6 +429,26 @@ impl Template {
         template
     }
 
+    fn assume_policies(&self) -> Value {
+        json!({
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": "sts:AssumeRole",
+                    "Principal": {"Service": "lambda.amazonaws.com"}
+                },
+
+                // Allow the /auth/lambda/credentials endpoint to assume any kinetics' lambda role
+                {
+                    "Effect": "Allow",
+                    "Action": "sts:AssumeRole",
+                    "Principal": {"AWS": self.lambda_credentials_role_arn}
+                },
+            ]
+        })
+    }
+
     /// Define environment variables for a function
     fn environment(
         &self,
@@ -480,6 +502,7 @@ impl Template {
         queues: &Vec<Queue>,
     ) -> eyre::Result<Vec<CfnResource>> {
         let mut policies = self.policies(secrets, queues);
+        let assume_policies = self.assume_policies();
 
         policies.push(json!({
             "PolicyName": "AppendToLogsPolicy",
@@ -539,16 +562,7 @@ impl Template {
                 resource: json!({
                     "Type": "AWS::IAM::Role",
                     "Properties": {
-                        "AssumeRolePolicyDocument": {
-                            "Version": "2012-10-17",
-                            "Statement": [{
-                                "Effect": "Allow",
-                                "Principal": {
-                                    "Service": ["lambda.amazonaws.com"]
-                                },
-                                "Action": ["sts:AssumeRole"]
-                            }]
-                        },
+                        "AssumeRolePolicyDocument": assume_policies,
                         "Path": "/",
                         "Policies": policies,
                         "Tags": [{
@@ -594,6 +608,7 @@ impl Template {
         let bucket = self.bucket.clone();
         let username = self.username.clone();
         let mut policies = self.policies(secrets, &[]);
+        let assume_policies = self.assume_policies();
 
         policies.extend([
             json!({
@@ -681,16 +696,7 @@ impl Template {
                     resource: json!({
                         "Type": "AWS::IAM::Role",
                         "Properties": {
-                            "AssumeRolePolicyDocument": {
-                                "Version": "2012-10-17",
-                                "Statement": [{
-                                    "Effect": "Allow",
-                                    "Principal": {
-                                        "Service": ["lambda.amazonaws.com"]
-                                    },
-                                    "Action": ["sts:AssumeRole"]
-                                }]
-                            },
+                            "AssumeRolePolicyDocument": assume_policies,
                             "Path": "/",
                             "Policies": policies
                         }
@@ -743,6 +749,7 @@ impl Template {
         let bucket = self.bucket.clone();
         let username = self.username.clone();
         let mut policies = self.policies(secrets, queues);
+        let assume_policies = self.assume_policies();
 
         policies.extend([json!({
             "PolicyName": "AppendToLogsPolicy",
@@ -786,16 +793,9 @@ impl Template {
                 resource: json!({
                     "Type": "AWS::IAM::Role",
                     "Properties": {
-                        "AssumeRolePolicyDocument": {
-                            "Version": "2012-10-17",
-                            "Statement": [{
-                                "Effect": "Allow",
-                                "Principal": {"Service": ["lambda.amazonaws.com"]},
-                                "Action": ["sts:AssumeRole"]
-                            }]
-                        },
+                        "AssumeRolePolicyDocument": assume_policies,
                         "Path": "/",
-                        "Policies": policies
+                        "Policies": policies,
                     }
                 }),
             },
@@ -860,7 +860,7 @@ impl Template {
 
     /// Provision the template in CloudFormation
     pub async fn provision(&self) -> eyre::Result<()> {
-        let name = Stack::new(self.username_escaped.as_str(), self.crat.name.as_str()).name;
+        let name = Stack::new(&self.username_escaped, &self.crat.name_escaped).name;
         let capabilities = aws_sdk_cloudformation::types::Capability::CapabilityIam;
         let template_string = serde_json::to_string_pretty(&self.template)?;
 
@@ -874,7 +874,7 @@ impl Template {
         let template_key = format!(
             "templates/{}-{}-{}.json",
             self.username_escaped,
-            self.crat.name,
+            self.crat.name_escaped,
             chrono::Utc::now().format("%Y%m%d-%H%M%S-%3f")
         );
 

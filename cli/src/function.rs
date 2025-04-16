@@ -2,7 +2,6 @@ use crate::client::Client;
 use crate::config;
 use crate::crat::Crate;
 use crate::deploy::upload;
-use aws_sdk_s3::primitives::ByteStream;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -168,5 +167,20 @@ impl Function {
 
         self.set_s3key_encrypted(presigned.s3key_encrypted);
         Ok(())
+    }
+
+    /// Return true if the function is the only supposed for local invocations
+    pub fn is_local(&self) -> eyre::Result<bool> {
+        if self.meta().is_err() {
+            return Err(eyre!("Could not get function's meta"));
+        }
+
+        Ok(self
+            .meta()
+            .unwrap()
+            .get("is_local")
+            .unwrap_or(&toml::Value::Boolean(false))
+            .as_bool()
+            .unwrap_or(false))
     }
 }
