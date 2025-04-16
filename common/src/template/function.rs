@@ -1,4 +1,4 @@
-use super::{sanitize::escape_resource_name, Crate};
+use super::{Crate, sanitize::escape_resource_name};
 use crate::Resource;
 use eyre::{ContextCompat, Ok, WrapErr};
 

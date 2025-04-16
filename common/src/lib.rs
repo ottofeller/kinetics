@@ -1,6 +1,6 @@
+pub mod auth;
 pub mod stack;
 pub mod template;
-pub mod auth;
 
 #[derive(Clone, Debug)]
 pub struct Queue {

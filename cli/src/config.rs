@@ -48,6 +48,8 @@ pub(crate) fn build_config() -> &'static Config<'static> {
                 kms_key_id: option_env!("KINETICS_KMS_KEY_ID")
                     .unwrap_or("f1e08622-51cb-4868-adf5-9bb8aa8c0a87"),
                 hosted_zone_id: option_env!("KINETICS_HOSTED_ZONE_ID"),
+                lambda_credentials_role_arn: option_env!("KINETICS_LAMBDA_CREDENTIALS_ROLE_ARN")
+                    .unwrap_or("arn:aws:iam::430118855033:role/artemATottofellerDOTcom-b-EndpointRoleartemATottofe-Unx3jshlYJGX"),
             }
         }
 

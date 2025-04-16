@@ -20,7 +20,9 @@ pub mod implementation {
 
         let secrets = secrets
             .iter()
-            .map(|(k, v)| template::Secret::new(k, v, &crat.name_escaped, build_config.username_escaped))
+            .map(|(k, v)| {
+                template::Secret::new(k, v, &crat.name_escaped, build_config.username_escaped)
+            })
             .collect::<Vec<template::Secret>>();
 
         let template = template::Template::new(
