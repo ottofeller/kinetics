@@ -76,8 +76,9 @@ pub async fn invoke(function: &Function, crat: &Crate) -> eyre::Result<()> {
     let display_path = format!("{}", invoke_dir.display());
 
     println!(
-        "\n{} from {}",
+        "\n{} {} {}",
         console::style("Invoking function").green().bold(),
+        console::style("from").dimmed(),
         console::style(&display_path).underlined().bold()
     );
 
