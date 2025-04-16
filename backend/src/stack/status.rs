@@ -78,7 +78,7 @@ pub async fn status(
                 .wrap_err("Missing resource type")?
                 .eq("AWS::CloudFormation::Stack");
 
-            let json = map_stack_event(&event);
+            let json = map_stack_event(event);
 
             if matches!(
                 event.resource_status_reason().unwrap_or_default(),
@@ -195,11 +195,11 @@ pub async fn status(
         }
     }
 
-    return json::response(
+    json::response(
         ResponseBody {
             status: "FAILED".to_string(),
             errors: Some(errors),
         },
         None,
-    );
+    )
 }

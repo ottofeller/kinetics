@@ -1,6 +1,6 @@
+use super::{Crate, Function, Secret};
 use crate::config::config as build_config;
 use crate::stack::Stack;
-use crate::template::{Crate, Function, Secret};
 use crate::{Queue, Resource};
 use aws_config::BehaviorVersion;
 use eyre::{ContextCompat, Ok, WrapErr};
@@ -72,7 +72,6 @@ impl Template {
 
     /// Domain and paths for endpoint lambdas
     fn routing(&self) -> Vec<CfnResource> {
-        let project_name = self.crat.name.clone();
         let functions: Vec<Function> = self.functions.clone();
 
         let functions = functions
@@ -130,11 +129,13 @@ impl Template {
             })
             .collect::<Vec<Value>>();
 
+        let subdomain_name = self.crat.name.replace('_', "-");
         let project_domain = self
             .domain_name
             .as_ref()
-            .map(|domain_name| format!("{project_name}.{domain_name}"));
+            .map(|domain_name| format!("{subdomain_name}.{domain_name}"));
 
+        let project_name = &self.crat.name_escaped;
         let mut resources = vec![CfnResource {
             name: format!("EndpointDistribution{project_name}"),
             resource: json!({
@@ -235,7 +236,7 @@ impl Template {
     pub async fn new(
         crat: &Crate,
         functions: Vec<Function>,
-        secrets: Vec<Secret>,
+        secrets: &[Secret],
         bucket: &str,
         username_escaped: &str,
         username: &str,
@@ -318,7 +319,11 @@ impl Template {
     }
 
     fn prefixed(&self, names: Vec<&str>) -> String {
-        Function::full_name(&self.username_escaped, &self.crat.name, &names.join("D"))
+        Function::full_name(
+            &self.username_escaped,
+            &self.crat.name_escaped,
+            &names.join("D"),
+        )
     }
 
     /// Policy statements to allow a function to access a resource
@@ -846,7 +851,7 @@ impl Template {
 
     /// Provision the template in CloudFormation
     pub async fn provision(&self) -> eyre::Result<()> {
-        let name = Stack::new(self.username_escaped.as_str(), self.crat.name.as_str()).name;
+        let name = Stack::new(&self.username_escaped, &self.crat.name_escaped).name;
         let capabilities = aws_sdk_cloudformation::types::Capability::CapabilityIam;
         let template_string = serde_json::to_string_pretty(&self.template)?;
 
@@ -860,7 +865,7 @@ impl Template {
         let template_key = format!(
             "templates/{}-{}-{}.json",
             self.username_escaped,
-            self.crat.name,
+            self.crat.name_escaped,
             chrono::Utc::now().format("%Y%m%d-%H%M%S-%3f")
         );
 
