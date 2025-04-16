@@ -3,6 +3,9 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
         format!(
             "{import_statement}
             use lambda_http::Request;
+            use serde_json;
+            use reqwest::header::{{HeaderName, HeaderValue}};
+            use std::str::FromStr;
 
             #[tokio::main]
             async fn main() -> Result<(), lambda_http::Error> {{\n\
@@ -21,7 +24,24 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                     Err(_) => \"{{}}\".into(),
                 }};
 
-                let event = Request::new(payload.into());
+                let headers_json = match std::env::var(\"KINETICS_INVOKE_HEADERS\") {{
+                    Ok(val) => val,
+                    Err(_) => \"{{}}\".into(),
+                }};
+
+                let mut event = Request::new(payload.into());
+                let headers = event.headers_mut();
+
+                let headers_value = serde_json::from_str::<serde_json::Value>(&headers_json)
+                    .unwrap_or_default();
+                let headers_obj = headers_value.as_object().unwrap();
+                for (k, v) in headers_obj.iter() {{
+                    headers
+                        .insert(
+                            HeaderName::from_str(k).unwrap(),
+                            HeaderValue::from_str(v.as_str().unwrap()).unwrap(),
+                        );
+                }}
 
                 match {rust_function_name}(event, &secrets, &queues).await {{
                     Ok(response) => {{

@@ -83,6 +83,9 @@ enum Commands {
         #[arg()]
         name: String,
 
+        #[arg(long, default_value = "{}")]
+        headers: String,
+
         #[arg(short, long, default_value = "{}")]
         payload: String,
     },
@@ -158,7 +161,7 @@ async fn main() -> eyre::Result<()> {
 
             Ok(())
         }
-        Some(Commands::Invoke { name, payload }) => {
+        Some(Commands::Invoke { name, payload, headers }) => {
             invoke(
                 functions
                     .iter()
@@ -166,6 +169,7 @@ async fn main() -> eyre::Result<()> {
                     .unwrap(),
                 &crat,
                 &payload,
+                &headers,
             )
             .await
             .wrap_err("Failed to invoke the function")?;
