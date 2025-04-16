@@ -1,11 +1,9 @@
 use crate::client::Client;
-use crate::config::config as build_config;
+use crate::config;
+use crate::deploy::deploy_directly;
 use crate::function::Function;
 use crate::secret::Secret;
-use backend::stack::deploy::{self, BodyCrate};
-use backend::stack::status;
-use backend::template::Crate as BackendCrate;
-use backend::template::Function as BackendFunction;
+use common::stack::{deploy, status};
 use eyre::{ContextCompat, Ok, WrapErr};
 use reqwest::StatusCode;
 use std::collections::HashMap;
@@ -50,8 +48,8 @@ impl Crate {
     }
 
     /// Deploy all assets using CFN template
-    pub async fn deploy(&self, functions: &[Function], is_directly: &bool) -> eyre::Result<()> {
-        let client = Client::new(is_directly).wrap_err("Failed to create client")?;
+    pub async fn deploy(&self, functions: &[Function]) -> eyre::Result<()> {
+        let client = Client::new().wrap_err("Failed to create client")?;
         let mut secrets = HashMap::new();
 
         Secret::from_dotenv()?.iter().for_each(|s| {
@@ -59,60 +57,14 @@ impl Crate {
         });
 
         // Provision the template directly if the flag is set
-        if *is_directly {
-            let build_config = build_config();
-            let crat = BackendCrate::new(&self.toml_string).wrap_err("Invalid crate toml")?;
-
-            let secrets = secrets
-                .iter()
-                .map(|(k, v)| {
-                    backend::template::Secret::new(
-                        k,
-                        v,
-                        &crat.name_escaped,
-                        build_config.username_escaped,
-                    )
-                })
-                .collect::<Vec<backend::template::Secret>>();
-
-            let template = backend::template::Template::new(
-                &crat,
-                functions
-                    .iter()
-                    .map(|f| {
-                        BackendFunction::new(
-                            &f.toml_string().unwrap(),
-                            &f.s3key_encrypted.to_owned().unwrap(),
-                            "",
-                            false,
-                        )
-                        .unwrap()
-                    })
-                    .collect::<Vec<BackendFunction>>(),
-                &secrets,
-                build_config.s3_bucket_name,
-                build_config.username_escaped,
-                build_config.username,
-                build_config.cloud_front_domain,
-            )
-            .await?;
-
-            for secret in secrets.iter() {
-                secret.sync().await?;
-            }
-
-            template
-                .provision()
-                .await
-                .wrap_err("Failed to provision template")?;
-
-            return Ok(());
+        if config::DIRECT_DEPLOY_ENABLED {
+            return deploy_directly(self.toml_string.clone(), secrets, functions).await;
         }
 
         let result = client
             .post("/stack/deploy")
             .json(&serde_json::json!(deploy::JsonBody {
-                crat: BodyCrate {
+                crat: deploy::BodyCrate {
                     toml: self.toml_string.clone(),
                 },
                 functions: functions
@@ -139,7 +91,7 @@ impl Crate {
     }
 
     pub async fn status(&self) -> eyre::Result<status::ResponseBody> {
-        let client = Client::new(&false).wrap_err("Failed to create client")?;
+        let client = Client::new().wrap_err("Failed to create client")?;
 
         let result = client
             .post("/stack/status")

@@ -1,14 +1,14 @@
-use backend::auth::lambda;
+use crate::client::Client;
+use crate::crat::Crate;
+use crate::function::Function;
+use crate::secret::Secret;
+use common::auth::lambda;
 use eyre::{ContextCompat, WrapErr};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
-use crate::client::Client;
-use crate::crat::Crate;
-use crate::function::Function;
-use crate::secret::Secret;
 
 /// Create a thread for printing out a line, and accumulating for later full output
 fn thread(
@@ -46,7 +46,7 @@ pub async fn invoke(function: &Function, crat: &Crate) -> eyre::Result<()> {
         );
     }
 
-    let client = Client::new(&false).wrap_err("Failed to create client")?;
+    let client = Client::new().wrap_err("Failed to create client")?;
 
     let credentials: lambda::JsonResponse = client
         .post("/auth/lambda")

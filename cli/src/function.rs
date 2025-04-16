@@ -1,12 +1,15 @@
 use crate::client::Client;
-use crate::config::config as build_config;
+use crate::config;
 use crate::crat::Crate;
-use aws_sdk_s3::primitives::ByteStream;
+use crate::deploy::upload;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
 use zip::write::SimpleFileOptions;
+
+#[cfg(feature = "enable-direct-deploy")]
+use aws_sdk_s3::primitives::ByteStream;
 
 #[derive(Clone, Debug)]
 pub struct Function {
@@ -38,8 +41,9 @@ impl Function {
 
     // Upload the backend manually if the /upload endpoint gets
     // use aws_sdk_s3::primitives::ByteStream;
+    #[cfg(feature = "enable-direct-deploy")]
     pub async fn zip_stream(&self) -> eyre::Result<ByteStream> {
-        aws_sdk_s3::primitives::ByteStream::from_path(self.bundle_path())
+        ByteStream::from_path(self.bundle_path())
             .await
             .wrap_err("Failed to read bundled zip")
     }
@@ -135,7 +139,7 @@ impl Function {
     }
 
     /// Call the /upload endpoint to get the presigned URL and upload the file
-    pub async fn upload(&mut self, client: &Client, is_directly: &bool) -> eyre::Result<()> {
+    pub async fn upload(&mut self, client: &Client) -> eyre::Result<()> {
         #[derive(serde::Deserialize, Debug)]
         struct PreSignedUrl {
             url: String,
@@ -144,29 +148,8 @@ impl Function {
 
         let path = self.bundle_path();
 
-        if *is_directly {
-            // Upload the backend manually if the /upload endpoint gets deleted accidentally
-            use aws_config::BehaviorVersion;
-            use aws_sdk_s3::Client;
-            let body = self.zip_stream().await?;
-            let config = aws_config::defaults(BehaviorVersion::v2025_01_17())
-                .load()
-                .await;
-
-            let client = Client::new(&config);
-            let direct_s3key = uuid::Uuid::new_v4().to_string();
-            self.set_s3key_encrypted(direct_s3key.clone());
-
-            client
-                .put_object()
-                .bucket(build_config().s3_bucket_name)
-                .key(direct_s3key)
-                .body(body)
-                .send()
-                .await
-                .wrap_err("Failed to upload file to S3")?;
-
-            return Ok(());
+        if config::DIRECT_DEPLOY_ENABLED {
+            return upload(self).await;
         }
 
         let presigned = client
