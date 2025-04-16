@@ -345,9 +345,7 @@ fn create_lambda_crate(
         }
     }
 
-    if matches!(parsed_function.role, Role::Cron(_) | Role::Worker(_))
-        || (matches!(parsed_function.role, Role::Endpoint(_)) && is_local)
-    {
+    if matches!(parsed_function.role, Role::Cron(_) | Role::Worker(_)) {
         doc["dependencies"]["serde_json"]
             .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
             .as_table_mut()

@@ -3,7 +3,6 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
         format!(
             "{import_statement}
             use lambda_http::Request;
-            use serde_json;
 
             #[tokio::main]
             async fn main() -> Result<(), lambda_http::Error> {{\n\
@@ -17,16 +16,23 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                     }}
                 }}
 
-                println!(\"Serving requests\");
+                let payload = match std::env::var(\"KINETICS_INVOKE_PAYLOAD\") {{
+                    Ok(val) => val,
+                    Err(_) => \"{{}}\".into(),
+                }};
 
-                // Construct a mock event with JSON payload
-                let payload = serde_json::json!({{
-                    \"name\": \"aaa\"
-                }});
-                let body = serde_json::to_string(&payload).unwrap();
-                let event = Request::new(body.into());
+                let event = Request::new(payload.into());
 
-                {rust_function_name}(event, &secrets, &queues).await?;
+                match {rust_function_name}(event, &secrets, &queues).await {{
+                    Ok(response) => {{
+                        println!(\"{{response:?}}\");
+                    }},
+
+                    Err(err) => {{
+                        eprintln!(\"Request failed: {{:?}}\", err);
+                    }}
+                }}
+
                 Ok(())
             }}\n\n"
         )

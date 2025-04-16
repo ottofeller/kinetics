@@ -85,6 +85,9 @@ enum Commands {
     Invoke {
         #[arg()]
         name: String,
+
+        #[arg(short, long, default_value = "{}")]
+        payload: String,
     },
 }
 
@@ -162,13 +165,14 @@ async fn main() -> eyre::Result<()> {
 
             Ok(())
         }
-        Some(Commands::Invoke { name }) => {
+        Some(Commands::Invoke { name, payload }) => {
             invoke(
                 functions
                     .iter()
                     .find(|f| name.eq(&f.name().wrap_err("Function's meta is invalid").unwrap()))
                     .unwrap(),
                 &crat,
+                &payload,
             )
             .await
             .wrap_err("Failed to invoke the function")?;
