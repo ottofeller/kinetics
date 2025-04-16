@@ -95,6 +95,7 @@ pub async fn invoke(
     let mut child = Command::new("cargo")
         .args(["run"])
         .envs(secrets)
+        .envs(function.environment()?)
         .env("AWS_ACCESS_KEY_ID", credentials.access_key_id)
         .env("AWS_SECRET_ACCESS_KEY", credentials.secret_access_key)
         .env("AWS_SESSION_TOKEN", credentials.session_token)
