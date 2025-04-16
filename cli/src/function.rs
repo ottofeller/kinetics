@@ -2,6 +2,7 @@ use crate::client::Client;
 use crate::config;
 use crate::crat::Crate;
 use crate::deploy::upload;
+use aws_sdk_s3::primitives::ByteStream;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
 use std::io::Write;
 use std::path::{Path, PathBuf};
