@@ -1,3 +1,6 @@
+// Re-export plugin functions
+pub use self::implementation::*;
+
 #[cfg(feature = "enable-direct-deploy")]
 pub mod implementation {
     // Re-export optional backend modules for direct deploy feature
@@ -105,6 +108,3 @@ pub mod implementation {
         unreachable!()
     }
 }
-
-// Re-export plugin functionality
-pub use self::implementation::*;
