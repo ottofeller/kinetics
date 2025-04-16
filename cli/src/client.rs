@@ -1,4 +1,4 @@
-use crate::config::config;
+use crate::config::{self, build_config};
 use chrono::Utc;
 use eyre::Context;
 use serde_json::json;
@@ -11,8 +11,8 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(is_directly: &bool) -> eyre::Result<Self> {
-        if *is_directly {
+    pub fn new() -> eyre::Result<Self> {
+        if config::DIRECT_DEPLOY_ENABLED {
             return Ok(Client {
                 access_token: "".into(),
                 client: reqwest::Client::new(),
@@ -47,7 +47,7 @@ impl Client {
     }
 
     fn url(path: &str) -> String {
-        format!("{}{}", config().api_base, path)
+        format!("{}{}", build_config().api_base, path)
     }
 
     /// A POST request with the Authorization header

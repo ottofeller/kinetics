@@ -2,8 +2,8 @@ use crate::client::Client;
 use crate::crat::Crate;
 use crate::function::Function;
 use crate::secret::Secret;
-use backend::auth::lambda;
 use color_eyre::owo_colors::OwoColorize;
+use common::auth::lambda;
 use eyre::{ContextCompat, WrapErr};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -55,7 +55,7 @@ pub async fn invoke(function: &Function, crat: &Crate, payload: &str) -> eyre::R
         );
     }
 
-    let client = Client::new(&false).wrap_err("Failed to create client")?;
+    let client = Client::new().wrap_err("Failed to create client")?;
 
     let credentials: lambda::JsonResponse = client
         .post("/auth/lambda")

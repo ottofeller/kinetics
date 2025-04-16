@@ -1,15 +1,17 @@
-use crate::config::config as build_config;
+use super::{Crate, Function, Secret};
 use crate::stack::Stack;
-use crate::template::{Crate, Function, Secret};
 use crate::{Queue, Resource};
 use aws_config::BehaviorVersion;
 use eyre::{ContextCompat, Ok, WrapErr};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 #[derive(Clone, Debug)]
 pub struct Template {
     /// AWS account ID
     account_id: String,
+    kms_key_id: String,
+    hosted_zone_id: Option<String>,
+    lambda_credentials_role_arn: String,
 
     bucket: String,
     client: aws_sdk_cloudformation::Client,
@@ -72,7 +74,6 @@ impl Template {
 
     /// Domain and paths for endpoint lambdas
     fn routing(&self) -> Vec<CfnResource> {
-        let project_name = self.crat.name.clone();
         let functions: Vec<Function> = self.functions.clone();
 
         let functions = functions
@@ -130,11 +131,13 @@ impl Template {
             })
             .collect::<Vec<Value>>();
 
+        let subdomain_name = self.crat.name.replace('_', "-");
         let project_domain = self
             .domain_name
             .as_ref()
-            .map(|domain_name| format!("{project_name}.{domain_name}"));
+            .map(|domain_name| format!("{subdomain_name}.{domain_name}"));
 
+        let project_name = &self.crat.name_escaped;
         let mut resources = vec![CfnResource {
             name: format!("EndpointDistribution{project_name}"),
             resource: json!({
@@ -189,7 +192,8 @@ impl Template {
 
         // Add Certificate Manager resources for custom defined domain
         if let Some(project_domain) = project_domain {
-            let hosted_zone_id = build_config().hosted_zone_id;
+            // Hosted Zone ID must be provided if project domain is defined
+            let hosted_zone_id = self.hosted_zone_id.clone().unwrap_or_default();
 
             resources.extend([
                 CfnResource {
@@ -215,7 +219,7 @@ impl Template {
                             "Name": project_domain,
                             "Type": "A",
                             "AliasTarget": {
-                                "HostedZoneId": "Z2FDTNDATAQYW2", // CloudFront Hosted Zone ID
+                                "HostedZoneId": "Z2FDTNDATAQYW2", // FIXME CloudFront Hosted Zone ID
                                 "DNSName": {
                                     "Fn::GetAtt": [
                                         format!("EndpointDistribution{project_name}"),
@@ -235,11 +239,14 @@ impl Template {
     pub async fn new(
         crat: &Crate,
         functions: Vec<Function>,
-        secrets: Vec<Secret>,
+        secrets: &[Secret],
         bucket: &str,
         username_escaped: &str,
         username: &str,
         domain_name: Option<&str>,
+        hosted_zone_id: Option<&str>,
+        kms_key_id: &str,
+        lambda_credentials_role_arn: &str,
     ) -> eyre::Result<Self> {
         let config = aws_config::defaults(BehaviorVersion::v2025_01_17())
             .load()
@@ -264,6 +271,9 @@ impl Template {
             username: username.to_string(),
             functions,
             domain_name: domain_name.map(|d| d.to_string()),
+            hosted_zone_id: hosted_zone_id.map(|h| h.to_string()),
+            kms_key_id: kms_key_id.to_string(),
+            lambda_credentials_role_arn: lambda_credentials_role_arn.to_string(),
         };
 
         // Define global resources from the app's Cargo.toml, e.g. a DB
@@ -318,7 +328,11 @@ impl Template {
     }
 
     fn prefixed(&self, names: Vec<&str>) -> String {
-        Function::full_name(&self.username_escaped, &self.crat.name, &names.join("D"))
+        Function::full_name(
+            &self.username_escaped,
+            &self.crat.name_escaped,
+            &names.join("D"),
+        )
     }
 
     /// Policy statements to allow a function to access a resource
@@ -382,7 +396,7 @@ impl Template {
         }
 
         let account_id = self.account_id.clone();
-        let kms_key_id = build_config().kms_key_id;
+        let kms_key_id = self.kms_key_id.clone();
 
         // https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-paramstore-access.html#sysman-paramstore-access-inst
         for secret in secrets.iter() {
@@ -429,7 +443,7 @@ impl Template {
                 {
                     "Effect": "Allow",
                     "Action": "sts:AssumeRole",
-                    "Principal": {"AWS": build_config().lambda_credentials_role_arn}
+                    "Principal": {"AWS": self.lambda_credentials_role_arn}
                 },
             ]
         })
@@ -846,7 +860,7 @@ impl Template {
 
     /// Provision the template in CloudFormation
     pub async fn provision(&self) -> eyre::Result<()> {
-        let name = Stack::new(self.username_escaped.as_str(), self.crat.name.as_str()).name;
+        let name = Stack::new(&self.username_escaped, &self.crat.name_escaped).name;
         let capabilities = aws_sdk_cloudformation::types::Capability::CapabilityIam;
         let template_string = serde_json::to_string_pretty(&self.template)?;
 
@@ -860,7 +874,7 @@ impl Template {
         let template_key = format!(
             "templates/{}-{}-{}.json",
             self.username_escaped,
-            self.crat.name,
+            self.crat.name_escaped,
             chrono::Utc::now().format("%Y%m%d-%H%M%S-%3f")
         );
 
