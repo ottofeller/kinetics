@@ -133,4 +133,11 @@ impl Function {
     pub(crate) fn resources(&self) -> Vec<&Resource> {
         self.resources.iter().collect()
     }
+
+    /// Full name to be used in CFN
+    ///
+    /// The username should come in escaped
+    pub fn full_name(username: &str, crate_name: &str, function_name: &str) -> String {
+        format!("{username}D{crate_name}D{function_name}",)
+    }
 }

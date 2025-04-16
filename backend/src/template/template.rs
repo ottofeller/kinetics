@@ -319,12 +319,10 @@ impl Template {
     }
 
     fn prefixed(&self, names: Vec<&str>) -> String {
-        let joined = names.join("D");
-
-        format!(
-            "{username}D{crat_name}D{joined}",
-            username = &self.username_escaped,
-            crat_name = &self.crat.name_escaped
+        Function::full_name(
+            &self.username_escaped,
+            &self.crat.name_escaped,
+            &names.join("D"),
         )
     }
 
@@ -422,6 +420,26 @@ impl Template {
         template
     }
 
+    fn assume_policies(&self) -> Value {
+        json!({
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": "sts:AssumeRole",
+                    "Principal": {"Service": "lambda.amazonaws.com"}
+                },
+
+                // Allow the /auth/lambda/credentials endpoint to assume any kinetics' lambda role
+                {
+                    "Effect": "Allow",
+                    "Action": "sts:AssumeRole",
+                    "Principal": {"AWS": build_config().lambda_credentials_role_arn}
+                },
+            ]
+        })
+    }
+
     /// Define environment variables for a function
     fn environment(
         &self,
@@ -475,6 +493,7 @@ impl Template {
         queues: &Vec<Queue>,
     ) -> eyre::Result<Vec<CfnResource>> {
         let mut policies = self.policies(secrets, queues);
+        let assume_policies = self.assume_policies();
 
         policies.push(json!({
             "PolicyName": "AppendToLogsPolicy",
@@ -534,16 +553,7 @@ impl Template {
                 resource: json!({
                     "Type": "AWS::IAM::Role",
                     "Properties": {
-                        "AssumeRolePolicyDocument": {
-                            "Version": "2012-10-17",
-                            "Statement": [{
-                                "Effect": "Allow",
-                                "Principal": {
-                                    "Service": ["lambda.amazonaws.com"]
-                                },
-                                "Action": ["sts:AssumeRole"]
-                            }]
-                        },
+                        "AssumeRolePolicyDocument": assume_policies,
                         "Path": "/",
                         "Policies": policies,
                         "Tags": [{
@@ -589,6 +599,7 @@ impl Template {
         let bucket = self.bucket.clone();
         let username = self.username.clone();
         let mut policies = self.policies(secrets, &[]);
+        let assume_policies = self.assume_policies();
 
         policies.extend([
             json!({
@@ -676,16 +687,7 @@ impl Template {
                     resource: json!({
                         "Type": "AWS::IAM::Role",
                         "Properties": {
-                            "AssumeRolePolicyDocument": {
-                                "Version": "2012-10-17",
-                                "Statement": [{
-                                    "Effect": "Allow",
-                                    "Principal": {
-                                        "Service": ["lambda.amazonaws.com"]
-                                    },
-                                    "Action": ["sts:AssumeRole"]
-                                }]
-                            },
+                            "AssumeRolePolicyDocument": assume_policies,
                             "Path": "/",
                             "Policies": policies
                         }
@@ -738,6 +740,7 @@ impl Template {
         let bucket = self.bucket.clone();
         let username = self.username.clone();
         let mut policies = self.policies(secrets, queues);
+        let assume_policies = self.assume_policies();
 
         policies.extend([json!({
             "PolicyName": "AppendToLogsPolicy",
@@ -781,16 +784,9 @@ impl Template {
                 resource: json!({
                     "Type": "AWS::IAM::Role",
                     "Properties": {
-                        "AssumeRolePolicyDocument": {
-                            "Version": "2012-10-17",
-                            "Statement": [{
-                                "Effect": "Allow",
-                                "Principal": {"Service": ["lambda.amazonaws.com"]},
-                                "Action": ["sts:AssumeRole"]
-                            }]
-                        },
+                        "AssumeRolePolicyDocument": assume_policies,
                         "Path": "/",
-                        "Policies": policies
+                        "Policies": policies,
                     }
                 }),
             },

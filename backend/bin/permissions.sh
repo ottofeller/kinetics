@@ -46,3 +46,11 @@ aws iam put-role-policy \
         jq -r .StackResourceDetail.PhysicalResourceId) \
     --policy-name StatusPolicy \
     --policy-document file://$dir/status-policy.json
+
+aws iam put-role-policy \
+    --role-name $(aws cloudformation describe-stack-resource \
+        --stack-name $stack_name \
+        --logical-resource-id "EndpointRole${kinetics_username_escaped}DbackendDAuthLambdaLambda" | \
+        jq -r .StackResourceDetail.PhysicalResourceId) \
+    --policy-name LambdaPolicy \
+    --policy-document file://$dir/auth-lambda-policy.json
