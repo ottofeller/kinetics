@@ -1,4 +1,4 @@
-use super::{sanitize::escape_resource_name, Crate};
+use super::{Crate, sanitize::escape_resource_name};
 use crate::Resource;
 use eyre::{ContextCompat, Ok, WrapErr};
 
@@ -22,7 +22,7 @@ impl Function {
             .wrap_err("Failed to parse Cargo.toml")?;
 
         let decrypted = if is_encrypted {
-            use magic_crypt::{new_magic_crypt, MagicCryptTrait};
+            use magic_crypt::{MagicCryptTrait, new_magic_crypt};
             let mc = new_magic_crypt!(s3key_decryption_key, 256);
             mc.decrypt_base64_to_string(s3key_encrypted)
                 .unwrap_or("default".into())
