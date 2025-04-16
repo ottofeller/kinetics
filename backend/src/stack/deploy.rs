@@ -64,13 +64,13 @@ pub async fn deploy(
     }
 
     let body = json::body::<JsonBody>(event)?;
-    let crat = Crate::new(body.crat.toml.clone()).wrap_err("Invalid crate toml")?;
+    let crat = Crate::new(&body.crat.toml).wrap_err("Invalid crate toml")?;
     let session = session.unwrap();
 
     let secrets = body
         .secrets
         .iter()
-        .map(|(k, v)| Secret::new(k, v, &crat, &session.username(true)))
+        .map(|(k, v)| Secret::new(k, v, &crat.name_escaped, &session.username(true)))
         .collect::<Vec<Secret>>();
 
     let template = Template::new(
@@ -84,10 +84,9 @@ pub async fn deploy(
                     &env("S3_KEY_ENCRYPTION_KEY").unwrap(),
                     true,
                 )
-                .unwrap()
             })
-            .collect::<Vec<Function>>(),
-        secrets.clone(),
+            .collect::<eyre::Result<Vec<Function>>>()?,
+        &secrets,
         build_config().s3_bucket_name,
         &session.username(true),
         &session.username(false),

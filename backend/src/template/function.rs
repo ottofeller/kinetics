@@ -1,4 +1,4 @@
-use crate::template::Crate;
+use super::{sanitize::escape_resource_name, Crate};
 use crate::Resource;
 use eyre::{ContextCompat, Ok, WrapErr};
 
@@ -108,14 +108,15 @@ impl Function {
     }
 
     /// User defined name of the function
+    /// with resource name escaping applied
     pub fn name(&self) -> eyre::Result<String> {
-        Ok(self
-            .meta()?
-            .get("name")
-            .wrap_err("No [name]")?
-            .as_str()
-            .wrap_err("Not a string")?
-            .to_string())
+        Ok(escape_resource_name(
+            self.meta()?
+                .get("name")
+                .wrap_err("No [name]")?
+                .as_str()
+                .wrap_err("Not a string")?,
+        ))
     }
 
     pub fn role(&self) -> eyre::Result<String> {
@@ -131,5 +132,12 @@ impl Function {
     /// Returns a list of function's specific resources
     pub(crate) fn resources(&self) -> Vec<&Resource> {
         self.resources.iter().collect()
+    }
+
+    /// Full name to be used in CFN
+    ///
+    /// The username should come in escaped
+    pub fn full_name(username: &str, crate_name: &str, function_name: &str) -> String {
+        format!("{username}D{crate_name}D{function_name}",)
     }
 }

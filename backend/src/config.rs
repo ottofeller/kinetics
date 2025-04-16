@@ -5,6 +5,7 @@ pub(crate) struct Config<'a> {
     pub(crate) s3_bucket_name: &'a str,
     pub(crate) kms_key_id: &'a str,
     pub(crate) hosted_zone_id: &'a str,
+    pub(crate) lambda_credentials_role_arn: &'a str,
 }
 
 static CONFIG: OnceLock<Config> = OnceLock::new();
@@ -25,5 +26,7 @@ pub(crate) fn config() -> &'static Config<'static> {
         s3_bucket_name: option_env!("KINETICS_S3_BUCKET_NAME")
             .unwrap_or("kinetics-rust-builds-production"),
         hosted_zone_id: option_env!("KINETICS_HOSTED_ZONE_ID").unwrap_or("Z05200421KHLZSXGM7STA"),
+        lambda_credentials_role_arn: option_env!("KINETICS_LAMBDA_CREDENTIALS_ROLE_ARN")
+            .unwrap_or("arn:aws:iam::430118855033:role/artemATottofellerDOTcom-b-EndpointRoleartemATottofe-Unx3jshlYJGX"),
     })
 }
