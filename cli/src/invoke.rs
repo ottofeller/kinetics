@@ -1,14 +1,15 @@
+use crate::client::Client;
+use crate::crat::Crate;
+use crate::function::Function;
+use crate::secret::Secret;
 use backend::auth::lambda;
+use color_eyre::owo_colors::OwoColorize;
 use eyre::{ContextCompat, WrapErr};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
-use crate::client::Client;
-use crate::crat::Crate;
-use crate::function::Function;
-use crate::secret::Secret;
 
 /// Create a thread for printing out a line, and accumulating for later full output
 fn thread(
