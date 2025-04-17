@@ -1,4 +1,4 @@
-use crate::Credentials;
+use crate::{error::Error, Credentials};
 use chrono::Utc;
 use crossterm::{
     event::{self, Event, KeyCode},
@@ -19,13 +19,18 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
         .post(crate::api_url("/auth/code/request"))
         .json(&json!({ "email": email }))
         .send()
-        .await?;
+        .await
+        .wrap_err(Error::new(
+            "Network request failed",
+            Some("Try again in a few seconds."),
+        ))?;
 
     if !response.status().is_success() {
-        return Err(eyre::eyre!(
-            "Failed to request the auth code: {}",
-            response.text().await?
-        ));
+        return Err(Error::new(
+            "Failed to request auth code",
+            Some("Try again in a few seconds."),
+        )
+        .into());
     }
 
     println!("Please enter the one-time code sent to your email:");
@@ -37,14 +42,18 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
         .post(crate::api_url("/auth/code/exchange"))
         .json(&json!({ "email": email, "code": code }))
         .send()
-        .await?;
+        .await
+        .wrap_err(Error::new(
+            "Network request failed",
+            Some("Try again in a few seconds."),
+        ))?;
 
     if response.status().is_client_error() {
         return Err(eyre::eyre!("The email or one-time code are invalid"));
     }
 
     if !response.status().is_success() {
-        return Err(eyre::eyre!("Failed to login: {}", response.text().await?));
+        return Err(Error::new("Failed to log in", Some("Try again in a few seconds.")).into());
     }
 
     Ok(response.json::<Credentials>().await?)
@@ -72,12 +81,21 @@ pub async fn login(email: &str) -> eyre::Result<bool> {
     let credentials = serde_json::from_str::<Credentials>(
         &std::fs::read_to_string(path.clone())
             .or_else(|_| {
-                std::fs::write(path.clone(), default.clone())?;
+                std::fs::write(path.clone(), default.clone()).wrap_err(Error::new(
+                    "Failed to write credentials file",
+                    Some(
+                        "File system issue, check the file permissions in ~/.kinetics/.credentials",
+                    ),
+                ))?;
+
                 eyre::Ok(default.clone())
             })
             .unwrap_or(default),
     )
-    .wrap_err("Credentials stored in a wrong format")?;
+    .wrap_err(Error::new(
+        "Could not parse credentials file",
+        Some("Delete ~/.kinetics/.credentials and try again"),
+    ))?;
 
     // If credentials expired — request new token
     if !credentials.token.is_empty()
@@ -87,17 +105,23 @@ pub async fn login(email: &str) -> eyre::Result<bool> {
         return Ok(false);
     }
 
-    std::fs::write(path, json!(request(email).await?).to_string())?;
+    std::fs::write(path, json!(request(email).await?).to_string()).wrap_err(Error::new(
+        "Failed to store credentials",
+        Some("File system issue, check the file permissions in ~/.kinetics/.credentials"),
+    ))?;
+
     Ok(true)
 }
 
 fn read_masked_password() -> eyre::Result<String> {
     let mut password = String::new();
-    enable_raw_mode()?;
+    enable_raw_mode().wrap_err(Error::new("Failed to chaneg terminal mode", None))?;
 
     loop {
         // Read a key event
-        if let Event::Key(key_event) = event::read()? {
+        if let Event::Key(key_event) =
+            event::read().wrap_err(Error::new("Failed to read keyboard event", None))?
+        {
             match key_event.code {
                 KeyCode::Enter => {
                     break;
@@ -107,7 +131,9 @@ fn read_masked_password() -> eyre::Result<String> {
                         password.pop();
                         // Erase the last asterisk (use actual backspace character)
                         print!("\x08 \x08");
-                        io::stdout().flush()?;
+                        io::stdout()
+                            .flush()
+                            .wrap_err(Error::new("Could not modofy stdout", None))?;
                     }
                 }
                 // Handle Ctrl+C to exit
@@ -118,7 +144,9 @@ fn read_masked_password() -> eyre::Result<String> {
                 KeyCode::Char(c) => {
                     password.push(c);
                     print!("*");
-                    io::stdout().flush()?;
+                    io::stdout()
+                        .flush()
+                        .wrap_err(Error::new("Could not modofy stdout", None))?;
                 }
                 _ => {}
             }

@@ -23,6 +23,9 @@ impl std::fmt::Display for Error {
     }
 }
 
+/// Implement std::error::Error trait for Error
+impl std::error::Error for Error {}
+
 /// Automatically convert all eyre error reports
 impl From<eyre::ErrReport> for Error {
     fn from(error: eyre::ErrReport) -> Self {

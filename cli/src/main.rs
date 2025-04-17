@@ -138,7 +138,7 @@ async fn main() -> Result<(), Error> {
             Ok(())
         }
         Some(Commands::Login { email }) => {
-            let is_new_session = login(email).await.wrap_err("Login failed")?;
+            let is_new_session = login(email).await?;
 
             println!(
                 "{} {} {}",
