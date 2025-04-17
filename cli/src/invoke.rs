@@ -1,9 +1,9 @@
+use crate::auth::lambda;
 use crate::client::Client;
 use crate::crat::Crate;
 use crate::function::Function;
 use crate::secret::Secret;
 use color_eyre::owo_colors::OwoColorize;
-use common::auth::lambda;
 use eyre::{ContextCompat, WrapErr};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};

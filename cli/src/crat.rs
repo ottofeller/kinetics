@@ -1,9 +1,7 @@
 use crate::client::Client;
-use crate::config;
-use crate::deploy::deploy_directly;
 use crate::function::Function;
 use crate::secret::Secret;
-use common::stack::{deploy, status};
+use crate::stack::{deploy, status};
 use eyre::{ContextCompat, Ok, WrapErr};
 use reqwest::StatusCode;
 use std::collections::HashMap;
@@ -55,11 +53,6 @@ impl Crate {
         Secret::from_dotenv()?.iter().for_each(|s| {
             secrets.insert(s.name.clone(), s.value());
         });
-
-        // Provision the template directly if the flag is set
-        if config::DIRECT_DEPLOY_ENABLED {
-            return deploy_directly(self.toml_string.clone(), secrets, functions).await;
-        }
 
         let result = client
             .post("/stack/deploy")

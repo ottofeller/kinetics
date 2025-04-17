@@ -1,15 +1,10 @@
 use crate::client::Client;
-use crate::config;
 use crate::crat::Crate;
-use crate::deploy::upload;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
 use zip::write::SimpleFileOptions;
-
-#[cfg(feature = "enable-direct-deploy")]
-use aws_sdk_s3::primitives::ByteStream;
 
 #[derive(Clone, Debug)]
 pub struct Function {
@@ -37,15 +32,6 @@ impl Function {
 
     pub fn s3key_encrypted(&self) -> Option<String> {
         self.s3key_encrypted.clone()
-    }
-
-    // Upload the backend manually if the /upload endpoint gets
-    // use aws_sdk_s3::primitives::ByteStream;
-    #[cfg(feature = "enable-direct-deploy")]
-    pub async fn zip_stream(&self) -> eyre::Result<ByteStream> {
-        ByteStream::from_path(self.bundle_path())
-            .await
-            .wrap_err("Failed to read bundled zip")
     }
 
     fn meta(&self) -> eyre::Result<toml::Value> {
@@ -147,10 +133,6 @@ impl Function {
         }
 
         let path = self.bundle_path();
-
-        if config::DIRECT_DEPLOY_ENABLED {
-            return upload(self).await;
-        }
 
         let presigned = client
             .post("/upload")

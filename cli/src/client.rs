@@ -1,4 +1,4 @@
-use crate::config::{self, build_config};
+use crate::config::build_config;
 use chrono::Utc;
 use eyre::Context;
 use serde_json::json;
@@ -12,13 +12,6 @@ pub struct Client {
 
 impl Client {
     pub fn new() -> eyre::Result<Self> {
-        if config::DIRECT_DEPLOY_ENABLED {
-            return Ok(Client {
-                access_token: "".into(),
-                client: reqwest::Client::new(),
-            });
-        }
-
         let path = Path::new(&crate::build_path()?).join(".credentials");
 
         let credentials = serde_json::from_str::<crate::Credentials>(

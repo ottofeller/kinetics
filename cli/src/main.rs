@@ -1,13 +1,14 @@
+mod auth;
 mod build;
 mod client;
 mod config;
 mod crat;
-mod deploy;
 mod destroy;
 mod function;
 mod invoke;
 mod login;
 mod secret;
+mod stack;
 
 use crate::build::pipeline::Pipeline;
 use crate::build::prepare_crates;
