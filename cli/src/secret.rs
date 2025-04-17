@@ -7,7 +7,7 @@ pub struct Secret {
 
 impl Secret {
     /// Read secrets from the .env file
-    pub fn from_dotenv() -> eyre::Result<Vec<Self>> {
+    pub fn from_dotenv() -> Vec<Self> {
         let mut result = vec![];
         let dotenv = DotEnv::new("secrets");
 
@@ -18,7 +18,7 @@ impl Secret {
             });
         }
 
-        Ok(result)
+        result
     }
 
     pub fn value(&self) -> String {

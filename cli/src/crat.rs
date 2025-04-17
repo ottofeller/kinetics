@@ -59,10 +59,10 @@ impl Crate {
 
     /// Deploy all assets using CFN template
     pub async fn deploy(&self, functions: &[Function]) -> eyre::Result<()> {
-        let client = Client::new().wrap_err("Failed to create client")?;
+        let client = Client::new()?;
         let mut secrets = HashMap::new();
 
-        Secret::from_dotenv()?.iter().for_each(|s| {
+        Secret::from_dotenv().iter().for_each(|s| {
             secrets.insert(s.name.clone(), s.value());
         });
 
@@ -91,22 +91,24 @@ impl Crate {
             }))
             .send()
             .await
-            .wrap_err("Deployment request failed")?;
+            .wrap_err(Error::new(
+                "Network request failed",
+                Some("Try again in a few seconds."),
+            ))?;
 
         if result.status() != StatusCode::OK {
-            return Err(eyre::eyre!(
-                "Deployment failed:\n{}\n{:?}\n{:?}",
-                result.status(),
-                result.headers().clone(),
-                result.text().await?
-            ));
+            return Err(Error::new(
+                "Deployment request failed",
+                Some("Try again in a few seconds."),
+            )
+            .into());
         }
 
         Ok(())
     }
 
     pub async fn status(&self) -> eyre::Result<status::ResponseBody> {
-        let client = Client::new().wrap_err("Failed to create client")?;
+        let client = Client::new()?;
 
         let result = client
             .post("/stack/status")
@@ -115,16 +117,19 @@ impl Crate {
             }))
             .send()
             .await
-            .wrap_err("Status request failed")?;
+            .wrap_err(Error::new(
+                "Network request failed",
+                Some("Try again in a few seconds."),
+            ))?;
 
         if result.status() != StatusCode::OK {
-            return Err(eyre::eyre!("Deployment failed: {:?}", result));
+            return Err(
+                Error::new("Status request failed", Some("Try again in a few seconds.")).into(),
+            );
         }
 
-        let status: status::ResponseBody = result
-            .json()
-            .await
-            .wrap_err("Failed to parse status response")?;
+        let status: status::ResponseBody =
+            result.json().await.wrap_err("Failed to parse response")?;
 
         Ok(status)
     }

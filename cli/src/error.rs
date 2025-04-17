@@ -34,7 +34,7 @@ impl From<eyre::ErrReport> for Error {
             Err(err) => Error::new(&err.to_string(), None),
         };
 
-        eprintln!("\n{}\n{error}", console::style("Error").red().bold());
+        eprintln!("\n\n{}\n{error}", console::style("Error").red().bold());
 
         // The Error should be used as a terminating error
         std::process::exit(1)

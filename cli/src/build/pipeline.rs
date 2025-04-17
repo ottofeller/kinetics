@@ -147,8 +147,7 @@ impl Pipeline {
                     .filter(|f| !f.is_local().unwrap())
                     .collect::<Vec<_>>(),
             )
-            .await
-            .wrap_err("Failed to deploy functions");
+            .await;
 
         if deploy.is_err() {
             deploying_progress.error("Provisioning");

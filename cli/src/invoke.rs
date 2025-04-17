@@ -53,7 +53,7 @@ pub async fn invoke(
     // Load secrets from .env.secrets if it exists
     let mut secrets = HashMap::new();
 
-    for secret in Secret::from_dotenv().wrap_err("Failed to read secrets")? {
+    for secret in Secret::from_dotenv() {
         secrets.insert(
             format!("KINETICS_SECRET_{}", secret.name.clone()),
             secret.value(),
