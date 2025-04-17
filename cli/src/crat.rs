@@ -1,6 +1,7 @@
 use crate::client::Client;
 use crate::config;
 use crate::deploy::deploy_directly;
+use crate::error::Error;
 use crate::function::Function;
 use crate::secret::Secret;
 use common::stack::{deploy, status};
@@ -21,12 +22,18 @@ pub struct Crate {
 impl Crate {
     pub fn new(path: PathBuf) -> eyre::Result<Self> {
         let cargo_toml_path = path.join("Cargo.toml");
-        let cargo_toml_string = std::fs::read_to_string(&cargo_toml_path)
-            .wrap_err(format!("Failed to read Cargo.toml: {cargo_toml_path:?}"))?;
+        let cargo_toml_string = std::fs::read_to_string(&cargo_toml_path).wrap_err(Error::new(
+            &format!("Failed to read {cargo_toml_path:?}"),
+            None,
+        ))?;
 
-        let cargo_toml: toml::Value = cargo_toml_string
-            .parse::<toml::Value>()
-            .wrap_err("Failed to parse Cargo.toml")?;
+        let cargo_toml: toml::Value =
+            cargo_toml_string
+                .parse::<toml::Value>()
+                .wrap_err(Error::new(
+                    &format!("Failed to parse TOML in {cargo_toml_path:?}"),
+                    None,
+                ))?;
 
         Ok(Crate {
             path,
@@ -34,7 +41,10 @@ impl Crate {
                 .get("package")
                 .and_then(|pkg| pkg.get("name"))
                 .and_then(|name| name.as_str())
-                .wrap_err("Failed to get crate name from Cargo.toml")?
+                .wrap_err(Error::new(
+                    &format!("No crate name property in {cargo_toml_path:?}"),
+                    Some("Cargo.toml is invalid, or you are in a wrong dir."),
+                ))?
                 .to_string(),
 
             toml: cargo_toml,
@@ -84,7 +94,12 @@ impl Crate {
             .wrap_err("Deployment request failed")?;
 
         if result.status() != StatusCode::OK {
-            return Err(eyre::eyre!("Deployment failed: {:?}", result));
+            return Err(eyre::eyre!(
+                "Deployment failed:\n{}\n{:?}\n{:?}",
+                result.status(),
+                result.headers().clone(),
+                result.text().await?
+            ));
         }
 
         Ok(())

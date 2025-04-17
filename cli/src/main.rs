@@ -8,7 +8,7 @@ mod function;
 mod invoke;
 mod login;
 mod secret;
-
+mod error;
 use crate::build::pipeline::Pipeline;
 use crate::build::prepare_crates;
 use crate::config::build_config;
@@ -16,11 +16,12 @@ use crate::destroy::destroy;
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use crat::Crate;
-use eyre::WrapErr;
+use eyre::{Ok, WrapErr};
 use function::Function;
 use invoke::invoke;
 use login::login;
 use std::path::{Path, PathBuf};
+use crate::error::Error;
 
 /// Credentials to be used with API
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -92,7 +93,7 @@ enum Commands {
 }
 
 #[tokio::main]
-async fn main() -> eyre::Result<()> {
+async fn main() -> Result<(), Error> {
     let cli = Cli::parse();
     let crat = Crate::from_current_dir()?;
     let directories = prepare_crates(build_path()?, crat.clone())?;
@@ -161,7 +162,11 @@ async fn main() -> eyre::Result<()> {
 
             Ok(())
         }
-        Some(Commands::Invoke { name, payload, headers }) => {
+        Some(Commands::Invoke {
+            name,
+            payload,
+            headers,
+        }) => {
             invoke(
                 functions
                     .iter()
@@ -173,8 +178,10 @@ async fn main() -> eyre::Result<()> {
             )
             .await
             .wrap_err("Failed to invoke the function")?;
+
             Ok(())
         }
-        None => Ok(()),
+        _ => Ok(()),
     }
+    .map_err(Error::from)
 }
