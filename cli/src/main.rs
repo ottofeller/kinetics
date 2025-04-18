@@ -4,24 +4,26 @@ mod config;
 mod crat;
 mod deploy;
 mod destroy;
+mod error;
 mod function;
 mod invoke;
+mod logger;
 mod login;
 mod secret;
-mod error;
 use crate::build::pipeline::Pipeline;
 use crate::build::prepare_crates;
 use crate::config::build_config;
 use crate::destroy::destroy;
+use crate::error::Error;
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use crat::Crate;
 use eyre::{Ok, WrapErr};
 use function::Function;
 use invoke::invoke;
+use logger::Logger;
 use login::login;
 use std::path::{Path, PathBuf};
-use crate::error::Error;
 
 /// Credentials to be used with API
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -94,6 +96,7 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    Logger::init();
     let cli = Cli::parse();
     let crat = Crate::from_current_dir()?;
     let directories = prepare_crates(build_path()?, crat.clone())?;

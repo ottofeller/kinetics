@@ -91,12 +91,17 @@ impl Crate {
             }))
             .send()
             .await
+            .inspect_err(|err| log::error!("{err:?}"))
             .wrap_err(Error::new(
                 "Network request failed",
                 Some("Try again in a few seconds."),
             ))?;
 
-        if result.status() != StatusCode::OK {
+        let status = result.status();
+        log::info!("got status from /stack/deploy: {}", status);
+        log::info!("got response from /stack/deploy: {}", result.text().await?);
+
+        if status != StatusCode::OK {
             return Err(Error::new(
                 "Deployment request failed",
                 Some("Try again in a few seconds."),
