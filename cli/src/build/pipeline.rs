@@ -148,12 +148,10 @@ impl Pipeline {
             .collect::<Vec<_>>();
 
         #[cfg(feature = "enable-direct-deploy")]
-        let deployer = self.crat.deploy(functions, &*self.custom_deploy);
+        let deploy = self.crat.deploy(functions, &*self.custom_deploy).await;
 
         #[cfg(not(feature = "enable-direct-deploy"))]
-        let deployer = self.crat.deploy(functions);
-
-       let deploy = deployer.await;
+        let deploy = self.crat.deploy(functions).await;
 
         if deploy.is_err() {
             deploying_progress.error("Provisioning");
