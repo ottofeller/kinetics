@@ -1,10 +1,9 @@
 use crate::client::Client;
+use crate::deploy::DirectDeploy;
 use crate::function::Function;
-use crate::secret::Secret;
-use crate::stack::{deploy, status};
+use crate::stack::status;
 use eyre::{ContextCompat, Ok, WrapErr};
 use reqwest::StatusCode;
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(Clone, Debug)]
@@ -45,7 +44,17 @@ impl Crate {
         Self::new(std::env::current_dir().wrap_err("Failed to get current dir")?)
     }
 
+    #[cfg(feature = "enable-direct-deploy")]
+    pub async fn deploy(
+        &self,
+        functions: &[Function],
+        custom_deploy: &dyn DirectDeploy,
+    ) -> eyre::Result<()> {
+        custom_deploy.deploy(functions).await
+    }
+
     /// Deploy all assets using CFN template
+    #[cfg(not(feature = "enable-direct-deploy"))]
     pub async fn deploy(&self, functions: &[Function]) -> eyre::Result<()> {
         let client = Client::new().wrap_err("Failed to create client")?;
         let mut secrets = HashMap::new();

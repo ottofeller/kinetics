@@ -28,3 +28,7 @@ indicatif = "0.17.11"
 console = "0.15.11"
 color-eyre = "0.6.3"
 crossterm = "0.29.0"
+async-trait = "0.1.88"
+
+[features]
+enable-direct-deploy = []

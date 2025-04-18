@@ -3,6 +3,7 @@ mod build;
 mod client;
 mod config;
 mod crat;
+mod deploy;
 mod destroy;
 mod function;
 mod invoke;
@@ -166,7 +167,7 @@ async fn main() -> eyre::Result<()> {
                     .find(|f| name.eq(&f.name().wrap_err("Function's meta is invalid").unwrap()))
                     .unwrap(),
                 &crat,
-                &payload,
+                payload,
             )
             .await
             .wrap_err("Failed to invoke the function")?;

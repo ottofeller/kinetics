@@ -1,5 +1,6 @@
 use crate::client::Client;
 use crate::crat::Crate;
+use crate::deploy::DirectDeploy;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -124,7 +125,13 @@ impl Function {
             .join("bootstrap")
     }
 
+    #[cfg(feature = "enable-direct-deploy")]
+    pub async fn upload(&self, custom_deploy: &dyn DirectDeploy) -> eyre::Result<()> {
+        custom_deploy.upload().await
+    }
+
     /// Call the /upload endpoint to get the presigned URL and upload the file
+    #[cfg(not(feature = "enable-direct-deploy"))]
     pub async fn upload(&mut self, client: &Client) -> eyre::Result<()> {
         #[derive(serde::Deserialize, Debug)]
         struct PreSignedUrl {

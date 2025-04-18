@@ -1,5 +1,6 @@
 use crate::client::Client;
 use crate::crat::Crate;
+use crate::deploy::{DirectDeploy, DirectDeployPlug};
 use crate::function::Function;
 use eyre::{eyre, Context, OptionExt, Report};
 use futures::future;
@@ -9,11 +10,11 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Semaphore;
 
-#[derive(Debug, Clone)]
 pub struct Pipeline {
     is_deploy_enabled: bool,
     crat: Crate,
     max_concurrent: usize,
+    custom_deploy: Arc<dyn DirectDeploy>,
 }
 
 impl Pipeline {
@@ -40,7 +41,7 @@ impl Pipeline {
         let handles = functions.into_iter().map(|mut function| {
             let client = client.clone();
             let sem = Arc::clone(&semaphore);
-
+            let custom_deploy = Arc::clone(&self.custom_deploy);
             let pipeline_progress = pipeline_progress.clone();
 
             tokio::spawn(async move {
@@ -74,16 +75,18 @@ impl Pipeline {
                 pipeline_progress.increase_current_function_position();
                 function_progress.log_stage("Uploading");
 
-                function
-                    .upload(
-                        &client
-                            .ok_or_eyre("Client must be initialized when deployment is enabled")?,
-                    )
-                    .await
-                    .map_err(|e| {
-                        function_progress.error("Uploading");
-                        e.wrap_err(format!("Failed to upload function: \"{}\"", function_name))
-                    })?;
+                #[cfg(not(feature = "enable-direct-deploy"))]
+                let uploader = function.upload(
+                    &client.ok_or_eyre("Client must be initialized when deployment is enabled")?,
+                );
+
+                #[cfg(feature = "enable-direct-deploy")]
+                let uploader = function.upload(&*custom_deploy);
+
+                uploader.await.map_err(|e| {
+                    function_progress.error("Uploading");
+                    e.wrap_err(format!("Failed to upload function: \"{}\"", function_name))
+                })?;
 
                 pipeline_progress.increase_current_function_position();
 
@@ -139,6 +142,20 @@ impl Pipeline {
         // It's safe to unwrap here because the errors have already been caught
         let functions: Vec<_> = ok_results.drain(..).map(Result::unwrap).collect();
 
+        #[cfg(feature = "enable-direct-deploy")]
+        let deploy = self
+            .crat
+            .deploy(
+                &functions
+                    .into_iter()
+                    .filter(|f| !f.is_local().unwrap())
+                    .collect::<Vec<_>>(),
+                &*self.custom_deploy,
+            )
+            .await
+            .wrap_err("Failed to deploy functions");
+
+        #[cfg(not(feature = "enable-direct-deploy"))]
         let deploy = self
             .crat
             .deploy(
@@ -190,6 +207,7 @@ pub struct PipelineBuilder {
     is_deploy_enabled: Option<bool>,
     crat: Option<Crate>,
     max_concurrent: Option<usize>,
+    custom_deployer: Option<Arc<dyn DirectDeploy>>,
 }
 
 impl PipelineBuilder {
@@ -198,7 +216,15 @@ impl PipelineBuilder {
             crat: self.crat.ok_or_eyre("No crate provided to the pipeline")?,
             is_deploy_enabled: self.is_deploy_enabled.unwrap_or(false),
             max_concurrent: self.max_concurrent.unwrap_or(4),
+            custom_deploy: self
+                .custom_deployer
+                .unwrap_or_else(|| Arc::new(DirectDeployPlug {})),
         })
+    }
+
+    pub fn with_custom_deployer(mut self, deployer: Arc<dyn DirectDeploy>) -> Self {
+        self.custom_deployer = Some(deployer);
+        self
     }
 
     pub fn with_deploy_enabled(mut self, is_deploy_enabled: bool) -> Self {
