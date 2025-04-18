@@ -142,30 +142,18 @@ impl Pipeline {
         // It's safe to unwrap here because the errors have already been caught
         let functions: Vec<_> = ok_results.drain(..).map(Result::unwrap).collect();
 
+        let functions = &functions
+            .into_iter()
+            .filter(|f| !f.is_local().unwrap())
+            .collect::<Vec<_>>();
+
         #[cfg(feature = "enable-direct-deploy")]
-        let deploy = self
-            .crat
-            .deploy(
-                &functions
-                    .into_iter()
-                    .filter(|f| !f.is_local().unwrap())
-                    .collect::<Vec<_>>(),
-                &*self.custom_deploy,
-            )
-            .await
-            .wrap_err("Failed to deploy functions");
+        let deployer = self.crat.deploy(functions, &*self.custom_deploy);
 
         #[cfg(not(feature = "enable-direct-deploy"))]
-        let deploy = self
-            .crat
-            .deploy(
-                &functions
-                    .into_iter()
-                    .filter(|f| !f.is_local().unwrap())
-                    .collect::<Vec<_>>(),
-            )
-            .await
-            .wrap_err("Failed to deploy functions");
+        let deployer = self.crat.deploy(functions);
+
+       let deploy = deployer.await;
 
         if deploy.is_err() {
             deploying_progress.error("Provisioning");
