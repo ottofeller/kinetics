@@ -1,11 +1,13 @@
 use crate::client::Client;
 use crate::crat::Crate;
-use crate::deploy::DirectDeploy;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
 use zip::write::SimpleFileOptions;
+
+#[cfg(feature = "enable-direct-deploy")]
+use crate::deploy::DirectDeploy;
 
 #[derive(Clone, Debug)]
 pub struct Function {

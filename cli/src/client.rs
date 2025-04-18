@@ -1,4 +1,4 @@
-use crate::config::{self, build_config};
+use crate::config::{self, build_config, build_path, Credentials};
 use chrono::Utc;
 use eyre::Context;
 use serde_json::json;
@@ -19,9 +19,9 @@ impl Client {
             });
         }
 
-        let path = Path::new(&crate::build_path()?).join(".credentials");
+        let path = Path::new(&build_path()?).join(".credentials");
 
-        let credentials = serde_json::from_str::<crate::Credentials>(
+        let credentials = serde_json::from_str::<Credentials>(
             &std::fs::read_to_string(path.clone())
                 .or_else(|_| {
                     let default =

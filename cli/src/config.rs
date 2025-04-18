@@ -1,3 +1,6 @@
+use chrono::{DateTime, Utc};
+use eyre::Context;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 pub const DIRECT_DEPLOY_ENABLED: bool = cfg!(feature = "enable-direct-deploy");
@@ -18,4 +21,21 @@ pub(crate) fn build_config() -> &'static Config<'static> {
             Config { api_base }
         }
     })
+}
+
+/// Credentials to be used with API
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Credentials {
+    pub email: String,
+    pub token: String,
+    pub expires_at: DateTime<Utc>,
+}
+
+pub fn api_url(path: &str) -> String {
+    format!("{}{}", build_config().api_base, path)
+}
+
+pub fn build_path() -> eyre::Result<PathBuf> {
+    Ok(Path::new(&std::env::var("HOME").wrap_err("Can not read HOME env var")?).join(".kinetics"))
 }

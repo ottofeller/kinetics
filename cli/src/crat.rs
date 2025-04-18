@@ -1,10 +1,12 @@
 use crate::client::Client;
-use crate::deploy::DirectDeploy;
 use crate::function::Function;
 use crate::stack::status;
 use eyre::{ContextCompat, Ok, WrapErr};
 use reqwest::StatusCode;
 use std::path::PathBuf;
+
+#[cfg(feature = "enable-direct-deploy")]
+use crate::deploy::DirectDeploy;
 
 #[derive(Clone, Debug)]
 pub struct Crate {
@@ -56,6 +58,10 @@ impl Crate {
     /// Deploy all assets using CFN template
     #[cfg(not(feature = "enable-direct-deploy"))]
     pub async fn deploy(&self, functions: &[Function]) -> eyre::Result<()> {
+        use crate::secret::Secret;
+        use crate::stack::deploy;
+        use std::collections::HashMap;
+
         let client = Client::new().wrap_err("Failed to create client")?;
         let mut secrets = HashMap::new();
 

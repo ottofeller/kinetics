@@ -1,4 +1,4 @@
-use crate::Credentials;
+use crate::config::{api_url, build_path, Credentials};
 use chrono::Utc;
 use crossterm::{
     event::{self, Event, KeyCode},
@@ -16,7 +16,7 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
     let client = reqwest::Client::new();
 
     let response = client
-        .post(crate::api_url("/auth/code/request"))
+        .post(api_url("/auth/code/request"))
         .json(&json!({ "email": email }))
         .send()
         .await?;
@@ -34,7 +34,7 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
     let code = code.trim();
 
     let response = client
-        .post(crate::api_url("/auth/code/exchange"))
+        .post(api_url("/auth/code/exchange"))
         .json(&json!({ "email": email, "code": code }))
         .send()
         .await?;
@@ -63,7 +63,7 @@ pub async fn login(email: &str) -> eyre::Result<bool> {
         return Err(eyre::eyre!("Invalid email format"));
     }
 
-    let path = Path::new(&crate::build_path()?).join(".credentials");
+    let path = Path::new(&build_path()?).join(".credentials");
 
     let default =
         json!({ "email": "", "token": "", "expiresAt": "2000-01-01T00:00:00Z" }).to_string();

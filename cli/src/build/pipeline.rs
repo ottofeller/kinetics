@@ -41,7 +41,10 @@ impl Pipeline {
         let handles = functions.into_iter().map(|mut function| {
             let client = client.clone();
             let sem = Arc::clone(&semaphore);
+
+            #[cfg(feature = "enable-direct-deploy")]
             let custom_deploy = Arc::clone(&self.custom_deploy);
+
             let pipeline_progress = pipeline_progress.clone();
 
             tokio::spawn(async move {
@@ -75,15 +78,15 @@ impl Pipeline {
                 pipeline_progress.increase_current_function_position();
                 function_progress.log_stage("Uploading");
 
+                let client = client.unwrap();
+
                 #[cfg(not(feature = "enable-direct-deploy"))]
-                let uploader = function.upload(
-                    &client.ok_or_eyre("Client must be initialized when deployment is enabled")?,
-                );
+                let upload = function.upload(&client);
 
                 #[cfg(feature = "enable-direct-deploy")]
-                let uploader = function.upload(&*custom_deploy);
+                let upload = function.upload(&*custom_deploy);
 
-                uploader.await.map_err(|e| {
+                upload.await.map_err(|e| {
                     function_progress.error("Uploading");
                     e.wrap_err(format!("Failed to upload function: \"{}\"", function_name))
                 })?;
@@ -208,8 +211,9 @@ impl PipelineBuilder {
         })
     }
 
-    pub fn with_custom_deployer(mut self, deployer: Arc<dyn DirectDeploy>) -> Self {
-        self.custom_deployer = Some(deployer);
+    pub fn with_custom_deployer(mut self, deployer: Option<Arc<dyn DirectDeploy>>) -> Self {
+        self.custom_deployer =
+            Option::from(deployer.unwrap_or_else(|| Arc::new(DirectDeployPlug {})));
         self
     }
 
