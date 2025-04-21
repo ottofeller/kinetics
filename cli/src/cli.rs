@@ -4,11 +4,13 @@ use crate::config::build_path;
 use crate::crat::Crate;
 use crate::deploy::DirectDeploy;
 use crate::destroy::destroy;
+use crate::error::Error;
 use crate::function::Function;
 use crate::invoke::invoke;
+use crate::logger::Logger;
 use crate::login::login;
 use clap::{Parser, Subcommand};
-use eyre::Context;
+use eyre::{Ok, WrapErr};
 use std::sync::Arc;
 
 #[derive(Parser)]
@@ -55,12 +57,16 @@ enum Commands {
         #[arg()]
         name: String,
 
+        #[arg(long, default_value = "{}")]
+        headers: String,
+
         #[arg(short, long, default_value = "{}")]
         payload: String,
     },
 }
 
-pub async fn run(custom_deployer: Option<Arc<dyn DirectDeploy>>) -> eyre::Result<()> {
+pub async fn run(custom_deployer: Option<Arc<dyn DirectDeploy>>) -> Result<(), Error> {
+    Logger::init();
     let cli = Cli::parse();
     let crat = Crate::from_current_dir()?;
     let directories = prepare_crates(build_path()?, crat.clone())?;
@@ -106,7 +112,7 @@ pub async fn run(custom_deployer: Option<Arc<dyn DirectDeploy>>) -> eyre::Result
             Ok(())
         }
         Some(Commands::Login { email }) => {
-            let is_new_session = login(email).await.wrap_err("Login failed")?;
+            let is_new_session = login(email).await?;
 
             println!(
                 "{} {} {}",
@@ -130,19 +136,26 @@ pub async fn run(custom_deployer: Option<Arc<dyn DirectDeploy>>) -> eyre::Result
 
             Ok(())
         }
-        Some(Commands::Invoke { name, payload }) => {
+        Some(Commands::Invoke {
+            name,
+            payload,
+            headers,
+        }) => {
             invoke(
                 functions
                     .iter()
                     .find(|f| name.eq(&f.name().wrap_err("Function's meta is invalid").unwrap()))
                     .unwrap(),
                 &crat,
-                payload,
+                &payload,
+                &headers,
             )
             .await
             .wrap_err("Failed to invoke the function")?;
+
             Ok(())
         }
-        None => Ok(()),
+        _ => Ok(()),
     }
+    .map_err(Error::from)
 }

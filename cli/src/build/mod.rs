@@ -252,7 +252,7 @@ fn create_lambda_crate(
     let rust_function_name = parsed_function.rust_function_name.clone();
     let main_code = match &parsed_function.role {
         Role::Endpoint(_) => templates::endpoint(&fn_import, &rust_function_name, is_local),
-        Role::Worker(_) => templates::worker(&fn_import, &rust_function_name),
+        Role::Worker(_) => templates::worker(&fn_import, &rust_function_name, is_local),
         Role::Cron(_) => templates::cron(&fn_import, &rust_function_name, is_local),
     };
 
@@ -345,7 +345,9 @@ fn create_lambda_crate(
         }
     }
 
-    if matches!(parsed_function.role, Role::Cron(_) | Role::Worker(_)) {
+    if matches!(parsed_function.role, Role::Cron(_) | Role::Worker(_))
+        || (matches!(parsed_function.role, Role::Endpoint(_)) && is_local)
+    {
         doc["dependencies"]["serde_json"]
             .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
             .as_table_mut()

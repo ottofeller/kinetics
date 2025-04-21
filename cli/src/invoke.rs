@@ -42,13 +42,18 @@ fn thread(
 }
 
 /// Invoke the function locally
-pub async fn invoke(function: &Function, crat: &Crate, payload: &str) -> eyre::Result<()> {
+pub async fn invoke(
+    function: &Function,
+    crat: &Crate,
+    payload: &str,
+    headers: &str,
+) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
 
     // Load secrets from .env.secrets if it exists
     let mut secrets = HashMap::new();
 
-    for secret in Secret::from_dotenv().wrap_err("Failed to read secrets")? {
+    for secret in Secret::from_dotenv() {
         secrets.insert(
             format!("KINETICS_SECRET_{}", secret.name.clone()),
             secret.value(),
@@ -90,10 +95,12 @@ pub async fn invoke(function: &Function, crat: &Crate, payload: &str) -> eyre::R
     let mut child = Command::new("cargo")
         .args(["run"])
         .envs(secrets)
+        .envs(function.environment()?)
         .env("AWS_ACCESS_KEY_ID", credentials.access_key_id)
         .env("AWS_SECRET_ACCESS_KEY", credentials.secret_access_key)
         .env("AWS_SESSION_TOKEN", credentials.session_token)
         .env("KINETICS_INVOKE_PAYLOAD", payload)
+        .env("KINETICS_INVOKE_HEADERS", headers)
         .current_dir(&invoke_dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

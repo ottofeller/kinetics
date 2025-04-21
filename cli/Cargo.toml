@@ -13,7 +13,7 @@ walkdir = "2.5.0"
 zip = "2.6.1"
 aws-sdk-s3 = "1.82.0"
 aws-config = "1.6.1"
-tokio = { workspace = true, features = [ "full" ] }
+tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
 toml_edit = "0.22.24"
 rust_dotenv = "0.1.2"
@@ -29,6 +29,8 @@ console = "0.15.11"
 color-eyre = "0.6.3"
 crossterm = "0.29.0"
 async-trait = "0.1.88"
+log = "0.4.27"
+env_logger = "0.11.8"
 
 [features]
 enable-direct-deploy = []

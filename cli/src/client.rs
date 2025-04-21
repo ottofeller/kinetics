@@ -1,4 +1,7 @@
-use crate::config::{self, build_config, build_path, Credentials};
+use crate::{
+    config::{self, build_config, build_path, Credentials},
+    error::Error,
+};
 use chrono::Utc;
 use eyre::Context;
 use serde_json::json;
@@ -33,7 +36,10 @@ impl Client {
                 })
                 .unwrap_or_default(),
         )
-        .wrap_err("Credentials stored in a wrong format")?;
+        .wrap_err(Error::new(
+            "Could not parse credentials file",
+            Some(&format!("Delete {} and try again", path.display())),
+        ))?;
 
         // If credentials expired — request to re-login
         if credentials.expires_at.timestamp() <= Utc::now().timestamp() {

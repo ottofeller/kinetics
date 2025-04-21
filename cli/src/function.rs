@@ -1,6 +1,7 @@
 use crate::crat::Crate;
 use aws_sdk_s3::primitives::ByteStream;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
+use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
@@ -188,5 +189,27 @@ impl Function {
             .unwrap_or(&toml::Value::Boolean(false))
             .as_bool()
             .unwrap_or(false))
+    }
+
+    /// Return env vars assigned to the function in macro definition
+    pub fn environment(&self) -> eyre::Result<HashMap<String, String>> {
+        Ok(self
+            .crat
+            .toml
+            .get("package")
+            .wrap_err("No [package]")?
+            .get("metadata")
+            .wrap_err("No [metadata]")?
+            .get("kinetics")
+            .wrap_err("No [kinetics]")?
+            .get("environment")
+            .wrap_err("No [environment]")
+            .cloned()
+            .unwrap()
+            .as_table()
+            .unwrap()
+            .iter()
+            .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string()))
+            .collect::<HashMap<String, String>>())
     }
 }
