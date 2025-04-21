@@ -65,7 +65,7 @@ enum Commands {
     },
 }
 
-pub async fn run(custom_deployer: Option<Arc<dyn DirectDeploy>>) -> Result<(), Error> {
+pub async fn run(custom_deploy: Option<Arc<dyn DirectDeploy>>) -> Result<(), Error> {
     Logger::init();
     let cli = Cli::parse();
     let crat = Crate::from_current_dir()?;
@@ -102,7 +102,7 @@ pub async fn run(custom_deployer: Option<Arc<dyn DirectDeploy>>) -> Result<(), E
             Pipeline::builder()
                 .set_max_concurrent(*max_concurrency)
                 .with_deploy_enabled(true)
-                .with_custom_deployer(custom_deployer)
+                .with_custom_deploy(custom_deploy)
                 .set_crat(Crate::from_current_dir()?)
                 .build()
                 .wrap_err("Failed to build pipeline")?

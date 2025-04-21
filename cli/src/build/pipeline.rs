@@ -194,7 +194,7 @@ pub struct PipelineBuilder {
     is_deploy_enabled: Option<bool>,
     crat: Option<Crate>,
     max_concurrent: Option<usize>,
-    custom_deployer: Option<Arc<dyn DirectDeploy>>,
+    custom_deploy: Option<Arc<dyn DirectDeploy>>,
 }
 
 impl PipelineBuilder {
@@ -204,13 +204,13 @@ impl PipelineBuilder {
             is_deploy_enabled: self.is_deploy_enabled.unwrap_or(false),
             max_concurrent: self.max_concurrent.unwrap_or(4),
             custom_deploy: self
-                .custom_deployer
+                .custom_deploy
                 .unwrap_or_else(|| Arc::new(DirectDeployPlug {})),
         })
     }
 
-    pub fn with_custom_deployer(mut self, deployer: Option<Arc<dyn DirectDeploy>>) -> Self {
-        self.custom_deployer =
+    pub fn with_custom_deploy(mut self, deployer: Option<Arc<dyn DirectDeploy>>) -> Self {
+        self.custom_deploy =
             Option::from(deployer.unwrap_or_else(|| Arc::new(DirectDeployPlug {})));
         self
     }
