@@ -39,7 +39,7 @@ impl Pipeline {
         };
 
         let handles = functions.into_iter().map(|mut function| {
-            let client = client.clone();
+            let client = client.clone().unwrap();
             let sem = Arc::clone(&semaphore);
 
             #[cfg(feature = "enable-direct-deploy")]
@@ -77,8 +77,6 @@ impl Pipeline {
 
                 pipeline_progress.increase_current_function_position();
                 function_progress.log_stage("Uploading");
-
-                let client = client.unwrap();
 
                 #[cfg(not(feature = "enable-direct-deploy"))]
                 let upload = function.upload(&client);

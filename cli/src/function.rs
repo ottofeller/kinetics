@@ -1,10 +1,13 @@
-use crate::client::Client;
 use crate::crat::Crate;
+use aws_sdk_s3::primitives::ByteStream;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
 use zip::write::SimpleFileOptions;
+
+#[cfg(not(feature = "enable-direct-deploy"))]
+use crate::client::Client;
 
 #[cfg(feature = "enable-direct-deploy")]
 use crate::deploy::DirectDeploy;
@@ -35,6 +38,15 @@ impl Function {
 
     pub fn s3key_encrypted(&self) -> Option<String> {
         self.s3key_encrypted.clone()
+    }
+
+    // Upload the backend manually if the /upload endpoint gets
+    // use aws_sdk_s3::primitives::ByteStream;
+    #[cfg(feature = "enable-direct-deploy")]
+    pub async fn zip_stream(&self) -> eyre::Result<ByteStream> {
+        ByteStream::from_path(self.bundle_path())
+            .await
+            .wrap_err("Failed to read bundled zip")
     }
 
     fn meta(&self) -> eyre::Result<toml::Value> {
@@ -128,8 +140,8 @@ impl Function {
     }
 
     #[cfg(feature = "enable-direct-deploy")]
-    pub async fn upload(&self, custom_deploy: &dyn DirectDeploy) -> eyre::Result<()> {
-        custom_deploy.upload().await
+    pub async fn upload(&mut self, custom_deploy: &dyn DirectDeploy) -> eyre::Result<()> {
+        custom_deploy.upload(self).await
     }
 
     /// Call the /upload endpoint to get the presigned URL and upload the file

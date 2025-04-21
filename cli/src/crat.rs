@@ -1,8 +1,10 @@
 use crate::client::Client;
 use crate::function::Function;
+use crate::secret::Secret;
 use crate::stack::status;
 use eyre::{ContextCompat, Ok, WrapErr};
 use reqwest::StatusCode;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[cfg(feature = "enable-direct-deploy")]
@@ -52,13 +54,20 @@ impl Crate {
         functions: &[Function],
         custom_deploy: &dyn DirectDeploy,
     ) -> eyre::Result<()> {
-        custom_deploy.deploy(functions).await
+        let mut secrets = HashMap::new();
+
+        Secret::from_dotenv()?.iter().for_each(|s| {
+            secrets.insert(s.name.clone(), s.value());
+        });
+
+        custom_deploy
+            .deploy(self.toml_string.clone(), secrets, functions)
+            .await
     }
 
     /// Deploy all assets using CFN template
     #[cfg(not(feature = "enable-direct-deploy"))]
     pub async fn deploy(&self, functions: &[Function]) -> eyre::Result<()> {
-        use crate::secret::Secret;
         use crate::stack::deploy;
         use std::collections::HashMap;
 
