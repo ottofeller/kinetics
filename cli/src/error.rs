@@ -6,7 +6,7 @@ impl Error {
     pub fn new(message: &str, details: Option<&str>) -> Self {
         Error(
             message.to_string(),
-            details.map_or(None, |d| Some(d.to_string())),
+            details.map(|d| d.to_string()),
         )
     }
 }

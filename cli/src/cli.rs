@@ -148,8 +148,8 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                     .find(|f| name.eq(&f.name().wrap_err("Function's meta is invalid").unwrap()))
                     .unwrap(),
                 &crat,
-                &payload,
-                &headers,
+                payload,
+                headers,
             )
             .await
             .wrap_err("Failed to invoke the function")?;
