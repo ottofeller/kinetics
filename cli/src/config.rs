@@ -36,12 +36,10 @@ pub(crate) fn build_config() -> Result<&'static Config<'static>, Error> {
                 .into_boxed_str(),
         );
 
-        {
-            Ok(Config {
-                api_base,
-                build_path,
-            })
-        }
+        Ok(Config {
+            api_base,
+            build_path,
+        })
     })
 }
 
