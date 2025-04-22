@@ -1,3 +1,4 @@
+use crate::config::build_config;
 use crate::{error::Error, Credentials};
 use chrono::Utc;
 use crossterm::{
@@ -72,7 +73,7 @@ pub async fn login(email: &str) -> eyre::Result<bool> {
         return Err(eyre::eyre!("Invalid email format"));
     }
 
-    let path = Path::new(&crate::build_path()?).join(".credentials");
+    let path = Path::new(&build_config()?.build_path).join(".credentials");
 
     let default =
         json!({ "email": "", "token": "", "expiresAt": "2000-01-01T00:00:00Z" }).to_string();

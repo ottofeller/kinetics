@@ -1,3 +1,4 @@
+#![feature(once_cell_try)]
 mod build;
 mod client;
 mod config;
@@ -10,6 +11,8 @@ mod invoke;
 mod logger;
 mod login;
 mod secret;
+use std::path::PathBuf;
+
 use crate::build::pipeline::Pipeline;
 use crate::build::prepare_crates;
 use crate::config::build_config;
@@ -23,7 +26,6 @@ use function::Function;
 use invoke::invoke;
 use logger::Logger;
 use login::login;
-use std::path::{Path, PathBuf};
 
 /// Credentials to be used with API
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -35,11 +37,7 @@ struct Credentials {
 }
 
 fn api_url(path: &str) -> String {
-    format!("{}{}", build_config().api_base, path)
-}
-
-fn build_path() -> eyre::Result<PathBuf> {
-    Ok(Path::new(&std::env::var("HOME").wrap_err("Can not read HOME env var")?).join(".kinetics"))
+    format!("{}{}", build_config().unwrap().api_base, path)
 }
 
 #[derive(Parser)]
@@ -99,7 +97,7 @@ async fn main() -> Result<(), Error> {
     Logger::init();
     let cli = Cli::parse();
     let crat = Crate::from_current_dir()?;
-    let directories = prepare_crates(build_path()?, crat.clone())?;
+    let directories = prepare_crates(PathBuf::from(build_config()?.build_path), crat.clone())?;
 
     // Functions to deploy
     let functions: Vec<Function> = directories
