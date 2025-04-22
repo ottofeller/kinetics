@@ -17,26 +17,24 @@ fn thread(
     lock: Arc<Mutex<Vec<String>>>,
 ) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
-        for line in reader.lines() {
-            if let Ok(line) = line {
-                // Store the line for later output
-                if let Ok(mut lines) = lock.lock() {
-                    lines.push(line.clone());
-                }
-
-                // Clear the line and print normal (non-red) output
-                print!("\r\x1B[K");
-
-                // Trim the line to 48 characters with ellipsis if necessary
-                let line_trimmed = if line.trim().len() > 48 {
-                    format!("{}...", line.trim().chars().take(45).collect::<String>())
-                } else {
-                    line.trim().to_string()
-                };
-
-                print!("{}", console::style(&line_trimmed.trim()).dim());
-                let _ = std::io::stdout().flush();
+        for line in reader.lines().flatten() {
+            // Store the line for later output
+            if let Ok(mut lines) = lock.lock() {
+                lines.push(line.clone());
             }
+
+            // Clear the line and print normal (non-red) output
+            print!("\r\x1B[K");
+
+            // Trim the line to 48 characters with ellipsis if necessary
+            let line_trimmed = if line.trim().len() > 48 {
+                format!("{}...", line.trim().chars().take(45).collect::<String>())
+            } else {
+                line.trim().to_string()
+            };
+
+            print!("{}", console::style(&line_trimmed.trim()).dim());
+            let _ = std::io::stdout().flush();
         }
     })
 }
