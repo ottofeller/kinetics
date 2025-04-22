@@ -60,7 +60,7 @@ pub async fn invoke(
         );
     }
 
-    let client = Client::new().wrap_err("Failed to create client")?;
+    let client = Client::new(false).wrap_err("Failed to create client")?;
 
     let credentials: lambda::JsonResponse = client
         .post("/auth/lambda")

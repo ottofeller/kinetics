@@ -1,15 +1,14 @@
 use crate::client::Client;
+use crate::deploy::DeployConfig;
 use crate::error::Error;
 use crate::function::Function;
 use crate::secret::Secret;
+use crate::stack::deploy;
 use crate::stack::status;
 use eyre::{ContextCompat, Ok, WrapErr};
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::path::PathBuf;
-
-#[cfg(feature = "enable-direct-deploy")]
-use crate::deploy::DirectDeploy;
 
 #[derive(Clone, Debug)]
 pub struct Crate {
@@ -58,35 +57,24 @@ impl Crate {
         Self::new(std::env::current_dir().wrap_err("Failed to get current dir")?)
     }
 
-    #[cfg(feature = "enable-direct-deploy")]
+    /// Deploy all assets using CFN template
     pub async fn deploy(
         &self,
         functions: &[Function],
-        custom_deploy: &dyn DirectDeploy,
+        deploy_config: Option<&dyn DeployConfig>,
     ) -> eyre::Result<()> {
+        let client = Client::new(deploy_config.is_some())?;
         let mut secrets = HashMap::new();
 
         Secret::from_dotenv().iter().for_each(|s| {
             secrets.insert(s.name.clone(), s.value());
         });
 
-        custom_deploy
-            .deploy(self.toml_string.clone(), secrets, functions)
-            .await
-    }
-
-    /// Deploy all assets using CFN template
-    #[cfg(not(feature = "enable-direct-deploy"))]
-    pub async fn deploy(&self, functions: &[Function]) -> eyre::Result<()> {
-        use crate::stack::deploy;
-        use std::collections::HashMap;
-
-        let client = Client::new()?;
-        let mut secrets = HashMap::new();
-
-        Secret::from_dotenv().iter().for_each(|s| {
-            secrets.insert(s.name.clone(), s.value());
-        });
+        if let Some(config) = deploy_config {
+            return config
+                .deploy(self.toml_string.clone(), secrets, functions)
+                .await;
+        }
 
         let result = client
             .post("/stack/deploy")
@@ -130,7 +118,7 @@ impl Crate {
     }
 
     pub async fn status(&self) -> eyre::Result<status::ResponseBody> {
-        let client = Client::new()?;
+        let client = Client::new(false)?;
 
         let result = client
             .post("/stack/status")

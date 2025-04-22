@@ -1,5 +1,5 @@
 use crate::{
-    config::{self, build_config, build_path, Credentials},
+    config::{build_config, build_path, Credentials},
     error::Error,
 };
 use chrono::Utc;
@@ -14,8 +14,8 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new() -> eyre::Result<Self> {
-        if config::DIRECT_DEPLOY_ENABLED {
+    pub fn new(is_directly: bool) -> eyre::Result<Self> {
+        if is_directly {
             return Ok(Client {
                 access_token: "".into(),
                 client: reqwest::Client::new(),

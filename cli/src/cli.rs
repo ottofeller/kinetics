@@ -2,7 +2,7 @@ use crate::build::pipeline::Pipeline;
 use crate::build::prepare_crates;
 use crate::config::build_path;
 use crate::crat::Crate;
-use crate::deploy::DirectDeploy;
+use crate::deploy::DeployConfig;
 use crate::destroy::destroy;
 use crate::error::Error;
 use crate::function::Function;
@@ -65,7 +65,7 @@ enum Commands {
     },
 }
 
-pub async fn run(custom_deploy: Option<Arc<dyn DirectDeploy>>) -> Result<(), Error> {
+pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Error> {
     Logger::init();
     let cli = Cli::parse();
     let crat = Crate::from_current_dir()?;
@@ -102,7 +102,7 @@ pub async fn run(custom_deploy: Option<Arc<dyn DirectDeploy>>) -> Result<(), Err
             Pipeline::builder()
                 .set_max_concurrent(*max_concurrency)
                 .with_deploy_enabled(true)
-                .with_custom_deploy(custom_deploy)
+                .with_deploy_config(deploy_config)
                 .set_crat(Crate::from_current_dir()?)
                 .build()
                 .wrap_err("Failed to build pipeline")?

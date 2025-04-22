@@ -1,6 +1,6 @@
 use crate::client::Client;
 use crate::crat::Crate;
-use crate::deploy::{DirectDeploy, DirectDeployPlug};
+use crate::deploy::DeployConfig;
 use crate::function::Function;
 use eyre::{eyre, Context, OptionExt, Report};
 use futures::future;
@@ -14,7 +14,7 @@ pub struct Pipeline {
     is_deploy_enabled: bool,
     crat: Crate,
     max_concurrent: usize,
-    custom_deploy: Arc<dyn DirectDeploy>,
+    deploy_config: Option<Arc<dyn DeployConfig>>,
 }
 
 impl Pipeline {
@@ -23,6 +23,15 @@ impl Pipeline {
     }
 
     pub async fn run(self, functions: Vec<Function>) -> eyre::Result<()> {
+        if self.deploy_config.is_some() {
+            println!(
+                "    {} `{}` {}",
+                console::style("Using a custom deployment configuration for").yellow(),
+                console::style(self.crat.name.clone()).green().bold(),
+                console::style("crate").yellow(),
+            );
+        }
+
         // Define maximum number of parallel builds
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
 
@@ -33,18 +42,15 @@ impl Pipeline {
         );
 
         let client = if self.is_deploy_enabled {
-            Some(Client::new().wrap_err("Failed to create client")?)
+            Some(Client::new(self.deploy_config.is_some()).wrap_err("Failed to create client")?)
         } else {
             None
         };
 
         let handles = functions.into_iter().map(|mut function| {
-            let client = client.clone().unwrap();
+            let client = client.clone();
             let sem = Arc::clone(&semaphore);
-
-            #[cfg(feature = "enable-direct-deploy")]
-            let custom_deploy = Arc::clone(&self.custom_deploy);
-
+            let deploy_config_clone = self.deploy_config.clone();
             let pipeline_progress = pipeline_progress.clone();
 
             tokio::spawn(async move {
@@ -78,16 +84,13 @@ impl Pipeline {
                 pipeline_progress.increase_current_function_position();
                 function_progress.log_stage("Uploading");
 
-                #[cfg(not(feature = "enable-direct-deploy"))]
-                let upload = function.upload(&client);
-
-                #[cfg(feature = "enable-direct-deploy")]
-                let upload = function.upload(&*custom_deploy);
-
-                upload.await.map_err(|e| {
-                    function_progress.error("Uploading");
-                    e.wrap_err(format!("Failed to upload function: \"{}\"", function_name))
-                })?;
+                function
+                    .upload(&client.unwrap(), deploy_config_clone.as_deref())
+                    .await
+                    .map_err(|e| {
+                        function_progress.error("Uploading");
+                        e.wrap_err(format!("Failed to upload function: \"{}\"", function_name))
+                    })?;
 
                 pipeline_progress.increase_current_function_position();
 
@@ -148,11 +151,10 @@ impl Pipeline {
             .filter(|f| !f.is_local().unwrap())
             .collect::<Vec<_>>();
 
-        #[cfg(feature = "enable-direct-deploy")]
-        let deploy = self.crat.deploy(functions, &*self.custom_deploy).await;
-
-        #[cfg(not(feature = "enable-direct-deploy"))]
-        let deploy = self.crat.deploy(functions).await;
+        let deploy = self
+            .crat
+            .deploy(functions, self.deploy_config.as_deref())
+            .await;
 
         if deploy.is_err() {
             deploying_progress.error("Provisioning");
@@ -194,7 +196,7 @@ pub struct PipelineBuilder {
     is_deploy_enabled: Option<bool>,
     crat: Option<Crate>,
     max_concurrent: Option<usize>,
-    custom_deploy: Option<Arc<dyn DirectDeploy>>,
+    deploy_config: Option<Arc<dyn DeployConfig>>,
 }
 
 impl PipelineBuilder {
@@ -203,15 +205,12 @@ impl PipelineBuilder {
             crat: self.crat.ok_or_eyre("No crate provided to the pipeline")?,
             is_deploy_enabled: self.is_deploy_enabled.unwrap_or(false),
             max_concurrent: self.max_concurrent.unwrap_or(4),
-            custom_deploy: self
-                .custom_deploy
-                .unwrap_or_else(|| Arc::new(DirectDeployPlug {})),
+            deploy_config: self.deploy_config,
         })
     }
 
-    pub fn with_custom_deploy(mut self, deployer: Option<Arc<dyn DirectDeploy>>) -> Self {
-        self.custom_deploy =
-            Option::from(deployer.unwrap_or_else(|| Arc::new(DirectDeployPlug {})));
+    pub fn with_deploy_config(mut self, config: Option<Arc<dyn DeployConfig>>) -> Self {
+        self.deploy_config = config;
         self
     }
 

@@ -3,8 +3,6 @@ use eyre::Context;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-pub const DIRECT_DEPLOY_ENABLED: bool = cfg!(feature = "enable-direct-deploy");
-
 #[derive(Debug)]
 pub(crate) struct Config<'a> {
     pub(crate) api_base: &'a str,

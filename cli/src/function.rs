@@ -1,17 +1,12 @@
+use crate::client::Client;
 use crate::crat::Crate;
-use aws_sdk_s3::primitives::ByteStream;
+use crate::deploy::DeployConfig;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
 use zip::write::SimpleFileOptions;
-
-#[cfg(not(feature = "enable-direct-deploy"))]
-use crate::client::Client;
-
-#[cfg(feature = "enable-direct-deploy")]
-use crate::deploy::DirectDeploy;
 
 #[derive(Clone, Debug)]
 pub struct Function {
@@ -39,15 +34,6 @@ impl Function {
 
     pub fn s3key_encrypted(&self) -> Option<String> {
         self.s3key_encrypted.clone()
-    }
-
-    // Upload the backend manually if the /upload endpoint gets
-    // use aws_sdk_s3::primitives::ByteStream;
-    #[cfg(feature = "enable-direct-deploy")]
-    pub async fn zip_stream(&self) -> eyre::Result<ByteStream> {
-        ByteStream::from_path(self.bundle_path())
-            .await
-            .wrap_err("Failed to read bundled zip")
     }
 
     fn meta(&self) -> eyre::Result<toml::Value> {
@@ -140,14 +126,16 @@ impl Function {
             .join("bootstrap")
     }
 
-    #[cfg(feature = "enable-direct-deploy")]
-    pub async fn upload(&mut self, custom_deploy: &dyn DirectDeploy) -> eyre::Result<()> {
-        custom_deploy.upload(self).await
-    }
-
     /// Call the /upload endpoint to get the presigned URL and upload the file
-    #[cfg(not(feature = "enable-direct-deploy"))]
-    pub async fn upload(&mut self, client: &Client) -> eyre::Result<()> {
+    pub async fn upload(
+        &mut self,
+        client: &Client,
+        deploy_config: Option<&dyn DeployConfig>,
+    ) -> eyre::Result<()> {
+        if let Some(config) = deploy_config {
+            return config.upload(self).await;
+        }
+
         #[derive(serde::Deserialize, Debug)]
         struct PreSignedUrl {
             url: String,
@@ -183,8 +171,7 @@ impl Function {
         }
 
         Ok(self
-            .meta()
-            .unwrap()
+            .meta()?
             .get("is_local")
             .unwrap_or(&toml::Value::Boolean(false))
             .as_bool()
@@ -204,8 +191,7 @@ impl Function {
             .wrap_err("No [kinetics]")?
             .get("environment")
             .wrap_err("No [environment]")
-            .cloned()
-            .unwrap()
+            .cloned()?
             .as_table()
             .unwrap()
             .iter()
