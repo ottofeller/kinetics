@@ -1,5 +1,6 @@
-use crate::{error::Error};
-use crate::config::{api_url, build_path, Credentials};
+use crate::config::build_config;
+use crate::config::{api_url, Credentials};
+use crate::error::Error;
 use chrono::Utc;
 use crossterm::{
     event::{self, Event, KeyCode},
@@ -73,7 +74,7 @@ pub async fn login(email: &str) -> eyre::Result<bool> {
         return Err(eyre::eyre!("Invalid email format"));
     }
 
-    let path = Path::new(&build_path()?).join(".credentials");
+    let path = Path::new(&build_config()?.build_path).join(".credentials");
 
     let default =
         json!({ "email": "", "token": "", "expiresAt": "2000-01-01T00:00:00Z" }).to_string();

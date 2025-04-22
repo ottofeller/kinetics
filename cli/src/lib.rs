@@ -1,3 +1,4 @@
+#![feature(once_cell_try)]
 pub mod auth;
 pub mod build;
 pub mod cli;

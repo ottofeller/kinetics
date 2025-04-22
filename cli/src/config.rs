@@ -1,22 +1,46 @@
+use crate::error::Error;
 use chrono::{DateTime, Utc};
-use eyre::Context;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::OnceLock;
 
 #[derive(Debug)]
 pub(crate) struct Config<'a> {
     pub(crate) api_base: &'a str,
+    pub(crate) build_path: &'a str,
 }
 
 static CONFIG: OnceLock<Config> = OnceLock::new();
 
-pub(crate) fn build_config() -> &'static Config<'static> {
-    CONFIG.get_or_init(|| {
+pub(crate) fn build_config() -> Result<&'static Config<'static>, Error> {
+    CONFIG.get_or_try_init(|| {
         let api_base =
             option_env!("KINETICS_API_BASE").unwrap_or("https://backend.usekinetics.com/");
 
+        let home_dir = match std::env::var("HOME") {
+            Ok(home_dir) => home_dir,
+            Err(_) => {
+                log::error!("Failed to get $HOME");
+
+                return Err(Error::new(
+                    "$HOME is missing",
+                    Some("Your shell might not be supported."),
+                ));
+            }
+        };
+
+        let build_path = Box::leak(
+            Path::new(&home_dir)
+                .join(".kinetics")
+                .display()
+                .to_string()
+                .into_boxed_str(),
+        );
+
         {
-            Config { api_base }
+            Ok(Config {
+                api_base,
+                build_path,
+            })
         }
     })
 }
@@ -31,9 +55,5 @@ pub struct Credentials {
 }
 
 pub fn api_url(path: &str) -> String {
-    format!("{}{}", build_config().api_base, path)
-}
-
-pub fn build_path() -> eyre::Result<PathBuf> {
-    Ok(Path::new(&std::env::var("HOME").wrap_err("Can not read HOME env var")?).join(".kinetics"))
+    format!("{}{}", build_config().unwrap().api_base, path)
 }

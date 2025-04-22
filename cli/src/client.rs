@@ -1,5 +1,5 @@
 use crate::{
-    config::{build_config, build_path, Credentials},
+    config::{build_config, Credentials},
     error::Error,
 };
 use chrono::Utc;
@@ -22,7 +22,7 @@ impl Client {
             });
         }
 
-        let path = Path::new(&build_path()?).join(".credentials");
+        let path = Path::new(&build_config()?.build_path).join(".credentials");
 
         let credentials = serde_json::from_str::<Credentials>(
             &std::fs::read_to_string(path.clone())
@@ -53,7 +53,7 @@ impl Client {
     }
 
     fn url(path: &str) -> String {
-        format!("{}{}", build_config().api_base, path)
+        format!("{}{}", build_config().unwrap().api_base, path)
     }
 
     /// A POST request with the Authorization header

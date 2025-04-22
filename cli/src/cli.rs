@@ -1,6 +1,6 @@
 use crate::build::pipeline::Pipeline;
 use crate::build::prepare_crates;
-use crate::config::build_path;
+use crate::config::build_config;
 use crate::crat::Crate;
 use crate::deploy::DeployConfig;
 use crate::destroy::destroy;
@@ -11,6 +11,7 @@ use crate::logger::Logger;
 use crate::login::login;
 use clap::{Parser, Subcommand};
 use eyre::{Ok, WrapErr};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 #[derive(Parser)]
@@ -69,7 +70,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
     Logger::init();
     let cli = Cli::parse();
     let crat = Crate::from_current_dir()?;
-    let directories = prepare_crates(build_path()?, crat.clone())?;
+    let directories = prepare_crates(PathBuf::from(build_config()?.build_path), crat.clone())?;
 
     // Functions to deploy
     let functions: Vec<Function> = directories
