@@ -73,8 +73,7 @@ pub async fn login(email: &str) -> eyre::Result<bool> {
         return Err(eyre::eyre!("Invalid email format"));
     }
 
-    let path = Path::new(&build_config()?.build_path).join(".credentials");
-    let mut credentials = Credentials::new(&path)?;
+    let mut credentials = Credentials::new(&Path::new(&build_config()?.credentials_path))?;
 
     if credentials.is_valid(email) {
         return Ok(false);

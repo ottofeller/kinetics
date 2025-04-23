@@ -16,10 +16,8 @@ impl Client {
                 access_token: "".into(),
                 client: reqwest::Client::new(),
             });
-        }
-
-        let path = Path::new(&build_config()?.build_path).join(".credentials");
-        let credentials = Credentials::new(&path)?;
+        };
+        let credentials = Credentials::new(&Path::new(&build_config()?.credentials_path))?;
 
         // If credentials expired — request to re-login
         if credentials.expires_at.timestamp() <= Utc::now().timestamp() {

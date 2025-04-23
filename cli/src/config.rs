@@ -7,6 +7,7 @@ use std::sync::OnceLock;
 pub(crate) struct Config<'a> {
     pub(crate) api_base: &'a str,
     pub(crate) build_path: &'a str,
+    pub(crate) credentials_path: &'a str,
     pub(crate) username: &'a str,
     pub(crate) username_escaped: &'a str,
     pub(crate) cloud_front_domain: Option<&'a str>,
@@ -21,6 +22,7 @@ pub(crate) struct Config<'a> {
 pub(crate) struct Config<'a> {
     pub(crate) api_base: &'a str,
     pub(crate) build_path: &'a str,
+    pub(crate) credentials_path: &'a str,
 }
 
 pub const DIRECT_DEPLOY_ENABLED: bool = cfg!(feature = "enable-direct-deploy");
@@ -44,9 +46,15 @@ pub(crate) fn build_config() -> Result<&'static Config<'static>, Error> {
             }
         };
 
+        let build_path_raw = Path::new(home_dir).join(".kinetics");
+
         // Create a static string to avoid referencing temporary value
         let build_path = Box::leak(
-            Path::new(home_dir).join(".kinetics").display().to_string().into_boxed_str(),
+            build_path_raw.display().to_string().into_boxed_str(),
+        );
+
+        let credentials_path = Box::leak(
+            build_path_raw.join(".credentials").display().to_string().into_boxed_str(),
         );
 
         #[cfg(feature = "enable-direct-deploy")]
@@ -57,6 +65,7 @@ pub(crate) fn build_config() -> Result<&'static Config<'static>, Error> {
             Ok(Config {
                 api_base,
                 build_path,
+                credentials_path,
                 cloud_front_domain: if use_production_domain {
                     Some("usekinetics.com")
                 } else {
@@ -77,7 +86,7 @@ pub(crate) fn build_config() -> Result<&'static Config<'static>, Error> {
 
         #[cfg(not(feature = "enable-direct-deploy"))]
         {
-            Ok(Config { api_base, build_path })
+            Ok(Config { api_base, build_path, credentials_path })
         }
     })
 }
