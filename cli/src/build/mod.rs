@@ -46,7 +46,7 @@ pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<Pa
 
     // For each function create a deployment crate
     for parsed_function in parser.functions {
-        for is_local in vec![false, true] {
+        for is_local in [false, true] {
             // Function name is parsed value from kinetics_macro name attribute
             // Path example: /home/some-user/.kinetics/<crate-name>/<function-name>/<rust-function-name>
             let dst = project_path.join(parsed_function.func_name(is_local));

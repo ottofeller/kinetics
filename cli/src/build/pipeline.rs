@@ -1,5 +1,6 @@
 use crate::client::Client;
 use crate::crat::Crate;
+use crate::deploy::DeployConfig;
 use crate::function::Function;
 use eyre::{eyre, Context, OptionExt, Report};
 use futures::future;
@@ -9,11 +10,11 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Semaphore;
 
-#[derive(Debug, Clone)]
 pub struct Pipeline {
     is_deploy_enabled: bool,
     crat: Crate,
     max_concurrent: usize,
+    deploy_config: Option<Arc<dyn DeployConfig>>,
 }
 
 impl Pipeline {
@@ -22,6 +23,15 @@ impl Pipeline {
     }
 
     pub async fn run(self, functions: Vec<Function>) -> eyre::Result<()> {
+        if self.deploy_config.is_some() {
+            println!(
+                "    {} `{}` {}",
+                console::style("Using a custom deployment configuration for").yellow(),
+                console::style(self.crat.name.clone()).green().bold(),
+                console::style("crate").yellow(),
+            );
+        }
+
         // Define maximum number of parallel builds
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
 
@@ -32,7 +42,7 @@ impl Pipeline {
         );
 
         let client = if self.is_deploy_enabled {
-            Some(Client::new().wrap_err("Failed to create client")?)
+            Some(Client::new(self.deploy_config.is_some()).wrap_err("Failed to create client")?)
         } else {
             None
         };
@@ -40,7 +50,7 @@ impl Pipeline {
         let handles = functions.into_iter().map(|mut function| {
             let client = client.clone();
             let sem = Arc::clone(&semaphore);
-
+            let deploy_config_clone = self.deploy_config.clone();
             let pipeline_progress = pipeline_progress.clone();
 
             tokio::spawn(async move {
@@ -75,10 +85,7 @@ impl Pipeline {
                 function_progress.log_stage("Uploading");
 
                 function
-                    .upload(
-                        &client
-                            .ok_or_eyre("Client must be initialized when deployment is enabled")?,
-                    )
+                    .upload(&client.unwrap(), deploy_config_clone.as_deref())
                     .await
                     .map_err(|e| {
                         function_progress.error("Uploading");
@@ -139,14 +146,14 @@ impl Pipeline {
         // It's safe to unwrap here because the errors have already been caught
         let functions: Vec<_> = ok_results.drain(..).map(Result::unwrap).collect();
 
+        let functions = &functions
+            .into_iter()
+            .filter(|f| !f.is_local().unwrap())
+            .collect::<Vec<_>>();
+
         let deploy = self
             .crat
-            .deploy(
-                &functions
-                    .into_iter()
-                    .filter(|f| !f.is_local().unwrap())
-                    .collect::<Vec<_>>(),
-            )
+            .deploy(functions, self.deploy_config.as_deref())
             .await;
 
         if deploy.is_err() {
@@ -189,6 +196,7 @@ pub struct PipelineBuilder {
     is_deploy_enabled: Option<bool>,
     crat: Option<Crate>,
     max_concurrent: Option<usize>,
+    deploy_config: Option<Arc<dyn DeployConfig>>,
 }
 
 impl PipelineBuilder {
@@ -197,7 +205,13 @@ impl PipelineBuilder {
             crat: self.crat.ok_or_eyre("No crate provided to the pipeline")?,
             is_deploy_enabled: self.is_deploy_enabled.unwrap_or(false),
             max_concurrent: self.max_concurrent.unwrap_or(4),
+            deploy_config: self.deploy_config,
         })
+    }
+
+    pub fn with_deploy_config(mut self, config: Option<Arc<dyn DeployConfig>>) -> Self {
+        self.deploy_config = config;
+        self
     }
 
     pub fn with_deploy_enabled(mut self, is_deploy_enabled: bool) -> Self {

@@ -1,3 +1,4 @@
+use crate::config::api_url;
 use crate::config::build_config;
 use crate::credentials::Credentials;
 use crate::error::Error;
@@ -17,7 +18,7 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
     let client = reqwest::Client::new();
 
     let response = client
-        .post(crate::api_url("/auth/code/request"))
+        .post(api_url("/auth/code/request"))
         .json(&json!({ "email": email }))
         .send()
         .await
@@ -40,7 +41,7 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
     let code = code.trim();
 
     let response = client
-        .post(crate::api_url("/auth/code/exchange"))
+        .post(api_url("/auth/code/exchange"))
         .json(&json!({ "email": email, "code": code }))
         .send()
         .await

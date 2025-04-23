@@ -6,7 +6,7 @@ impl Error {
     pub fn new(message: &str, details: Option<&str>) -> Self {
         Error(
             message.to_string(),
-            details.map_or(None, |d| Some(d.to_string())),
+            details.map(|d| d.to_string()),
         )
     }
 }
@@ -29,10 +29,9 @@ impl std::error::Error for Error {}
 /// Automatically convert all eyre error reports
 impl From<eyre::ErrReport> for Error {
     fn from(error: eyre::ErrReport) -> Self {
-        let error = match error.downcast::<Error>() {
-            Ok(err) => err,
-            Err(err) => Error::new(&err.to_string(), None),
-        };
+        let error = error
+            .downcast::<Error>()
+            .unwrap_or_else(|err| Error::new(&err.to_string(), None));
 
         eprintln!("\n\n{}\n{error}", console::style("Error").red().bold());
 

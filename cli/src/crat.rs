@@ -1,10 +1,10 @@
 use crate::client::Client;
-use crate::config;
-use crate::deploy::deploy_directly;
+use crate::deploy::DeployConfig;
 use crate::error::Error;
 use crate::function::Function;
 use crate::secret::Secret;
-use common::stack::{deploy, status};
+use crate::stack::deploy;
+use crate::stack::status;
 use eyre::{ContextCompat, Ok, WrapErr};
 use reqwest::StatusCode;
 use std::collections::HashMap;
@@ -58,17 +58,22 @@ impl Crate {
     }
 
     /// Deploy all assets using CFN template
-    pub async fn deploy(&self, functions: &[Function]) -> eyre::Result<()> {
-        let client = Client::new()?;
+    pub async fn deploy(
+        &self,
+        functions: &[Function],
+        deploy_config: Option<&dyn DeployConfig>,
+    ) -> eyre::Result<()> {
+        let client = Client::new(deploy_config.is_some())?;
         let mut secrets = HashMap::new();
 
         Secret::from_dotenv().iter().for_each(|s| {
             secrets.insert(s.name.clone(), s.value());
         });
 
-        // Provision the template directly if the flag is set
-        if config::DIRECT_DEPLOY_ENABLED {
-            return deploy_directly(self.toml_string.clone(), secrets, functions).await;
+        if let Some(config) = deploy_config {
+            return config
+                .deploy(self.toml_string.clone(), secrets, functions)
+                .await;
         }
 
         let result = client
@@ -113,7 +118,7 @@ impl Crate {
     }
 
     pub async fn status(&self) -> eyre::Result<status::ResponseBody> {
-        let client = Client::new()?;
+        let client = Client::new(false)?;
 
         let result = client
             .post("/stack/status")

@@ -1,4 +1,4 @@
-use crate::config::{self, build_config};
+use crate::config::build_config;
 use crate::credentials::Credentials;
 use chrono::Utc;
 use std::path::Path;
@@ -10,13 +10,14 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new() -> eyre::Result<Self> {
-        if config::DIRECT_DEPLOY_ENABLED {
+    pub fn new(is_directly: bool) -> eyre::Result<Self> {
+        if is_directly {
             return Ok(Client {
                 access_token: "".into(),
                 client: reqwest::Client::new(),
             });
-        };
+        }
+
         let credentials = Credentials::new(&Path::new(&build_config()?.credentials_path))?;
 
         // If credentials expired — request to re-login
