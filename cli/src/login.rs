@@ -1,5 +1,6 @@
 use crate::config::build_config;
-use crate::{error::Error, Credentials};
+use crate::credentials::Credentials;
+use crate::error::Error;
 use chrono::Utc;
 use crossterm::{
     event::{self, Event, KeyCode},

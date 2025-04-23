@@ -24,7 +24,7 @@ impl Client {
 
         let path = Path::new(&build_config()?.build_path).join(".credentials");
 
-        let credentials = serde_json::from_str::<crate::Credentials>(
+        let credentials = serde_json::from_str::<crate::credentials::Credentials>(
             &std::fs::read_to_string(path.clone())
                 .or_else(|_| {
                     let default =

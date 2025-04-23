@@ -11,14 +11,13 @@ mod invoke;
 mod logger;
 mod login;
 mod secret;
+mod credentials;
 use std::path::PathBuf;
-
 use crate::build::pipeline::Pipeline;
 use crate::build::prepare_crates;
 use crate::config::build_config;
 use crate::destroy::destroy;
 use crate::error::Error;
-use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
 use crat::Crate;
 use eyre::{Ok, WrapErr};
@@ -26,15 +25,6 @@ use function::Function;
 use invoke::invoke;
 use logger::Logger;
 use login::login;
-
-/// Credentials to be used with API
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct Credentials {
-    email: String,
-    token: String,
-    expires_at: DateTime<Utc>,
-}
 
 fn api_url(path: &str) -> String {
     format!("{}{}", build_config().unwrap().api_base, path)
