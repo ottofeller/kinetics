@@ -1,6 +1,7 @@
 use crate::auth::lambda;
 use crate::client::Client;
 use crate::crat::Crate;
+use crate::error::Error;
 use crate::function::Function;
 use crate::secret::Secret;
 use color_eyre::owo_colors::OwoColorize;
@@ -68,13 +69,23 @@ pub async fn invoke(
         }))
         .send()
         .await
-        .wrap_err("Failed to get auth credentials")?
+        .wrap_err(Error::new(
+            "Failed to authenticate",
+            Some("Network error, try later"),
+        ))?
         .json()
         .await
-        .wrap_err("Invalid response")?;
+        .inspect_err(|err| log::error!("JSON parsing error: {err:?}"))
+        .wrap_err(Error::new(
+            "Server resopnse is invalid",
+            Some("Might be a short outage, try again later"),
+        ))?;
 
-    let invoke_dir =
-        Path::new(&home).join(format!(".kinetics/{}/{}Local", crat.name, function.name()?));
+    let invoke_dir = Path::new(&home).join(format!(
+        ".kinetics/{}/{}Local",
+        crat.name,
+        function.name().wrap_err("Invalid format of Cargo.toml")?
+    ));
 
     let display_path = format!("{}", invoke_dir.display());
 
