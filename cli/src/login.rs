@@ -1,7 +1,6 @@
 use crate::config::build_config;
 use crate::credentials::Credentials;
 use crate::error::Error;
-use chrono::Utc;
 use crossterm::{
     event::{self, Event, KeyCode},
     terminal::{disable_raw_mode, enable_raw_mode},
@@ -75,42 +74,14 @@ pub async fn login(email: &str) -> eyre::Result<bool> {
     }
 
     let path = Path::new(&build_config()?.build_path).join(".credentials");
+    let mut credentials = Credentials::new(&path)?;
 
-    let default =
-        json!({ "email": "", "token": "", "expiresAt": "2000-01-01T00:00:00Z" }).to_string();
-
-    // Read or create credentials file
-    let credentials = serde_json::from_str::<Credentials>(
-        &std::fs::read_to_string(path.clone())
-            .or_else(|_| {
-                std::fs::write(path.clone(), default.clone()).wrap_err(Error::new(
-                    "Failed to write credentials file",
-                    Some(
-                        "File system issue, check the file permissions in ~/.kinetics/.credentials",
-                    ),
-                ))?;
-
-                eyre::Ok(default.clone())
-            })
-            .unwrap_or(default),
-    )
-    .wrap_err(Error::new(
-        "Could not parse credentials file",
-        Some("Delete ~/.kinetics/.credentials and try again"),
-    ))?;
-
-    // If credentials expired — request new token
-    if !credentials.token.is_empty()
-        && credentials.expires_at.timestamp() > Utc::now().timestamp()
-        && credentials.email == email
-    {
+    if credentials.is_valid(email) {
         return Ok(false);
     }
 
-    std::fs::write(path, json!(request(email).await?).to_string()).wrap_err(Error::new(
-        "Failed to store credentials",
-        Some("File system issue, check the file permissions in ~/.kinetics/.credentials"),
-    ))?;
+    // If credentials expired — request new token
+    credentials.write(request(email).await?)?;
 
     Ok(true)
 }

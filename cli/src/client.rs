@@ -1,10 +1,6 @@
-use crate::{
-    config::{self, build_config},
-    error::Error,
-};
+use crate::config::{self, build_config};
+use crate::credentials::Credentials;
 use chrono::Utc;
-use eyre::Context;
-use serde_json::json;
 use std::path::Path;
 
 #[derive(Clone)]
@@ -23,23 +19,7 @@ impl Client {
         }
 
         let path = Path::new(&build_config()?.build_path).join(".credentials");
-
-        let credentials = serde_json::from_str::<crate::credentials::Credentials>(
-            &std::fs::read_to_string(path.clone())
-                .or_else(|_| {
-                    let default =
-                        json!({ "email": "", "token": "", "expiresAt": "2000-01-01T00:00:00Z" })
-                            .to_string();
-
-                    std::fs::write(path.clone(), default.clone())?;
-                    eyre::Ok(default)
-                })
-                .unwrap_or_default(),
-        )
-        .wrap_err(Error::new(
-            "Could not parse credentials file",
-            Some(&format!("Delete {} and try again", path.display())),
-        ))?;
+        let credentials = Credentials::new(&path)?;
 
         // If credentials expired — request to re-login
         if credentials.expires_at.timestamp() <= Utc::now().timestamp() {
