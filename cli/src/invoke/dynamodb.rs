@@ -119,7 +119,12 @@ impl LocalDynamoDB {
             .await;
 
         if let Err(ref err) = result {
-            if err.as_service_error().unwrap().to_string().contains("ResourceInUseException") {
+            if err
+                .as_service_error()
+                .unwrap()
+                .to_string()
+                .contains("ResourceInUseException")
+            {
                 log::warn!("Table '{}' already exists.", table);
                 return Ok(());
             } else {
