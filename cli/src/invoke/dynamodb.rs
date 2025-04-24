@@ -82,8 +82,9 @@ impl LocalDynamoDB {
         Ok(())
     }
 
-    /// Provision table
+    /// Provision table with retry mechanism for handling connection issues
     pub async fn provision(&self, table: &str) -> eyre::Result<()> {
+        // Configure AWS client
         let config = aws_config::defaults(BehaviorVersion::latest())
             .endpoint_url("http://localhost:8000")
             .region("us-east-1")
@@ -95,55 +96,85 @@ impl LocalDynamoDB {
 
         let client = aws_sdk_dynamodb::Client::new(&config);
 
-        let result = client
-            .create_table()
-            .table_name(table)
-            .attribute_definitions(
-                AttributeDefinition::builder()
-                    .attribute_name("id")
-                    .attribute_type(ScalarAttributeType::S)
-                    .build()
-                    .unwrap(),
-            )
-            .key_schema(
-                KeySchemaElement::builder()
-                    .attribute_name("id")
-                    .key_type(KeyType::Hash)
-                    .build()
-                    .unwrap(),
-            )
-            .provisioned_throughput(
-                aws_sdk_dynamodb::types::ProvisionedThroughput::builder()
-                    .read_capacity_units(5)
-                    .write_capacity_units(5)
-                    .build()
-                    .unwrap(),
-            )
-            .send()
-            .await;
+        // Retry parameters
+        let max_retries = 5;
+        let initial_delay_ms = 500;
 
-        if let Err(ref err) = result {
-            if err.as_service_error().is_some()
-                && err
-                    .as_service_error()
-                    .unwrap()
-                    .to_string()
-                    .contains("ResourceInUseException")
-            {
-                log::warn!("Table '{}' already exists.", table);
-                return Ok(());
-            } else {
-                log::error!("Failed to create table '{}': {:?}", table, err);
+        // Wait for DynamoDB to be ready and attempt to create the table with retries
+        for attempt in 1..=max_retries {
+            let result = client
+                .create_table()
+                .table_name(table)
+                .attribute_definitions(
+                    AttributeDefinition::builder()
+                        .attribute_name("id")
+                        .attribute_type(ScalarAttributeType::S)
+                        .build()
+                        .unwrap(),
+                )
+                .key_schema(
+                    KeySchemaElement::builder()
+                        .attribute_name("id")
+                        .key_type(KeyType::Hash)
+                        .build()
+                        .unwrap(),
+                )
+                .provisioned_throughput(
+                    aws_sdk_dynamodb::types::ProvisionedThroughput::builder()
+                        .read_capacity_units(5)
+                        .write_capacity_units(5)
+                        .build()
+                        .unwrap(),
+                )
+                .send()
+                .await;
 
-                return Err(Error::new(
-                    "Failed to create DynamoDB table",
-                    Some("Make sure the docker container is running and DynamoDB is available at http://localhost:8000"),
-                ).into());
+            match result {
+                Ok(_) => {
+                    log::info!("Table '{}' created successfully.", table);
+                    return Ok(());
+                }
+                Err(err) => {
+                    // Check if the table already exists
+                    if let Some(service_err) = err.as_service_error() {
+                        if service_err.to_string().contains("ResourceInUseException") {
+                            log::warn!("Table '{}' already exists.", table);
+                            return Ok(());
+                        }
+                    }
+
+                    // If this is the final attempt, propagate the error
+                    if attempt == max_retries {
+                        return Err(Error::new(
+                            "Failed to create DynamoDB table",
+                            Some("Make sure the docker container is running and DynamoDB is available at http://localhost:8000"),
+                        ).into());
+                    }
+
+                    // Otherwise, log the error and retry after a delay
+                    log::warn!(
+                        "Failed to create table '{}' (attempt {}/{}): {:?}, retrying...",
+                        table,
+                        attempt,
+                        max_retries,
+                        err
+                    );
+
+                    // Exponential backoff: initial_delay_ms * 2^(attempt-1)
+                    let delay_duration =
+                        std::time::Duration::from_millis(initial_delay_ms * (1 << (attempt - 1)));
+
+                    tokio::time::sleep(delay_duration).await;
+                }
             }
         }
 
-        log::info!("Table '{}' created successfully.", table);
-        Ok(())
+        // This should never be reached due to the check in the loop
+        Err(Error::new(
+            "Failed to create DynamoDB table",
+            Some("Exceeded maximum retry attempts"),
+        )
+        .into())
     }
 
     /// Path to docker-compose.yml file
