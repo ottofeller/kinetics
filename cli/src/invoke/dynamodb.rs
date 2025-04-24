@@ -40,7 +40,10 @@ impl LocalDynamoDB {
             .inspect_err(|e| {
                 log::error!("Failed to write DOCKER_COMPOSE_FILE to {:?}: {}", dest, e)
             })
-            .wrap_err(format!("Failed to write 'aaa' to {:?}", dest))?;
+            .wrap_err(Error::new(
+                "Failed to set up Docker",
+                Some(&format!("Make sure you can write to {dest:?}")),
+            ))?;
 
         // Config file functionality must ensure that the root dirs are all valid
         let file_path = dest.to_string_lossy();
@@ -50,12 +53,13 @@ impl LocalDynamoDB {
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .status()
+            .inspect_err(|e| log::error!("Error: {}", e))
             .wrap_err("Failed to execute docker-compose")?;
 
         if !status.success() {
             return Err(Error::new(
                 "Failed to start DynamoDB container",
-                Some("Check the output above."),
+                Some("Make sure the docker is installed and running."),
             )
             .into());
         }
@@ -70,6 +74,7 @@ impl LocalDynamoDB {
             .stderr(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
             .status()
+            .inspect_err(|e| log::error!("Error: {}", e))
             .wrap_err("Failed to execute docker-compose")?;
 
         if !status.success() {
