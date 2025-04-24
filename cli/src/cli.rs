@@ -151,8 +151,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 payload,
                 headers,
             )
-            .await
-            .wrap_err("Failed to invoke the function")?;
+            .await?;
 
             Ok(())
         }
