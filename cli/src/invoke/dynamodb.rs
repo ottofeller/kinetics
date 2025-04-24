@@ -1,0 +1,143 @@
+use crate::error::Error;
+use aws_config::BehaviorVersion;
+use aws_sdk_dynamodb::types::{
+    AttributeDefinition, KeySchemaElement, KeyType, ScalarAttributeType,
+};
+use eyre::WrapErr;
+use std::path::{Path, PathBuf};
+
+const DOCKER_COMPOSE_FILE: &str = r#"
+version: "3.8"
+services:
+    local-dynamodb:
+        command: "-jar DynamoDBLocal.jar -sharedDb -dbPath ./data"
+        image: "amazon/dynamodb-local:latest"
+        ports:
+            - "8000:8000"
+        volumes:
+            - "/tmp/dynamodb:/home/dynamodblocal/data"
+        working_dir: /home/dynamodblocal
+"#;
+
+/// Manage local DynamoDB (container and table)
+pub struct LocalDynamoDB {
+    // Path to .kinetics dir
+    build_path: PathBuf,
+}
+
+impl LocalDynamoDB {
+    pub fn new(build_path: &Path) -> Self {
+        Self {
+            build_path: build_path.to_owned(),
+        }
+    }
+
+    /// Start DynamoDB container
+    pub fn start(&self) -> eyre::Result<()> {
+        let dest = self.docker_compose_path();
+
+        std::fs::write(&dest, DOCKER_COMPOSE_FILE)
+            .inspect_err(|e| {
+                log::error!("Failed to write DOCKER_COMPOSE_FILE to {:?}: {}", dest, e)
+            })
+            .wrap_err(format!("Failed to write 'aaa' to {:?}", dest))?;
+
+        // Config file functionality must ensure that the root dirs are all valid
+        let file_path = dest.to_string_lossy();
+
+        let status = std::process::Command::new("docker-compose")
+            .args(&["-f", &file_path, "up", "-d"])
+            .status()
+            .wrap_err("Failed to execute docker-compose")?;
+
+        if !status.success() {
+            return Err(Error::new(
+                "Failed to start DynamoDB container",
+                Some("Check the output above."),
+            )
+            .into());
+        }
+
+        Ok(())
+    }
+
+    /// Stop DynamoDB container
+    pub fn stop(&self) -> eyre::Result<()> {
+        let status = std::process::Command::new("docker-compose")
+            .args(&["-f", &self.docker_compose_path().to_string_lossy(), "down"])
+            .status()
+            .wrap_err("Failed to execute docker-compose")?;
+
+        if !status.success() {
+            return Err(eyre::eyre!(
+                "docker-compose command failed with exit code: {}",
+                status
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Provision table
+    pub async fn provision(&self, table: &str) -> eyre::Result<()> {
+        let config = aws_config::defaults(BehaviorVersion::latest())
+            .endpoint_url("http://localhost:8000")
+            .region("us-east-1")
+            .credentials_provider(aws_sdk_dynamodb::config::Credentials::new(
+                "key", "secret", None, None, "provider",
+            ))
+            .load()
+            .await;
+
+        let client = aws_sdk_dynamodb::Client::new(&config);
+
+        let result = client
+            .create_table()
+            .table_name(table)
+            .attribute_definitions(
+                AttributeDefinition::builder()
+                    .attribute_name("id")
+                    .attribute_type(ScalarAttributeType::S)
+                    .build()
+                    .unwrap(),
+            )
+            .key_schema(
+                KeySchemaElement::builder()
+                    .attribute_name("id")
+                    .key_type(KeyType::Hash)
+                    .build()
+                    .unwrap(),
+            )
+            .provisioned_throughput(
+                aws_sdk_dynamodb::types::ProvisionedThroughput::builder()
+                    .read_capacity_units(5)
+                    .write_capacity_units(5)
+                    .build()
+                    .unwrap(),
+            )
+            .send()
+            .await;
+
+        if let Err(ref err) = result {
+            if err.as_service_error().unwrap().to_string().contains("ResourceInUseException") {
+                log::warn!("Table '{}' already exists.", table);
+                return Ok(());
+            } else {
+                log::error!("Failed to create table '{}': {:?}", table, err);
+
+                return Err(Error::new(
+                    "Failed to create DynamoDB table",
+                    Some("Make sure the docker container is running and DynamoDB is available at http://localhost:8000"),
+                ).into());
+            }
+        }
+
+        log::info!("Table '{}' created successfully.", table);
+        Ok(())
+    }
+
+    /// Path to docker-compose.yml file
+    fn docker_compose_path(&self) -> PathBuf {
+        self.build_path.join("docker-compose.yml")
+    }
+}
