@@ -49,6 +49,9 @@ pub async fn invoke(
     crat: &Crate,
     payload: &str,
     headers: &str,
+
+    // DynamoDbB table to provision
+    table: Option<&str>,
 ) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
 
@@ -103,8 +106,11 @@ pub async fn invoke(
     let stderr_lines = Arc::new(Mutex::new(Vec::new()));
 
     let dynamodb = LocalDynamoDB::new(&PathBuf::from(&build_config()?.build_path));
-    dynamodb.start()?;
-    dynamodb.provision("kinetics").await?;
+
+    if table.is_some() {
+        dynamodb.start()?;
+        dynamodb.provision(table.unwrap()).await?;
+    }
 
     // Start the command with piped stdout and stderr
     let mut child = Command::new("cargo")

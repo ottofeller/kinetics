@@ -63,6 +63,9 @@ enum Commands {
 
         #[arg(short, long, default_value = "{}")]
         payload: String,
+
+        #[arg(short, long, default_value = "")]
+        table: String,
     },
 }
 
@@ -141,6 +144,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             name,
             payload,
             headers,
+            table,
         }) => {
             invoke(
                 functions
@@ -150,6 +154,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 &crat,
                 payload,
                 headers,
+                if !table.is_empty() { Some(table) } else { None },
             )
             .await?;
 
