@@ -49,7 +49,7 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                     }},
 
                     Err(err) => {{
-                        eprintln!(\"Request failed: {{:?}}\", err);
+                        println!(\"Request failed: {{:?}}\", err);
                     }}
                 }}
 
