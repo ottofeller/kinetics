@@ -151,3 +151,9 @@ impl LocalDynamoDB {
         self.build_path.join("docker-compose.yml")
     }
 }
+
+impl Drop for LocalDynamoDB {
+    fn drop(&mut self) {
+        self.stop().unwrap();
+    }
+}

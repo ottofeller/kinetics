@@ -162,7 +162,5 @@ pub async fn invoke(
         println!("{}", lines.join("\n"));
     }
 
-    println!("\n{}", console::style("Cleaning up...").green().bold());
-    dynamodb.stop()?;
     Ok(())
 }
