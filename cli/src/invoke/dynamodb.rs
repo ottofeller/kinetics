@@ -47,6 +47,8 @@ impl LocalDynamoDB {
 
         let status = std::process::Command::new("docker-compose")
             .args(&["-f", &file_path, "up", "-d"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .status()
             .wrap_err("Failed to execute docker-compose")?;
 
@@ -65,6 +67,8 @@ impl LocalDynamoDB {
     pub fn stop(&self) -> eyre::Result<()> {
         let status = std::process::Command::new("docker-compose")
             .args(&["-f", &self.docker_compose_path().to_string_lossy(), "down"])
+            .stderr(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
             .status()
             .wrap_err("Failed to execute docker-compose")?;
 
