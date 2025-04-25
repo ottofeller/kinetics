@@ -1949,6 +1949,8 @@ name = "kinetics-cli"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "aws-config",
+ "aws-sdk-dynamodb",
  "chrono",
  "clap",
  "color-eyre",

@@ -44,12 +44,15 @@ pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<Pa
         &parser.functions,
     )?;
 
+    let mut function_names = Vec::new();
+
     // For each function create a deployment crate
     for parsed_function in parser.functions {
         for is_local in [false, true] {
+            let function_name = parsed_function.func_name(is_local);
             // Function name is parsed value from kinetics_macro name attribute
             // Path example: /home/some-user/.kinetics/<crate-name>/<function-name>/<rust-function-name>
-            let dst = project_path.join(parsed_function.func_name(is_local));
+            let dst = project_path.join(&function_name);
             if !matches!(fs::exists(&dst), Ok(true)) {
                 fs::create_dir_all(&dst).wrap_err("Failed to provision temp dir")?;
             }
@@ -64,8 +67,11 @@ pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<Pa
             )?;
 
             result.push(dst);
+            function_names.push(function_name);
         }
     }
+
+    workspace(&project_path, &function_names)?;
 
     Ok(result)
 }
@@ -132,6 +138,24 @@ fn clone(src: &Path, dst: &Path, functions: &[ParsedFunction]) -> eyre::Result<C
     clear_dir(dst, &checksum)?;
 
     Crate::new(dst.to_path_buf())
+}
+
+/// Create a manifest for the entire project build folder
+/// with all the crates added as workspace members.
+fn workspace(dst: &Path, members: &[String]) -> eyre::Result<()> {
+    let dst_cargo_path = dst.join("Cargo.toml");
+
+    // Copy Cargo.toml with modifications
+    let mut cargo_toml = toml_edit::DocumentMut::new();
+    let mut workspace_table = toml_edit::Table::default();
+    workspace_table["resolver"] = "2".into();
+    workspace_table["members"] = toml_edit::Array::from_iter(members.iter()).into();
+    cargo_toml["workspace"] = workspace_table.into();
+
+    fs::write(&dst_cargo_path, &cargo_toml.to_string())
+        .wrap_err("Failed to write workspace Cargo.toml")?;
+
+    Ok(())
 }
 
 /// Remove files that are not present in the source directory
@@ -268,7 +292,12 @@ fn create_lambda_crate(
 
     let mut doc: toml_edit::DocumentMut = fs::read_to_string(src.join("Cargo.toml"))?.parse()?;
 
-    doc["package"]["name"] = format!("{}-kinetics-build", project_name).into();
+    doc["package"]["name"] = format!(
+        "{}-{}-kinetics-build",
+        project_name,
+        parsed_function.func_name(is_local)
+    )
+    .into();
     let mut aot = toml_edit::ArrayOfTables::new();
     let mut new_bin = toml_edit::Table::new();
     new_bin["name"] = toml_edit::value("bootstrap");
