@@ -1,9 +1,6 @@
 mod dynamodb;
-use crate::auth::lambda;
-use crate::client::Client;
 use crate::config::build_config;
 use crate::crat::Crate;
-use crate::error::Error;
 use crate::function::Function;
 use crate::secret::Secret;
 use color_eyre::owo_colors::OwoColorize;
@@ -65,30 +62,6 @@ pub async fn invoke(
         );
     }
 
-    let client = Client::new(false)
-        .inspect_err(|err| log::error!("Error while creating API client: {err:?}"))
-        .wrap_err("Failed to create client")?;
-
-    let credentials: lambda::JsonResponse = client
-        .post("/auth/lambda")
-        .json(&serde_json::json!(lambda::JsonBody {
-            crate_name: crat.name.clone(),
-            function_name: function.name()?.clone(),
-        }))
-        .send()
-        .await
-        .wrap_err(Error::new(
-            "Failed to authenticate",
-            Some("Network error, try later"),
-        ))?
-        .json()
-        .await
-        .inspect_err(|err| log::error!("JSON parsing error: {err:?}"))
-        .wrap_err(Error::new(
-            "Server resopnse is invalid",
-            Some("Might be a short outage, try again later"),
-        ))?;
-
     let invoke_dir =
         Path::new(&home).join(format!(".kinetics/{}/{}Local", crat.name, function.name()?));
 
@@ -119,9 +92,8 @@ pub async fn invoke(
         .envs(function.environment()?)
         .env("AWS_IGNORE_CONFIGURED_ENDPOINT_URLS", "true")
         .env("AWS_ENDPOINT_URL", "http://localhost:8000")
-        .env("AWS_ACCESS_KEY_ID", credentials.access_key_id)
-        .env("AWS_SECRET_ACCESS_KEY", credentials.secret_access_key)
-        .env("AWS_SESSION_TOKEN", credentials.session_token)
+        .env("AWS_ACCESS_KEY_ID", "key")
+        .env("AWS_SECRET_ACCESS_KEY", "secret")
         .env("KINETICS_INVOKE_PAYLOAD", payload)
         .env("KINETICS_INVOKE_HEADERS", headers)
         .current_dir(&invoke_dir)
