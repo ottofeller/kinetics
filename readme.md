@@ -1,66 +1,154 @@
-# Intro
-Kinetics is a work-in-progress project that aims to provide a simple way to deploy Rust functions to the cloud. In essence it is a macro takes a Rust function and deploys it as AWS Lambda.
+# Kinetics
+Kinetics is a hosting platform for Rust applications that allows you to deploy all types of workloads by writing **only Rust code**.
 
-# Processes diagrams
+```rust
+#[endpoint(
+    url_path = "/path",
+    environment = {"SOME_VAR": "SomeVal"},
+)]
+pub async fn endpoint(
+    _event: Request,
+    _secrets: &HashMap<String, String>,
+) -> Result<Response<Body>, Error> {
+    let resp = Response::builder()
+        .status(200)
+        .header("content-type", "text/html")
+        .body("Hello!".into())?;
 
-```mermaid
-graph TD;
-  subgraph macro
-  User -- Edits --> Codebase
-  Codebase -- Triggers --> Macro
-  Macro -- Copies each function<br/>to its tmp dir --> FunctionTmp
-  end
-
-  subgraph deploy
-  User1["User"] -- Runs in the dir of Rust crate<br/># kinetics deploy --> CLI
-  CLI -- Gets informatoin about resources (e.g. DB) from Cargo.toml --> Codebase1["Codebase"]
-  CLI -- Builds each function --> FunctionTmp1["FunctionTmp"]
-  Codebase1 --> Upload
-  FunctionTmp1 -- Uploads build artefacts to /upload --> Upload
-  Upload -- Calls backend endpoint /deploy --> Deploy
-  Deploy -- Generates template and provisions it --> CloudFormation
-  end
+    Ok(resp)
+}
 ```
 
-# Current state
+## Features
 
-- [x] Deploy a function to bare-bones AWS Lambda.
-- [x] FunctionURL.
-- [x] Queue worker.
-- [x] Provision SQL DB (DSQL).
-- [x] DynamoDB.
-- [x] Custom domain for FunctionURL.
-- [ ] Login.
-- [ ] User sessions.
+🦀 **Only Rust code required**
 
-# Deploy backend into your AWS account
+Just apply attribute macro to your function, and Kinetics will handle the rest. No other tools required.
 
-### Initialize environment and deploy backend
+🚀 **Supports any workload**
 
-Run the script and enter your email:
+Deploy REST API endpoints, queue workers, and cron jobs.
 
-```shell
-./bin/init-local.sh
+🤖 **No infrastructure management**
+
+The infrastructure is provisioned automatically, e.g. a queue for the worker workload.
+
+💿 **Comes with DB**
+
+Seamlessly provision KV DB if your workload needs a persistent storage.
+
+🔑 **Secrets**
+
+Automatically provision secrets from `.env.secrets` file.
+
+🌍 **CDN**
+
+REST API endpoints are served through a Content Delivery Network (CDN).
+
+## Examples
+
+Check out complete ready-to-use [examples](https://github.com/kinetics-dev/examples). There are examples for REST API endpoints, queue workers, and cron jobs.
+
+## Try it
+```bash
+# 1. Install
+cargo install kinetics
+
+# 2. Login
+cargo kinetics login <email>
+
+# 3. Apply one of attribute macro
+# E.g. add #[endpoint()] to your function
+
+# 4. Deploy
+# Run in the dir of your crate
+cargo kinetics deploy
+
+# 5. Test it with curl
+curl <URL from cargo kinetics deploy>
 ```
 
-The script will create `./backend/local.env` which you'll be needed for deploying
+Kinetics is currently in ⚠️ **active development** and may contain bugs or result in unexpected behavior. The service is free for the first **100,000 invocations** of your functions, regardless of the type of workload.
 
-### Deploy example using your backend (optional)
+If you have any issues, please contact us at support@usekinetics.com.
 
-⚠️ Before starting, make sure you've run `./bin/init-local.sh` before.
+## Documentation
 
-1. Use environment variables
-    ```shell
-    source ./backend/local.env
-    ```
+All configuration can be done through attribute macro parameters, or through modifications to existing `Cargo.toml` file in your project. All types of workloads support environment variables. These can be changed **without redeploying** (this feature is WIP).
 
-2. Change directory to `examples`
+#### Endpoint
+The following attribute macro parameters are available:
 
-1. Login to Kinetics platform
-    ```shell
-    cargo run -p kinetics-cli login your-email@domain.com
-    ```
-2. Run deployment
-    ```shell
-    cargo run -p kinetics-cli deploy
-    ```
+- `url_path`: The URL path of the endpoint.
+- `environment`: Environment variables.
+
+#### Worker
+Attribute macro parameters:
+
+- `concurrency`: Max number of concurrent workers.
+- `fifo`: Set to true to enable FIFO processing.
+- `environment`: Environment variables.
+
+#### Cron
+Attribute macro parameters:
+
+- `schedule`: [Schedule expression](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-scheduleexpression).
+- `environment`: Environment variables.
+
+#### Secrets
+Store secrets in `.env.secrets` file in the root directory of your crate. Kinetics will automatically pick it up and provision to all of your workloads in the second parameter of the function as `HashMap<String, String>`.
+
+Example:
+```
+# .env.secrets
+API_KEY=your_api_key_here
+```
+
+```rust
+#[endpoint()]
+pub async fn endpoint(
+    event: Request,
+    secrets: &HashMap<String, String>,
+) -> Result<Response<Body>, Error> {
+    println!("API key: {}", secrets.get("API_KEY").unwrap());
+```
+
+#### Database
+Database is defined in `Cargo.toml`:
+```toml
+[package.metadata.kinetics.kvdb.test]
+# You will need this name to connect to the database
+# If not defined then the resource name from above will be used as DB name
+name = "test"
+```
+
+Connect to the database (we provision AWS DynamoDB) using the name defined in `Cargo.toml`:
+
+```rust
+#[endpoint()]
+pub async fn endpoint(
+    event: Request,
+    secrets: &HashMap<String, String>,
+) -> Result<Response<Body>, Error> {
+    let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+    let client = Client::new(&config);
+
+    client
+        .get_item()
+        .table_name("test")
+        .key("id", AttributeValue::S("id"))
+        .send()
+        .await?;
+```
+
+## Commands
+
+- `kinetics login` - Log in with email
+- `kinetics deploy` - Deploy your application
+- `kinetics destroy` - Destroy application and all of its resources
+- `kinetics logs` - View application logs *[Coming soon]*
+
+## Support & Community
+
+- support@usekinetics.com. Help with builds, deployments, and runtime.
+- [GitHub Issues](https://github.com/usekinetics/kinetics/issues). Persistent bugs, and feature requests.
