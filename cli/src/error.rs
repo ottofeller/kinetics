@@ -4,10 +4,7 @@ pub struct Error(String, Option<String>);
 
 impl Error {
     pub fn new(message: &str, details: Option<&str>) -> Self {
-        Error(
-            message.to_string(),
-            details.map(|d| d.to_string()),
-        )
+        Error(message.to_string(), details.map(|d| d.to_string()))
     }
 }
 

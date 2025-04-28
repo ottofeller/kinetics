@@ -1,7 +1,17 @@
 [package]
-name = "kinetics-cli"
+name = "kinetics"
 version = "0.1.0"
 edition = "2021"
+description = "Kinetics is a hosting platform for Rust applications that allows you to deploy all types of workloads by writing **only Rust code**."
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/ottofeller/kinetics"
+readme = "../README.md"
+keywords = ["hosting", "platform", "deployment", "kinetics", "development"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "kinetics"
+path = "src/main.rs"
 
 [dependencies]
 aws-config = "1.6.1"
