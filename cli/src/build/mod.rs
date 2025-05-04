@@ -1,11 +1,10 @@
 mod filehash;
-mod parser;
 pub mod pipeline;
 mod templates;
 use crate::crat::Crate;
 use eyre::{eyre, Context};
 use filehash::{FileHash, CHECKSUMS_FILENAME};
-use parser::{ParsedFunction, Parser, Role};
+use kinetics_parser::{ParsedFunction, Parser, Role};
 use regex::Regex;
 use std::fs::{self};
 use std::path::{Component, Path, PathBuf};

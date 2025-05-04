@@ -8,15 +8,15 @@ type Environment = HashMap<String, String>;
 
 /// Represents a function in the source code
 #[derive(Debug)]
-pub(crate) struct ParsedFunction {
+pub struct ParsedFunction {
     /// Name of the function, parsed from the function definition
-    pub(crate) rust_function_name: String,
+    pub rust_function_name: String,
 
     /// Path to the file where function is defined
-    pub(crate) relative_path: String,
+    pub relative_path: String,
 
     /// Parsed from kinetics_macro macro definition
-    pub(crate) role: Role,
+    pub role: Role,
 }
 
 impl ParsedFunction {
@@ -52,7 +52,7 @@ impl ParsedFunction {
 }
 
 #[derive(Debug)]
-pub(crate) enum Role {
+pub enum Role {
     Endpoint(Endpoint),
     Cron(Cron),
     Worker(Worker),
@@ -77,27 +77,114 @@ impl Role {
 }
 
 #[derive(Default, Debug)]
-pub(crate) struct Endpoint {
-    pub(crate) name: Option<String>,
-    pub(crate) url_path: String,
-    pub(crate) environment: Environment,
-    pub(crate) queues: Option<Vec<String>>,
+pub struct Endpoint {
+    pub name: Option<String>,
+    pub url_path: String,
+    pub environment: Environment,
+    pub queues: Option<Vec<String>>,
+}
+
+impl Parse for Endpoint {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut endpoint = Endpoint::default();
+
+        while !input.is_empty() {
+            let ident: Ident = input.parse()?;
+            input.parse::<token::Eq>()?;
+
+            match ident.to_string().as_str() {
+                "name" => {
+                    endpoint.name = Some(input.parse::<LitStr>()?.value());
+                }
+                "url_path" => {
+                    endpoint.url_path = input.parse::<LitStr>()?.value();
+                }
+                "environment" => {
+                    endpoint.environment = Parser::parse_environment(input)?;
+                }
+                "queues" => {
+                    let content;
+                    syn::bracketed!(content in input);
+                    let queue_list = content.parse::<LitStr>()?.value();
+
+                    endpoint.queues = Some(
+                        queue_list
+                            // Remove square brackets
+                            .trim_matches(|c| c == '[' || c == ']')
+                            .split(',')
+                            // Remove whitespaces and quotes per item
+                            .map(|i| i.trim().trim_matches('"').to_string())
+                            .collect::<Vec<String>>(),
+                    );
+                }
+                // Ignore unknown attributes
+                _ => {}
+            }
+
+            if !input.is_empty() {
+                input.parse::<token::Comma>()?;
+            }
+        }
+
+        Ok(endpoint)
+    }
 }
 
 #[derive(Debug)]
-pub(crate) struct Cron {
-    pub(crate) name: Option<String>,
-    pub(crate) schedule: String,
-    pub(crate) environment: Environment,
+pub struct Cron {
+    pub name: Option<String>,
+    pub schedule: String,
+    pub environment: Environment,
+}
+
+impl Parse for Cron {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut name = None;
+        let mut environment = Environment::default();
+        let mut schedule = None;
+
+        while !input.is_empty() {
+            let ident: Ident = input.parse()?;
+            input.parse::<token::Eq>()?;
+
+            match ident.to_string().as_str() {
+                "name" => {
+                    name = Some(input.parse::<LitStr>()?.value());
+                }
+                "environment" => {
+                    environment = Parser::parse_environment(input)?;
+                }
+                "schedule" => {
+                    schedule = Some(input.parse::<LitStr>()?.value());
+                }
+                // Ignore unknown attributes
+                _ => {}
+            }
+
+            if !input.is_empty() {
+                input.parse::<token::Comma>()?;
+            }
+        }
+
+        if schedule.is_none() {
+            return Err(input.error("Cron validation failed: no schedule provided"));
+        }
+
+        Ok(Cron {
+            name,
+            environment,
+            schedule: schedule.unwrap(),
+        })
+    }
 }
 
 #[derive(Debug)]
-pub(crate) struct Worker {
-    pub(crate) name: Option<String>,
-    pub(crate) queue_alias: Option<String>,
-    pub(crate) concurrency: i16,
-    pub(crate) fifo: bool,
-    pub(crate) environment: Environment,
+pub struct Worker {
+    pub name: Option<String>,
+    pub queue_alias: Option<String>,
+    pub concurrency: i16,
+    pub fifo: bool,
+    pub environment: Environment,
 }
 
 impl Default for Worker {
@@ -112,25 +199,66 @@ impl Default for Worker {
     }
 }
 
+impl Parse for Worker {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut worker = Worker::default();
+
+        while !input.is_empty() {
+            let ident: Ident = input.parse()?;
+            input.parse::<token::Eq>()?;
+
+            match ident.to_string().as_str() {
+                "name" => {
+                    worker.name = Some(input.parse::<LitStr>()?.value());
+                }
+                "queue_alias" => {
+                    worker.queue_alias = Some(input.parse::<LitStr>()?.value());
+                }
+                "environment" => {
+                    worker.environment = Parser::parse_environment(input)?;
+                }
+                "concurrency" => {
+                    worker.concurrency = input.parse::<LitInt>()?.base10_parse::<i16>()?;
+                }
+                "fifo" => {
+                    worker.fifo = match input.parse::<LitBool>() {
+                        Ok(bool) => bool.value,
+                        Err(_) => {
+                            return Err(input.error("expected boolean value for 'fifo'"));
+                        }
+                    };
+                }
+                // Ignore unknown attributes
+                _ => {}
+            }
+
+            if !input.is_empty() {
+                input.parse::<token::Comma>()?;
+            }
+        }
+
+        Ok(worker)
+    }
+}
 #[derive(Debug, Default)]
-pub(crate) struct Parser {
+pub struct Parser {
     /// All found functions in the source code
-    pub(crate) functions: Vec<ParsedFunction>,
+    pub functions: Vec<ParsedFunction>,
 
     /// Relative path to currently processing file
-    pub(crate) relative_path: String,
+    pub relative_path: String,
 }
 
 impl Parser {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Default::default()
     }
 
-    pub(crate) fn set_relative_path(&mut self, file_path: Option<&str>) {
+    pub fn set_relative_path(&mut self, file_path: Option<&str>) {
         self.relative_path = file_path.map_or_else(|| "".to_string(), |s| s.to_string());
     }
 
-    fn parse_environment(&mut self, input: ParseStream) -> eyre::Result<Environment, SynError> {
+    fn parse_environment(input: ParseStream) -> syn::Result<Environment> {
         let content;
         syn::braced!(content in input);
         let vars = Punctuated::<EnvKeyValue, token::Comma>::parse_terminated(&content)?;
@@ -141,132 +269,15 @@ impl Parser {
     }
 
     fn parse_endpoint(&mut self, attr: &Attribute) -> eyre::Result<Endpoint, SynError> {
-        attr.parse_args_with(|input: ParseStream| {
-            let mut endpoint = Endpoint::default();
-
-            while !input.is_empty() {
-                let ident: Ident = input.parse()?;
-                input.parse::<token::Eq>()?;
-
-                match ident.to_string().as_str() {
-                    "name" => {
-                        endpoint.name = Some(input.parse::<LitStr>()?.value());
-                    }
-                    "url_path" => {
-                        endpoint.url_path = input.parse::<LitStr>()?.value();
-                    }
-                    "environment" => {
-                        endpoint.environment = self.parse_environment(input)?;
-                    }
-                    "queues" => {
-                        let content;
-                        syn::bracketed!(content in input);
-                        let queue_list = content.parse::<LitStr>()?.value();
-
-                        endpoint.queues = Some(
-                            queue_list
-                                // Remove square brackets
-                                .trim_matches(|c| c == '[' || c == ']')
-                                .split(',')
-                                // Remove whitespaces and quotes per item
-                                .map(|i| i.trim().trim_matches('"').to_string())
-                                .collect::<Vec<String>>(),
-                        );
-                    }
-                    // Ignore unknown attributes
-                    _ => {}
-                }
-
-                if !input.is_empty() {
-                    input.parse::<token::Comma>()?;
-                }
-            }
-
-            Ok(endpoint)
-        })
+        attr.parse_args_with(Endpoint::parse)
     }
 
     fn parse_worker(&mut self, attr: &Attribute) -> eyre::Result<Worker, SynError> {
-        attr.parse_args_with(|input: ParseStream| {
-            let mut worker = Worker::default();
-
-            while !input.is_empty() {
-                let ident: Ident = input.parse()?;
-                input.parse::<token::Eq>()?;
-
-                match ident.to_string().as_str() {
-                    "name" => {
-                        worker.name = Some(input.parse::<LitStr>()?.value());
-                    }
-                    "queue_alias" => {
-                        worker.queue_alias = Some(input.parse::<LitStr>()?.value());
-                    }
-                    "environment" => {
-                        worker.environment = self.parse_environment(input)?;
-                    }
-                    "concurrency" => {
-                        worker.concurrency = input.parse::<LitInt>()?.base10_parse::<i16>()?;
-                    }
-                    "fifo" => {
-                        worker.fifo = match input.parse::<LitBool>() {
-                            Ok(bool) => bool.value,
-                            Err(_) => {
-                                return Err(input.error("expected boolean value for 'fifo'"));
-                            }
-                        };
-                    }
-                    // Ignore unknown attributes
-                    _ => {}
-                }
-
-                if !input.is_empty() {
-                    input.parse::<token::Comma>()?;
-                }
-            }
-
-            Ok(worker)
-        })
+        attr.parse_args_with(Worker::parse)
     }
 
     fn parse_cron(&mut self, attr: &Attribute) -> eyre::Result<Cron, SynError> {
-        attr.parse_args_with(|input: ParseStream| {
-            let mut name = None;
-            let mut environment = Environment::default();
-            let mut schedule = None;
-
-            while !input.is_empty() {
-                let ident: Ident = input.parse()?;
-                input.parse::<token::Eq>()?;
-
-                match ident.to_string().as_str() {
-                    "name" => {
-                        name = Some(input.parse::<LitStr>()?.value());
-                    }
-                    "environment" => {
-                        environment = self.parse_environment(input)?;
-                    }
-                    "schedule" => {
-                        schedule = Some(input.parse::<LitStr>()?.value());
-                    }
-                    // Ignore unknown attributes
-                    _ => {}
-                }
-
-                if !input.is_empty() {
-                    input.parse::<token::Comma>()?;
-                }
-            }
-
-            if schedule.is_none() {
-                return Err(input.error("Cron validation failed: no schedule provided"));
-            }
-
-            Ok(Cron {
-                name,
-                environment,
-                schedule: schedule.unwrap(),
-            })
-        })
+        attr.parse_args_with(Cron::parse)
     }
 
     /// Checks if the input is a valid kinetics_macro definition and returns its role

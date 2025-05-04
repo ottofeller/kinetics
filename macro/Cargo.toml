@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+syn = "2.0.90"
+kinetics-parser = { path = "../parser" }
 
 [lib]
 proc-macro = true
