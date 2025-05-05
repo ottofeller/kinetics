@@ -79,12 +79,15 @@ impl Function {
     }
 
     pub async fn bundle(&self) -> eyre::Result<()> {
-        let mut f = tokio::fs::File::open(
-            self.build_path()
-                .to_str()
-                .ok_or_eyre("Failed to construct bundle path")?,
-        )
-        .await?;
+        let path = self.build_path();
+
+        let path = path
+            .to_str()
+            .ok_or_eyre("Failed to construct bundle path")?;
+
+        let mut f = tokio::fs::File::open(path)
+            .await
+            .wrap_err(format!("Could not open the file \"{path}\""))?;
 
         let mut buffer = Vec::new();
         f.read_to_end(&mut buffer).await?;
@@ -96,10 +99,13 @@ impl Function {
             let file = std::fs::File::create(bundle_path)?;
             let mut zip = zip::ZipWriter::new(file);
 
-            zip.start_file("bootstrap", SimpleFileOptions::default())?;
-            zip.write_all(&buffer)?;
-            zip.finish()?;
+            zip.start_file("bootstrap", SimpleFileOptions::default())
+                .wrap_err("Could not open ZIP file")?;
 
+            zip.write_all(&buffer)
+                .wrap_err("Could not write to ZIP file")?;
+
+            zip.finish().wrap_err("Could not close ZIP file")?;
             Ok(())
         })
         .await
