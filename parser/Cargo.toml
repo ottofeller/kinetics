@@ -4,10 +4,9 @@ version = "0.1.0"
 edition = "2021"
 description = "A parser used for Kinetics project."
 license = "Apache-2.0 OR MIT"
-repository = "https://github.com/ottofeller/kinetics-parser"
+repository = "https://github.com/ottofeller/kinetics"
 keywords = ["kinetics", "parser", "rust", "macro"]
 categories = ["parsing"]
 
 [dependencies]
-eyre = "0.6.12"
 syn = { version = "2.0", features = ["full", "visit"] }
