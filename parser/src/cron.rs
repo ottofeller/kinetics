@@ -40,14 +40,14 @@ impl Parse for Cron {
             }
         }
 
-        if schedule.is_none() {
+        let Some(schedule) = schedule else {
             return Err(input.error("Cron validation failed: no schedule provided"));
-        }
+        };
 
         Ok(Cron {
             name,
             environment,
-            schedule: schedule.unwrap(),
+            schedule,
         })
     }
 }

@@ -14,7 +14,10 @@ pub struct Endpoint {
 
 impl Parse for Endpoint {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut endpoint = Endpoint::default();
+        let mut name = None;
+        let mut url_path = None;
+        let mut environment = Environment::default();
+        let mut queues = None;
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
@@ -22,20 +25,20 @@ impl Parse for Endpoint {
 
             match ident.to_string().as_str() {
                 "name" => {
-                    endpoint.name = Some(input.parse::<LitStr>()?.value());
+                    name = Some(input.parse::<LitStr>()?.value());
                 }
                 "url_path" => {
-                    endpoint.url_path = input.parse::<LitStr>()?.value();
+                    url_path = Some(input.parse::<LitStr>()?.value());
                 }
                 "environment" => {
-                    endpoint.environment = parse_environment(input)?;
+                    environment = parse_environment(input)?;
                 }
                 "queues" => {
                     let content;
                     syn::bracketed!(content in input);
                     let queue_list = content.parse::<LitStr>()?.value();
 
-                    endpoint.queues = Some(
+                    queues = Some(
                         queue_list
                             // Remove square brackets
                             .trim_matches(|c| c == '[' || c == ']')
@@ -54,6 +57,15 @@ impl Parse for Endpoint {
             }
         }
 
-        Ok(endpoint)
+        let Some(url_path) = url_path else {
+            return Err(input.error("Endpoint validation failed: no url_path provided"));
+        };
+
+        Ok(Endpoint {
+            name,
+            url_path,
+            environment,
+            queues,
+        })
     }
 }
