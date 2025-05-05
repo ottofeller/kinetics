@@ -2,7 +2,7 @@ use crate::client::Client;
 use crate::crat::Crate;
 use crate::deploy::DeployConfig;
 use crate::function::Function;
-use eyre::{eyre, Context, OptionExt, Report};
+use eyre::{eyre, OptionExt, Report};
 use futures::future;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -42,7 +42,7 @@ impl Pipeline {
         );
 
         let client = if self.is_deploy_enabled {
-            Some(Client::new(self.deploy_config.is_some()).wrap_err("Failed to create client")?)
+            Some(Client::new(self.deploy_config.is_some())?)
         } else {
             None
         };
