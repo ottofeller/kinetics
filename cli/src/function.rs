@@ -72,7 +72,7 @@ impl Function {
             .wrap_err("Failed to execute the process")?;
 
         if !output.status.success() {
-            return Err(eyre!("{}", String::from_utf8_lossy(&output.stderr),));
+            return Err(eyre!("{}", String::from_utf8_lossy(&output.stderr)));
         }
 
         Ok(())
