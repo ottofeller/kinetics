@@ -7,6 +7,10 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncReadExt;
 use zip::write::SimpleFileOptions;
+use tokio::io::AsyncBufReadExt;
+use crate::build::pipeline::Progress;
+use tokio::io::{BufReader};
+use std::process::Stdio;
 
 #[derive(Clone, Debug)]
 pub struct Function {
@@ -61,18 +65,54 @@ impl Function {
             .to_string())
     }
 
-    pub async fn build(&self) -> eyre::Result<()> {
-        let output = tokio::process::Command::new("cargo")
+    pub async fn build(&self, logger: &Progress) -> eyre::Result<()> {
+        let mut cmd = tokio::process::Command::new("cargo")
             .arg("lambda")
             .arg("build")
             .arg("--release")
             .current_dir(&self.path)
-            .output()
-            .await
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
             .wrap_err("Failed to execute the process")?;
 
-        if !output.status.success() {
-            return Err(eyre!("{}", String::from_utf8_lossy(&output.stderr),));
+        let mut is_failed = false;
+        let mut error_message_lines = Vec::new();
+
+        if let Some(stderr) = cmd.stderr.take() {
+            let mut reader = BufReader::new(stderr).lines();
+
+            while let Some(line) = reader.next_line().await? {
+                if line.trim().starts_with("error") || is_failed {
+                    is_failed = true;
+                    error_message_lines.push(line);
+                    continue;
+                }
+
+                if line.trim().is_empty() {
+                    logger.progress_bar.set_message(
+                        format!(
+                            "{} {}",
+                            console::style("    Building").green().bold(),
+                            self.name()?,
+                        ));
+                } else {
+                    logger.progress_bar.set_message(
+                        format!(
+                            "{} {} {}",
+                            console::style("    Building").green().bold(),
+                            self.name()?,
+                            console::style(format!("({})", line.trim())).dim()
+                        ));
+                }
+            }
+        }
+
+        logger.progress_bar.finish_and_clear();
+        let status = cmd.wait().await?;
+
+        if !status.success() {
+            return Err(eyre!("{}", error_message_lines.join("\n")));
         }
 
         Ok(())
