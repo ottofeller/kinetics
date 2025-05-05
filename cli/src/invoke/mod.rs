@@ -85,15 +85,22 @@ pub async fn invoke(
         dynamodb.provision(table.unwrap()).await?;
     }
 
+    let mut aws_credentials = HashMap::new();
+
+    // Do not mock AWS endpoint when not needed
+    if table.is_some() {
+        aws_credentials.insert("AWS_IGNORE_CONFIGURED_ENDPOINT_URLS", "false");
+        aws_credentials.insert("AWS_ENDPOINT_URL", "http://localhost:8000");
+        aws_credentials.insert("AWS_ACCESS_KEY_ID", "key");
+        aws_credentials.insert("AWS_SECRET_ACCESS_KEY", "secret");
+    }
+
     // Start the command with piped stdout and stderr
     let mut child = Command::new("cargo")
         .args(["run"])
         .envs(secrets)
+        .envs(aws_credentials)
         .envs(function.environment()?)
-        .env("AWS_IGNORE_CONFIGURED_ENDPOINT_URLS", "true")
-        .env("AWS_ENDPOINT_URL", "http://localhost:8000")
-        .env("AWS_ACCESS_KEY_ID", "key")
-        .env("AWS_SECRET_ACCESS_KEY", "secret")
         .env("KINETICS_INVOKE_PAYLOAD", payload)
         .env("KINETICS_INVOKE_HEADERS", headers)
         .current_dir(&invoke_dir)
