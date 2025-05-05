@@ -66,6 +66,8 @@ impl Function {
             .arg("lambda")
             .arg("build")
             .arg("--release")
+            .arg("--lambda-dir")
+            .arg("target/lambda")
             .current_dir(&self.path)
             .output()
             .await
