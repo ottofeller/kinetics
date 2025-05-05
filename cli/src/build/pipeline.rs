@@ -67,13 +67,12 @@ impl Pipeline {
                 })?;
 
                 function_progress.log_stage("Building");
+                pipeline_progress.increase_current_function_position();
 
                 if !self.is_deploy_enabled {
-                    pipeline_progress.increase_current_function_position();
                     return Ok(function);
                 }
 
-                pipeline_progress.increase_current_function_position();
                 function_progress.log_stage("Bundling");
 
                 function.bundle().await.map_err(|e| {
