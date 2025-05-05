@@ -10,7 +10,7 @@ use crate::invoke::invoke;
 use crate::logger::Logger;
 use crate::login::login;
 use clap::{Parser, Subcommand};
-use eyre::{Ok, WrapErr};
+use eyre::{ContextCompat, Ok, WrapErr};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -150,7 +150,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 functions
                     .iter()
                     .find(|f| name.eq(&f.name().wrap_err("Function's meta is invalid").unwrap()))
-                    .unwrap(),
+                    .wrap_err("No function with such name")?,
                 &crat,
                 payload,
                 headers,
