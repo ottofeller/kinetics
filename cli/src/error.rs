@@ -1,5 +1,5 @@
 /// Display global error message in unified format
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Error(String, Option<String>);
 
 impl Error {

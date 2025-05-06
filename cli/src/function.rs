@@ -61,12 +61,17 @@ impl Function {
 
     /// User defined name of the function
     pub fn name(&self) -> eyre::Result<String> {
+        let error = Error::new(
+            "Missing the \"name\" property in Cargo.toml",
+            Some("Try to rebuild the project."),
+        );
+
         Ok(self
             .meta()?
             .get("name")
-            .wrap_err("No [name]")?
+            .wrap_err(error.clone())?
             .as_str()
-            .wrap_err("Not a string")?
+            .wrap_err(error)?
             .to_string())
     }
 
