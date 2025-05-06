@@ -28,6 +28,15 @@ impl Function {
         })
     }
 
+    /// Try to find a function by name in the vec of functions
+    pub fn find_by_name(functions: &Vec<Function>, name: &str) -> eyre::Result<Function> {
+        functions
+            .iter()
+            .find(|f| name.eq(&f.name().unwrap()))
+            .wrap_err("No function with such name")
+            .cloned()
+    }
+
     pub fn set_s3key_encrypted(&mut self, s3key_encrypted: String) {
         self.s3key_encrypted = Some(s3key_encrypted);
     }

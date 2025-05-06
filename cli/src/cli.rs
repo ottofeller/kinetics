@@ -147,10 +147,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             table,
         }) => {
             invoke(
-                functions
-                    .iter()
-                    .find(|f| name.eq(&f.name().wrap_err("Function's meta is invalid").unwrap()))
-                    .wrap_err("No function with such name")?,
+                &Function::find_by_name(&functions, name)?,
                 &crat,
                 payload,
                 headers,
