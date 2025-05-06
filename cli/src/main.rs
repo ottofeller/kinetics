@@ -5,6 +5,7 @@ mod cli;
 mod client;
 mod config;
 mod crat;
+mod credentials;
 mod deploy;
 mod destroy;
 mod error;
@@ -15,7 +16,6 @@ mod login;
 mod logs;
 mod secret;
 mod stack;
-mod credentials;
 use crate::cli::run;
 use crate::error::Error;
 

@@ -61,19 +61,18 @@ impl Pipeline {
 
                 let function_progress = pipeline_progress.new_progress(&function_name);
 
-                function_progress.log_stage("Building");
-
-                function.build().await.map_err(|e| {
+                function.build(&function_progress).await.map_err(|e| {
                     function_progress.error("Building");
                     e.wrap_err(format!("Failed to build function: \"{}\"", function_name))
                 })?;
 
+                function_progress.log_stage("Building");
+                pipeline_progress.increase_current_function_position();
+
                 if !self.is_deploy_enabled {
-                    pipeline_progress.increase_current_function_position();
                     return Ok(function);
                 }
 
-                pipeline_progress.increase_current_function_position();
                 function_progress.log_stage("Bundling");
 
                 function.bundle().await.map_err(|e| {
@@ -284,8 +283,8 @@ impl PipelineProgress {
     }
 }
 
-struct Progress {
-    progress_bar: ProgressBar,
+pub struct Progress {
+    pub progress_bar: ProgressBar,
     resource_name: String,
 }
 
