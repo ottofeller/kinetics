@@ -1,6 +1,7 @@
 use crate::client::Client;
 use crate::crat::Crate;
 use crate::deploy::DeployConfig;
+use crate::error::Error;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
 use std::collections::HashMap;
 use std::io::Write;
