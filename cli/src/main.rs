@@ -12,6 +12,7 @@ mod function;
 mod invoke;
 mod logger;
 mod login;
+mod logs;
 mod secret;
 mod stack;
 mod credentials;

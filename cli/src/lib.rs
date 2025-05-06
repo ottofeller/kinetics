@@ -12,6 +12,7 @@ pub mod function;
 pub mod invoke;
 pub mod logger;
 pub mod login;
+pub mod logs;
 pub mod secret;
 pub mod stack;
 pub mod credentials;

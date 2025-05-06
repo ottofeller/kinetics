@@ -9,8 +9,9 @@ use crate::function::Function;
 use crate::invoke::invoke;
 use crate::logger::Logger;
 use crate::login::login;
+use crate::logs::logs;
 use clap::{Parser, Subcommand};
-use eyre::{ContextCompat, Ok, WrapErr};
+use eyre::{Ok, WrapErr};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -66,6 +67,13 @@ enum Commands {
 
         #[arg(short, long, default_value = "")]
         table: String,
+    },
+
+    /// Show function logs
+    Logs {
+        /// Function name to retrieve logs for
+        #[arg()]
+        name: String,
     },
 }
 
@@ -155,6 +163,10 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             )
             .await?;
 
+            Ok(())
+        }
+        Some(Commands::Logs { name }) => {
+            logs(&Function::find_by_name(&functions, name)?, &crat).await?;
             Ok(())
         }
         _ => Ok(()),
