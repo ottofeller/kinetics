@@ -327,7 +327,9 @@ fn create_lambda_crate(
             Role::Worker(params) => {
                 let mut queue_table = toml_edit::Table::new();
                 queue_table["name"] = toml_edit::value(&name);
-                queue_table["alias"] = toml_edit::value(params.queue_alias.clone().unwrap());
+                if let Some(queue_alias) = &params.queue_alias {
+                    queue_table["alias"] = toml_edit::value(queue_alias);
+                };
                 queue_table["concurrency"] = toml_edit::value(params.concurrency as i64);
                 queue_table["fifo"] = toml_edit::value(params.fifo);
 
@@ -344,7 +346,7 @@ fn create_lambda_crate(
                 }
 
                 endpoint_table["queues"] = toml_edit::value(
-                    serde_json::to_string(&params.queues.clone().unwrap_or(vec![])).unwrap(),
+                    serde_json::to_string(&params.queues.clone().unwrap_or_default()).unwrap(),
                 );
 
                 // Update function table with endpoint configuration
