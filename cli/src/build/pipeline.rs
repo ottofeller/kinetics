@@ -39,6 +39,7 @@ impl Pipeline {
 
         let pipeline_progress = PipelineProgress::new(
             functions.len() as u64 * if self.is_deploy_enabled { 3 } else { 1 },
+            self.is_deploy_enabled,
         );
 
         let client = if self.is_deploy_enabled {
@@ -237,7 +238,7 @@ struct PipelineProgress {
 }
 
 impl PipelineProgress {
-    fn new(total_functions: u64) -> Self {
+    fn new(total_functions: u64, is_deploy: bool) -> Self {
         let multi_progress = MultiProgress::new();
         let completed_functions_count = Arc::new(AtomicUsize::new(0));
 
@@ -249,7 +250,9 @@ impl PipelineProgress {
                 .template(
                     format!(
                         "   {} [{{bar:40}}] {{percent}}%",
-                        console::style("Deploying").cyan().bold()
+                        console::style(if is_deploy { "Deploying" } else { "Building" })
+                            .cyan()
+                            .bold()
                     )
                     .as_str(),
                 )
