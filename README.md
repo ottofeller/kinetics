@@ -1,4 +1,5 @@
 # Kinetics
+
 Kinetics is a hosting platform for Rust applications that allows you to deploy all types of workloads by writing **only Rust code**.
 
 ```rust
@@ -19,6 +20,9 @@ pub async fn endpoint(
 }
 ```
 
+Check out more examples [here](https://github.com/kinetics-dev/examples). Including REST API endpoints, queue workers, and cron jobs.
+
+
 ## Features
 
 🦀 **Only Rust code required**
@@ -29,9 +33,9 @@ Just apply attribute macro to your function, and Kinetics will handle the rest. 
 
 Deploy REST API endpoints, queue workers, and cron jobs.
 
-🤖 **No infrastructure management**
+🏕️ **Works offline**
 
-The infrastructure is provisioned automatically, e.g. a queue for the worker workload.
+Test your functions locally with no connection to the internet. We mock DB as well, so all requests to DB also work locally. No configuration required.
 
 💿 **Comes with DB**
 
@@ -41,31 +45,41 @@ Seamlessly provision KV DB if your workload needs a persistent storage.
 
 Automatically provision secrets from `.env.secrets` file.
 
+📚 **Real time logs**
+Monitor your functions with just CLI.
+
+🤖 **No infrastructure management**
+
+The infrastructure is provisioned automatically, e.g. a queue for the worker workload.
+
 🌍 **CDN**
 
 REST API endpoints are served through a Content Delivery Network (CDN).
 
-## Examples
-
-Check out complete ready-to-use [examples](https://github.com/kinetics-dev/examples). There are examples for REST API endpoints, queue workers, and cron jobs.
-
 ## Try it
+
 ```bash
 # 1. Install
 cargo install kinetics
 
-# 2. Login
-cargo kinetics login <email>
+# 2. Login or sign up
+kinetics login <email>
 
 # 3. Apply one of attribute macro
 # E.g. add #[endpoint()] to your function
 
-# 4. Deploy
-# Run in the dir of your crate
-cargo kinetics deploy
+# 4. Test locally
+# View all resources first to get the full name of your function. Run in the dir with the project.
+kinetics list
 
-# 5. Test it with curl
-curl <URL from cargo kinetics deploy>
+kinetics invoke FullyQualifiedFunctionName \
+  --payload '{"param": "value"}' \
+  --headers '{"Authorization": "Bearer *"}' \
+  --table mytable
+
+# 5. Deploy
+# Run in the dir of your crate
+kinetics deploy
 ```
 
 Kinetics is currently in ⚠️ **active development** and may contain bugs or result in unexpected behavior. The service is free for the first **100,000 invocations** of your functions, regardless of the type of workload.
@@ -77,12 +91,14 @@ If you have any issues, please contact us at support@usekinetics.com.
 All configuration can be done through attribute macro parameters, or through modifications to existing `Cargo.toml` file in your project. All types of workloads support environment variables. These can be changed **without redeploying** (this feature is WIP).
 
 #### Endpoint
+
 The following attribute macro parameters are available:
 
 - `url_path`: The URL path of the endpoint.
 - `environment`: Environment variables.
 
 #### Worker
+
 Attribute macro parameters:
 
 - `concurrency`: Max number of concurrent workers.
@@ -90,15 +106,18 @@ Attribute macro parameters:
 - `environment`: Environment variables.
 
 #### Cron
+
 Attribute macro parameters:
 
 - `schedule`: [Schedule expression](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-scheduleexpression).
 - `environment`: Environment variables.
 
 #### Secrets
+
 Store secrets in `.env.secrets` file in the root directory of your crate. Kinetics will automatically pick it up and provision to all of your workloads in the second parameter of the function as `HashMap<String, String>`.
 
 Example:
+
 ```
 # .env.secrets
 API_KEY=your_api_key_here
@@ -114,7 +133,9 @@ pub async fn endpoint(
 ```
 
 #### Database
+
 Database is defined in `Cargo.toml`:
+
 ```toml
 [package.metadata.kinetics.kvdb.test]
 # You will need this name to connect to the database
@@ -144,9 +165,10 @@ pub async fn endpoint(
 ## Commands
 
 - `kinetics login` - Log in with email
+- `kinetics invoke` - Invoke function locally
 - `kinetics deploy` - Deploy your application
 - `kinetics destroy` - Destroy application and all of its resources
-- `kinetics logs` - View application logs *[Coming soon]*
+- `kinetics logs` - View application logs _[Coming soon]_
 
 ## Support & Community
 
