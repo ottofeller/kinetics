@@ -1,5 +1,4 @@
 #![feature(once_cell_try)]
-mod auth;
 mod build;
 mod cli;
 mod client;
@@ -15,7 +14,6 @@ mod logger;
 mod login;
 mod logs;
 mod secret;
-mod stack;
 use crate::cli::run;
 use crate::error::Error;
 

@@ -3,8 +3,6 @@ use crate::deploy::DeployConfig;
 use crate::error::Error;
 use crate::function::Function;
 use crate::secret::Secret;
-use crate::stack::deploy;
-use crate::stack::status;
 use eyre::{ContextCompat, Ok, WrapErr};
 use reqwest::StatusCode;
 use std::collections::HashMap;
@@ -17,6 +15,12 @@ pub struct Crate {
     pub name: String,
     pub toml: toml::Value,
     pub toml_string: String,
+}
+
+#[derive(serde::Deserialize, Debug)]
+pub struct StatusResponseBody {
+    pub status: String,
+    pub errors: Option<Vec<String>>,
 }
 
 impl Crate {
@@ -63,6 +67,30 @@ impl Crate {
         functions: &[Function],
         deploy_config: Option<&dyn DeployConfig>,
     ) -> eyre::Result<()> {
+        #[derive(serde::Deserialize, serde::Serialize, Debug)]
+        pub struct BodyCrate {
+            // Full Cargo.toml
+            pub toml: String,
+        }
+
+        #[derive(serde::Serialize, Debug)]
+        pub struct BodyFunction {
+            pub name: String,
+
+            // Encrypted name of the zip file with the build in S3 bucket
+            pub s3key_encrypted: String,
+
+            // Full Cargo.toml
+            pub toml: String,
+        }
+
+        #[derive(serde::Serialize, Debug)]
+        pub struct JsonBody {
+            pub crat: BodyCrate,
+            pub functions: Vec<BodyFunction>,
+            pub secrets: HashMap<String, String>,
+        }
+
         let client = Client::new(deploy_config.is_some())?;
         let mut secrets = HashMap::new();
 
@@ -78,14 +106,14 @@ impl Crate {
 
         let result = client
             .post("/stack/deploy")
-            .json(&serde_json::json!(deploy::JsonBody {
-                crat: deploy::BodyCrate {
+            .json(&serde_json::json!(JsonBody {
+                crat: BodyCrate {
                     toml: self.toml_string.clone(),
                 },
                 functions: functions
                     .iter()
                     .map(|f| {
-                        deploy::BodyFunction {
+                        BodyFunction {
                             name: f.name().unwrap().to_string(),
                             s3key_encrypted: f.s3key_encrypted().unwrap(),
                             toml: f.toml_string().unwrap(),
@@ -117,12 +145,17 @@ impl Crate {
         Ok(())
     }
 
-    pub async fn status(&self) -> eyre::Result<status::ResponseBody> {
+    pub async fn status(&self) -> eyre::Result<StatusResponseBody> {
         let client = Client::new(false)?;
+
+        #[derive(serde::Serialize, Debug)]
+        pub struct JsonBody {
+            pub name: String,
+        }
 
         let result = client
             .post("/stack/status")
-            .json(&serde_json::json!(status::JsonBody {
+            .json(&serde_json::json!(JsonBody {
                 name: self.name.clone()
             }))
             .send()
@@ -138,7 +171,7 @@ impl Crate {
             );
         }
 
-        let status: status::ResponseBody =
+        let status: StatusResponseBody =
             result.json().await.wrap_err("Failed to parse response")?;
 
         Ok(status)
