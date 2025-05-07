@@ -1960,6 +1960,7 @@ dependencies = [
  "eyre",
  "futures",
  "indicatif",
+ "kinetics-parser",
  "log",
  "prettyplease",
  "regex",
@@ -1980,6 +1981,17 @@ dependencies = [
 [[package]]
 name = "kinetics-macro"
 version = "0.1.0"
+dependencies = [
+ "kinetics-parser",
+ "syn",
+]
+
+[[package]]
+name = "kinetics-parser"
+version = "0.1.0"
+dependencies = [
+ "syn",
+]
 
 [[package]]
 name = "lambda_http"
