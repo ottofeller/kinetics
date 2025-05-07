@@ -117,7 +117,7 @@ impl Function {
                         "{} {} {}",
                         console::style("    Building").green().bold(),
                         self.name()?,
-                        console::style(format!("({})", line.trim())).dim()
+                        console::style(line.trim()).dim()
                     ));
                 }
             }
