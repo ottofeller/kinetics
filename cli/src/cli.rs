@@ -80,6 +80,27 @@ enum Commands {
 pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Error> {
     Logger::init();
     let cli = Cli::parse();
+
+    // The login command should be available outside of a project, in path of file system
+    if let Some(Commands::Login { email }) = &cli.command {
+        let is_new_session = login(email).await?;
+
+        println!(
+            "{} {} {}",
+            console::style(if is_new_session {
+                "Successfully logged in"
+            } else {
+                "Already logged in"
+            })
+            .green()
+            .bold(),
+            console::style("via").dim(),
+            console::style(email).underlined().bold()
+        );
+
+        return Ok(()).map_err(Error::from);
+    }
+
     let crat = Crate::from_current_dir()?;
     let directories = prepare_crates(PathBuf::from(build_config()?.build_path), crat.clone())?;
 
@@ -120,24 +141,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 .wrap_err("Failed to build pipeline")?
                 .run(functions)
                 .await?;
-
-            Ok(())
-        }
-        Some(Commands::Login { email }) => {
-            let is_new_session = login(email).await?;
-
-            println!(
-                "{} {} {}",
-                console::style(if is_new_session {
-                    "Successfully logged in"
-                } else {
-                    "Already logged in"
-                })
-                .green()
-                .bold(),
-                console::style("via").dim(),
-                console::style(email).underlined().bold()
-            );
 
             Ok(())
         }
