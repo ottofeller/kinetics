@@ -1,3 +1,4 @@
+use crate::build::pipeline::Progress;
 use crate::client::Client;
 use crate::crat::Crate;
 use crate::deploy::DeployConfig;
@@ -6,12 +7,11 @@ use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use tokio::io::AsyncReadExt;
-use zip::write::SimpleFileOptions;
-use tokio::io::AsyncBufReadExt;
-use crate::build::pipeline::Progress;
-use tokio::io::{BufReader};
 use std::process::Stdio;
+use tokio::io::AsyncBufReadExt;
+use tokio::io::AsyncReadExt;
+use tokio::io::BufReader;
+use zip::write::SimpleFileOptions;
 
 #[derive(Clone, Debug)]
 pub struct Function {
@@ -107,20 +107,18 @@ impl Function {
                 }
 
                 if line.trim().is_empty() {
-                    logger.progress_bar.set_message(
-                        format!(
-                            "{} {}",
-                            console::style("    Building").green().bold(),
-                            self.name()?,
-                        ));
+                    logger.progress_bar.set_message(format!(
+                        "{} {}",
+                        console::style("    Building").green().bold(),
+                        self.name()?,
+                    ));
                 } else {
-                    logger.progress_bar.set_message(
-                        format!(
-                            "{} {} {}",
-                            console::style("    Building").green().bold(),
-                            self.name()?,
-                            console::style(format!("({})", line.trim())).dim()
-                        ));
+                    logger.progress_bar.set_message(format!(
+                        "{} {} {}",
+                        console::style("    Building").green().bold(),
+                        self.name()?,
+                        console::style(format!("({})", line.trim())).dim()
+                    ));
                 }
             }
         }
