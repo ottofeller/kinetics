@@ -4,14 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-aws-config = "1.6.1"
-aws-sdk-dynamodb = "1.71.2"
+aws-config = "1.6.2"
+aws-sdk-dynamodb = "1.73.0"
 aws_lambda_events = "0.16.0"
 lambda_runtime = "0.13.0"
 kinetics-macro = { path = "../macro" }
 lambda_http = "0.14.0"
-tokio = "1.44.2"
-aws-sdk-sqs = "1.64.0"
+tokio = "1.45.0"
+aws-sdk-sqs = "1.66.0"
 
 [package.metadata.kinetics.kvdb.users]
 name = "users"

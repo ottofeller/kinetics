@@ -14,9 +14,9 @@ name = "kinetics"
 path = "src/main.rs"
 
 [dependencies]
-aws-config = "1.6.1"
-aws-sdk-dynamodb = "1.71.2"
-chrono = { version = "0.4.40", features = ["serde"] }
+aws-config = "1.6.2"
+aws-sdk-dynamodb = "1.73.0"
+chrono = { version = "0.4.41", features = ["serde"] }
 uuid = { version = "1.16.0", features = ["v4"] }
 clap = { version = "4.5.37", features = ["derive"] }
 eyre = "0.6.12"
@@ -25,7 +25,7 @@ walkdir = "2.5.0"
 zip = "2.6.1"
 tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
-toml_edit = "0.22.24"
+toml_edit = "0.22.26"
 rust_dotenv = "0.1.2"
 reqwest = { version = "0.12.15", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -36,7 +36,7 @@ twox-hash = "2.1.0"
 futures = "0.3.31"
 indicatif = "0.17.11"
 console = "0.15.11"
-color-eyre = "0.6.3"
+color-eyre = "0.6.4"
 crossterm = "0.29.0"
 async-trait = "0.1.88"
 log = "0.4.27"
