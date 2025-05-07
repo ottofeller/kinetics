@@ -106,6 +106,8 @@ impl Function {
                     continue;
                 }
 
+                let trim_to = 24;
+
                 if line.trim().is_empty() {
                     logger.progress_bar.set_message(format!(
                         "{} {}",
@@ -113,11 +115,21 @@ impl Function {
                         self.name()?,
                     ));
                 } else {
+                    let line = line.trim();
+
                     logger.progress_bar.set_message(format!(
-                        "{} {} {}",
+                        "{} {} {}...",
                         console::style("    Building").green().bold(),
                         self.name()?,
-                        console::style(line.trim()).dim()
+                        console::style(
+                            if line.len() > trim_to {
+                                &line[..std::cmp::min(line.len(), trim_to) - 1]
+                            } else {
+                                line
+                            }
+                            .to_string()
+                        )
+                        .dim()
                     ));
                 }
             }
