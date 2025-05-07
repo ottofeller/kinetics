@@ -7,7 +7,7 @@ use syn::{
 #[derive(Default, Debug)]
 pub struct Endpoint {
     pub name: Option<String>,
-    pub url_path: String,
+    pub url_path: Option<String>,
     pub environment: Environment,
     pub queues: Option<Vec<String>>,
 }
@@ -56,10 +56,6 @@ impl Parse for Endpoint {
                 input.parse::<token::Comma>()?;
             }
         }
-
-        let Some(url_path) = url_path else {
-            return Err(input.error("Endpoint validation failed: no url_path provided"));
-        };
 
         Ok(Endpoint {
             name,

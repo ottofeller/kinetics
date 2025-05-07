@@ -339,7 +339,9 @@ fn create_lambda_crate(
             }
             Role::Endpoint(params) => {
                 let mut endpoint_table = toml_edit::Table::new();
-                endpoint_table["url_path"] = toml_edit::value(&params.url_path);
+                if let Some(url_path) = &params.url_path {
+                    endpoint_table["url_path"] = toml_edit::value(url_path);
+                }
 
                 endpoint_table["queues"] = toml_edit::value(
                     serde_json::to_string(&params.queues.clone().unwrap_or(vec![])).unwrap(),
