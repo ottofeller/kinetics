@@ -1,11 +1,10 @@
 mod filehash;
-mod parser;
 pub mod pipeline;
 mod templates;
 use crate::crat::Crate;
 use eyre::{eyre, Context};
 use filehash::{FileHash, CHECKSUMS_FILENAME};
-use parser::{ParsedFunction, Parser, Role};
+use kinetics_parser::{ParsedFunction, Parser, Role};
 use regex::Regex;
 use std::fs::{self};
 use std::path::{Component, Path, PathBuf};
@@ -328,7 +327,9 @@ fn create_lambda_crate(
             Role::Worker(params) => {
                 let mut queue_table = toml_edit::Table::new();
                 queue_table["name"] = toml_edit::value(&name);
-                queue_table["alias"] = toml_edit::value(params.queue_alias.clone().unwrap());
+                if let Some(queue_alias) = &params.queue_alias {
+                    queue_table["alias"] = toml_edit::value(queue_alias);
+                };
                 queue_table["concurrency"] = toml_edit::value(params.concurrency as i64);
                 queue_table["fifo"] = toml_edit::value(params.fifo);
 
@@ -340,10 +341,12 @@ fn create_lambda_crate(
             }
             Role::Endpoint(params) => {
                 let mut endpoint_table = toml_edit::Table::new();
-                endpoint_table["url_path"] = toml_edit::value(&params.url_path);
+                if let Some(url_path) = &params.url_path {
+                    endpoint_table["url_path"] = toml_edit::value(url_path);
+                }
 
                 endpoint_table["queues"] = toml_edit::value(
-                    serde_json::to_string(&params.queues.clone().unwrap_or(vec![])).unwrap(),
+                    serde_json::to_string(&params.queues.clone().unwrap_or_default()).unwrap(),
                 );
 
                 // Update function table with endpoint configuration
