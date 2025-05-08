@@ -22,9 +22,10 @@ pub async fn logs(function: &Function, crat: &Crate) -> Result<()> {
     let client = Client::new(false)?;
 
     println!(
-        "{} {}\n",
-        console::style("Fetching logs for").bold(),
-        console::style(function.name()?).cyan()
+        "\n{} {} {}...\n",
+        console::style("Fetching logs").bold().green(),
+        console::style("for").dim(),
+        console::style(function.name()?).bold()
     );
 
     let response = client
