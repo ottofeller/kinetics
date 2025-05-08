@@ -87,6 +87,8 @@ impl Function {
             .arg("--release")
             .arg("--lambda-dir")
             .arg("target/lambda")
+            .arg("--target")
+            .arg("x86_64-unknown-linux-musl")
             .current_dir(&self.path)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
