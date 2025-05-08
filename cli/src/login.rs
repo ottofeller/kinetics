@@ -51,7 +51,11 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
         ))?;
 
     if response.status().is_client_error() {
-        return Err(eyre::eyre!("The email or one-time code are invalid"));
+        return Err(Error::new(
+            "Failed to log in",
+            Some("The one-time code has expired or is invalid."),
+        )
+        .into());
     }
 
     if !response.status().is_success() {
