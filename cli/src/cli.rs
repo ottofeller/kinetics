@@ -6,6 +6,7 @@ use crate::deploy::DeployConfig;
 use crate::destroy::destroy;
 use crate::error::Error;
 use crate::function::Function;
+use crate::init::init;
 use crate::invoke::invoke;
 use crate::logger::Logger;
 use crate::login::login;
@@ -47,6 +48,13 @@ enum Commands {
     /// Destroy your serverless functions
     Destroy {},
 
+    /// Initialize a new Kinetics project
+    Init {
+        /// Name of the project to create
+        #[arg()]
+        name: String,
+    },
+
     /// Login to Kinetics platform
     Login {
         /// Your registered email address
@@ -81,24 +89,33 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
     Logger::init();
     let cli = Cli::parse();
 
-    // The login command should be available outside of a project, in path of file system
-    if let Some(Commands::Login { email }) = &cli.command {
-        let is_new_session = login(email).await?;
+    // Commands that should be available outside of a project
+    match &cli.command {
+        Some(Commands::Login { email }) => {
+            let is_new_session = login(email).await?;
 
-        println!(
-            "{} {} {}",
-            console::style(if is_new_session {
-                "Successfully logged in"
-            } else {
-                "Already logged in"
-            })
-            .green()
-            .bold(),
-            console::style("via").dim(),
-            console::style(email).underlined().bold()
-        );
+            println!(
+                "{} {} {}",
+                console::style(if is_new_session {
+                    "Successfully logged in"
+                } else {
+                    "Already logged in"
+                })
+                .green()
+                .bold(),
+                console::style("via").dim(),
+                console::style(email).underlined().bold()
+            );
 
-        return Ok(()).map_err(Error::from);
+            return Ok(()).map_err(Error::from);
+        }
+
+        Some(Commands::Init { name }) => {
+            init(name).await?;
+            return Ok(()).map_err(Error::from);
+        }
+
+        _ => {}
     }
 
     let crat = Crate::from_current_dir()?;

@@ -9,6 +9,7 @@ pub mod deploy;
 pub mod destroy;
 pub mod error;
 pub mod function;
+pub mod init;
 pub mod invoke;
 pub mod logger;
 pub mod login;

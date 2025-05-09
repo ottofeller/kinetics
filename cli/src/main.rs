@@ -9,6 +9,7 @@ mod deploy;
 mod destroy;
 mod error;
 mod function;
+mod init;
 mod invoke;
 mod logger;
 mod login;
