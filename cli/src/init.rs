@@ -34,6 +34,13 @@ pub async fn init(name: &str) -> eyre::Result<()> {
         .into());
     }
 
+    println!(
+        "\n{} {} {}...",
+        console::style("Starting project").green().bold(),
+        console::style("in").dim(),
+        console::style(&project_dir.to_string_lossy()).bold()
+    );
+
     // Create project directory
     fs::create_dir_all(&project_dir)
         .inspect_err(|e| log::error!("{e:?}"))
@@ -42,7 +49,7 @@ pub async fn init(name: &str) -> eyre::Result<()> {
             Some("Please verify you have proper file system permissions."),
         ))?;
 
-    log::info!("Downloading template archive...");
+    print!("\r\x1B[K{}", console::style("Downloading template archive").dim());
     let client = reqwest::Client::new();
 
     let response = match client.get(ENDPOINT_TEMPLATE_URL).send().await {
@@ -70,6 +77,8 @@ pub async fn init(name: &str) -> eyre::Result<()> {
         }
     };
 
+    print!("\r\x1B[K{}", console::style("Extracting template").dim());
+
     match unpack(response, &project_dir).await {
         Ok(_) => (),
         Err(_) => {
@@ -80,6 +89,8 @@ pub async fn init(name: &str) -> eyre::Result<()> {
             )
         }
     };
+
+    print!("\r\x1B[K{}", console::style("Cleaning up").dim());
 
     // The extraction creates a subdirectory with the repository name and branch
     // We need to move all files from that subdirectory to our project directory
@@ -115,11 +126,14 @@ pub async fn init(name: &str) -> eyre::Result<()> {
     // Remove the now empty extracted directory
     fs::remove_dir_all(&extracted_dir).unwrap_or(());
 
+    print!("\r\x1B[K{}", console::style("Renaming crate").dim());
+
     rename(&project_dir, name).wrap_err(Error::new(
         "Failed to update Cargo.toml",
         Some("Template might be corrupted (reach us at support@usekinetics.com), or check file system permissions."),
     ))?;
 
+    print!("\r\x1B[K{}\n", console::style("Done").cyan());
     Ok(())
 }
 
