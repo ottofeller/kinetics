@@ -68,7 +68,7 @@ pub async fn invoke(
     let display_path = format!("{}", invoke_dir.display());
 
     println!(
-        "\n{} {} {}",
+        "\n{} {} {}...",
         console::style("Invoking function").green().bold(),
         console::style("from").dimmed(),
         console::style(&display_path).underlined().bold()
