@@ -2,7 +2,6 @@ use crate::build::pipeline::Progress;
 use crate::client::Client;
 use crate::crat::Crate;
 use crate::deploy::DeployConfig;
-use crate::error::Error;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
 use std::collections::HashMap;
 use std::io::Write;
@@ -22,7 +21,7 @@ pub enum Type {
 #[derive(Clone, Debug)]
 pub struct Function {
     pub id: String,
-    pub path: PathBuf,
+    pub name: String,
     pub s3key_encrypted: Option<String>,
 
     // Original parent crate
@@ -30,20 +29,20 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn new(path: &Path) -> eyre::Result<Self> {
+    pub fn new(path: &Path, name: &str) -> eyre::Result<Self> {
         Ok(Function {
             id: uuid::Uuid::new_v4().into(),
-            path: path.to_path_buf(),
+            name: name.into(),
             crat: Crate::new(path.to_path_buf())?,
             s3key_encrypted: None,
         })
     }
 
     /// Try to find a function by name in the vec of functions
-    pub fn find_by_name(functions: &Vec<Function>, name: &str) -> eyre::Result<Function> {
+    pub fn find_by_name(functions: &[Function], name: &str) -> eyre::Result<Function> {
         functions
             .iter()
-            .find(|f| name.eq(&f.name().unwrap()))
+            .find(|f| name.eq(&f.name))
             .wrap_err("No function with such name")
             .cloned()
     }
@@ -65,25 +64,11 @@ impl Function {
             .wrap_err("No [metadata]")?
             .get("kinetics")
             .wrap_err("No [kinetics]")?
+            .get(&self.name)
+            .wrap_err(format!("No [{}]", self.name))?
             .get("function")
             .wrap_err("No [function]")
             .cloned()
-    }
-
-    /// User defined name of the function
-    pub fn name(&self) -> eyre::Result<String> {
-        let error = Error::new(
-            "Missing the \"name\" property in Cargo.toml",
-            Some("Try to rebuild the project."),
-        );
-
-        Ok(self
-            .meta()?
-            .get("name")
-            .wrap_err(error.clone())?
-            .as_str()
-            .wrap_err(error)?
-            .to_string())
     }
 
     pub async fn build(&self, logger: &Progress) -> eyre::Result<()> {
@@ -91,11 +76,11 @@ impl Function {
             .arg("lambda")
             .arg("build")
             .arg("--release")
-            .arg("--lambda-dir")
-            .arg("target/lambda")
             .arg("--target")
             .arg("x86_64-unknown-linux-musl")
-            .current_dir(&self.path)
+            .arg("--bin")
+            .arg(&self.name)
+            .current_dir(&self.crat.path)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -120,7 +105,7 @@ impl Function {
                     logger.progress_bar.set_message(format!(
                         "{} {}",
                         console::style("    Building").green().bold(),
-                        self.name()?,
+                        self.name,
                     ));
                 } else {
                     let line = line.trim();
@@ -128,7 +113,7 @@ impl Function {
                     logger.progress_bar.set_message(format!(
                         "{} {} {}...",
                         console::style("    Building").green().bold(),
-                        self.name()?,
+                        self.name,
                         console::style(
                             if line.len() > trim_to {
                                 &line[..std::cmp::min(line.len(), trim_to) - 1]
@@ -191,19 +176,20 @@ impl Function {
     }
 
     pub fn bundle_path(&self) -> PathBuf {
-        self.path.join(format!("{}.zip", self.id))
+        self.crat.path.join(format!("{}.zip", self.id))
     }
 
     pub fn toml_string(&self) -> eyre::Result<String> {
-        std::fs::read_to_string(self.path.join("Cargo.toml"))
+        std::fs::read_to_string(self.crat.path.join("Cargo.toml"))
             .wrap_err("Failed to read function's Cargo.toml")
     }
 
     fn build_path(&self) -> PathBuf {
-        self.path
+        self.crat
+            .path
             .join("target")
             .join("lambda")
-            .join("bootstrap")
+            .join(&self.name)
             .join("bootstrap")
     }
 
@@ -248,7 +234,7 @@ impl Function {
     /// Return true if the function is the only supposed for local invocations
     pub fn is_local(&self) -> eyre::Result<bool> {
         if self.meta().is_err() {
-            return Err(eyre!("Could not get function's meta"));
+            return Err(eyre!("Could not get function's meta {}", self.name,));
         }
 
         Ok(self
@@ -270,6 +256,8 @@ impl Function {
             .wrap_err("No [metadata]")?
             .get("kinetics")
             .wrap_err("No [kinetics]")?
+            .get(&self.name)
+            .wrap_err(format!("No [{}]", self.name))?
             .get("environment")
             .wrap_err("No [environment]")
             .cloned()?
@@ -279,4 +267,77 @@ impl Function {
             .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string()))
             .collect::<HashMap<String, String>>())
     }
+}
+
+pub async fn _build(functions: &[Function], logger: &Progress) -> eyre::Result<()> {
+    let Some(Function { crat, .. }) = functions.iter().next() else {
+        return Err(eyre!("Attempted to build an empty function list"));
+    };
+
+    let mut cmd = tokio::process::Command::new("cargo");
+    cmd.arg("lambda")
+        .arg("build")
+        .arg("--release")
+        .arg("--target")
+        .arg("x86_64-unknown-linux-musl")
+        .current_dir(&crat.path)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    for function in functions {
+        cmd.arg("--bin").arg(&function.name);
+    }
+
+    let mut child = cmd.spawn().wrap_err("Failed to execute the process")?;
+
+    let mut is_failed = false;
+    let mut error_message_lines = Vec::new();
+
+    if let Some(stderr) = child.stderr.take() {
+        let mut reader = BufReader::new(stderr).lines();
+
+        while let Some(line) = reader.next_line().await? {
+            if line.trim().starts_with("error") || is_failed {
+                is_failed = true;
+                error_message_lines.push(line);
+                continue;
+            }
+
+            let trim_to = 24;
+
+            if line.trim().is_empty() {
+                logger.progress_bar.set_message(format!(
+                    "{} {}",
+                    console::style("    Building").green().bold(),
+                    crat.name,
+                ));
+            } else {
+                let line = line.trim();
+
+                logger.progress_bar.set_message(format!(
+                    "{} {} {}...",
+                    console::style("    Building").green().bold(),
+                    crat.name,
+                    console::style(
+                        if line.len() > trim_to {
+                            &line[..std::cmp::min(line.len(), trim_to) - 1]
+                        } else {
+                            line
+                        }
+                        .to_string()
+                    )
+                    .dim()
+                ));
+            }
+        }
+    }
+
+    logger.progress_bar.finish_and_clear();
+    let status = child.wait().await?;
+
+    if !status.success() {
+        return Err(eyre!("{}", error_message_lines.join("\n")));
+    }
+
+    Ok(())
 }

@@ -58,13 +58,11 @@ impl Pipeline {
                 // Acquire permit before sending request.
                 let _permit = sem.acquire().await?;
 
-                let function_name = function.name()?;
-
-                let function_progress = pipeline_progress.new_progress(&function_name);
+                let function_progress = pipeline_progress.new_progress(&function.name);
 
                 function.build(&function_progress).await.map_err(|e| {
                     function_progress.error("Building");
-                    e.wrap_err(format!("Failed to build function: \"{}\"", function_name))
+                    e.wrap_err(format!("Failed to build function: \"{}\"", function.name))
                 })?;
 
                 function_progress.log_stage("Building");
@@ -78,7 +76,7 @@ impl Pipeline {
 
                 function.bundle().await.map_err(|e| {
                     function_progress.error("Bundling");
-                    e.wrap_err(format!("Failed to bundle function: \"{}\"", function_name))
+                    e.wrap_err(format!("Failed to bundle function: \"{}\"", function.name))
                 })?;
 
                 pipeline_progress.increase_current_function_position();
@@ -89,7 +87,7 @@ impl Pipeline {
                     .await
                     .map_err(|e| {
                         function_progress.error("Uploading");
-                        e.wrap_err(format!("Failed to upload function: \"{}\"", function_name))
+                        e.wrap_err(format!("Failed to upload function: \"{}\"", function.name))
                     })?;
 
                 pipeline_progress.increase_current_function_position();

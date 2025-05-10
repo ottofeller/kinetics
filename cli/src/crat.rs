@@ -114,7 +114,7 @@ impl Crate {
                     .iter()
                     .map(|f| {
                         BodyFunction {
-                            name: f.name().unwrap().to_string(),
+                            name: f.name.clone(),
                             s3key_encrypted: f.s3key_encrypted().unwrap(),
                             toml: f.toml_string().unwrap(),
                         }

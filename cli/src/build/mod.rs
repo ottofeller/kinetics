@@ -2,7 +2,8 @@ mod filehash;
 pub mod pipeline;
 mod templates;
 use crate::crat::Crate;
-use eyre::{eyre, Context};
+use crate::function::Function;
+use eyre::{Context, OptionExt};
 use filehash::{FileHash, CHECKSUMS_FILENAME};
 use kinetics_parser::{ParsedFunction, Parser, Role};
 use regex::Regex;
@@ -14,9 +15,7 @@ use walkdir::WalkDir;
 
 /// Parses source code and prepares crates for deployment
 /// Stores crates inside target_directory and returns list of created paths
-pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<PathBuf>> {
-    let mut result: Vec<PathBuf> = vec![];
-
+pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<Function>> {
     // Parse functions from source code
     let mut parser = Parser::new();
 
@@ -35,57 +34,73 @@ pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<Pa
         parser.visit_file(&syntax);
     }
 
+    let src = current_crate.path;
+    let dst = dst.join(&current_crate.name);
+    // Checksums of source files for preventing rewrite existing files
+    let mut checksum = FileHash::new(dst.to_path_buf());
+
     // Clone user project into the build folder.
-    let project_path = dst.join(&current_crate.name);
-    let crate_clone = clone(
-        &current_crate.path,
-        &project_path.join("clone"),
-        &parser.functions,
-    )?;
+    clone(&src, &dst, &mut checksum)?;
+
+    // Create lib.rs exporting a containing module of each parsed function.
+    create_lib(&src, &dst, &parser.functions, &mut checksum)?;
+
+    let relative_manifest_path = Path::new("Cargo.toml");
+    let mut manifest: toml_edit::DocumentMut =
+        fs::read_to_string(src.join(relative_manifest_path))?.parse()?;
+    let bin_dir = Path::new("src/bin");
+    fs::create_dir_all(dst.join(bin_dir)).wrap_err("Create dir failed")?;
 
     let mut function_names = Vec::new();
 
-    // For each function create a deployment crate
     for parsed_function in parser.functions {
         for is_local in [false, true] {
-            let function_name = parsed_function.func_name(is_local);
-            // Function name is parsed value from kinetics_macro name attribute
-            // Path example: /home/some-user/.kinetics/<crate-name>/<function-name>/<rust-function-name>
-            let dst = project_path.join(&function_name);
-            if !matches!(fs::exists(&dst), Ok(true)) {
-                fs::create_dir_all(&dst).wrap_err("Failed to provision temp dir")?;
-            }
-
-            create_lambda_crate(
-                &current_crate.path,
+            // Create bin file for every parsed function
+            lambda_code(
                 &dst,
+                bin_dir,
                 &parsed_function,
-                &current_crate.name,
-                &crate_clone,
                 is_local,
+                &mut manifest,
+                &mut checksum,
             )?;
 
-            result.push(dst);
-            function_names.push(function_name);
+            // Fill in necessary data in Cargo.toml
+            metadata(&parsed_function, is_local, &mut manifest)?;
+            deps(&parsed_function, is_local, &mut manifest)?;
+
+            function_names.push(parsed_function.func_name(is_local));
         }
     }
 
-    workspace(&project_path, &function_names)?;
+    let manifest_string = manifest.to_string();
+    if checksum.update(
+        relative_manifest_path.to_path_buf(),
+        &FileHash::hash_from_bytes(&manifest_string)
+            .wrap_err("Failed to calculate hash from bytes of Cargo.toml")?,
+    ) {
+        fs::write(dst.join(relative_manifest_path), &manifest_string)
+            .wrap_err("Failed to write Cargo.toml")?;
+    }
 
-    Ok(result)
+    checksum.save().wrap_err("Failed to save checksums")?;
+    clear_dir(&dst, &checksum)?;
+
+    function_names
+        .iter()
+        .map(|name| Function::new(&dst, name))
+        .collect::<eyre::Result<Vec<_>>>()
 }
 
 /// Clone the crate dir to a new directory
-fn clone(src: &Path, dst: &Path, functions: &[ParsedFunction]) -> eyre::Result<Crate> {
+fn clone(src: &Path, dst: &Path, checksum: &mut FileHash) -> eyre::Result<()> {
     fs::create_dir_all(dst).wrap_err("Failed to create dir to clone the crate to")?;
-    // Checksums of source files for preventing rewrite existing files
-    let mut checksum = FileHash::new(dst.to_path_buf());
 
     // Skip source target from copying
     let src_target = src.join("target");
     // Handle Cargo.toml as a special case
     let relative_cargo_path = Path::new("Cargo.toml");
-    let src_cargo_path = src.join("Cargo.toml");
+    let src_cargo_path = src.join(relative_cargo_path);
 
     for entry in WalkDir::new(src)
         .into_iter()
@@ -128,31 +143,8 @@ fn clone(src: &Path, dst: &Path, functions: &[ParsedFunction]) -> eyre::Result<C
         }
 
         // If src file has been modified, copy it to the destination
-        clean_copy(src_path, dst, src_relative, &mut checksum)?;
+        clean_copy(src_path, dst, src_relative, checksum)?;
     }
-
-    create_lib(src, dst, functions, &mut checksum)?;
-
-    checksum.save().wrap_err("Failed to save checksums")?;
-    clear_dir(dst, &checksum)?;
-
-    Crate::new(dst.to_path_buf())
-}
-
-/// Create a manifest for the entire project build folder
-/// with all the crates added as workspace members.
-fn workspace(dst: &Path, members: &[String]) -> eyre::Result<()> {
-    let dst_cargo_path = dst.join("Cargo.toml");
-
-    // Copy Cargo.toml with modifications
-    let mut cargo_toml = toml_edit::DocumentMut::new();
-    let mut workspace_table = toml_edit::Table::default();
-    workspace_table["resolver"] = "2".into();
-    workspace_table["members"] = toml_edit::Array::from_iter(members.iter()).into();
-    cargo_toml["workspace"] = workspace_table.into();
-
-    fs::write(&dst_cargo_path, &cargo_toml.to_string())
-        .wrap_err("Failed to write workspace Cargo.toml")?;
 
     Ok(())
 }
@@ -247,29 +239,29 @@ fn create_lib(
 
 /// Create crate with the code necessary to build lambda
 ///
-/// Set up the main() function according to cargo lambda guides,
-/// and add the lambda code right to main.rs
-fn create_lambda_crate(
-    src: &Path,
+/// Set up the function according to cargo lambda guides
+/// within the `bin` folder.
+fn lambda_code(
     dst: &Path,
+    bin_dir: &Path,
     parsed_function: &ParsedFunction,
-    project_name: &str,
-    crate_clone: &Crate,
     is_local: bool,
+    manifest: &mut toml_edit::DocumentMut,
+    checksum: &mut FileHash,
 ) -> eyre::Result<()> {
-    let mut checksum = FileHash::new(dst.to_path_buf());
-
-    let src_dir_path = dst.join("src");
-    if !matches!(fs::exists(&src_dir_path), Ok(true)) {
-        fs::create_dir(&src_dir_path).wrap_err("Failed to create src folder")?;
-    }
-
-    let main_rs_path = src_dir_path.join("main.rs");
+    let function_name = parsed_function.func_name(is_local);
+    let lambda_path = dst.join(bin_dir).join(format!("{}.rs", function_name));
 
     let fn_import = import_statement(
         &parsed_function.relative_path,
         &parsed_function.rust_function_name,
-        &crate_clone.name,
+        manifest
+            .get("package")
+            .ok_or_eyre("No [package]")?
+            .get("name")
+            .ok_or_eyre("No [name]")?
+            .as_str()
+            .ok_or_eyre("Not a string [name]")?,
     )?;
 
     let rust_function_name = parsed_function.rust_function_name.clone();
@@ -280,37 +272,30 @@ fn create_lambda_crate(
     };
 
     let item: syn::File = syn::parse_str(&main_code)?;
-    let main_rs_content = prettyplease::unparse(&item);
+    let lambda_content = prettyplease::unparse(&item);
     if checksum.update(
-        main_rs_path.strip_prefix(dst)?.to_path_buf(),
-        &FileHash::hash_from_bytes(&main_rs_content)
+        lambda_path.strip_prefix(dst)?.to_path_buf(),
+        &FileHash::hash_from_bytes(&lambda_content)
             .wrap_err("Failed to calculate hash for bytes of main.rs")?,
     ) {
-        fs::write(&main_rs_path, &main_rs_content).wrap_err("Failed to write main.rs")?;
+        fs::write(&lambda_path, &lambda_content)
+            .wrap_err(format!("Failed to write {lambda_path:?}"))?;
     }
 
-    let mut doc: toml_edit::DocumentMut = fs::read_to_string(src.join("Cargo.toml"))?.parse()?;
+    Ok(())
+}
 
-    doc["package"]["name"] = format!(
-        "{}-{}-kinetics-build",
-        project_name,
-        parsed_function.func_name(is_local)
-    )
-    .into();
-    let mut aot = toml_edit::ArrayOfTables::new();
-    let mut new_bin = toml_edit::Table::new();
-    new_bin["name"] = toml_edit::value("bootstrap");
-    new_bin["path"] = toml_edit::value("src/main.rs");
-    aot.push(new_bin);
-    doc["bin"] = toml_edit::Item::ArrayOfTables(aot);
-
-    doc["package"]["metadata"].or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
-        ["kinetics"]
-        .or_insert(toml_edit::Item::Table(toml_edit::Table::new()));
-
-    let kinetics_meta = doc["package"]["metadata"]["kinetics"]
+/// Write function metadata into the project Cargo.toml
+fn metadata(
+    parsed_function: &ParsedFunction,
+    is_local: bool,
+    manifest: &mut toml_edit::DocumentMut,
+) -> eyre::Result<()> {
+    manifest["package"]["metadata"].or_insert(toml_edit::Table::new().into())["kinetics"]
+        .or_insert(toml_edit::Table::new().into());
+    let kinetics_meta = manifest["package"]["metadata"]["kinetics"]
         .as_table_mut()
-        .unwrap();
+        .expect("Metadata was created above");
 
     let role_str = match &parsed_function.role {
         Role::Endpoint(_) => "endpoint",
@@ -325,7 +310,8 @@ fn create_lambda_crate(
     function_table["name"] = toml_edit::value(&name);
     function_table["role"] = toml_edit::value(role_str);
     function_table["is_local"] = toml_edit::value(is_local);
-    kinetics_meta.insert("function", toml_edit::Item::Table(function_table));
+    let mut function_meta = toml_edit::Table::new();
+    function_meta.insert("function", function_table.into());
 
     match &parsed_function.role {
         Role::Worker(params) => {
@@ -339,9 +325,9 @@ fn create_lambda_crate(
 
             let mut named_table = toml_edit::Table::new();
             named_table.set_implicit(true); // Don't create an empty queue table
-            named_table.insert(&name, toml_edit::Item::Table(queue_table));
+            named_table.insert(&name, queue_table.into());
 
-            kinetics_meta.insert("queue", toml_edit::Item::Table(named_table));
+            function_meta.insert("queue", named_table.into());
         }
         Role::Endpoint(params) => {
             let mut endpoint_table = toml_edit::Table::new();
@@ -355,7 +341,7 @@ fn create_lambda_crate(
 
             // Update function table with endpoint configuration
             // Function table has been created above
-            if let Some(f) = kinetics_meta["function"].as_table_mut() {
+            if let Some(f) = function_meta["function"].as_table_mut() {
                 f.extend(endpoint_table)
             }
         }
@@ -365,7 +351,7 @@ fn create_lambda_crate(
 
             // Update function table with cron configuration
             // Function table has been created above
-            if let Some(f) = kinetics_meta["function"].as_table_mut() {
+            if let Some(f) = function_meta["function"].as_table_mut() {
                 f.extend(cron_table)
             }
         }
@@ -373,20 +359,28 @@ fn create_lambda_crate(
 
     let environment = parsed_function.role.environment().iter();
 
-    if let Some(e) = kinetics_meta["environment"]
-        .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+    if let Some(e) = function_meta["environment"]
+        .or_insert(toml_edit::Table::new().into())
         .as_table_mut()
     {
         e.extend(environment)
     }
+    kinetics_meta.insert(&name, function_meta.into());
 
-    doc["package"]["metadata"]["kinetics"] = toml_edit::Item::Table(kinetics_meta.clone());
+    Ok(())
+}
 
+/// Write dependencies required to run a lambda into Cargo.toml
+fn deps(
+    parsed_function: &ParsedFunction,
+    is_local: bool,
+    doc: &mut toml_edit::DocumentMut,
+) -> eyre::Result<()> {
     if matches!(parsed_function.role, Role::Cron(_) | Role::Worker(_))
         || (matches!(parsed_function.role, Role::Endpoint(_)) && is_local)
     {
         doc["dependencies"]["serde_json"]
-            .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+            .or_insert(toml_edit::Table::new().into())
             .as_table_mut()
             .map(|t| t.insert("version", toml_edit::value("1.0.140")));
 
@@ -396,60 +390,51 @@ fn create_lambda_crate(
             .map(|t| t.insert("version", toml_edit::value("0.12.15")));
     }
 
+    if (matches!(parsed_function.role, Role::Endpoint(_)) && is_local) {
+        if let Some(reqwest) = doc["dependencies"]["reqwest"]
+            .or_insert(toml_edit::Table::new().into())
+            .as_table_mut()
+        {
+            reqwest.insert("version", toml_edit::value("0.12.15"));
+            reqwest.insert("default-features", toml_edit::value(false));
+            reqwest.insert(
+                "features",
+                toml_edit::Array::from_iter(["rustls-tls"]).into(),
+            );
+        };
+    }
+
     doc["dependencies"]["aws_lambda_events"]
-        .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+        .or_insert(toml_edit::Table::new().into())
         .as_table_mut()
         .map(|t| t.insert("version", toml_edit::value("0.16.0")));
 
     doc["dependencies"]["aws-config"]
-        .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+        .or_insert(toml_edit::Table::new().into())
         .as_table_mut()
         .map(|t| t.insert("version", toml_edit::value("1.0.1")));
 
     doc["dependencies"]["aws-sdk-ssm"]
-        .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+        .or_insert(toml_edit::Table::new().into())
         .as_table_mut()
         .map(|t| t.insert("version", toml_edit::value("1.59.0")));
 
     doc["dependencies"]["aws-sdk-sqs"]
-        .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+        .or_insert(toml_edit::Table::new().into())
         .as_table_mut()
         .map(|t| t.insert("version", toml_edit::value("1.62.0")));
 
     if let Some(tokio_dep) = doc["dependencies"]["tokio"]
-        .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+        .or_insert(toml_edit::Table::new().into())
         .as_table_mut()
     {
         tokio_dep.insert("version", toml_edit::value("1.43.0"));
-
-        tokio_dep.insert(
-            "features",
-            toml_edit::value(toml_edit::Array::from_iter(vec!["full"])),
-        );
+        tokio_dep.insert("features", toml_edit::Array::from_iter(["full"]).into());
     }
 
     if let Some(deps_table) = doc["dependencies"].as_table_mut() {
         deps_table.remove("kinetics-macro");
     }
-
-    let target_cargo_path = dst.join("Cargo.toml");
-    let crate_path = relative_path(dst, &crate_clone.path)?;
-    doc["dependencies"][crate_clone.name.clone()]
-        .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
-        .as_table_mut()
-        .map(|t| t.insert("path", toml_edit::value(crate_path.to_str().unwrap())));
-
-    let doc_string = doc.to_string();
-    if checksum.update(
-        target_cargo_path.strip_prefix(dst)?.to_path_buf(),
-        &FileHash::hash_from_bytes(&doc_string)
-            .wrap_err("Failed to calculate hash from bytes of Cargo.toml")?,
-    ) {
-        fs::write(&target_cargo_path, &doc_string).wrap_err("Failed to write Cargo.toml")?;
-    }
-
-    checksum.save().wrap_err("Failed to save checksums")?;
-    clear_dir(dst, &checksum)?;
 
     Ok(())
 }
@@ -494,9 +479,9 @@ fn import_statement(
 
     // If module path is empty then the function is locate in the main.rs file
     let import_statement = if module_path.is_empty() {
-        format!("use {crate_name}::{};", rust_name)
+        format!("use {crate_name}::{rust_name};")
     } else {
-        format!("use {crate_name}::{}::{};", module_path, rust_name)
+        format!("use {crate_name}::{module_path}::{rust_name};")
     };
 
     Ok(import_statement)
@@ -545,24 +530,4 @@ fn clean_copy(
     }
 
     Ok(())
-}
-
-fn relative_path(src: &Path, dst: &Path) -> eyre::Result<PathBuf> {
-    let mut parent = src;
-    while let Some(new_parent) = parent.parent() {
-        parent = new_parent;
-        if let Ok(stripped_dst) = dst.strip_prefix(parent) {
-            // Found mutual parent
-            return Ok(src
-                .strip_prefix(parent)?
-                .iter()
-                .map(|_c| Component::ParentDir.as_os_str())
-                .chain(stripped_dst.iter())
-                .collect());
-        }
-    }
-
-    Err(eyre!(
-        "No common ancestor found of paths {src:?} and {dst:?}"
-    ))
 }
