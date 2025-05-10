@@ -6,7 +6,7 @@ description = "A set of macros used in Kinetics project."
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/ottofeller/kinetics"
 keywords = ["kinetics", "rust", "macro"]
-categories = ["parser"]
+categories = ["parsing"]
 
 [dependencies]
 syn = "2.0.101"
