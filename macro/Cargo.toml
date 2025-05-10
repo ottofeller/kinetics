@@ -1,7 +1,12 @@
 [package]
 name = "kinetics-macro"
-version = "0.1.0"
+version = "0.2.1"
 edition = "2021"
+description = "A set of macros used in Kinetics project."
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/ottofeller/kinetics"
+keywords = ["kinetics", "rust", "macro"]
+categories = ["macro"]
 
 [dependencies]
 syn = "2.0.101"
