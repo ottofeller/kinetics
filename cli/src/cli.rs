@@ -7,8 +7,10 @@ use crate::destroy::destroy;
 use crate::error::Error;
 use crate::function::Function;
 use crate::invoke::invoke;
+use crate::list::list;
 use crate::logger::Logger;
 use crate::login::login;
+use crate::logout::logout;
 use crate::logs::logs;
 use clap::{Parser, Subcommand};
 use eyre::{Ok, WrapErr};
@@ -75,6 +77,12 @@ enum Commands {
         #[arg()]
         name: String,
     },
+
+    /// List all serverless functions
+    List {},
+
+    /// Logout from Kinetics platform
+    Logout {},
 }
 
 pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Error> {
@@ -172,6 +180,29 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             logs(&Function::find_by_name(&functions, name)?, &crat).await?;
             Ok(())
         }
+        Some(Commands::List {}) => {
+            if functions.is_empty() {
+                println!("{}", console::style("No functions found").yellow());
+            } else {
+                list(&crat).await?;
+            }
+            Ok(())
+        }
+        Some(Commands::Logout {}) => match logout().await {
+            Result::Ok(_) => {
+                println!(
+                    "{}",
+                    console::style("You was successfully logged out")
+                        .green()
+                        .bold()
+                );
+                Ok(())
+            }
+            Err(error) => {
+                println!("{}", console::style("Failed to logout").red().bold());
+                Err(error)
+            }
+        },
         _ => Ok(()),
     }
     .map_err(Error::from)
