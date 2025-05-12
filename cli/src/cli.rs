@@ -48,7 +48,7 @@ enum Commands {
     /// Destroy your serverless functions
     Destroy {},
 
-    /// Initialize a new Kinetics project
+    /// Start new Kinetics project
     Init {
         /// Name of the project to create
         #[arg()]
