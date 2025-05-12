@@ -168,7 +168,7 @@ pub async fn endpoint(
 - `kinetics invoke` - Invoke function locally
 - `kinetics deploy` - Deploy your application
 - `kinetics destroy` - Destroy application and all of its resources
-- `kinetics logout` – Log out current user
+- `kinetics logout` – Log out the current user
 - `kinetics logs` - View application logs _[Coming soon]_
 
 ## Support & Community
