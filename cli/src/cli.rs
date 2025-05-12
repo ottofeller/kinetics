@@ -5,14 +5,15 @@ use crate::crat::Crate;
 use crate::deploy::DeployConfig;
 use crate::destroy::destroy;
 use crate::error::Error;
-use crate::function::Function;
+use crate::function::{Function, Type as FunctionType};
+use crate::init::init;
 use crate::invoke::invoke;
 use crate::list::list;
 use crate::logger::Logger;
 use crate::login::login;
 use crate::logout::logout;
 use crate::logs::logs;
-use clap::{Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand};
 use eyre::{Ok, WrapErr};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -48,6 +49,38 @@ enum Commands {
 
     /// Destroy your serverless functions
     Destroy {},
+
+    /// Start new Kinetics project
+    Init {
+        /// Name of the project to create
+        #[arg()]
+        name: String,
+
+        // When true the endpoint template will be used
+        #[arg(
+            short,
+            long,
+            action = ArgAction::SetTrue,
+            required = false
+        )]
+        cron: bool,
+
+        #[arg(
+            short,
+            long,
+            action = ArgAction::SetTrue,
+            required = false
+        )]
+        endpoint: bool,
+
+        #[arg(
+            short,
+            long,
+            action = ArgAction::SetTrue,
+            required = false
+        )]
+        worker: bool,
+    },
 
     /// Login to Kinetics platform
     Login {
@@ -89,24 +122,49 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
     Logger::init();
     let cli = Cli::parse();
 
-    // The login command should be available outside of a project, in path of file system
-    if let Some(Commands::Login { email }) = &cli.command {
-        let is_new_session = login(email).await?;
+    // Commands that should be available outside of a project
+    match &cli.command {
+        Some(Commands::Login { email }) => {
+            let is_new_session = login(email).await?;
 
-        println!(
-            "{} {} {}",
-            console::style(if is_new_session {
-                "Successfully logged in"
-            } else {
-                "Already logged in"
-            })
-            .green()
-            .bold(),
-            console::style("via").dim(),
-            console::style(email).underlined().bold()
-        );
+            println!(
+                "{} {} {}",
+                console::style(if is_new_session {
+                    "Successfully logged in"
+                } else {
+                    "Already logged in"
+                })
+                .green()
+                .bold(),
+                console::style("via").dim(),
+                console::style(email).underlined().bold()
+            );
 
-        return Ok(()).map_err(Error::from);
+            return Ok(()).map_err(Error::from);
+        }
+
+        Some(Commands::Init {
+            name,
+            cron,
+            endpoint: _,
+            worker,
+        }) => {
+            init(
+                name,
+                if cron.to_owned() {
+                    FunctionType::Cron
+                } else if worker.to_owned() {
+                    FunctionType::Worker
+                } else {
+                    FunctionType::Endpoint
+                },
+            )
+            .await?;
+
+            return Ok(()).map_err(Error::from);
+        }
+
+        _ => {}
     }
 
     let crat = Crate::from_current_dir()?;
