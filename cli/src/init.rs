@@ -1,4 +1,5 @@
 use crate::error::Error;
+use crate::function::Type as FunctionType;
 use eyre::eyre;
 use eyre::WrapErr;
 use reqwest::Response;
@@ -11,14 +12,20 @@ use std::process::Command;
 use toml_edit::value;
 use toml_edit::DocumentMut;
 
+const CRON_TEMPLATE_URL: &str =
+    "https://github.com/ottofeller/kinetics-cron-template/archive/refs/heads/main.zip";
+
 const ENDPOINT_TEMPLATE_URL: &str =
     "https://github.com/ottofeller/kinetics-endpoint-template/archive/refs/heads/main.zip";
+
+const WORKER_TEMPLATE_URL: &str =
+    "https://github.com/ottofeller/kinetics-worker-template/archive/refs/heads/main.zip";
 
 /// Initialize a new Kinetics project by downloading and unpacking a template archive
 ///
 /// Downloads the Kinetics template archive into a new directory,
 /// customizes it with the provided project name, and sets up a ready-to-use project structure.
-pub async fn init(name: &str) -> eyre::Result<()> {
+pub async fn init(name: &str, function_type: FunctionType) -> eyre::Result<()> {
     let project_dir = env::current_dir()
         .wrap_err(Error::new(
             "Failed to determine current directory",
@@ -49,10 +56,20 @@ pub async fn init(name: &str) -> eyre::Result<()> {
             Some("Please verify you have proper file system permissions."),
         ))?;
 
-    print!("\r\x1B[K{}", console::style("Downloading template archive").dim());
+    print!(
+        "\r\x1B[K{}",
+        console::style("Downloading template archive").dim()
+    );
+
     let client = reqwest::Client::new();
 
-    let response = match client.get(ENDPOINT_TEMPLATE_URL).send().await {
+    let template_url = match function_type {
+        FunctionType::Cron => CRON_TEMPLATE_URL,
+        FunctionType::Worker => WORKER_TEMPLATE_URL,
+        FunctionType::Endpoint => ENDPOINT_TEMPLATE_URL,
+    };
+
+    let response = match client.get(template_url).send().await {
         Ok(resp) => {
             if !resp.status().is_success() {
                 log::error!("Server returned errors: {:?}", resp);
@@ -94,7 +111,11 @@ pub async fn init(name: &str) -> eyre::Result<()> {
 
     // The extraction creates a subdirectory with the repository name and branch
     // We need to move all files from that subdirectory to our project directory
-    let extracted_dir = project_dir.join("kinetics-endpoint-template-main");
+    let extracted_dir = project_dir.join(
+        template_url
+            .replace("https://github.com/ottofeller/", "")
+            .replace("/archive/refs/heads/main.zip", "-main"),
+    );
 
     // Move all files from extracted directory to project directory using bash command
     let status = Command::new("bash")
@@ -226,6 +247,7 @@ async fn unpack(response: Response, project_dir: &PathBuf) -> eyre::Result<()> {
 
 /// Clean up, and throw an error
 fn halt(message: &str, details: &str, dir: PathBuf) -> eyre::Result<()> {
+    print!("\r\x1B[K");
     fs::remove_dir_all(&dir).unwrap_or(());
     return Err(Error::new(message, Some(details)).into());
 }

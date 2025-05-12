@@ -13,6 +13,12 @@ use tokio::io::AsyncReadExt;
 use tokio::io::BufReader;
 use zip::write::SimpleFileOptions;
 
+pub enum Type {
+    Cron,
+    Endpoint,
+    Worker,
+}
+
 #[derive(Clone, Debug)]
 pub struct Function {
     pub id: String,

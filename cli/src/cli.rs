@@ -5,13 +5,13 @@ use crate::crat::Crate;
 use crate::deploy::DeployConfig;
 use crate::destroy::destroy;
 use crate::error::Error;
-use crate::function::Function;
+use crate::function::{Function, Type as FunctionType};
 use crate::init::init;
 use crate::invoke::invoke;
 use crate::logger::Logger;
 use crate::login::login;
 use crate::logs::logs;
-use clap::{Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand};
 use eyre::{Ok, WrapErr};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -53,6 +53,31 @@ enum Commands {
         /// Name of the project to create
         #[arg()]
         name: String,
+
+        // When true the endpoint template will be used
+        #[arg(
+            short,
+            long,
+            action = ArgAction::SetTrue,
+            required = false
+        )]
+        cron: bool,
+
+        #[arg(
+            short,
+            long,
+            action = ArgAction::SetTrue,
+            required = false
+        )]
+        endpoint: bool,
+
+        #[arg(
+            short,
+            long,
+            action = ArgAction::SetTrue,
+            required = false
+        )]
+        worker: bool,
     },
 
     /// Login to Kinetics platform
@@ -110,8 +135,24 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             return Ok(()).map_err(Error::from);
         }
 
-        Some(Commands::Init { name }) => {
-            init(name).await?;
+        Some(Commands::Init {
+            name,
+            cron,
+            endpoint: _,
+            worker,
+        }) => {
+            init(
+                name,
+                if cron.to_owned() {
+                    FunctionType::Cron
+                } else if worker.to_owned() {
+                    FunctionType::Worker
+                } else {
+                    FunctionType::Endpoint
+                },
+            )
+            .await?;
+
             return Ok(()).map_err(Error::from);
         }
 
