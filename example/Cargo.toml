@@ -5,13 +5,13 @@ edition = "2021"
 
 [dependencies]
 aws-config = "1.6.2"
-aws-sdk-dynamodb = "1.73.0"
+aws-sdk-dynamodb = "1.74.0"
 aws_lambda_events = "0.16.0"
 lambda_runtime = "0.13.0"
 kinetics-macro = { path = "../macro" }
 lambda_http = "0.14.0"
 tokio = "1.45.0"
-aws-sdk-sqs = "1.66.0"
+aws-sdk-sqs = "1.67.0"
 serde_json = { version = "1.0.140", features = ["default"] }
 
 [package.metadata.kinetics.kvdb.users]
