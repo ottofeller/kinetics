@@ -384,6 +384,11 @@ fn create_lambda_crate(
             .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
             .as_table_mut()
             .map(|t| t.insert("version", toml_edit::value("1.0.140")));
+
+        doc["dependencies"]["reqwest"]
+            .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+            .as_table_mut()
+            .map(|t| t.insert("version", toml_edit::value("0.12.15")));
     }
 
     doc["dependencies"]["aws_lambda_events"]

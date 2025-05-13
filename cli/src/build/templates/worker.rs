@@ -2,7 +2,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
     if is_local {
         format!(
             "{import_statement}
-            use aws_lambda_events::sqs::SqsEvent;
+            use aws_lambda_events::sqs::{{SqsEvent, SqsMessage}};
 
             #[tokio::main]
             async fn main() -> Result<(), Box<dyn std::error::Error>> {{
@@ -22,9 +22,12 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
                     Err(_) => \"{{}}\".into(),
                 }};
 
-                let sqs_event: SqsEvent = match serde_json::from_str(&payload) {{
-                    Ok(parsed) => parsed,
-                    Err(err) => {{ println!(\"{{err:?}}\"); SqsEvent {{ records: Vec::new() }} }},
+                let sqs_event = SqsEvent {{
+                    records: vec![SqsMessage {{
+                        message_id: Some(\"test\".into()),
+                        body: Some(payload),
+                        ..Default::default()
+                    }}],
                 }};
 
                 // Convert SqsEvent to LambdaEvent<SqsEvent>
