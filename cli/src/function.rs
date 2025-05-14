@@ -71,73 +71,6 @@ impl Function {
             .cloned()
     }
 
-    pub async fn build(&self, logger: &Progress) -> eyre::Result<()> {
-        let mut cmd = tokio::process::Command::new("cargo")
-            .arg("lambda")
-            .arg("build")
-            .arg("--release")
-            .arg("--target")
-            .arg("x86_64-unknown-linux-musl")
-            .arg("--bin")
-            .arg(&self.name)
-            .current_dir(&self.crat.path)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .wrap_err("Failed to execute the process")?;
-
-        let mut is_failed = false;
-        let mut error_message_lines = Vec::new();
-
-        if let Some(stderr) = cmd.stderr.take() {
-            let mut reader = BufReader::new(stderr).lines();
-
-            while let Some(line) = reader.next_line().await? {
-                if line.trim().starts_with("error") || is_failed {
-                    is_failed = true;
-                    error_message_lines.push(line);
-                    continue;
-                }
-
-                let trim_to = 24;
-
-                if line.trim().is_empty() {
-                    logger.progress_bar.set_message(format!(
-                        "{} {}",
-                        console::style("    Building").green().bold(),
-                        self.name,
-                    ));
-                } else {
-                    let line = line.trim();
-
-                    logger.progress_bar.set_message(format!(
-                        "{} {} {}...",
-                        console::style("    Building").green().bold(),
-                        self.name,
-                        console::style(
-                            if line.len() > trim_to {
-                                &line[..std::cmp::min(line.len(), trim_to) - 1]
-                            } else {
-                                line
-                            }
-                            .to_string()
-                        )
-                        .dim()
-                    ));
-                }
-            }
-        }
-
-        logger.progress_bar.finish_and_clear();
-        let status = cmd.wait().await?;
-
-        if !status.success() {
-            return Err(eyre!("{}", error_message_lines.join("\n")));
-        }
-
-        Ok(())
-    }
-
     pub async fn bundle(&self) -> eyre::Result<()> {
         let path = self.build_path();
 
@@ -269,7 +202,7 @@ impl Function {
     }
 }
 
-pub async fn _build(functions: &[Function], logger: &Progress) -> eyre::Result<()> {
+pub async fn build(functions: &[Function], logger: &Progress) -> eyre::Result<()> {
     let Some(Function { crat, .. }) = functions.iter().next() else {
         return Err(eyre!("Attempted to build an empty function list"));
     };
