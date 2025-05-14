@@ -1,7 +1,7 @@
 use crate::client::Client;
 use crate::crat::Crate;
 use crate::deploy::DeployConfig;
-use crate::function::Function;
+use crate::function::{build, Function};
 use eyre::{eyre, OptionExt, Report};
 use futures::future;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -38,7 +38,7 @@ impl Pipeline {
         let start_time = Instant::now();
 
         let pipeline_progress = PipelineProgress::new(
-            functions.len() as u64 * if self.is_deploy_enabled { 3 } else { 1 },
+            functions.len() as u64 * if self.is_deploy_enabled { 2 } else { 0 },
             self.is_deploy_enabled,
         );
 
@@ -47,6 +47,8 @@ impl Pipeline {
         } else {
             None
         };
+
+        build(&functions, &pipeline_progress.new_progress(&self.crat.name)).await?;
 
         let handles = functions.into_iter().map(|mut function| {
             let client = client.clone();
@@ -59,13 +61,6 @@ impl Pipeline {
                 let _permit = sem.acquire().await?;
 
                 let function_progress = pipeline_progress.new_progress(&function.name);
-
-                function.build(&function_progress).await.map_err(|e| {
-                    function_progress.error("Building");
-                    e.wrap_err(format!("Failed to build function: \"{}\"", function.name))
-                })?;
-
-                function_progress.log_stage("Building");
                 pipeline_progress.increase_current_function_position();
 
                 if !self.is_deploy_enabled {
