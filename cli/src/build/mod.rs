@@ -494,7 +494,7 @@ fn import_statement(
 
     // If module path is empty then the function is locate in the main.rs file
     let import_statement = if module_path.is_empty() {
-        "".to_string()
+        format!("use {crate_name}::{};", rust_name)
     } else {
         format!("use {crate_name}::{}::{};", module_path, rust_name)
     };
