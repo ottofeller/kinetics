@@ -304,78 +304,83 @@ fn create_lambda_crate(
     aot.push(new_bin);
     doc["bin"] = toml_edit::Item::ArrayOfTables(aot);
 
-    if let Some(kinetics_meta) = doc["package"]["metadata"]["kinetics"]
+    doc["package"]["metadata"].or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+        ["kinetics"]
+        .or_insert(toml_edit::Item::Table(toml_edit::Table::new()));
+
+    let kinetics_meta = doc["package"]["metadata"]["kinetics"]
+        .as_table_mut()
+        .unwrap();
+
+    let role_str = match &parsed_function.role {
+        Role::Endpoint(_) => "endpoint",
+        Role::Cron(_) => "cron",
+        Role::Worker(_) => "worker",
+    };
+
+    let name = parsed_function.func_name(is_local);
+
+    // Create a function table for both roles
+    let mut function_table = toml_edit::Table::new();
+    function_table["name"] = toml_edit::value(&name);
+    function_table["role"] = toml_edit::value(role_str);
+    function_table["is_local"] = toml_edit::value(is_local);
+    kinetics_meta.insert("function", toml_edit::Item::Table(function_table));
+
+    match &parsed_function.role {
+        Role::Worker(params) => {
+            let mut queue_table = toml_edit::Table::new();
+            queue_table["name"] = toml_edit::value(&name);
+            if let Some(queue_alias) = &params.queue_alias {
+                queue_table["alias"] = toml_edit::value(queue_alias);
+            };
+            queue_table["concurrency"] = toml_edit::value(params.concurrency as i64);
+            queue_table["fifo"] = toml_edit::value(params.fifo);
+
+            let mut named_table = toml_edit::Table::new();
+            named_table.set_implicit(true); // Don't create an empty queue table
+            named_table.insert(&name, toml_edit::Item::Table(queue_table));
+
+            kinetics_meta.insert("queue", toml_edit::Item::Table(named_table));
+        }
+        Role::Endpoint(params) => {
+            let mut endpoint_table = toml_edit::Table::new();
+            if let Some(url_path) = &params.url_path {
+                endpoint_table["url_path"] = toml_edit::value(url_path);
+            }
+
+            endpoint_table["queues"] = toml_edit::value(
+                serde_json::to_string(&params.queues.clone().unwrap_or_default()).unwrap(),
+            );
+
+            // Update function table with endpoint configuration
+            // Function table has been created above
+            if let Some(f) = kinetics_meta["function"].as_table_mut() {
+                f.extend(endpoint_table)
+            }
+        }
+        Role::Cron(params) => {
+            let mut cron_table = toml_edit::Table::new();
+            cron_table["schedule"] = toml_edit::value(params.schedule.to_string());
+
+            // Update function table with cron configuration
+            // Function table has been created above
+            if let Some(f) = kinetics_meta["function"].as_table_mut() {
+                f.extend(cron_table)
+            }
+        }
+    }
+
+    let environment = parsed_function.role.environment().iter();
+
+    if let Some(e) = kinetics_meta["environment"]
         .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
         .as_table_mut()
     {
-        let role_str = match &parsed_function.role {
-            Role::Endpoint(_) => "endpoint",
-            Role::Cron(_) => "cron",
-            Role::Worker(_) => "worker",
-        };
-
-        let name = parsed_function.func_name(is_local);
-
-        // Create a function table for both roles
-        let mut function_table = toml_edit::Table::new();
-        function_table["name"] = toml_edit::value(&name);
-        function_table["role"] = toml_edit::value(role_str);
-        function_table["is_local"] = toml_edit::value(is_local);
-        kinetics_meta.insert("function", toml_edit::Item::Table(function_table));
-
-        match &parsed_function.role {
-            Role::Worker(params) => {
-                let mut queue_table = toml_edit::Table::new();
-                queue_table["name"] = toml_edit::value(&name);
-                if let Some(queue_alias) = &params.queue_alias {
-                    queue_table["alias"] = toml_edit::value(queue_alias);
-                };
-                queue_table["concurrency"] = toml_edit::value(params.concurrency as i64);
-                queue_table["fifo"] = toml_edit::value(params.fifo);
-
-                let mut named_table = toml_edit::Table::new();
-                named_table.set_implicit(true); // Don't create an empty queue table
-                named_table.insert(&name, toml_edit::Item::Table(queue_table));
-
-                kinetics_meta.insert("queue", toml_edit::Item::Table(named_table));
-            }
-            Role::Endpoint(params) => {
-                let mut endpoint_table = toml_edit::Table::new();
-                if let Some(url_path) = &params.url_path {
-                    endpoint_table["url_path"] = toml_edit::value(url_path);
-                }
-
-                endpoint_table["queues"] = toml_edit::value(
-                    serde_json::to_string(&params.queues.clone().unwrap_or_default()).unwrap(),
-                );
-
-                // Update function table with endpoint configuration
-                // Function table has been created above
-                if let Some(f) = kinetics_meta["function"].as_table_mut() {
-                    f.extend(endpoint_table)
-                }
-            }
-            Role::Cron(params) => {
-                let mut cron_table = toml_edit::Table::new();
-                cron_table["schedule"] = toml_edit::value(params.schedule.to_string());
-
-                // Update function table with cron configuration
-                // Function table has been created above
-                if let Some(f) = kinetics_meta["function"].as_table_mut() {
-                    f.extend(cron_table)
-                }
-            }
-        }
-
-        let environment = parsed_function.role.environment().iter();
-
-        if let Some(e) = kinetics_meta["environment"]
-            .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
-            .as_table_mut()
-        {
-            e.extend(environment)
-        }
+        e.extend(environment)
     }
+
+    doc["package"]["metadata"]["kinetics"] = toml_edit::Item::Table(kinetics_meta.clone());
 
     if matches!(parsed_function.role, Role::Cron(_) | Role::Worker(_))
         || (matches!(parsed_function.role, Role::Endpoint(_)) && is_local)
