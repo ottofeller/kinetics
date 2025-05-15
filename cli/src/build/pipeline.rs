@@ -50,6 +50,17 @@ impl Pipeline {
 
         build(&functions, &pipeline_progress.new_progress(&self.crat.name)).await?;
 
+        if !self.is_deploy_enabled {
+            println!(
+                "    {} `{}` crate building in {:.2}s",
+                console::style("Finished").green().bold(),
+                self.crat.name,
+                start_time.elapsed().as_secs_f64(),
+            );
+
+            return Ok(());
+        }
+
         let handles = functions.into_iter().map(|mut function| {
             let client = client.clone();
             let sem = Arc::clone(&semaphore);
@@ -62,10 +73,6 @@ impl Pipeline {
 
                 let function_progress = pipeline_progress.new_progress(&function.name);
                 pipeline_progress.increase_current_function_position();
-
-                if !self.is_deploy_enabled {
-                    return Ok(function);
-                }
 
                 function_progress.log_stage("Bundling");
 
@@ -121,32 +128,20 @@ impl Pipeline {
             ));
         }
 
-        if !self.is_deploy_enabled {
-            println!(
-                "    {} `{}` crate building in {:.2}s",
-                console::style("Finished").green().bold(),
-                self.crat.name,
-                start_time.elapsed().as_secs_f64(),
-            );
-
-            return Ok(());
-        }
-
         let deploying_progress = pipeline_progress.new_progress(&self.crat.name);
 
         deploying_progress.log_stage("Provisioning");
 
-        // It's safe to unwrap here because the errors have already been caught
-        let functions: Vec<_> = ok_results.drain(..).map(Result::unwrap).collect();
-
-        let functions = &functions
-            .into_iter()
+        let functions: Vec<_> = ok_results
+            .drain(..)
+            // It's safe to unwrap here because the errors have already been caught
+            .map(Result::unwrap)
             .filter(|f| !f.is_local().unwrap())
-            .collect::<Vec<_>>();
+            .collect();
 
         let deploy = self
             .crat
-            .deploy(functions, self.deploy_config.as_deref())
+            .deploy(&functions, self.deploy_config.as_deref())
             .await;
 
         if deploy.is_err() {
