@@ -3,7 +3,7 @@ use crate::deploy::DeployConfig;
 use crate::error::Error;
 use crate::function::Function;
 use crate::secret::Secret;
-use eyre::{ContextCompat, Ok, WrapErr};
+use eyre::{ContextCompat, Ok, OptionExt, WrapErr};
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -84,6 +84,31 @@ impl Crate {
             pub toml: String,
         }
 
+        impl TryFrom<&Function> for BodyFunction {
+            fn try_from(f: &Function) -> Result<Self, Self::Error> {
+                let mut manifest = f.crat.toml.clone();
+                let function_meta = manifest
+                    .get("package")
+                    .wrap_err("No [package]")?
+                    .get("metadata")
+                    .wrap_err("No [metadata]")?
+                    .get("kinetics")
+                    .wrap_err("No [kinetics]")?
+                    .get(&f.name)
+                    .wrap_err(format!("No [{}]", f.name))?
+                    .clone();
+                manifest["package"]["metadata"]["kinetics"] = function_meta;
+
+                Ok(Self {
+                    name: f.name.clone(),
+                    s3key_encrypted: f.s3key_encrypted().ok_or_eyre("No S3 key provided")?,
+                    toml: toml::to_string(&manifest)?,
+                })
+            }
+
+            type Error = eyre::ErrReport;
+        }
+
         #[derive(serde::Serialize, Debug)]
         pub struct JsonBody {
             pub crat: BodyCrate,
@@ -92,11 +117,11 @@ impl Crate {
         }
 
         let client = Client::new(deploy_config.is_some())?;
-        let mut secrets = HashMap::new();
-
-        Secret::from_dotenv().iter().for_each(|s| {
-            secrets.insert(s.name.clone(), s.value());
-        });
+        let secrets = HashMap::from_iter(
+            Secret::from_dotenv()
+                .iter()
+                .map(|s| (s.name.clone(), s.value())),
+        );
 
         if let Some(config) = deploy_config {
             return config
@@ -112,15 +137,9 @@ impl Crate {
                 },
                 functions: functions
                     .iter()
-                    .map(|f| {
-                        BodyFunction {
-                            name: f.name.clone(),
-                            s3key_encrypted: f.s3key_encrypted().unwrap(),
-                            toml: f.toml_string().unwrap(),
-                        }
-                    })
-                    .collect(),
-                secrets: secrets.clone(),
+                    .map(BodyFunction::try_from)
+                    .collect::<eyre::Result<Vec<BodyFunction>>>()?,
+                secrets,
             }))
             .send()
             .await

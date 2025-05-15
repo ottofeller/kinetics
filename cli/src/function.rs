@@ -112,11 +112,6 @@ impl Function {
         self.crat.path.join(format!("{}.zip", self.id))
     }
 
-    pub fn toml_string(&self) -> eyre::Result<String> {
-        std::fs::read_to_string(self.crat.path.join("Cargo.toml"))
-            .wrap_err("Failed to read function's Cargo.toml")
-    }
-
     fn build_path(&self) -> PathBuf {
         self.crat
             .path
