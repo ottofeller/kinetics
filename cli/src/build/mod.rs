@@ -56,7 +56,7 @@ pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<Fu
     for parsed_function in parser.functions {
         for is_local in [false, true] {
             // Create bin file for every parsed function
-            lambda_code(
+            create_lambda_bin(
                 &dst,
                 bin_dir,
                 &parsed_function,
@@ -241,7 +241,7 @@ fn create_lib(
 ///
 /// Set up the function according to cargo lambda guides
 /// within the `bin` folder.
-fn lambda_code(
+fn create_lambda_bin(
     dst: &Path,
     bin_dir: &Path,
     parsed_function: &ParsedFunction,
