@@ -25,14 +25,14 @@ pub async fn logs(function: &Function, crat: &Crate) -> Result<()> {
         "\n{} {} {}...\n",
         console::style("Fetching logs").bold().green(),
         console::style("for").dim(),
-        console::style(function.name()?).bold()
+        console::style(&function.name).bold()
     );
 
     let response = client
         .post("/function/logs")
         .json(&serde_json::json!({
             "crate_name": crat.name.clone(),
-            "function_name": function.name()?
+            "function_name": function.name
         }))
         .send()
         .await

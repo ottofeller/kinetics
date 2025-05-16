@@ -1,7 +1,7 @@
 use crate::client::Client;
 use crate::crat::Crate;
 use crate::deploy::DeployConfig;
-use crate::function::Function;
+use crate::function::{build, Function};
 use eyre::{eyre, OptionExt, Report};
 use futures::future;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -38,7 +38,7 @@ impl Pipeline {
         let start_time = Instant::now();
 
         let pipeline_progress = PipelineProgress::new(
-            functions.len() as u64 * if self.is_deploy_enabled { 3 } else { 1 },
+            functions.len() as u64 * if self.is_deploy_enabled { 2 } else { 0 },
             self.is_deploy_enabled,
         );
 
@@ -47,6 +47,19 @@ impl Pipeline {
         } else {
             None
         };
+
+        build(&functions, &pipeline_progress.new_progress(&self.crat.name)).await?;
+
+        if !self.is_deploy_enabled {
+            println!(
+                "    {} `{}` crate building in {:.2}s",
+                console::style("Finished").green().bold(),
+                self.crat.name,
+                start_time.elapsed().as_secs_f64(),
+            );
+
+            return Ok(());
+        }
 
         let handles = functions.into_iter().map(|mut function| {
             let client = client.clone();
@@ -58,27 +71,14 @@ impl Pipeline {
                 // Acquire permit before sending request.
                 let _permit = sem.acquire().await?;
 
-                let function_name = function.name()?;
-
-                let function_progress = pipeline_progress.new_progress(&function_name);
-
-                function.build(&function_progress).await.map_err(|e| {
-                    function_progress.error("Building");
-                    e.wrap_err(format!("Failed to build function: \"{}\"", function_name))
-                })?;
-
-                function_progress.log_stage("Building");
+                let function_progress = pipeline_progress.new_progress(&function.name);
                 pipeline_progress.increase_current_function_position();
-
-                if !self.is_deploy_enabled {
-                    return Ok(function);
-                }
 
                 function_progress.log_stage("Bundling");
 
                 function.bundle().await.map_err(|e| {
                     function_progress.error("Bundling");
-                    e.wrap_err(format!("Failed to bundle function: \"{}\"", function_name))
+                    e.wrap_err(format!("Failed to bundle function: \"{}\"", function.name))
                 })?;
 
                 pipeline_progress.increase_current_function_position();
@@ -89,7 +89,7 @@ impl Pipeline {
                     .await
                     .map_err(|e| {
                         function_progress.error("Uploading");
-                        e.wrap_err(format!("Failed to upload function: \"{}\"", function_name))
+                        e.wrap_err(format!("Failed to upload function: \"{}\"", function.name))
                     })?;
 
                 pipeline_progress.increase_current_function_position();
@@ -128,32 +128,20 @@ impl Pipeline {
             ));
         }
 
-        if !self.is_deploy_enabled {
-            println!(
-                "    {} `{}` crate building in {:.2}s",
-                console::style("Finished").green().bold(),
-                self.crat.name,
-                start_time.elapsed().as_secs_f64(),
-            );
-
-            return Ok(());
-        }
-
         let deploying_progress = pipeline_progress.new_progress(&self.crat.name);
 
         deploying_progress.log_stage("Provisioning");
 
-        // It's safe to unwrap here because the errors have already been caught
-        let functions: Vec<_> = ok_results.drain(..).map(Result::unwrap).collect();
-
-        let functions = &functions
-            .into_iter()
+        let functions: Vec<_> = ok_results
+            .drain(..)
+            // It's safe to unwrap here because the errors have already been caught
+            .map(Result::unwrap)
             .filter(|f| !f.is_local().unwrap())
-            .collect::<Vec<_>>();
+            .collect();
 
         let deploy = self
             .crat
-            .deploy(functions, self.deploy_config.as_deref())
+            .deploy(&functions, self.deploy_config.as_deref())
             .await;
 
         if deploy.is_err() {

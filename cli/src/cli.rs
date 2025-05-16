@@ -168,15 +168,14 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
     }
 
     let crat = Crate::from_current_dir()?;
-    let directories = prepare_crates(PathBuf::from(build_config()?.build_path), crat.clone())?;
 
     // Functions to deploy
-    let functions: Vec<Function> = directories
-        .into_iter()
-        .map(|p| Function::new(&p).unwrap())
-        // Avoid building functions supposed for local invocations only
-        .filter(|f| !f.is_local().unwrap())
-        .collect();
+    let functions: Vec<Function> =
+        prepare_crates(PathBuf::from(build_config()?.build_path), crat.clone())?
+            .into_iter()
+            // Avoid building functions supposed for local invocations only
+            .filter(|f| !f.is_local().unwrap())
+            .collect();
 
     color_eyre::config::HookBuilder::default()
         .display_location_section(false)
