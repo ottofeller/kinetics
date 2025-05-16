@@ -22,7 +22,7 @@ clap = { version = "4.5.38", features = ["derive"] }
 eyre = "0.6.12"
 regex = "1.11.1"
 walkdir = "2.5.0"
-zip = "2.6.1"
+zip = "3.0.0"
 tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
 toml_edit = "0.22.26"
