@@ -62,9 +62,7 @@ pub async fn invoke(
         );
     }
 
-    let invoke_dir =
-        Path::new(&home).join(format!(".kinetics/{}/{}Local", crat.name, function.name));
-
+    let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", crat.name));
     let display_path = format!("{}", invoke_dir.display());
 
     println!(
@@ -97,7 +95,7 @@ pub async fn invoke(
 
     // Start the command with piped stdout and stderr
     let mut child = Command::new("cargo")
-        .args(["run"])
+        .args(["run", "--bin", &format!("{}Local", function.name)])
         .envs(secrets)
         .envs(aws_credentials)
         .envs(function.environment()?)
