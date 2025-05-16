@@ -234,18 +234,15 @@ pub async fn build(functions: &[Function], logger: &Progress) -> eyre::Result<()
             let trim_to = 24;
 
             if line.trim().is_empty() {
-                logger.progress_bar.set_message(format!(
-                    "{} {}",
-                    console::style("    Building").green().bold(),
-                    crat.name,
-                ));
+                logger
+                    .progress_bar
+                    .set_message(format!("{}", console::style("    Building").green().bold(),));
             } else {
                 let line = line.trim();
 
                 logger.progress_bar.set_message(format!(
-                    "{} {} {}...",
+                    "{} {}...",
                     console::style("    Building").green().bold(),
-                    crat.name,
                     console::style(
                         if line.len() > trim_to {
                             &line[..std::cmp::min(line.len(), trim_to) - 1]
