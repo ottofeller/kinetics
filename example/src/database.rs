@@ -11,7 +11,7 @@ use std::collections::HashMap;
 /// Test locally with the following command:
 /// kinetics invoke DatabaseDatabase --table mytable
 #[endpoint(
-    url_path = "/endpoint",
+    url_path = "/database",
     environment = {"TABLE_NAME": "mytable"},
 )]
 pub async fn database(
