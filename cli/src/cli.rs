@@ -112,7 +112,11 @@ enum Commands {
     },
 
     /// List all serverless functions
-    List {},
+    List {
+        /// Show detailed information for each function
+        #[arg(short, long, action = ArgAction::SetTrue)]
+        verbose: bool,
+    },
 
     /// Logout from Kinetics platform
     Logout {},
@@ -237,11 +241,11 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             logs(&Function::find_by_name(&functions, name)?, &crat).await?;
             Ok(())
         }
-        Some(Commands::List {}) => {
+        Some(Commands::List { verbose }) => {
             if functions.is_empty() {
                 println!("{}", console::style("No functions found").yellow());
             } else {
-                list(&crat).await?;
+                list(&crat, *verbose).await?;
             }
             Ok(())
         }

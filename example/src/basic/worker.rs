@@ -1,8 +1,7 @@
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use kinetics_macro::worker;
-use lambda_http::Error;
-use lambda_runtime::LambdaEvent;
+use lambda_runtime::{LambdaEvent, Error};
 use std::collections::HashMap;
 
 /// A queue worker

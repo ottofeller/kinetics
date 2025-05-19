@@ -1,12 +1,8 @@
 use crate::{environment::Environment, Cron, Endpoint, Worker};
-use syn::{
-    parse::Parse,
-    visit::Visit,
-    {Attribute, ItemFn},
-};
+use syn::{parse::Parse, visit::Visit, Attribute, ItemFn};
 
 /// Represents a function in the source code
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParsedFunction {
     /// Name of the function, parsed from the function definition
     pub rust_function_name: String,
@@ -50,7 +46,7 @@ impl ParsedFunction {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Role {
     Endpoint(Endpoint),
     Cron(Cron),
