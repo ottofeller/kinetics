@@ -1,5 +1,6 @@
 use crate::crat::Crate;
-use kinetics_parser::{Parser, Role};
+use color_eyre::owo_colors::OwoColorize;
+use kinetics_parser::{ParsedFunction, Parser, Role};
 use serde_json::Value;
 use std::collections::HashMap;
 use syn::visit::Visit;
@@ -8,7 +9,7 @@ use tabled::{Table, Tabled};
 use terminal_size::{terminal_size, Height as TerminalHeight, Width as TerminalWidth};
 use walkdir::WalkDir;
 
-#[derive(Tabled)]
+#[derive(Tabled, Clone)]
 struct EndpointRow {
     #[tabled(rename = "Function")]
     function: String,
@@ -18,7 +19,7 @@ struct EndpointRow {
     url_path: String,
 }
 
-#[derive(Tabled)]
+#[derive(Tabled, Clone)]
 struct CronRow {
     #[tabled(rename = "Function")]
     function: String,
@@ -28,7 +29,7 @@ struct CronRow {
     schedule: String,
 }
 
-#[derive(Tabled)]
+#[derive(Tabled, Clone)]
 struct WorkerRow {
     #[tabled(rename = "Function")]
     function: String,
@@ -65,7 +66,123 @@ fn get_terminal_size() -> (usize, usize) {
     (width as usize, height as usize)
 }
 
-pub async fn list(current_crate: &Crate) -> eyre::Result<()> {
+fn verbose(
+    endpoint_rows: &[EndpointRow],
+    cron_rows: &[CronRow],
+    worker_rows: &[WorkerRow],
+    width: usize,
+) {
+    // Verbose output with tables
+    let settings = Settings::default()
+        .with(Width::wrap(width).priority(Priority::max(true)))
+        .with(Width::increase(width));
+
+    if !endpoint_rows.is_empty() {
+        let mut table = Table::new(endpoint_rows.to_vec());
+        table.with(Style::modern()).with(settings.clone());
+        println!("Endpoints\n{}", table);
+    }
+
+    if !cron_rows.is_empty() {
+        let mut table = Table::new(cron_rows.to_vec());
+        table.with(Style::modern()).with(settings.clone());
+        println!("Crons:\n{}", table);
+    }
+
+    if !worker_rows.is_empty() {
+        let mut table = Table::new(worker_rows.to_vec());
+        table.with(Style::modern()).with(settings);
+        println!("Workers:\n{}", table);
+    }
+}
+
+/// Display the function with its main properties
+pub fn display_simple(function: &ParsedFunction, options: &HashMap<&str, String>) {
+    print!(
+        "{} {} {}\n",
+        function.func_name(false).bold(),
+        "from".dimmed(),
+        function.relative_path.dimmed(),
+    );
+
+    match function.role.clone() {
+        Role::Endpoint(params) => {
+            if params.url_path.is_some() {
+                println!(
+                    "{}",
+                    format!(
+                        "https://{}.usekinetics.com{}",
+                        options
+                            .get("parent_crate_name")
+                            .unwrap_or(&String::from("<your crate name>")),
+                        params.url_path.unwrap()
+                    )
+                    .cyan()
+                )
+            }
+        }
+
+        Role::Cron(params) => println!("{} {}", "Scheduled".dimmed(), params.schedule.cyan()),
+
+        Role::Worker(params) => {
+            if params.queue_alias.is_some() {
+                println!(
+                    "{} {}",
+                    "Queue".dimmed(),
+                    params.queue_alias.unwrap().cyan()
+                );
+            }
+        }
+    }
+}
+
+fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
+    let crons: Vec<&ParsedFunction> = functions
+        .iter()
+        .filter(|f| matches!(f.role, Role::Cron(_)))
+        .collect();
+
+    let endpoints: Vec<&ParsedFunction> = functions
+        .iter()
+        .filter(|f| matches!(f.role, Role::Endpoint(_)))
+        .collect();
+
+    let workers: Vec<&ParsedFunction> = functions
+        .iter()
+        .filter(|f| matches!(f.role, Role::Worker(_)))
+        .collect();
+
+    if !endpoints.is_empty() {
+        println!("\n{}\n", "Endpoints".bold().green());
+        let mut options = HashMap::new();
+        options.insert("parent_crate_name", parent_crate.name.clone());
+
+        endpoints.iter().for_each(|f| {
+            display_simple(&f, &options);
+            println!()
+        });
+    }
+
+    if !workers.is_empty() {
+        println!("\n{}\n", "Workers".bold().green());
+
+        workers.iter().for_each(|f| {
+            display_simple(&f, &HashMap::new());
+            println!()
+        });
+    }
+
+    if !crons.is_empty() {
+        println!("\n{}\n", "Crons".bold().green());
+
+        crons.iter().for_each(|f| {
+            display_simple(&f, &HashMap::new());
+            println!()
+        });
+    }
+}
+
+pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let mut parser = Parser::new();
     let domain = format!("https://{}.usekinetics.com", current_crate.name);
 
@@ -85,7 +202,7 @@ pub async fn list(current_crate: &Crate) -> eyre::Result<()> {
     let mut cron_rows = Vec::new();
     let mut worker_rows = Vec::new();
 
-    for parsed_function in parser.functions {
+    for parsed_function in parser.functions.clone() {
         let func_name = parsed_function.func_name(false);
         let func_path = parsed_function.relative_path.clone();
 
@@ -118,26 +235,10 @@ pub async fn list(current_crate: &Crate) -> eyre::Result<()> {
 
     let (width, _) = get_terminal_size();
 
-    let settings = Settings::default()
-        .with(Width::wrap(width).priority(Priority::max(true)))
-        .with(Width::increase(width));
-
-    if !endpoint_rows.is_empty() {
-        let mut table = Table::new(endpoint_rows);
-        table.with(Style::modern()).with(settings.clone());
-        println!("Endpoints:\n{}", table);
-    }
-
-    if !cron_rows.is_empty() {
-        let mut table = Table::new(cron_rows);
-        table.with(Style::modern()).with(settings.clone());
-        println!("Crons:\n{}", table);
-    }
-
-    if !worker_rows.is_empty() {
-        let mut table = Table::new(worker_rows);
-        table.with(Style::modern()).with(settings.clone());
-        println!("Workers:\n{}", table);
+    if is_verbose {
+        verbose(&endpoint_rows, &cron_rows, &worker_rows, width);
+    } else {
+        simple(&parser.functions, current_crate);
     }
 
     Ok(())

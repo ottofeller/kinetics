@@ -4,7 +4,7 @@ use syn::{
     token, Ident, LitStr,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Cron {
     pub name: Option<String>,
     pub schedule: String,

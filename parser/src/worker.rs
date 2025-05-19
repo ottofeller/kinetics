@@ -4,7 +4,7 @@ use syn::{
     token, Ident, LitBool, LitInt, LitStr,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Worker {
     pub name: Option<String>,
     pub queue_alias: Option<String>,

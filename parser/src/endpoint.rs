@@ -4,7 +4,7 @@ use syn::{
     token, Ident, LitStr,
 };
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct Endpoint {
     pub name: Option<String>,
     pub url_path: Option<String>,
