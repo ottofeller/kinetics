@@ -164,7 +164,7 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
     }
 
     if !workers.is_empty() {
-        println!("\n{}\n", "Workers".bold().green());
+        println!("{}\n", "Workers".bold().green());
 
         workers.iter().for_each(|f| {
             display_simple(&f, &HashMap::new());
@@ -173,7 +173,7 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
     }
 
     if !crons.is_empty() {
-        println!("\n{}\n", "Crons".bold().green());
+        println!("{}\n", "Crons".bold().green());
 
         crons.iter().for_each(|f| {
             display_simple(&f, &HashMap::new());
