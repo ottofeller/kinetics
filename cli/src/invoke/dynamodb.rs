@@ -1,10 +1,14 @@
 use crate::error::Error;
+use crate::process::Process;
 use aws_config::BehaviorVersion;
 use aws_sdk_dynamodb::types::{
     AttributeDefinition, KeySchemaElement, KeyType, ScalarAttributeType,
 };
 use eyre::WrapErr;
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    process::{self, Stdio},
+};
 
 const DOCKER_COMPOSE_FILE: &str = r#"
 version: "3.8"
@@ -48,15 +52,19 @@ impl LocalDynamoDB {
         // Config file functionality must ensure that the root dirs are all valid
         let file_path = dest.to_string_lossy();
 
-        let status = std::process::Command::new("docker-compose")
+        let child = process::Command::new("docker-compose")
             .args(&["-f", &file_path, "up", "-d"])
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .inspect_err(|e| log::error!("Error: {}", e))
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
             .wrap_err("Failed to execute docker-compose")?;
 
+        let mut process = Process::new(child);
+        let status = process.log()?;
+
         if !status.success() {
+            process.print_error();
+
             return Err(Error::new(
                 "Failed to start DynamoDB container",
                 Some("Make sure the docker is installed and running."),
@@ -69,10 +77,10 @@ impl LocalDynamoDB {
 
     /// Stop DynamoDB container
     pub fn stop(&self) -> eyre::Result<()> {
-        let status = std::process::Command::new("docker-compose")
+        let status = process::Command::new("docker-compose")
             .args(&["-f", &self.docker_compose_path().to_string_lossy(), "down"])
-            .stderr(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
+            .stderr(Stdio::null())
+            .stdout(Stdio::null())
             .status()
             .inspect_err(|e| log::error!("Error: {}", e))
             .wrap_err("Failed to execute docker-compose")?;
@@ -190,6 +198,6 @@ impl LocalDynamoDB {
 
 impl Drop for LocalDynamoDB {
     fn drop(&mut self) {
-        self.stop().unwrap();
+        let _ = self.stop();
     }
 }
