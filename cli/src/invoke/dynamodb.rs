@@ -63,8 +63,6 @@ impl LocalDynamoDB {
             .spawn()
             .wrap_err("Failed to execute docker-compose")?;
 
-        self.is_started = true;
-
         let mut process = Process::new(child);
         let status = process.log()?;
 
@@ -77,6 +75,8 @@ impl LocalDynamoDB {
             )
             .into());
         }
+
+        self.is_started = true;
 
         Ok(())
     }
