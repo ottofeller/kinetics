@@ -77,6 +77,12 @@ impl LocalDynamoDB {
 
     /// Stop DynamoDB container
     pub fn stop(&self) -> eyre::Result<()> {
+        let config_path = self.docker_compose_path();
+        if !config_path.exists() {
+            // self.start was not called
+            return Ok(());
+        }
+
         let status = process::Command::new("docker-compose")
             .args(&["-f", &self.docker_compose_path().to_string_lossy(), "down"])
             .stderr(Stdio::null())
@@ -198,6 +204,6 @@ impl LocalDynamoDB {
 
 impl Drop for LocalDynamoDB {
     fn drop(&mut self) {
-        let _ = self.stop();
+        self.stop().unwrap();
     }
 }
