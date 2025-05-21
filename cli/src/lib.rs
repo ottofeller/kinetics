@@ -1,4 +1,3 @@
-#![feature(once_cell_try)]
 pub mod build;
 pub mod cli;
 pub mod client;
