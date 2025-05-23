@@ -14,15 +14,15 @@ name = "kinetics"
 path = "src/main.rs"
 
 [dependencies]
-aws-config = "1.6.2"
-aws-sdk-dynamodb = "1.74.0"
+aws-config = "1.6.3"
+aws-sdk-dynamodb = "1.77.0"
 chrono = { version = "0.4.41", features = ["serde"] }
-uuid = { version = "1.16.0", features = ["v4"] }
+uuid = { version = "1.17.0", features = ["v4"] }
 clap = { version = "4.5.38", features = ["derive"] }
 eyre = "0.6.12"
 regex = "1.11.1"
 walkdir = "2.5.0"
-zip = "3.0.0"
+zip = "4.0.0"
 tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
 toml_edit = "0.22.26"
