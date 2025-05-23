@@ -25,19 +25,23 @@ services:
 
 /// Manage local DynamoDB (container and table)
 pub struct LocalDynamoDB {
-    // Path to .kinetics dir
+    /// Path to .kinetics dir
     build_path: PathBuf,
+
+    /// A flag indicating the instanse was started
+    is_started: bool,
 }
 
 impl LocalDynamoDB {
     pub fn new(build_path: &Path) -> Self {
         Self {
             build_path: build_path.to_owned(),
+            is_started: false,
         }
     }
 
     /// Start DynamoDB container
-    pub fn start(&self) -> eyre::Result<()> {
+    pub fn start(&mut self) -> eyre::Result<()> {
         let dest = self.docker_compose_path();
 
         std::fs::write(&dest, DOCKER_COMPOSE_FILE)
@@ -72,11 +76,18 @@ impl LocalDynamoDB {
             .into());
         }
 
+        self.is_started = true;
+
         Ok(())
     }
 
     /// Stop DynamoDB container
     pub fn stop(&self) -> eyre::Result<()> {
+        if !self.is_started {
+            // self.start was not called
+            return Ok(());
+        }
+
         let status = process::Command::new("docker-compose")
             .args(&["-f", &self.docker_compose_path().to_string_lossy(), "down"])
             .stderr(Stdio::null())
@@ -198,6 +209,6 @@ impl LocalDynamoDB {
 
 impl Drop for LocalDynamoDB {
     fn drop(&mut self) {
-        let _ = self.stop();
+        self.stop().unwrap();
     }
 }
