@@ -231,7 +231,7 @@ pub async fn build(functions: &[Function], logger: &Progress) -> eyre::Result<()
                 continue;
             }
 
-            let trim_to = 24;
+            let trim_to = 48;
 
             if line.trim().is_empty() {
                 logger
