@@ -77,9 +77,9 @@ vim Cargo.toml
 kinetics deploy
 ```
 
-Kinetics is currently in ⚠️ **active development** and may contain bugs or result in unexpected behavior. The service is free for the first **100,000 invocations** of your functions, regardless of the type of workload.
-
-If you have any issues, please contact us at support@usekinetics.com.
+> Kinetics is currently in ⚠️ **active development** and may contain bugs or result in unexpected behavior. The service is free for the first **100,000 invocations** of your functions, regardless of the type of workload.
+>
+> If you have any issues, please contact us at support@usekinetics.com.
 
 ## Documentation
 
