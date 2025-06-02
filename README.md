@@ -131,6 +131,7 @@ You can then interact with it like you normally interact with DynamoDB, [example
 
 ## Commands
 
+- `kinetics init` - Init new project from template
 - `kinetics login` - Log in with email
 - `kinetics invoke` - Invoke function locally
 - `kinetics deploy` - Deploy your application

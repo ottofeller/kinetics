@@ -50,13 +50,13 @@ enum Commands {
     /// Destroy your serverless functions
     Destroy {},
 
-    /// Start new Kinetics project
+    /// Start new Kinetics project from template
     Init {
         /// Name of the project to create
         #[arg()]
         name: String,
 
-        // When true the endpoint template will be used
+        /// Cron job template
         #[arg(
             short,
             long,
@@ -65,6 +65,7 @@ enum Commands {
         )]
         cron: bool,
 
+        /// REST API endpoint
         #[arg(
             short,
             long,
@@ -73,6 +74,7 @@ enum Commands {
         )]
         endpoint: bool,
 
+        /// Queue worker
         #[arg(
             short,
             long,
