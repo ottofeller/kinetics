@@ -70,7 +70,8 @@ kinetics list
 # 5. Call the function locally
 kinetics invoke LibEndpoint
 
-# 6. Edit the project name to be unique across all projects deployed to kinetics
+# 6. Edit the project name to be unique across all projects
+# deployed to kinetics
 vim Cargo.toml
 
 # 7. Deploy to the cloud
