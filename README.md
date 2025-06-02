@@ -25,11 +25,11 @@ Check out more examples [here](https://github.com/kinetics-dev/examples). Includ
 
 ## Features
 
-🦀 **Only Rust code required**
+🦀 **Only Rust code**
 
 Just apply attribute macro to your function, and Kinetics will handle the rest. No other tools required.
 
-🚀 **Supports any workload**
+🚀 **Any workload**
 
 Deploy REST API endpoints, queue workers, and cron jobs.
 
@@ -45,18 +45,14 @@ Seamlessly provision KV DB if your workload needs a persistent storage.
 
 Automatically provision secrets from `.env.secrets` file.
 
-📚 **Real time logs**
+📚 **Logs**
 Monitor your functions with just CLI.
 
 🤖 **No infrastructure management**
 
 The infrastructure is provisioned automatically, e.g. a queue for the worker workload.
 
-🌍 **CDN**
-
-REST API endpoints are served through a Content Delivery Network (CDN).
-
-## Try it
+## Getting started
 
 ```bash
 # 1. Install
@@ -65,20 +61,19 @@ cargo install kinetics
 # 2. Login or sign up
 kinetics login <email>
 
-# 3. Apply one of attribute macro
-# E.g. add #[endpoint()] to your function
+# 3. Init a project from template
+kinetics init test; cd test
 
-# 4. Test locally
-# View all resources first to get the full name of your function. Run in the dir with the project.
+# 4. View the name of the function to call locally
 kinetics list
 
-kinetics invoke FullyQualifiedFunctionName \
-  --payload '{"param": "value"}' \
-  --headers '{"Authorization": "Bearer *"}' \
-  --table mytable
+# 5. Call the function locally
+kinetics invoke LibEndpoint
 
-# 5. Deploy
-# Run in the dir of your crate
+# 6. Edit the project name to be unique across all projects deployed to kinetics
+vim Cargo.toml
+
+# 7. Deploy to the cloud
 kinetics deploy
 ```
 
@@ -88,7 +83,7 @@ If you have any issues, please contact us at support@usekinetics.com.
 
 ## Documentation
 
-All configuration can be done through attribute macro parameters, or through modifications to existing `Cargo.toml` file in your project. All types of workloads support environment variables. These can be changed **without redeploying** (this feature is WIP).
+All configuration can be done through attribute macro parameters, or through modifications to `Cargo.toml` file in your project. All types of workloads support environment variables. These can be changed **without redeploying** (this feature is WIP).
 
 #### Endpoint
 
@@ -97,40 +92,29 @@ The following attribute macro parameters are available:
 - `url_path`: The URL path of the endpoint.
 - `environment`: Environment variables.
 
-#### Worker
+[Example](https://github.com/ottofeller/kinetics/blob/main/examples/src/environment.rs).
 
-Attribute macro parameters:
+#### Worker
 
 - `concurrency`: Max number of concurrent workers.
 - `fifo`: Set to true to enable FIFO processing.
 - `environment`: Environment variables.
+- `queue_alias`: The alias of the queue to be created for the worker. Will be added in `queues` hash map.
+
+[Example](https://github.com/ottofeller/kinetics/blob/main/examples/src/basic/worker.rs).
 
 #### Cron
 
-Attribute macro parameters:
-
 - `schedule`: [Schedule expression](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-scheduleexpression).
 - `environment`: Environment variables.
+
+[Example](https://github.com/ottofeller/kinetics/blob/main/examples/src/basic/cron.rs).
 
 #### Secrets
 
 Store secrets in `.env.secrets` file in the root directory of your crate. Kinetics will automatically pick it up and provision to all of your workloads in the second parameter of the function as `HashMap<String, String>`.
 
-Example:
-
-```
-# .env.secrets
-API_KEY=your_api_key_here
-```
-
-```rust
-#[endpoint()]
-pub async fn endpoint(
-    event: Request,
-    secrets: &HashMap<String, String>,
-) -> Result<Response<Body>, Error> {
-    println!("API key: {}", secrets.get("API_KEY").unwrap());
-```
+[Example](https://github.com/ottofeller/kinetics/blob/main/examples/src/secrets.rs).
 
 #### Database
 
@@ -143,33 +127,17 @@ Database is defined in `Cargo.toml`:
 name = "test"
 ```
 
-Connect to the database (we provision AWS DynamoDB) using the name defined in `Cargo.toml`:
-
-```rust
-#[endpoint()]
-pub async fn endpoint(
-    event: Request,
-    secrets: &HashMap<String, String>,
-) -> Result<Response<Body>, Error> {
-    let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-    let client = Client::new(&config);
-
-    client
-        .get_item()
-        .table_name("test")
-        .key("id", AttributeValue::S("id"))
-        .send()
-        .await?;
-```
+You can then interact with it like you normally interact with DynamoDB, [example](https://github.com/ottofeller/kinetics/blob/main/examples/src/database.rs).
 
 ## Commands
 
 - `kinetics login` - Log in with email
 - `kinetics invoke` - Invoke function locally
 - `kinetics deploy` - Deploy your application
-- `kinetics destroy` - Destroy application and all of its resources
+- `kinetics destroy` - Destroy application
+- `kinetics list` – List available resources
 - `kinetics logout` – Log out the current user
-- `kinetics logs` - View application logs _[Coming soon]_
+- `kinetics logs` - View application logs
 
 ## Support & Community
 
