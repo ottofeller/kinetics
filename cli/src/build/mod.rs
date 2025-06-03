@@ -387,21 +387,15 @@ fn deps(
         doc["dependencies"]["reqwest"]
             .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
             .as_table_mut()
-            .map(|t| t.insert("version", toml_edit::value("0.12.15")));
-    }
-
-    if (matches!(parsed_function.role, Role::Endpoint(_)) && is_local) {
-        if let Some(reqwest) = doc["dependencies"]["reqwest"]
-            .or_insert(toml_edit::Table::new().into())
-            .as_table_mut()
-        {
-            reqwest.insert("version", toml_edit::value("0.12.15"));
-            reqwest.insert("default-features", toml_edit::value(false));
-            reqwest.insert(
-                "features",
-                toml_edit::Array::from_iter(["rustls-tls"]).into(),
-            );
-        };
+            .map(|t| {
+                t.insert("version", toml_edit::value("0.12.15"));
+                t.insert("default-features", toml_edit::value(false));
+                t.insert(
+                    "features",
+                    toml_edit::Array::from_iter(["rustls-tls"]).into(),
+                );
+                t
+            });
     }
 
     doc["dependencies"]["aws_lambda_events"]
