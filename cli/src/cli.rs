@@ -34,11 +34,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Build your serverless functions
-    Build {
-        /// Maximum number of parallel concurrent builds
-        #[arg(short, long, default_value_t = 6)]
-        max_concurrency: usize,
-    },
+    Build {},
 
     /// Deploy your serverless functions to the cloud
     Deploy {
@@ -190,9 +186,8 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         .install()?;
 
     match &cli.command {
-        Some(Commands::Build { max_concurrency }) => {
+        Some(Commands::Build {}) => {
             Pipeline::builder()
-                .set_max_concurrent(*max_concurrency)
                 .with_deploy_enabled(false)
                 .set_crat(Crate::from_current_dir()?)
                 .build()
