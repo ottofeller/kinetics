@@ -32,9 +32,6 @@ impl Pipeline {
             );
         }
 
-        // Define maximum number of parallel builds
-        let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
-
         let start_time = Instant::now();
 
         let pipeline_progress = PipelineProgress::new(
@@ -60,6 +57,9 @@ impl Pipeline {
 
             return Ok(());
         }
+
+        // Define maximum number of parallel bundling jobs
+        let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
 
         let handles = functions.into_iter().map(|mut function| {
             let client = client.clone();
