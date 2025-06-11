@@ -398,6 +398,21 @@ fn deps(
             });
     }
 
+    match parsed_function.role {
+        Role::Cron(_) | Role::Worker(_) => {
+            doc["dependencies"]["lambda_runtime"]
+                .or_insert(toml_edit::Table::new().into())
+                .as_table_mut()
+                .map(|t| t.insert("version", toml_edit::value("0.13.0")));
+        }
+        Role::Endpoint(_) => {
+            doc["dependencies"]["lambda_http"]
+                .or_insert(toml_edit::Table::new().into())
+                .as_table_mut()
+                .map(|t| t.insert("version", toml_edit::value("0.14.0")));
+        }
+    };
+
     doc["dependencies"]["aws_lambda_events"]
         .or_insert(toml_edit::Table::new().into())
         .as_table_mut()
