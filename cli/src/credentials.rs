@@ -26,8 +26,16 @@ impl Credentials {
                     let default =
                         json!({ "email": "", "token": "", "expiresAt": "2000-01-01T00:00:00Z" })
                             .to_string();
+                    if let Some(dir) = path.parent() {
+                        if !dir.exists() {
+                            std::fs::create_dir_all(dir).wrap_err(format!(
+                                "Failed to create dir \"{:?}\" to store credentail file",
+                                dir
+                            ))?;
+                        }
+                    };
 
-                    std::fs::write(path, default.clone())?;
+                    std::fs::write(path, &default)?;
                     eyre::Ok(default)
                 })
                 .unwrap_or_default(),
