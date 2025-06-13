@@ -3,7 +3,7 @@ use crate::deploy::DeployConfig;
 use crate::error::Error;
 use crate::function::Function;
 use crate::secret::Secret;
-use eyre::{ContextCompat, Ok, OptionExt, WrapErr};
+use eyre::{ContextCompat, Ok, WrapErr};
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -77,9 +77,6 @@ impl Crate {
         pub struct BodyFunction {
             pub name: String,
 
-            // Encrypted name of the zip file with the build in S3 bucket
-            pub s3key_encrypted: String,
-
             // Full Cargo.toml
             pub toml: String,
         }
@@ -101,7 +98,6 @@ impl Crate {
 
                 Ok(Self {
                     name: f.name.clone(),
-                    s3key_encrypted: f.s3key_encrypted().ok_or_eyre("No S3 key provided")?,
                     toml: toml::to_string(&manifest)?,
                 })
             }

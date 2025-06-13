@@ -1,6 +1,6 @@
 [package]
 name = "kinetics-parser"
-version = "0.3.4"
+version = "0.4.0"
 edition = "2021"
 description = "A parser used for Kinetics project."
 license = "Apache-2.0 OR MIT"
@@ -10,4 +10,4 @@ categories = ["parsing"]
 
 [dependencies]
 syn = { version = "2.0", features = ["full", "visit"] }
-color-eyre = "0.6.4"
+color-eyre = "0.6.5"

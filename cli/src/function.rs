@@ -3,6 +3,7 @@ use crate::client::Client;
 use crate::crat::Crate;
 use crate::deploy::DeployConfig;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
+use serde_json::json;
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -22,7 +23,6 @@ pub enum Type {
 pub struct Function {
     pub id: String,
     pub name: String,
-    pub s3key_encrypted: Option<String>,
 
     // Original parent crate
     pub crat: Crate,
@@ -34,7 +34,6 @@ impl Function {
             id: uuid::Uuid::new_v4().into(),
             name: name.into(),
             crat: Crate::new(path.to_path_buf())?,
-            s3key_encrypted: None,
         })
     }
 
@@ -45,14 +44,6 @@ impl Function {
             .find(|f| name.eq(&f.name))
             .wrap_err("No function with such name")
             .cloned()
-    }
-
-    pub fn set_s3key_encrypted(&mut self, s3key_encrypted: String) {
-        self.s3key_encrypted = Some(s3key_encrypted);
-    }
-
-    pub fn s3key_encrypted(&self) -> Option<String> {
-        self.s3key_encrypted.clone()
     }
 
     fn meta(&self) -> eyre::Result<toml::Value> {
@@ -134,13 +125,13 @@ impl Function {
         #[derive(serde::Deserialize, Debug)]
         struct PreSignedUrl {
             url: String,
-            s3key_encrypted: String,
         }
 
         let path = self.bundle_path();
 
         let presigned = client
             .post("/upload")
+            .body(json!({"name": self.name}).to_string())
             .send()
             .await?
             .json::<PreSignedUrl>()
@@ -155,7 +146,6 @@ impl Function {
             .await?
             .error_for_status()?;
 
-        self.set_s3key_encrypted(presigned.s3key_encrypted);
         Ok(())
     }
 

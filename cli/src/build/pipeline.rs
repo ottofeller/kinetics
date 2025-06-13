@@ -22,7 +22,15 @@ impl Pipeline {
         PipelineBuilder::default()
     }
 
-    pub async fn run(self, functions: Vec<Function>) -> eyre::Result<()> {
+    pub async fn run(
+        self,
+
+        // All functions are sent to server, so that related resources are always prepared
+        all_functions: Vec<Function>,
+
+        // Only selected functions are built and uploaded
+        deploy_functions: Vec<Function>,
+    ) -> eyre::Result<()> {
         if self.deploy_config.is_some() {
             println!(
                 "    {} `{}` {}",
@@ -35,7 +43,7 @@ impl Pipeline {
         let start_time = Instant::now();
 
         let pipeline_progress = PipelineProgress::new(
-            functions.len() as u64 * if self.is_deploy_enabled { 2 } else { 0 },
+            deploy_functions.len() as u64 * if self.is_deploy_enabled { 2 } else { 0 },
             self.is_deploy_enabled,
         );
 
@@ -45,7 +53,11 @@ impl Pipeline {
             None
         };
 
-        build(&functions, &pipeline_progress.new_progress(&self.crat.name)).await?;
+        build(
+            &deploy_functions,
+            &pipeline_progress.new_progress(&self.crat.name),
+        )
+        .await?;
 
         if !self.is_deploy_enabled {
             println!(
@@ -61,7 +73,7 @@ impl Pipeline {
         // Define maximum number of parallel bundling jobs
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
 
-        let handles = functions.into_iter().map(|mut function| {
+        let handles = deploy_functions.into_iter().map(|mut function| {
             let client = client.clone();
             let sem = Arc::clone(&semaphore);
             let deploy_config_clone = self.deploy_config.clone();
@@ -115,8 +127,7 @@ impl Pipeline {
             })
             .collect();
 
-        let (mut ok_results, errors): (Vec<_>, Vec<_>) =
-            results.into_iter().partition(Result::is_ok);
+        let (.., errors): (Vec<_>, Vec<_>) = results.into_iter().partition(Result::is_ok);
 
         if !errors.is_empty() {
             return Err(eyre!(
@@ -132,16 +143,15 @@ impl Pipeline {
 
         deploying_progress.log_stage("Provisioning");
 
-        let functions: Vec<_> = ok_results
-            .drain(..)
-            // It's safe to unwrap here because the errors have already been caught
-            .map(Result::unwrap)
-            .filter(|f| !f.is_local().unwrap())
-            .collect();
-
         let deploy = self
             .crat
-            .deploy(&functions, self.deploy_config.as_deref())
+            .deploy(
+                &all_functions
+                    .into_iter()
+                    .filter(|f| !f.is_local().unwrap())
+                    .collect::<Vec<Function>>(),
+                self.deploy_config.as_deref(),
+            )
             .await;
 
         if deploy.is_err() {
