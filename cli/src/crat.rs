@@ -101,7 +101,7 @@ impl Crate {
 
                 Ok(Self {
                     name: f.name.clone(),
-                    s3key_encrypted: f.s3key_encrypted().ok_or_eyre("No S3 key provided")?,
+                    s3key_encrypted: f.s3key_encrypted().unwrap_or_default(),
                     toml: toml::to_string(&manifest)?,
                 })
             }

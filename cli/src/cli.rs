@@ -178,13 +178,47 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
 
     let crat = Crate::from_current_dir()?;
 
-    // Functions to deploy
-    let functions: Vec<Function> =
+    // All functions to add to the template
+    let all_functions: Vec<Function> =
         prepare_crates(PathBuf::from(build_config()?.build_path), crat.clone())?
             .into_iter()
             // Avoid building functions supposed for local invocations only
             .filter(|f| !f.is_local().unwrap())
             .collect();
+
+    // Functions to deploy
+    let mut deploy_functions: Vec<Function> = all_functions.clone();
+
+    // Filter functions based on --functions parameter if provided
+    let build_names = if let Some(Commands::Build { functions: names }) = &cli.command {
+        names
+    } else {
+        &None::<String>
+    };
+
+    let deploy_names = if let Some(Commands::Deploy {
+        functions: names, ..
+    }) = &cli.command
+    {
+        names
+    } else {
+        &None::<String>
+    };
+
+    if build_names.is_some() || deploy_names.is_some() {
+        let names: Vec<String> = build_names
+            .clone()
+            .unwrap_or(deploy_names.clone().unwrap_or_default())
+            .split(',')
+            .map(|s| s.trim().into())
+            .collect();
+
+        deploy_functions = all_functions
+            .clone()
+            .into_iter()
+            .filter(|f| names.contains(&f.name.as_str().to_string()))
+            .collect();
+    }
 
     color_eyre::config::HookBuilder::default()
         .display_location_section(false)
@@ -199,7 +233,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 .set_crat(Crate::from_current_dir()?)
                 .build()
                 .wrap_err("Failed to build pipeline")?
-                .run(functions)
+                .run(all_functions.clone(), deploy_functions.clone())
                 .await?;
 
             Ok(())
@@ -214,7 +248,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 .set_crat(Crate::from_current_dir()?)
                 .build()
                 .wrap_err("Failed to build pipeline")?
-                .run(functions)
+                .run(all_functions, deploy_functions)
                 .await?;
 
             Ok(())
@@ -233,7 +267,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             table,
         }) => {
             invoke(
-                &Function::find_by_name(&functions, name)?,
+                &Function::find_by_name(&all_functions, name)?,
                 &crat,
                 payload,
                 headers,
@@ -244,11 +278,11 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             Ok(())
         }
         Some(Commands::Logs { name }) => {
-            logs(&Function::find_by_name(&functions, name)?, &crat).await?;
+            logs(&Function::find_by_name(&all_functions, name)?, &crat).await?;
             Ok(())
         }
         Some(Commands::List { verbose }) => {
-            if functions.is_empty() {
+            if all_functions.is_empty() {
                 println!("{}", console::style("No functions found").yellow());
             } else {
                 list(&crat, *verbose).await?;
