@@ -74,8 +74,11 @@ kinetics invoke LibEndpoint
 # deployed to kinetics
 vim Cargo.toml
 
-# 7. Deploy to the cloud
+# 7. Deploy the entire project to the cloud
 kinetics deploy
+
+# 8. Alternatively you can deploy only selected functions
+kinetics deploy --functions BasicCronCron,BasicWorkerWorker
 ```
 
 > Kinetics is currently in ⚠️ **active development** and may contain bugs or result in unexpected behavior. The service is free for the first **100,000 invocations** of your functions, regardless of the type of workload.
