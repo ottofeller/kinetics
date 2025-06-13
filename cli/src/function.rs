@@ -3,6 +3,7 @@ use crate::client::Client;
 use crate::crat::Crate;
 use crate::deploy::DeployConfig;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
+use serde_json::json;
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -141,6 +142,7 @@ impl Function {
 
         let presigned = client
             .post("/upload")
+            .body(json!({"name": self.name}).to_string())
             .send()
             .await?
             .json::<PreSignedUrl>()
