@@ -34,13 +34,20 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Build your serverless functions
-    Build {},
+    Build {
+        /// Comma-separated list of function names to build (if not specified, all functions will be built)
+        #[arg(short, long)]
+        functions: Option<String>,
+    },
 
     /// Deploy your serverless functions to the cloud
     Deploy {
         /// Maximum number of parallel concurrent builds
         #[arg(short, long, default_value_t = 6)]
         max_concurrency: usize,
+
+        #[arg(short, long)]
+        functions: Option<String>,
     },
 
     /// Destroy your serverless functions
@@ -186,7 +193,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         .install()?;
 
     match &cli.command {
-        Some(Commands::Build {}) => {
+        Some(Commands::Build { .. }) => {
             Pipeline::builder()
                 .with_deploy_enabled(false)
                 .set_crat(Crate::from_current_dir()?)
@@ -197,7 +204,9 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
 
             Ok(())
         }
-        Some(Commands::Deploy { max_concurrency }) => {
+        Some(Commands::Deploy {
+            max_concurrency, ..
+        }) => {
             Pipeline::builder()
                 .set_max_concurrent(*max_concurrency)
                 .with_deploy_enabled(true)
