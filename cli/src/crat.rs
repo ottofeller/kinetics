@@ -77,9 +77,6 @@ impl Crate {
         pub struct BodyFunction {
             pub name: String,
 
-            // Encrypted name of the zip file with the build in S3 bucket
-            pub s3key_encrypted: String,
-
             // Full Cargo.toml
             pub toml: String,
         }
@@ -101,7 +98,6 @@ impl Crate {
 
                 Ok(Self {
                     name: f.name.clone(),
-                    s3key_encrypted: f.s3key_encrypted().unwrap_or_default(),
                     toml: toml::to_string(&manifest)?,
                 })
             }
