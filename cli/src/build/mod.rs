@@ -7,7 +7,7 @@ use eyre::{Context, OptionExt};
 use filehash::{FileHash, CHECKSUMS_FILENAME};
 use kinetics_parser::{ParsedFunction, Parser, Role};
 use regex::Regex;
-use std::fs::{self};
+use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 use syn::visit::Visit;
@@ -191,6 +191,22 @@ fn clear_dir(dst: &Path, checksum: &FileHash) -> eyre::Result<()> {
     Ok(())
 }
 
+/// Attempt kinetics macro replacements in .rs files.
+fn remove_kinetics_macro(content: &str) -> eyre::Result<String> {
+    let re_endpoint = Regex::new(r"(?m)^\s*#\s*\[\s*endpoint[^]]*]\s*$")?;
+    let re_cron = Regex::new(r"(?m)^\s*#\s*\[\s*cron[^]]*]\s*$")?;
+    let re_worker = Regex::new(r"(?m)^\s*#\s*\[\s*worker[^]]*]\s*$")?;
+
+    let re_import = Regex::new(
+        r"(?m)^\s*use\s+kinetics_macro(\s*::\s*(\w+|\{\s*\w+(\s*,\s*\w+)*\s*}))?\s*;\s*$",
+    )?;
+
+    let mut new_content = re_endpoint.replace_all(&content, "").to_string();
+    new_content = re_worker.replace_all(&new_content, "").to_string();
+    new_content = re_cron.replace_all(&new_content, "").to_string();
+    Ok(re_import.replace_all(&new_content, "").into_owned())
+}
+
 /// Create lib.rs file for the cloned crate.
 /// The file is used as an export point for all the functions.
 fn create_lib(
@@ -201,37 +217,59 @@ fn create_lib(
 ) -> eyre::Result<()> {
     let relative_lib_path = Path::new("src").join("lib.rs");
     let src_lib_rs_path = src.join(&relative_lib_path);
-    // Leave an existing lib.rs as is.
-    if src_lib_rs_path.exists() {
-        return Ok(());
-    }
 
-    let module_definitions = functions
-        .iter()
-        .filter_map(|f| {
-            // Take the first path component from each module in the src folder, and export it.
-            match Path::new(&f.relative_path)
-                .strip_prefix("src")
-                .ok()?
-                .with_extension("")
-                .components()
-                .next()
-            {
-                Some(Component::Normal(comp)) => {
-                    comp.to_str().map(|module| format!("pub mod {module};\n"))
-                }
-                _ => None,
+    let modules = functions.iter().filter_map(|f| {
+        // Take the first path component from each module in the src folder, and export it.
+        match Path::new(&f.relative_path)
+            .strip_prefix("src")
+            .ok()?
+            .with_extension("")
+            .components()
+            .next()
+        {
+            Some(Component::Normal(comp)) => comp.to_str().map(String::from),
+            _ => None,
+        }
+    });
+
+    let lib = if src_lib_rs_path.exists() {
+        // Make sure all modules with functions are exported.
+        let mut lib = fs::read_to_string(src_lib_rs_path).wrap_err("Failed to read src/lib.rs")?;
+
+        for module in modules {
+            if module != "lib" {
+                let re_module_pub = Regex::new(&format!(r"(?m)^\s*pub\s*mod\s+{module};$"))?;
+                if re_module_pub.find(&lib).is_some() {
+                    // Leave already public modules as is.
+                    continue;
+                };
+
+                let re_module = Regex::new(&format!(r"(?m)^\s*mod\s+{module};$"))?;
+                let export = format!("pub mod {module};");
+                lib = if re_module.find(&lib).is_some() {
+                    // Replace existing module definition with a public one
+                    re_module.replace(&lib, export).to_string()
+                } else {
+                    // Add missing module exports.
+                    format!("{export}\n{lib}")
+                };
             }
-        })
-        .collect::<String>();
+        }
+
+        remove_kinetics_macro(&lib)?
+    } else {
+        // Create lib.rs file with required exports.
+        modules
+            .map(|module| format!("pub mod {module};\n"))
+            .collect::<String>()
+    };
 
     if checksum.update(
         relative_lib_path.to_path_buf(),
-        &FileHash::hash_from_bytes(&module_definitions)
+        &FileHash::hash_from_bytes(&lib)
             .wrap_err("Failed to calculate hash from bytes of src/lib.rs")?,
     ) {
-        fs::write(dst.join(&relative_lib_path), module_definitions)
-            .wrap_err("Failed to write src/lib.rs")?;
+        fs::write(dst.join(&relative_lib_path), lib).wrap_err("Failed to write src/lib.rs")?;
     }
 
     Ok(())
@@ -250,7 +288,8 @@ fn create_lambda_bin(
     checksum: &mut FileHash,
 ) -> eyre::Result<()> {
     let function_name = parsed_function.func_name(is_local);
-    let lambda_path = dst.join(bin_dir).join(format!("{}.rs", function_name));
+    let lambda_path_local = bin_dir.join(format!("{}.rs", function_name));
+    let lambda_path = dst.join(&lambda_path_local);
 
     let fn_import = import_statement(
         &parsed_function.relative_path,
@@ -273,11 +312,10 @@ fn create_lambda_bin(
 
     let item: syn::File = syn::parse_str(&main_code)?;
     let lambda_content = prettyplease::unparse(&item);
-    if checksum.update(
-        lambda_path.strip_prefix(dst)?.to_path_buf(),
-        &FileHash::hash_from_bytes(&lambda_content)
-            .wrap_err("Failed to calculate hash for bytes of main.rs")?,
-    ) {
+    let content_hash = FileHash::hash_from_bytes(&lambda_content).wrap_err(format!(
+        "Failed to calculate hash for bytes of {lambda_path_local:?}"
+    ))?;
+    if checksum.update(lambda_path_local, &content_hash) {
         fs::write(&lambda_path, &lambda_content)
             .wrap_err(format!("Failed to write {lambda_path:?}"))?;
     }
@@ -458,18 +496,19 @@ fn import_statement(
     let relative_path =
         PathBuf::from_str(relative_path.strip_prefix("src/").unwrap_or(relative_path))?;
 
-    let mut module_path_parts = Vec::new();
+    let mut module_path_parts = relative_path
+        .components()
+        .filter_map(|component| {
+            if let std::path::Component::Normal(os_str) = component {
+                os_str.to_str()
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<&str>>();
 
-    for component in relative_path.components() {
-        if let std::path::Component::Normal(os_str) = component {
-            let s = os_str.to_str().unwrap();
-            module_path_parts.push(s);
-        }
-    }
-
-    // Handle lib.rs, main.rs (root module)
-    let is_root_module =
-        relative_path == Path::new("lib.rs") || relative_path == Path::new("main.rs");
+    // Handle lib.rs (root module)
+    let is_root_module = relative_path == Path::new("lib.rs");
 
     let module_path = if is_root_module {
         "".to_string()
@@ -486,7 +525,7 @@ fn import_statement(
         module_path_parts.join("::")
     };
 
-    // If module path is empty then the function is locate in the main.rs file
+    // If module path is empty then the function is located in the lib.rs file
     let import_statement = if module_path.is_empty() {
         format!("use {crate_name}::{rust_name};")
     } else {
@@ -513,28 +552,17 @@ fn clean_copy(
     }
 
     // Attempt kinetics macro replacements in .rs files.
-    let re_endpoint = Regex::new(r"(?m)^\s*#\s*\[\s*endpoint[^]]*]\s*$")?;
-    let re_cron = Regex::new(r"(?m)^\s*#\s*\[\s*cron[^]]*]\s*$")?;
-    let re_worker = Regex::new(r"(?m)^\s*#\s*\[\s*worker[^]]*]\s*$")?;
-
-    let re_import = Regex::new(
-        r"(?m)^\s*use\s+kinetics_macro(\s*::\s*(\w+|\{\s*\w+(\s*,\s*\w+)*\s*}))?\s*;\s*$",
+    let content = remove_kinetics_macro(
+        &fs::read_to_string(src_path_full)
+            .wrap_err(format!("Failed to read file {src_path_full:?}"))?,
     )?;
-
-    let mut content = fs::read_to_string(src_path_full)
-        .wrap_err(format!("Failed to read file {src_path_full:?}"))?;
-
-    content = re_endpoint.replace_all(&content, "").to_string();
-    content = re_worker.replace_all(&content, "").to_string();
-    content = re_cron.replace_all(&content, "").to_string();
-    let new_content = re_import.replace_all(&content, "").into_owned();
     if checksum.update(
         file_path_relative.to_path_buf(),
-        &FileHash::hash_from_bytes(&new_content).wrap_err_with(|| {
+        &FileHash::hash_from_bytes(&content).wrap_err_with(|| {
             format!("Failed to calculate hash from bytes of {src_path_full:?}")
         })?,
     ) {
-        fs::write(&dst_path_full, &new_content)
+        fs::write(&dst_path_full, &content)
             .wrap_err_with(|| format!("Failed to write {dst_path_full:?}"))?;
     }
 
