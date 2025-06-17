@@ -246,13 +246,8 @@ fn create_lib(
 
                 let re_module = Regex::new(&format!(r"(?m)^\s*mod\s+{module};$"))?;
                 let export = format!("pub mod {module};");
-                lib = if re_module.find(&lib).is_some() {
-                    // Replace existing module definition with a public one
-                    re_module.replace(&lib, export).to_string()
-                } else {
-                    // Add missing module exports.
-                    format!("{export}\n{lib}")
-                };
+                // Delete any existing declaration and append new one
+                lib = format!("{export}\n{}", re_module.replace(&lib, ""));
             }
         }
 
