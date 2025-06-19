@@ -201,7 +201,7 @@ fn remove_kinetics_macro(content: &str) -> eyre::Result<String> {
         r"(?m)^\s*use\s+kinetics_macro(\s*::\s*(\w+|\{\s*\w+(\s*,\s*\w+)*\s*}))?\s*;\s*$",
     )?;
 
-    let mut new_content = re_endpoint.replace_all(&content, "").to_string();
+    let mut new_content = re_endpoint.replace_all(content, "").to_string();
     new_content = re_worker.replace_all(&new_content, "").to_string();
     new_content = re_cron.replace_all(&new_content, "").to_string();
     Ok(re_import.replace_all(&new_content, "").into_owned())

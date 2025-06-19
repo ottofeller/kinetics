@@ -98,8 +98,8 @@ fn verbose(
 
 /// Display the function with its main properties
 pub fn display_simple(function: &ParsedFunction, options: &HashMap<&str, String>) {
-    print!(
-        "{} {} {}\n",
+    println!(
+        "{} {} {}",
         function.func_name(false).bold(),
         "from".dimmed(),
         function.relative_path.dimmed(),
@@ -158,7 +158,7 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
         options.insert("parent_crate_name", parent_crate.name.clone());
 
         endpoints.iter().for_each(|f| {
-            display_simple(&f, &options);
+            display_simple(f, &options);
             println!()
         });
     }
@@ -167,7 +167,7 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
         println!("{}\n", "Workers".bold().green());
 
         workers.iter().for_each(|f| {
-            display_simple(&f, &HashMap::new());
+            display_simple(f, &HashMap::new());
             println!()
         });
     }
@@ -176,7 +176,7 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
         println!("{}\n", "Crons".bold().green());
 
         crons.iter().for_each(|f| {
-            display_simple(&f, &HashMap::new());
+            display_simple(f, &HashMap::new());
             println!()
         });
     }

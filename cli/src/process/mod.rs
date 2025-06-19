@@ -33,7 +33,7 @@ impl Process {
         lock: Arc<Mutex<Vec<String>>>,
     ) -> std::thread::JoinHandle<()> {
         std::thread::spawn(move || {
-            for line in reader.lines().flatten() {
+            for line in reader.lines().map_while(Result::ok) {
                 // Store the line for later output
                 if let Ok(mut lines) = lock.lock() {
                     lines.push(line.clone());
