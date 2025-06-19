@@ -57,7 +57,7 @@ impl LocalDynamoDB {
         let file_path = dest.to_string_lossy();
 
         let child = process::Command::new("docker-compose")
-            .args(&["-f", &file_path, "up", "-d"])
+            .args(["-f", &file_path, "up", "-d"])
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -89,7 +89,7 @@ impl LocalDynamoDB {
         }
 
         let status = process::Command::new("docker-compose")
-            .args(&["-f", &self.docker_compose_path().to_string_lossy(), "down"])
+            .args(["-f", &self.docker_compose_path().to_string_lossy(), "down"])
             .stderr(Stdio::null())
             .stdout(Stdio::null())
             .status()

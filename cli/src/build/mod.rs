@@ -201,7 +201,7 @@ fn remove_kinetics_macro(content: &str) -> eyre::Result<String> {
         r"(?m)^\s*use\s+kinetics_macro(\s*::\s*(\w+|\{\s*\w+(\s*,\s*\w+)*\s*}))?\s*;\s*$",
     )?;
 
-    let mut new_content = re_endpoint.replace_all(&content, "").to_string();
+    let mut new_content = re_endpoint.replace_all(content, "").to_string();
     new_content = re_worker.replace_all(&new_content, "").to_string();
     new_content = re_cron.replace_all(&new_content, "").to_string();
     Ok(re_import.replace_all(&new_content, "").into_owned())
@@ -412,23 +412,24 @@ fn deps(
     if matches!(parsed_function.role, Role::Cron(_) | Role::Worker(_))
         || (matches!(parsed_function.role, Role::Endpoint(_)) && is_local)
     {
-        doc["dependencies"]["serde_json"]
+        if let Some(serde_json) = doc["dependencies"]["serde_json"]
             .or_insert(toml_edit::Table::new().into())
             .as_table_mut()
-            .map(|t| t.insert("version", toml_edit::value("1.0.140")));
+        {
+            serde_json.insert("version", toml_edit::value("1.0.140"));
+        }
 
-        doc["dependencies"]["reqwest"]
+        if let Some(reqwest) = doc["dependencies"]["reqwest"]
             .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
             .as_table_mut()
-            .map(|t| {
-                t.insert("version", toml_edit::value("0.12.15"));
-                t.insert("default-features", toml_edit::value(false));
-                t.insert(
-                    "features",
-                    toml_edit::Array::from_iter(["rustls-tls"]).into(),
-                );
-                t
-            });
+        {
+            reqwest.insert("version", toml_edit::value("0.12.15"));
+            reqwest.insert("default-features", toml_edit::value(false));
+            reqwest.insert(
+                "features",
+                toml_edit::Array::from_iter(["rustls-tls"]).into(),
+            );
+        }
     }
 
     match parsed_function.role {
