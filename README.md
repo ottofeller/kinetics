@@ -1,6 +1,6 @@
 # Kinetics
 
-Kinetics is a hosting platform for Rust applications that allows you to deploy all types of workloads by writing **only Rust code**.
+Kinetics is a hosting platform for Rust applications that allows deploying all types of workloads by writing **only Rust code**.
 
 ```rust
 #[endpoint(
