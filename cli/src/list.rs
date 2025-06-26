@@ -184,7 +184,6 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
 
 pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let mut parser = Parser::new();
-    let domain = format!("https://{}.usekinetics.com", current_crate.name);
 
     for entry in WalkDir::new(&current_crate.path)
         .into_iter()
@@ -197,6 +196,13 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
         parser.set_relative_path(entry.path().strip_prefix(&current_crate.path)?.to_str());
         parser.visit_file(&syntax);
     }
+
+    if !is_verbose {
+        simple(&parser.functions, current_crate);
+        return Ok(());
+    }
+
+    let domain = format!("https://{}.usekinetics.com", current_crate.name);
 
     let mut endpoint_rows = Vec::new();
     let mut cron_rows = Vec::new();
@@ -235,11 +241,7 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
 
     let (width, _) = get_terminal_size();
 
-    if is_verbose {
-        verbose(&endpoint_rows, &cron_rows, &worker_rows, width);
-    } else {
-        simple(&parser.functions, current_crate);
-    }
+    verbose(&endpoint_rows, &cron_rows, &worker_rows, width);
 
     Ok(())
 }
