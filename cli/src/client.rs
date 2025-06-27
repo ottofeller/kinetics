@@ -18,7 +18,7 @@ impl Client {
             });
         }
 
-        let credentials = Credentials::new(&Path::new(&build_config()?.credentials_path))?;
+        let credentials = Credentials::new(Path::new(&build_config()?.credentials_path))?;
 
         // If credentials expired — request to re-login
         if credentials.expires_at.timestamp() <= Utc::now().timestamp() {

@@ -29,7 +29,7 @@ pub async fn logout() -> eyre::Result<()> {
     }
 
     if path.exists() {
-        std::fs::remove_file(&path)?;
+        std::fs::remove_file(path)?;
     }
 
     Ok(())
