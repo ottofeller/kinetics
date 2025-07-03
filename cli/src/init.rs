@@ -119,7 +119,7 @@ pub async fn init(name: &str, function_type: FunctionType) -> eyre::Result<()> {
 
     // Move all files from extracted directory to project directory using bash command
     let status = Command::new("bash")
-        .args(&[
+        .args([
             "-c",
             &format!(
                 "mv {}/* {}",
@@ -204,7 +204,7 @@ fn rename(project_dir: &Path, name: &str) -> eyre::Result<()> {
 }
 
 /// Unpack gzip bytes received from GitHub
-async fn unpack(response: Response, project_dir: &PathBuf) -> eyre::Result<()> {
+async fn unpack(response: Response, project_dir: &Path) -> eyre::Result<()> {
     let archive_bytes = response
         .bytes()
         .await
@@ -225,7 +225,7 @@ async fn unpack(response: Response, project_dir: &PathBuf) -> eyre::Result<()> {
 
     // Extract the archive using the system tar command
     let status = Command::new("tar")
-        .args(&[
+        .args([
             "xzf",
             &temp_file_path.to_string_lossy(),
             "-C",
@@ -249,5 +249,5 @@ async fn unpack(response: Response, project_dir: &PathBuf) -> eyre::Result<()> {
 fn halt(message: &str, details: &str, dir: PathBuf) -> eyre::Result<()> {
     print!("\r\x1B[K");
     fs::remove_dir_all(&dir).unwrap_or(());
-    return Err(Error::new(message, Some(details)).into());
+    Err(Error::new(message, Some(details)).into())
 }
