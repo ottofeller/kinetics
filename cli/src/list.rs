@@ -1,6 +1,10 @@
+use crate::client::Client;
 use crate::crat::Crate;
+use crate::error::Error;
 use color_eyre::owo_colors::OwoColorize;
+use eyre::Context as _;
 use kinetics_parser::{ParsedFunction, Parser, Role};
+use reqwest::StatusCode;
 use serde_json::Value;
 use std::collections::HashMap;
 use syn::visit::Visit;
@@ -17,6 +21,8 @@ struct EndpointRow {
     environment: String,
     #[tabled(rename = "Url Path")]
     url_path: String,
+    #[tabled(rename = "Updated")]
+    last_modified: String,
 }
 
 #[derive(Tabled, Clone)]
@@ -27,6 +33,8 @@ struct CronRow {
     environment: String,
     #[tabled(rename = "Schedule")]
     schedule: String,
+    #[tabled(rename = "Updated")]
+    last_modified: String,
 }
 
 #[derive(Tabled, Clone)]
@@ -41,6 +49,8 @@ struct WorkerRow {
     concurrency: String,
     #[tabled(rename = "Queue Alias")]
     queue_alias: String,
+    #[tabled(rename = "Updated")]
+    last_modified: String,
 }
 
 fn format_environment(json_str: &str) -> String {
@@ -182,6 +192,51 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
     }
 }
 
+pub async fn status(
+    client: &Client,
+    crate_name: &str,
+    function_name: &str,
+) -> eyre::Result<Option<String>> {
+    #[derive(serde::Serialize)]
+    struct JsonBody {
+        crate_name: String,
+        function_name: String,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct JsonResponse {
+        /// The date and time that the function was last updated
+        /// in ISO-8601 format (YYYY-MM-DDThh:mm:ss.sTZD).
+        last_modified: Option<String>,
+    }
+
+    let result = client
+        .post("/function/status")
+        .json(&serde_json::json!(JsonBody {
+            crate_name: crate_name.into(),
+            function_name: function_name.into(),
+        }))
+        .send()
+        .await
+        .inspect_err(|err| log::error!("{err:?}"))
+        .wrap_err(Error::new(
+            "Network request failed",
+            Some("Try again in a few seconds."),
+        ))?;
+
+    if result.status() != StatusCode::OK {
+        return Err(Error::new(
+            &format!("Function status request failed for {crate_name}/{function_name}"),
+            Some("Try again in a few seconds."),
+        )
+        .into());
+    }
+
+    let status: JsonResponse = result.json().await.wrap_err("Failed to parse response")?;
+
+    Ok(status.last_modified)
+}
+
 pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let mut parser = Parser::new();
 
@@ -207,10 +262,14 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let mut endpoint_rows = Vec::new();
     let mut cron_rows = Vec::new();
     let mut worker_rows = Vec::new();
+    let client = Client::new(false)?;
 
     for parsed_function in parser.functions.clone() {
         let func_name = parsed_function.func_name(false);
         let func_path = parsed_function.relative_path.clone();
+        let last_modified = status(&client, &current_crate.name, &func_name)
+            .await?
+            .unwrap_or_else(|| "NA".into());
 
         match parsed_function.role {
             Role::Endpoint(params) => {
@@ -218,6 +277,7 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
                     function: format_function_and_path(&func_name, &func_path),
                     environment: format_environment(&format!("{:?}", params.environment)),
                     url_path: format!("{}{}", domain, params.url_path.unwrap_or("".to_string())),
+                    last_modified,
                 });
             }
             Role::Cron(params) => {
@@ -225,6 +285,7 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
                     function: format_function_and_path(&func_name, &func_path),
                     environment: format_environment(&format!("{:?}", params.environment)),
                     schedule: params.schedule.to_string(),
+                    last_modified,
                 });
             }
             Role::Worker(params) => {
@@ -234,6 +295,7 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
                     fifo: format!("{:?}", params.fifo),
                     concurrency: format!("{:?}", params.concurrency),
                     queue_alias: format!("{:?}", params.queue_alias.unwrap_or("".to_string())),
+                    last_modified,
                 });
             }
         }
