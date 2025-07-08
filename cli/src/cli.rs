@@ -107,6 +107,9 @@ enum Commands {
 
         #[arg(short, long, default_value = "")]
         table: String,
+
+        #[arg(short, long, action = ArgAction::SetFalse)]
+        remote: bool,
     },
 
     /// Show function logs
@@ -265,6 +268,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             payload,
             headers,
             table,
+            remote,
         }) => {
             invoke(
                 &Function::find_by_name(&all_functions, name)?,
@@ -272,7 +276,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 payload,
                 headers,
                 if !table.is_empty() { Some(table) } else { None },
-                true,
+                remote.to_owned(),
             )
             .await?;
 
