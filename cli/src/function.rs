@@ -1,5 +1,6 @@
 use crate::build::pipeline::Progress;
 use crate::client::Client;
+use crate::config::build_config;
 use crate::crat::Crate;
 use crate::deploy::DeployConfig;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
@@ -184,6 +185,26 @@ impl Function {
             .iter()
             .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string()))
             .collect::<HashMap<String, String>>())
+    }
+
+    /// URL to call the function
+    ///
+    /// Only relevant for endpoint type of functions.
+    pub fn url(&self) -> eyre::Result<String> {
+        let path = self
+            .meta()?
+            .get("url_path")
+            .wrap_err("No URL path specified for the function (not an enpoint?)")?
+            .as_str()
+            .map(|s| s.to_string())
+            .unwrap_or_default();
+
+        Ok(format!(
+            "https://{}.{}/{}",
+            self.crat.escaped_name(),
+            build_config()?.domain,
+            path
+        ))
     }
 }
 

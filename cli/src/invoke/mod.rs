@@ -1,5 +1,6 @@
 mod dynamodb;
 mod local;
+mod remote;
 use crate::crat::Crate;
 use crate::function::Function;
 
@@ -17,7 +18,7 @@ pub async fn invoke(
 ) -> eyre::Result<()> {
     if is_local {
         return local::invoke(function, crat, payload, headers, table).await;
+    } else {
+        return remote::invoke(function, payload, headers).await;
     }
-
-    Ok(())
 }
