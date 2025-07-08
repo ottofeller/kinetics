@@ -272,6 +272,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 payload,
                 headers,
                 if !table.is_empty() { Some(table) } else { None },
+                true,
             )
             .await?;
 
