@@ -61,6 +61,11 @@ impl Crate {
         Self::new(std::env::current_dir().wrap_err("Failed to get current dir")?)
     }
 
+    /// The name used in project URL
+    pub fn escaped_name(&self) -> String {
+        self.name.replace('_', "-")
+    }
+
     /// Deploy all assets using CFN template
     pub async fn deploy(
         &self,
