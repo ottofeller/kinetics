@@ -1,11 +1,9 @@
 use crate::client::Client;
 use crate::config::build_config;
 use crate::crat::Crate;
-use crate::error::Error;
+use crate::function::Function;
 use color_eyre::owo_colors::OwoColorize;
-use eyre::Context as _;
 use kinetics_parser::{ParsedFunction, Parser, Role};
-use reqwest::StatusCode;
 use serde_json::Value;
 use std::collections::HashMap;
 use syn::visit::Visit;
@@ -193,52 +191,6 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
     }
 }
 
-/// Get the function deployment status from the backend
-pub async fn status(
-    client: &Client,
-    crate_name: &str,
-    function_name: &str,
-) -> eyre::Result<Option<String>> {
-    #[derive(serde::Serialize)]
-    struct JsonBody {
-        crate_name: String,
-        function_name: String,
-    }
-
-    #[derive(serde::Deserialize)]
-    struct JsonResponse {
-        /// The date and time that the function was last updated
-        /// in ISO-8601 format (YYYY-MM-DDThh:mm:ss.sTZD).
-        last_modified: Option<String>,
-    }
-
-    let result = client
-        .post("/function/status")
-        .json(&serde_json::json!(JsonBody {
-            crate_name: crate_name.into(),
-            function_name: function_name.into(),
-        }))
-        .send()
-        .await
-        .inspect_err(|err| log::error!("{err:?}"))
-        .wrap_err(Error::new(
-            "Network request failed",
-            Some("Try again in a few seconds."),
-        ))?;
-
-    if result.status() != StatusCode::OK {
-        return Err(Error::new(
-            &format!("Function status request failed for {crate_name}/{function_name}"),
-            Some("Try again in a few seconds."),
-        )
-        .into());
-    }
-
-    let status: JsonResponse = result.json().await.wrap_err("Failed to parse response")?;
-
-    Ok(status.last_modified)
-}
-
 pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let mut parser = Parser::new();
 
@@ -267,16 +219,17 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let client = Client::new(false)?;
 
     for parsed_function in parser.functions.clone() {
-        let func_name = parsed_function.func_name(false);
+        let function = Function::new(&current_crate.path, &parsed_function.func_name(false))?;
         let func_path = parsed_function.relative_path.clone();
-        let last_modified = status(&client, &current_crate.name, &func_name)
+        let last_modified = function
+            .status(&client)
             .await?
             .unwrap_or_else(|| "NA".into());
 
         match parsed_function.role {
             Role::Endpoint(params) => {
                 endpoint_rows.push(EndpointRow {
-                    function: format_function_and_path(&func_name, &func_path),
+                    function: format_function_and_path(&function.name, &func_path),
                     environment: format_environment(&format!("{:?}", params.environment)),
                     url_path: format!(
                         "{}{}",
@@ -288,7 +241,7 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
             }
             Role::Cron(params) => {
                 cron_rows.push(CronRow {
-                    function: format_function_and_path(&func_name, &func_path),
+                    function: format_function_and_path(&function.name, &func_path),
                     environment: format_environment(&format!("{:?}", params.environment)),
                     schedule: params.schedule.to_string(),
                     last_modified,
@@ -296,7 +249,7 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
             }
             Role::Worker(params) => {
                 worker_rows.push(WorkerRow {
-                    function: format_function_and_path(&func_name, &func_path),
+                    function: format_function_and_path(&function.name, &func_path),
                     environment: format_environment(&format!("{:?}", params.environment)),
                     fifo: format!("{:?}", params.fifo),
                     concurrency: format!("{:?}", params.concurrency),

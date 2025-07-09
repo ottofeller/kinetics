@@ -3,7 +3,9 @@ use crate::client::Client;
 use crate::config::build_config;
 use crate::crat::Crate;
 use crate::deploy::DeployConfig;
+use crate::error::Error;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
+use reqwest::StatusCode;
 use serde_json::json;
 use std::collections::HashMap;
 use std::io::Write;
@@ -205,6 +207,52 @@ impl Function {
             build_config()?.domain,
             path
         ))
+    }
+
+    /// Get the function deployment status from the backend
+    pub async fn status(&self, client: &Client) -> eyre::Result<Option<String>> {
+        #[derive(serde::Serialize)]
+        struct JsonBody {
+            crate_name: String,
+            function_name: String,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct JsonResponse {
+            /// The date and time that the function was last updated
+            /// in ISO-8601 format (YYYY-MM-DDThh:mm:ss.sTZD).
+            last_modified: Option<String>,
+        }
+
+        let result = client
+            .post("/function/status")
+            .json(&serde_json::json!(JsonBody {
+                crate_name: self.crat.name.clone(),
+                function_name: self.name.clone(),
+            }))
+            .send()
+            .await
+            .inspect_err(|err| log::error!("{err:?}"))
+            .wrap_err(Error::new(
+                "Network request failed",
+                Some("Try again in a few seconds."),
+            ))?;
+
+        if result.status() != StatusCode::OK {
+            return Err(Error::new(
+                &format!(
+                    "Function status request failed for {}/{}",
+                    self.crat.name.clone(),
+                    self.name.clone()
+                ),
+                Some("Try again in a few seconds."),
+            )
+            .into());
+        }
+
+        let status: JsonResponse = result.json().await.wrap_err("Failed to parse response")?;
+
+        Ok(status.last_modified)
     }
 }
 
