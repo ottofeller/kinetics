@@ -208,7 +208,7 @@ impl Function {
     }
 }
 
-pub async fn build(functions: &[Function], logger: &Progress) -> eyre::Result<()> {
+pub async fn build(functions: &[Function], progress: &Progress) -> eyre::Result<()> {
     let Some(Function { crat, .. }) = functions.iter().next() else {
         return Err(eyre!("Attempted to build an empty function list"));
     };
@@ -245,13 +245,13 @@ pub async fn build(functions: &[Function], logger: &Progress) -> eyre::Result<()
             let trim_to = 48;
 
             if line.trim().is_empty() {
-                logger
+                progress
                     .progress_bar
                     .set_message(format!("{}", console::style("    Building").green().bold(),));
             } else {
                 let line = line.trim();
 
-                logger.progress_bar.set_message(format!(
+                progress.progress_bar.set_message(format!(
                     "{} {}...",
                     console::style("    Building").green().bold(),
                     console::style(
@@ -268,7 +268,7 @@ pub async fn build(functions: &[Function], logger: &Progress) -> eyre::Result<()
         }
     }
 
-    logger.progress_bar.finish_and_clear();
+    progress.progress_bar.finish_and_clear();
     let status = child.wait().await?;
 
     if !status.success() {
