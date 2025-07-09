@@ -22,7 +22,6 @@ pub async fn invoke(function: &Function, payload: &str, headers: &str) -> eyre::
     }
 
     let client = reqwest::Client::new();
-    log::debug!("Calling function by URL: {}", function.url()?);
 
     let response = client
         .post(function.url()?)
