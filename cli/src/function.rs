@@ -200,7 +200,7 @@ impl Function {
             .unwrap_or_default();
 
         Ok(format!(
-            "https://{}.{}/{}",
+            "https://{}.{}{}",
             self.crat.escaped_name(),
             build_config()?.domain,
             path

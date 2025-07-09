@@ -1,8 +1,29 @@
+use crate::crat::Crate;
 use crate::function::Function;
+use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
+use std::path::Path;
 
 /// Resolve function name into URL and call it remotely
-pub async fn invoke(function: &Function, payload: &str, headers: &str) -> eyre::Result<()> {
+pub async fn invoke(
+    function: &Function,
+    crat: &Crate,
+    payload: &str,
+    headers: &str,
+) -> eyre::Result<()> {
+    let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
+    let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", crat.name));
+    let display_path = format!("{}/src/bin/{}.rs", invoke_dir.display(), function.name);
+
+    println!(
+        "\n{} {} {}...",
+        console::style("Invoking remote function").green().bold(),
+        console::style("from").dimmed(),
+        console::style(&display_path).underlined().bold()
+    );
+
+    println!("{}\n", console::style(function.url()?).dimmed());
+
     // Parse headers string into HeaderMap
     let mut headers_map = reqwest::header::HeaderMap::new();
 

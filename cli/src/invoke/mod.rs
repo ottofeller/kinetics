@@ -19,6 +19,6 @@ pub async fn invoke(
     if is_local {
         return local::invoke(function, crat, payload, headers, table).await;
     } else {
-        return remote::invoke(function, payload, headers).await;
+        return remote::invoke(function, crat, payload, headers).await;
     }
 }
