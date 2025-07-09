@@ -32,11 +32,11 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn new(path: &Path, name: &str) -> eyre::Result<Self> {
+    pub fn new(crate_path: &Path, name: &str) -> eyre::Result<Self> {
         Ok(Function {
             id: uuid::Uuid::new_v4().into(),
             name: name.into(),
-            crat: Crate::new(path.to_path_buf())?,
+            crat: Crate::new(crate_path.to_path_buf())?,
         })
     }
 
