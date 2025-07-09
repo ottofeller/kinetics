@@ -192,6 +192,7 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
     }
 }
 
+/// Gwt the function deployment status from the backend
 pub async fn status(
     client: &Client,
     crate_name: &str,
