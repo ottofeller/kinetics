@@ -1,4 +1,5 @@
 use crate::client::Client;
+use crate::config::build_config;
 use crate::crat::Crate;
 use crate::error::Error;
 use color_eyre::owo_colors::OwoColorize;
@@ -258,7 +259,7 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
         return Ok(());
     }
 
-    let domain = format!("https://{}.usekinetics.com", current_crate.name);
+    let project_url = format!("https://{}.{}", current_crate.name, build_config()?.domain);
 
     let mut endpoint_rows = Vec::new();
     let mut cron_rows = Vec::new();
@@ -277,7 +278,11 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
                 endpoint_rows.push(EndpointRow {
                     function: format_function_and_path(&func_name, &func_path),
                     environment: format_environment(&format!("{:?}", params.environment)),
-                    url_path: format!("{}{}", domain, params.url_path.unwrap_or("".to_string())),
+                    url_path: format!(
+                        "{}{}",
+                        project_url,
+                        params.url_path.unwrap_or("".to_string())
+                    ),
                     last_modified,
                 });
             }
