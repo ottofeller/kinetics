@@ -1,4 +1,7 @@
+use crate::client::Client;
+use crate::config::build_config;
 use crate::crat::Crate;
+use crate::function::Function;
 use color_eyre::owo_colors::OwoColorize;
 use kinetics_parser::{ParsedFunction, Parser, Role};
 use serde_json::Value;
@@ -17,6 +20,8 @@ struct EndpointRow {
     environment: String,
     #[tabled(rename = "Url Path")]
     url_path: String,
+    #[tabled(rename = "Updated")]
+    last_modified: String,
 }
 
 #[derive(Tabled, Clone)]
@@ -27,6 +32,8 @@ struct CronRow {
     environment: String,
     #[tabled(rename = "Schedule")]
     schedule: String,
+    #[tabled(rename = "Updated")]
+    last_modified: String,
 }
 
 #[derive(Tabled, Clone)]
@@ -41,6 +48,8 @@ struct WorkerRow {
     concurrency: String,
     #[tabled(rename = "Queue Alias")]
     queue_alias: String,
+    #[tabled(rename = "Updated")]
+    last_modified: String,
 }
 
 fn format_environment(json_str: &str) -> String {
@@ -184,7 +193,6 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
 
 pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let mut parser = Parser::new();
-    let domain = format!("https://{}.usekinetics.com", current_crate.name);
 
     for entry in WalkDir::new(&current_crate.path)
         .into_iter()
@@ -198,36 +206,55 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
         parser.visit_file(&syntax);
     }
 
+    if !is_verbose {
+        simple(&parser.functions, current_crate);
+        return Ok(());
+    }
+
+    let project_url = format!("https://{}.{}", current_crate.name, build_config()?.domain);
+
     let mut endpoint_rows = Vec::new();
     let mut cron_rows = Vec::new();
     let mut worker_rows = Vec::new();
+    let client = Client::new(false)?;
 
     for parsed_function in parser.functions.clone() {
-        let func_name = parsed_function.func_name(false);
+        let function = Function::new(&current_crate.path, &parsed_function.func_name(false))?;
         let func_path = parsed_function.relative_path.clone();
+        let last_modified = function
+            .status(&client)
+            .await?
+            .unwrap_or_else(|| "NA".into());
 
         match parsed_function.role {
             Role::Endpoint(params) => {
                 endpoint_rows.push(EndpointRow {
-                    function: format_function_and_path(&func_name, &func_path),
+                    function: format_function_and_path(&function.name, &func_path),
                     environment: format_environment(&format!("{:?}", params.environment)),
-                    url_path: format!("{}{}", domain, params.url_path.unwrap_or("".to_string())),
+                    url_path: format!(
+                        "{}{}",
+                        project_url,
+                        params.url_path.unwrap_or("".to_string())
+                    ),
+                    last_modified,
                 });
             }
             Role::Cron(params) => {
                 cron_rows.push(CronRow {
-                    function: format_function_and_path(&func_name, &func_path),
+                    function: format_function_and_path(&function.name, &func_path),
                     environment: format_environment(&format!("{:?}", params.environment)),
                     schedule: params.schedule.to_string(),
+                    last_modified,
                 });
             }
             Role::Worker(params) => {
                 worker_rows.push(WorkerRow {
-                    function: format_function_and_path(&func_name, &func_path),
+                    function: format_function_and_path(&function.name, &func_path),
                     environment: format_environment(&format!("{:?}", params.environment)),
                     fifo: format!("{:?}", params.fifo),
                     concurrency: format!("{:?}", params.concurrency),
                     queue_alias: format!("{:?}", params.queue_alias.unwrap_or("".to_string())),
+                    last_modified,
                 });
             }
         }
@@ -235,11 +262,7 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
 
     let (width, _) = get_terminal_size();
 
-    if is_verbose {
-        verbose(&endpoint_rows, &cron_rows, &worker_rows, width);
-    } else {
-        simple(&parser.functions, current_crate);
-    }
+    verbose(&endpoint_rows, &cron_rows, &worker_rows, width);
 
     Ok(())
 }
