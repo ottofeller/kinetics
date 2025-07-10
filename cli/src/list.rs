@@ -182,6 +182,9 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
     }
 }
 
+/// Prints out the list of all functions
+///
+/// With some extra information
 pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let mut parser = Parser::new();
     let domain = format!("https://{}.usekinetics.com", current_crate.name);

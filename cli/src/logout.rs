@@ -21,6 +21,9 @@ async fn remove(email: &str) -> eyre::Result<()> {
     Ok(())
 }
 
+/// Logs user out
+///
+/// By cleaning up the local credentials file and voiding credentials on the backend
 pub async fn logout() -> eyre::Result<()> {
     let path = Path::new(&build_config()?.credentials_path);
     let credentials = Credentials::new(path)?;

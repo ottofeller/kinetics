@@ -65,7 +65,7 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
     Ok(response.json::<Credentials>().await?)
 }
 
-/// Obtain the access token
+/// Obtains the access token
 ///
 /// Returns boolean, indicating whether the new login session was
 /// created or not (the old one not expired).
