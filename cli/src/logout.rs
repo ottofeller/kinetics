@@ -40,7 +40,7 @@ pub async fn logout() -> eyre::Result<()> {
 
     println!(
         "{}",
-        console::style("You was successfully logged out")
+        console::style("You were successfully logged out")
             .green()
             .bold()
     );
