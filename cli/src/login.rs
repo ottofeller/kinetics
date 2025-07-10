@@ -72,22 +72,35 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
 ///
 /// The procedure is rather simple and should be improved as the CLI develops. It sends a one-time code to email
 /// and after user enters it in stdin exhcbages it for short lived access token.
-pub async fn login(email: &str) -> eyre::Result<bool> {
+pub async fn login(email: &str) -> eyre::Result<()> {
     // Validate email
     if !Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")?.is_match(email) {
         return Err(eyre::eyre!("Invalid email format"));
     }
 
     let mut credentials = Credentials::new(Path::new(&build_config()?.credentials_path))?;
-
-    if credentials.is_valid(email) {
-        return Ok(false);
-    }
+    let mut is_new_session = false;
 
     // If credentials expired — request new token
-    credentials.write(request(email).await?)?;
+    if !credentials.is_valid(email) {
+        credentials.write(request(email).await?)?;
+        is_new_session = true;
+    }
 
-    Ok(true)
+    println!(
+        "{} {} {}",
+        console::style(if is_new_session {
+            "Successfully logged in"
+        } else {
+            "Already logged in"
+        })
+        .green()
+        .bold(),
+        console::style("via").dim(),
+        console::style(email).underlined().bold()
+    );
+
+    Ok(())
 }
 
 fn read_masked_password() -> eyre::Result<String> {

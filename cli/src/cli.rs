@@ -1,8 +1,7 @@
-use crate::build::pipeline::Pipeline;
-use crate::build::prepare_crates;
+use crate::build::{self, prepare_crates};
 use crate::config::build_config;
 use crate::crat::Crate;
-use crate::deploy::DeployConfig;
+use crate::deploy::{self, DeployConfig};
 use crate::destroy::destroy;
 use crate::error::Error;
 use crate::function::{Function, Type as FunctionType};
@@ -137,22 +136,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
     // Commands that should be available outside of a project
     match &cli.command {
         Some(Commands::Login { email }) => {
-            let is_new_session = login(email).await?;
-
-            println!(
-                "{} {} {}",
-                console::style(if is_new_session {
-                    "Successfully logged in"
-                } else {
-                    "Already logged in"
-                })
-                .green()
-                .bold(),
-                console::style("via").dim(),
-                console::style(email).underlined().bold()
-            );
-
-            return Ok(()).map_err(Error::from);
+            return login(email).await.map_err(Error::from);
         }
 
         Some(Commands::Init {
@@ -161,7 +145,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             endpoint: _,
             worker,
         }) => {
-            init(
+            return init(
                 name,
                 if cron.to_owned() {
                     FunctionType::Cron
@@ -171,9 +155,8 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                     FunctionType::Endpoint
                 },
             )
-            .await?;
-
-            return Ok(()).map_err(Error::from);
+            .await
+            .map_err(Error::from);
         }
 
         _ => {}
@@ -231,30 +214,18 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
 
     match &cli.command {
         Some(Commands::Build { .. }) => {
-            Pipeline::builder()
-                .with_deploy_enabled(false)
-                .set_crat(Crate::from_current_dir()?)
-                .build()
-                .wrap_err("Failed to build pipeline")?
-                .run(all_functions.clone(), deploy_functions.clone())
-                .await?;
-
-            Ok(())
+            build::run(all_functions.clone(), deploy_functions.clone()).await
         }
         Some(Commands::Deploy {
             max_concurrency, ..
         }) => {
-            Pipeline::builder()
-                .set_max_concurrent(*max_concurrency)
-                .with_deploy_enabled(true)
-                .with_deploy_config(deploy_config)
-                .set_crat(Crate::from_current_dir()?)
-                .build()
-                .wrap_err("Failed to build pipeline")?
-                .run(all_functions, deploy_functions)
-                .await?;
-
-            Ok(())
+            deploy::run(
+                all_functions,
+                deploy_functions,
+                max_concurrency,
+                deploy_config,
+            )
+            .await
         }
         Some(Commands::Destroy {}) => {
             destroy(&Crate::from_current_dir()?)
@@ -278,37 +249,13 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 if !table.is_empty() { Some(table) } else { None },
                 remote.to_owned(),
             )
-            .await?;
-
-            Ok(())
+            .await
         }
         Some(Commands::Logs { name }) => {
-            logs(&Function::find_by_name(&all_functions, name)?, &crat).await?;
-            Ok(())
+            logs(&Function::find_by_name(&all_functions, name)?, &crat).await
         }
-        Some(Commands::List { verbose }) => {
-            if all_functions.is_empty() {
-                println!("{}", console::style("No functions found").yellow());
-            } else {
-                list(&crat, *verbose).await?;
-            }
-            Ok(())
-        }
-        Some(Commands::Logout {}) => match logout().await {
-            Result::Ok(_) => {
-                println!(
-                    "{}",
-                    console::style("You was successfully logged out")
-                        .green()
-                        .bold()
-                );
-                Ok(())
-            }
-            Err(error) => {
-                println!("{}", console::style("Failed to logout").red().bold());
-                Err(error)
-            }
-        },
+        Some(Commands::List { verbose }) => list(&crat, *verbose).await,
+        Some(Commands::Logout {}) => logout().await,
         _ => Ok(()),
     }
     .map_err(Error::from)

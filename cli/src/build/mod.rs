@@ -1,6 +1,7 @@
 mod filehash;
 pub mod pipeline;
 mod templates;
+use crate::build::pipeline::Pipeline;
 use crate::crat::Crate;
 use crate::function::Function;
 use eyre::{Context, OptionExt};
@@ -12,6 +13,22 @@ use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 use syn::visit::Visit;
 use walkdir::WalkDir;
+
+/// The entry point to run the command
+pub async fn run(
+    all_functions: Vec<Function>,
+    deploy_functions: Vec<Function>,
+) -> eyre::Result<()> {
+    Pipeline::builder()
+        .with_deploy_enabled(false)
+        .set_crat(Crate::from_current_dir()?)
+        .build()
+        .wrap_err("Failed to build pipeline")?
+        .run(all_functions.clone(), deploy_functions.clone())
+        .await?;
+
+    Ok(())
+}
 
 /// Parses source code and prepares crates for deployment
 /// Stores crates inside target_directory and returns list of created paths

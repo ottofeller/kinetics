@@ -202,6 +202,11 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let mut cron_rows = Vec::new();
     let mut worker_rows = Vec::new();
 
+    if parser.functions.is_empty() {
+        println!("{}", console::style("No functions found").yellow());
+        return Ok(());
+    }
+
     for parsed_function in parser.functions.clone() {
         let func_name = parsed_function.func_name(false);
         let func_path = parsed_function.relative_path.clone();
