@@ -17,8 +17,10 @@ pub async fn invoke(
     is_local: bool,
 ) -> eyre::Result<()> {
     if is_local {
-        return local::invoke(function, crat, payload, headers, table).await;
+        local::invoke(function, crat, payload, headers, table).await?;
     } else {
-        return remote::invoke(function, crat, payload, headers).await;
+        remote::invoke(function, crat, payload, headers).await?;
     }
+
+    Ok(())
 }

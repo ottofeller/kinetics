@@ -1,6 +1,7 @@
 use crate::client::Client;
 use crate::config::build_config;
 use crate::credentials::Credentials;
+use eyre::Context;
 use serde_json::json;
 use std::path::Path;
 
@@ -20,17 +21,29 @@ async fn remove(email: &str) -> eyre::Result<()> {
     Ok(())
 }
 
+/// Logs user out
+///
+/// By cleaning up the local credentials file and voiding credentials on the backend
 pub async fn logout() -> eyre::Result<()> {
     let path = Path::new(&build_config()?.credentials_path);
     let credentials = Credentials::new(path)?;
 
     if credentials.is_valid(&credentials.email) {
-        remove(&credentials.email).await?;
+        remove(&credentials.email)
+            .await
+            .wrap_err("Logout request failed")?;
     }
 
     if path.exists() {
-        std::fs::remove_file(path)?;
+        std::fs::remove_file(path).wrap_err("Failed to delete credentials file")?;
     }
+
+    println!(
+        "{}",
+        console::style("You were successfully logged out")
+            .green()
+            .bold()
+    );
 
     Ok(())
 }

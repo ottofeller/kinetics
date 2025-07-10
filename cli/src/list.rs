@@ -191,6 +191,9 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
     }
 }
 
+/// Prints out the list of all functions
+///
+/// With some extra information
 pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let mut parser = Parser::new();
 
@@ -217,6 +220,11 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let mut cron_rows = Vec::new();
     let mut worker_rows = Vec::new();
     let client = Client::new(false)?;
+
+    if parser.functions.is_empty() {
+        println!("{}", console::style("No functions found").yellow());
+        return Ok(());
+    }
 
     for parsed_function in parser.functions.clone() {
         let function = Function::new(&current_crate.path, &parsed_function.func_name(false))?;
