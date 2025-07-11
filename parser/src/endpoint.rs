@@ -1,7 +1,7 @@
 use crate::environment::{parse_environment, Environment};
 use syn::{
     parse::{Parse, ParseStream},
-    token, Ident, LitStr,
+    token, Ident, LitBool, LitStr,
 };
 
 #[derive(Default, Debug, Clone)]
@@ -10,6 +10,7 @@ pub struct Endpoint {
     pub url_path: Option<String>,
     pub environment: Environment,
     pub queues: Option<Vec<String>>,
+    pub is_disabled: Option<bool>,
 }
 
 impl Parse for Endpoint {
@@ -18,6 +19,7 @@ impl Parse for Endpoint {
         let mut url_path = None;
         let mut environment = Environment::default();
         let mut queues = None;
+        let mut is_disabled = Some(false);
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
@@ -48,6 +50,8 @@ impl Parse for Endpoint {
                             .collect::<Vec<String>>(),
                     );
                 }
+                "is_disabled" => is_disabled = Some(input.parse::<LitBool>()?.value()),
+
                 // Ignore unknown attributes
                 _ => {}
             }
@@ -62,6 +66,7 @@ impl Parse for Endpoint {
             url_path,
             environment,
             queues,
+            is_disabled,
         })
     }
 }

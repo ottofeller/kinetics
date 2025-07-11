@@ -389,6 +389,10 @@ fn metadata(
                 serde_json::to_string(&params.queues.clone().unwrap_or_default()).unwrap(),
             );
 
+            if params.is_disabled.is_some() {
+                endpoint_table["is_disabled"] = toml_edit::value(params.is_disabled.unwrap());
+            }
+
             // Update function table with endpoint configuration
             // Function table has been created above
             if let Some(f) = function_meta["function"].as_table_mut() {
