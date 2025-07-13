@@ -153,7 +153,7 @@ impl Function {
     }
 
     /// Return true if the function is the only supposed for local invocations
-    pub fn is_local(&self) -> eyre::Result<bool> {
+    pub fn _is_local(&self) -> eyre::Result<bool> {
         if self.meta().is_err() {
             return Err(eyre!("Could not get function's meta {}", self.name,));
         }

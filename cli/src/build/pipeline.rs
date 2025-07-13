@@ -145,13 +145,7 @@ impl Pipeline {
 
         let deploy = self
             .crat
-            .deploy(
-                &all_functions
-                    .into_iter()
-                    .filter(|f| !f.is_local().unwrap())
-                    .collect::<Vec<Function>>(),
-                self.deploy_config.as_deref(),
-            )
+            .deploy(&all_functions, self.deploy_config.as_deref())
             .await;
 
         if deploy.is_err() {

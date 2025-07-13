@@ -166,11 +166,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
 
     // All functions to add to the template
     let all_functions: Vec<Function> =
-        prepare_crates(PathBuf::from(build_config()?.build_path), &crat)?
-            .into_iter()
-            // Avoid building functions supposed for local invocations only
-            .filter(|f| !f.is_local().unwrap())
-            .collect();
+        prepare_crates(PathBuf::from(build_config()?.build_path), &crat)?;
 
     // Functions to deploy
     let mut deploy_functions: Vec<Function> = all_functions.clone();

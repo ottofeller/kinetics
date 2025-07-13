@@ -85,9 +85,9 @@ pub fn prepare_crates(dst: PathBuf, current_crate: &Crate) -> eyre::Result<Vec<F
             // Fill in necessary data in Cargo.toml
             metadata(&parsed_function, is_local, &mut manifest)?;
             deps(&parsed_function, is_local, &mut manifest)?;
-
-            function_names.push(parsed_function.func_name(is_local));
         }
+
+        function_names.push(parsed_function.func_name(false));
     }
 
     let manifest_string = manifest.to_string();
