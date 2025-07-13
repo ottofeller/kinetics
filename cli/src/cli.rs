@@ -35,8 +35,8 @@ enum Commands {
     /// Build your serverless functions
     Build {
         /// Comma-separated list of function names to build (if not specified, all functions will be built)
-        #[arg(short, long)]
-        functions: Option<String>,
+        #[arg(short, long, value_delimiter = ',')]
+        functions: Vec<String>,
     },
 
     /// Deploy your serverless functions to the cloud
@@ -45,8 +45,8 @@ enum Commands {
         #[arg(short, long, default_value_t = 6)]
         max_concurrency: usize,
 
-        #[arg(short, long)]
-        functions: Option<String>,
+        #[arg(short, long, value_delimiter = ',')]
+        functions: Vec<String>,
     },
 
     /// Destroy your serverless functions
@@ -168,40 +168,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
     let all_functions: Vec<Function> =
         prepare_crates(PathBuf::from(build_config()?.build_path), &crat)?;
 
-    // Functions to deploy
-    let mut deploy_functions: Vec<Function> = all_functions.clone();
-
-    // Filter functions based on --functions parameter if provided
-    let build_names = if let Some(Commands::Build { functions: names }) = &cli.command {
-        names
-    } else {
-        &None::<String>
-    };
-
-    let deploy_names = if let Some(Commands::Deploy {
-        functions: names, ..
-    }) = &cli.command
-    {
-        names
-    } else {
-        &None::<String>
-    };
-
-    if build_names.is_some() || deploy_names.is_some() {
-        let names: Vec<String> = build_names
-            .clone()
-            .unwrap_or(deploy_names.clone().unwrap_or_default())
-            .split(',')
-            .map(|s| s.trim().into())
-            .collect();
-
-        deploy_functions = all_functions
-            .clone()
-            .into_iter()
-            .filter(|f| names.contains(&f.name.as_str().to_string()))
-            .collect();
-    }
-
     color_eyre::config::HookBuilder::default()
         .display_location_section(false)
         .display_env_section(false)
@@ -209,14 +175,17 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         .install()?;
 
     match &cli.command {
-        Some(Commands::Build { .. }) => {
-            build::run(all_functions.clone(), deploy_functions.clone()).await
-        }
+        Some(Commands::Build {
+            functions: deploy_functions,
+            ..
+        }) => build::run(&all_functions, deploy_functions).await,
         Some(Commands::Deploy {
-            max_concurrency, ..
+            functions: deploy_functions,
+            max_concurrency,
+            ..
         }) => {
             deploy::run(
-                all_functions,
+                &all_functions,
                 deploy_functions,
                 max_concurrency,
                 deploy_config,

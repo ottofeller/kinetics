@@ -8,8 +8,8 @@ use std::sync::Arc;
 
 /// The entry point to run the command
 pub async fn run(
-    all_functions: Vec<Function>,
-    deploy_functions: Vec<Function>,
+    all_functions: &[Function],
+    deploy_functions: &[String],
     max_concurrency: &usize,
     deploy_config: Option<Arc<dyn DeployConfig>>,
 ) -> eyre::Result<()> {

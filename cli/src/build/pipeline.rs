@@ -26,19 +26,29 @@ impl Pipeline {
         self,
 
         // All functions are sent to server, so that related resources are always prepared
-        all_functions: Vec<Function>,
+        all_functions: &[Function],
 
         // Only selected functions are built and uploaded
-        deploy_functions: Vec<Function>,
+        deploy_functions: &[String],
     ) -> eyre::Result<()> {
         if self.deploy_config.is_some() {
             println!(
                 "    {} `{}` {}",
                 console::style("Using a custom deployment configuration for").yellow(),
-                console::style(self.crat.name.clone()).green().bold(),
+                console::style(&self.crat.name).green().bold(),
                 console::style("crate").yellow(),
             );
         }
+
+        let deploy_functions: Vec<Function> = if deploy_functions.is_empty() {
+            all_functions.iter().cloned().collect()
+        } else {
+            all_functions
+                .iter()
+                .cloned()
+                .filter(|f| deploy_functions.contains(&f.name))
+                .collect()
+        };
 
         let start_time = Instant::now();
 
@@ -114,7 +124,7 @@ impl Pipeline {
                     );
                 };
 
-                Ok::<Function, Report>(function)
+                Ok(())
             })
         });
 
@@ -145,7 +155,7 @@ impl Pipeline {
 
         let deploy = self
             .crat
-            .deploy(&all_functions, self.deploy_config.as_deref())
+            .deploy(all_functions, self.deploy_config.as_deref())
             .await;
 
         if deploy.is_err() {

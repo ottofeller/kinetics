@@ -15,16 +15,13 @@ use syn::visit::Visit;
 use walkdir::WalkDir;
 
 /// The entry point to run the command
-pub async fn run(
-    all_functions: Vec<Function>,
-    deploy_functions: Vec<Function>,
-) -> eyre::Result<()> {
+pub async fn run(all_functions: &[Function], deploy_functions: &[String]) -> eyre::Result<()> {
     Pipeline::builder()
         .with_deploy_enabled(false)
         .set_crat(Crate::from_current_dir()?)
         .build()
         .wrap_err("Failed to build pipeline")?
-        .run(all_functions.clone(), deploy_functions.clone())
+        .run(all_functions, deploy_functions)
         .await?;
 
     Ok(())
