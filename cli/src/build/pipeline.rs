@@ -53,7 +53,12 @@ impl Pipeline {
         let start_time = Instant::now();
 
         let pipeline_progress = PipelineProgress::new(
-            deploy_functions.len() as u64 * if self.is_deploy_enabled { 2 } else { 0 },
+            1 // One for entire crate build
+            + deploy_functions.len() as u64 * if self.is_deploy_enabled {
+                2
+            } else {
+                0
+            },
             self.is_deploy_enabled,
         );
 
@@ -63,13 +68,14 @@ impl Pipeline {
             None
         };
 
-        build(
-            &deploy_functions,
-            &pipeline_progress.new_progress(&self.crat.name),
-        )
-        .await?;
+        let deploying_progress = pipeline_progress.new_progress(&self.crat.name);
+        build(&deploy_functions, &deploying_progress).await?;
+        pipeline_progress.increase_current_function_position();
 
         if !self.is_deploy_enabled {
+            pipeline_progress.increase_current_function_position();
+            pipeline_progress.total_progress_bar.finish_and_clear();
+
             println!(
                 "    {} `{}` crate building in {:.2}s",
                 console::style("Finished").green().bold(),
@@ -148,8 +154,6 @@ impl Pipeline {
                     .collect::<Vec<_>>()
             ));
         }
-
-        let deploying_progress = pipeline_progress.new_progress(&self.crat.name);
 
         deploying_progress.log_stage("Provisioning");
 
