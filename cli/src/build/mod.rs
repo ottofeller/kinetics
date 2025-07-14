@@ -3,15 +3,14 @@ pub mod pipeline;
 mod templates;
 use crate::build::pipeline::Pipeline;
 use crate::crat::Crate;
-use crate::function::Function;
+use crate::function::{project_functions, Function};
 use eyre::{Context, OptionExt};
 use filehash::{FileHash, CHECKSUMS_FILENAME};
-use kinetics_parser::{ParsedFunction, Parser, Role};
+use kinetics_parser::{ParsedFunction, Role};
 use regex::Regex;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
-use syn::visit::Visit;
 use walkdir::WalkDir;
 
 /// The entry point to run the command
@@ -31,22 +30,7 @@ pub async fn run(all_functions: &[Function], deploy_functions: &[String]) -> eyr
 /// Stores crates inside target_directory and returns list of created paths
 pub fn prepare_crates(dst: PathBuf, current_crate: &Crate) -> eyre::Result<Vec<Function>> {
     // Parse functions from source code
-    let mut parser = Parser::new();
-
-    for entry in WalkDir::new(&current_crate.path)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
-    {
-        let content = fs::read_to_string(entry.path())?;
-        let syntax = syn::parse_file(&content)?;
-
-        // Set current file relative path for further imports resolution
-        // WARN It prevents to implement parallel parsing of files and requires rework in the future
-        parser.set_relative_path(entry.path().strip_prefix(&current_crate.path)?.to_str());
-
-        parser.visit_file(&syntax);
-    }
+    let parsed_functions = project_functions(&current_crate)?;
 
     let src = &current_crate.path;
     let dst = dst.join(&current_crate.name);
@@ -57,7 +41,7 @@ pub fn prepare_crates(dst: PathBuf, current_crate: &Crate) -> eyre::Result<Vec<F
     clone(src, &dst, &mut checksum)?;
 
     // Create lib.rs exporting a containing module of each parsed function.
-    create_lib(src, &dst, &parser.functions, &mut checksum)?;
+    create_lib(src, &dst, &parsed_functions, &mut checksum)?;
 
     let relative_manifest_path = Path::new("Cargo.toml");
     let mut manifest: toml_edit::DocumentMut =
@@ -65,26 +49,22 @@ pub fn prepare_crates(dst: PathBuf, current_crate: &Crate) -> eyre::Result<Vec<F
     let bin_dir = Path::new("src/bin");
     fs::create_dir_all(dst.join(bin_dir)).wrap_err("Create dir failed")?;
 
-    let mut function_names = Vec::new();
-
-    for parsed_function in parser.functions {
+    for parsed_function in &parsed_functions {
         for is_local in [false, true] {
             // Create bin file for every parsed function
             create_lambda_bin(
                 &dst,
                 bin_dir,
-                &parsed_function,
+                parsed_function,
                 is_local,
                 &mut manifest,
                 &mut checksum,
             )?;
 
             // Fill in necessary data in Cargo.toml
-            metadata(&parsed_function, is_local, &mut manifest)?;
-            deps(&parsed_function, is_local, &mut manifest)?;
+            metadata(parsed_function, is_local, &mut manifest)?;
+            deps(parsed_function, is_local, &mut manifest)?;
         }
-
-        function_names.push(parsed_function.func_name(false));
     }
 
     let manifest_string = manifest.to_string();
@@ -100,9 +80,9 @@ pub fn prepare_crates(dst: PathBuf, current_crate: &Crate) -> eyre::Result<Vec<F
     checksum.save().wrap_err("Failed to save checksums")?;
     clear_dir(&dst, &checksum)?;
 
-    function_names
-        .iter()
-        .map(|name| Function::new(&dst, name))
+    parsed_functions
+        .into_iter()
+        .map(|f| Function::new(&dst, &f.func_name(false)))
         .collect::<eyre::Result<Vec<_>>>()
 }
 
