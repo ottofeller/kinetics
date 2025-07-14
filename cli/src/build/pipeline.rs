@@ -1,10 +1,13 @@
+use crate::build::prepare_crates;
 use crate::client::Client;
+use crate::config::build_config;
 use crate::crat::Crate;
 use crate::deploy::DeployConfig;
 use crate::function::{build, Function};
 use eyre::{eyre, OptionExt, Report};
 use futures::future;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
@@ -25,9 +28,6 @@ impl Pipeline {
     pub async fn run(
         self,
 
-        // All functions are sent to server, so that related resources are always prepared
-        all_functions: &[Function],
-
         // Only selected functions are built and uploaded
         deploy_functions: &[String],
     ) -> eyre::Result<()> {
@@ -40,27 +40,34 @@ impl Pipeline {
             );
         }
 
-        let deploy_functions: Vec<Function> = if deploy_functions.is_empty() {
-            all_functions.iter().cloned().collect()
-        } else {
-            all_functions
-                .iter()
-                .cloned()
-                .filter(|f| deploy_functions.contains(&f.name))
-                .collect()
-        };
-
         let start_time = Instant::now();
 
         let pipeline_progress = PipelineProgress::new(
-            1 // One for entire crate build
-            + deploy_functions.len() as u64 * if self.is_deploy_enabled {
-                2
-            } else {
-                0
-            },
+            deploy_functions.len() as u64 * if self.is_deploy_enabled { 2 } else { 0 },
             self.is_deploy_enabled,
         );
+
+        let deploying_progress = pipeline_progress.new_progress(&self.crat.name);
+
+        deploying_progress.log_stage("Preparing");
+
+        // All functions to add to the template
+        let all_functions = prepare_crates(PathBuf::from(build_config()?.build_path), &self.crat)
+            .inspect_err(|_| {
+            deploying_progress.error("Preparing");
+            pipeline_progress.total_progress_bar.finish_and_clear();
+        })?;
+
+        let deploy_functions: Vec<Function> = if deploy_functions.is_empty() {
+            all_functions.to_vec()
+        } else {
+            all_functions
+                .iter()
+                .filter(|f| deploy_functions.contains(&f.name))
+                .cloned()
+                .collect()
+        };
+        pipeline_progress.increase_current_function_position();
 
         let client = if self.is_deploy_enabled {
             Some(Client::new(self.deploy_config.is_some())?)
@@ -68,7 +75,6 @@ impl Pipeline {
             None
         };
 
-        let deploying_progress = pipeline_progress.new_progress(&self.crat.name);
         build(&deploy_functions, &deploying_progress).await?;
         pipeline_progress.increase_current_function_position();
 
@@ -159,7 +165,7 @@ impl Pipeline {
 
         let deploy = self
             .crat
-            .deploy(all_functions, self.deploy_config.as_deref())
+            .deploy(&all_functions, self.deploy_config.as_deref())
             .await;
 
         if deploy.is_err() {
@@ -249,7 +255,9 @@ impl PipelineProgress {
         let completed_functions_count = Arc::new(AtomicUsize::new(0));
 
         // +1 for provisioning phase
-        let total_progress_bar = multi_progress.add(ProgressBar::new(total_functions + 1));
+        // +1 for crate preparation phase
+        // +1 for build phase
+        let total_progress_bar = multi_progress.add(ProgressBar::new(total_functions + 3));
 
         total_progress_bar.set_style(
             ProgressStyle::default_bar()

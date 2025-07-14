@@ -14,13 +14,13 @@ use std::str::FromStr;
 use walkdir::WalkDir;
 
 /// The entry point to run the command
-pub async fn run(all_functions: &[Function], deploy_functions: &[String]) -> eyre::Result<()> {
+pub async fn run(deploy_functions: &[String]) -> eyre::Result<()> {
     Pipeline::builder()
         .with_deploy_enabled(false)
         .set_crat(Crate::from_current_dir()?)
         .build()
         .wrap_err("Failed to build pipeline")?
-        .run(all_functions, deploy_functions)
+        .run(deploy_functions)
         .await?;
 
     Ok(())
@@ -30,7 +30,7 @@ pub async fn run(all_functions: &[Function], deploy_functions: &[String]) -> eyr
 /// Stores crates inside target_directory and returns list of created paths
 pub fn prepare_crates(dst: PathBuf, current_crate: &Crate) -> eyre::Result<Vec<Function>> {
     // Parse functions from source code
-    let parsed_functions = project_functions(&current_crate)?;
+    let parsed_functions = project_functions(current_crate)?;
 
     let src = &current_crate.path;
     let dst = dst.join(&current_crate.name);

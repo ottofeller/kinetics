@@ -4,7 +4,7 @@ use crate::crat::Crate;
 use crate::deploy::{self, DeployConfig};
 use crate::destroy::destroy;
 use crate::error::Error;
-use crate::function::{Function, Type as FunctionType};
+use crate::function::{project_functions, Function, Type as FunctionType};
 use crate::init::init;
 use crate::invoke::invoke;
 use crate::list::list;
@@ -164,10 +164,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
 
     let crat = Crate::from_current_dir()?;
 
-    // All functions to add to the template
-    let all_functions: Vec<Function> =
-        prepare_crates(PathBuf::from(build_config()?.build_path), &crat)?;
-
     color_eyre::config::HookBuilder::default()
         .display_location_section(false)
         .display_env_section(false)
@@ -175,23 +171,12 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         .install()?;
 
     match &cli.command {
-        Some(Commands::Build {
-            functions: deploy_functions,
-            ..
-        }) => build::run(&all_functions, deploy_functions).await,
+        Some(Commands::Build { functions, .. }) => build::run(functions).await,
         Some(Commands::Deploy {
-            functions: deploy_functions,
+            functions,
             max_concurrency,
             ..
-        }) => {
-            deploy::run(
-                &all_functions,
-                deploy_functions,
-                max_concurrency,
-                deploy_config,
-            )
-            .await
-        }
+        }) => deploy::run(functions, max_concurrency, deploy_config).await,
         Some(Commands::Destroy {}) => {
             destroy(&Crate::from_current_dir()?)
                 .await
@@ -206,6 +191,9 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             table,
             remote,
         }) => {
+            // Get function names as well as pull all updates from the code.
+            let all_functions = prepare_crates(PathBuf::from(build_config()?.build_path), &crat)?;
+
             invoke(
                 &Function::find_by_name(&all_functions, name)?,
                 &crat,
@@ -217,6 +205,12 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             .await
         }
         Some(Commands::Logs { name }) => {
+            // Get all function names without any additional manupulations.
+            let all_functions = project_functions(&crat)?
+                .into_iter()
+                .map(|f| Function::new(&crat.path, &f.func_name(false)))
+                .collect::<eyre::Result<Vec<Function>>>()?;
+
             logs(&Function::find_by_name(&all_functions, name)?, &crat).await
         }
         Some(Commands::List { verbose }) => list(&crat, *verbose).await,
