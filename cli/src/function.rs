@@ -260,7 +260,7 @@ impl Function {
 }
 
 /// Parse current project code
-/// and return all functions encountered with `kinetics` attributes.
+/// and return all functions encountered with `kinetics` macro.
 pub fn project_functions(crat: &Crate) -> eyre::Result<Vec<ParsedFunction>> {
     // Parse functions from source code
     let mut parser = Parser::new();
