@@ -32,7 +32,7 @@ pub async fn run(
 
 /// Parses source code and prepares crates for deployment
 /// Stores crates inside target_directory and returns list of created paths
-pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<Function>> {
+pub fn prepare_crates(dst: PathBuf, current_crate: &Crate) -> eyre::Result<Vec<Function>> {
     // Parse functions from source code
     let mut parser = Parser::new();
 
@@ -51,16 +51,16 @@ pub fn prepare_crates(dst: PathBuf, current_crate: Crate) -> eyre::Result<Vec<Fu
         parser.visit_file(&syntax);
     }
 
-    let src = current_crate.path;
+    let src = &current_crate.path;
     let dst = dst.join(&current_crate.name);
     // Checksums of source files for preventing rewrite existing files
     let mut checksum = FileHash::new(dst.to_path_buf());
 
     // Clone user project into the build folder.
-    clone(&src, &dst, &mut checksum)?;
+    clone(src, &dst, &mut checksum)?;
 
     // Create lib.rs exporting a containing module of each parsed function.
-    create_lib(&src, &dst, &parser.functions, &mut checksum)?;
+    create_lib(src, &dst, &parser.functions, &mut checksum)?;
 
     let relative_manifest_path = Path::new("Cargo.toml");
     let mut manifest: toml_edit::DocumentMut =
