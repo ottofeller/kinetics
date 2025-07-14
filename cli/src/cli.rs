@@ -1,10 +1,9 @@
-use crate::build::{self, prepare_crates};
-use crate::config::build_config;
+use crate::build;
 use crate::crat::Crate;
 use crate::deploy::{self, DeployConfig};
 use crate::destroy::destroy;
 use crate::error::Error;
-use crate::function::{Function, Type as FunctionType};
+use crate::function::Type as FunctionType;
 use crate::init::init;
 use crate::invoke::invoke;
 use crate::list::list;
@@ -14,7 +13,6 @@ use crate::logout::logout;
 use crate::logs::logs;
 use clap::{ArgAction, Parser, Subcommand};
 use eyre::{Ok, WrapErr};
-use std::path::PathBuf;
 use std::sync::Arc;
 
 #[derive(Parser)]
@@ -35,8 +33,8 @@ enum Commands {
     /// Build your serverless functions
     Build {
         /// Comma-separated list of function names to build (if not specified, all functions will be built)
-        #[arg(short, long)]
-        functions: Option<String>,
+        #[arg(short, long, value_delimiter = ',')]
+        functions: Vec<String>,
     },
 
     /// Deploy your serverless functions to the cloud
@@ -45,8 +43,8 @@ enum Commands {
         #[arg(short, long, default_value_t = 6)]
         max_concurrency: usize,
 
-        #[arg(short, long)]
-        functions: Option<String>,
+        #[arg(short, long, value_delimiter = ',')]
+        functions: Vec<String>,
     },
 
     /// Destroy your serverless functions
@@ -164,48 +162,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
 
     let crat = Crate::from_current_dir()?;
 
-    // All functions to add to the template
-    let all_functions: Vec<Function> =
-        prepare_crates(PathBuf::from(build_config()?.build_path), &crat)?
-            .into_iter()
-            // Avoid building functions supposed for local invocations only
-            .filter(|f| !f.is_local().unwrap())
-            .collect();
-
-    // Functions to deploy
-    let mut deploy_functions: Vec<Function> = all_functions.clone();
-
-    // Filter functions based on --functions parameter if provided
-    let build_names = if let Some(Commands::Build { functions: names }) = &cli.command {
-        names
-    } else {
-        &None::<String>
-    };
-
-    let deploy_names = if let Some(Commands::Deploy {
-        functions: names, ..
-    }) = &cli.command
-    {
-        names
-    } else {
-        &None::<String>
-    };
-
-    if build_names.is_some() || deploy_names.is_some() {
-        let names: Vec<String> = build_names
-            .clone()
-            .unwrap_or(deploy_names.clone().unwrap_or_default())
-            .split(',')
-            .map(|s| s.trim().into())
-            .collect();
-
-        deploy_functions = all_functions
-            .clone()
-            .into_iter()
-            .filter(|f| names.contains(&f.name.as_str().to_string()))
-            .collect();
-    }
-
     color_eyre::config::HookBuilder::default()
         .display_location_section(false)
         .display_env_section(false)
@@ -213,20 +169,12 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         .install()?;
 
     match &cli.command {
-        Some(Commands::Build { .. }) => {
-            build::run(all_functions.clone(), deploy_functions.clone()).await
-        }
+        Some(Commands::Build { functions, .. }) => build::run(functions).await,
         Some(Commands::Deploy {
-            max_concurrency, ..
-        }) => {
-            deploy::run(
-                all_functions,
-                deploy_functions,
-                max_concurrency,
-                deploy_config,
-            )
-            .await
-        }
+            functions,
+            max_concurrency,
+            ..
+        }) => deploy::run(functions, max_concurrency, deploy_config).await,
         Some(Commands::Destroy {}) => {
             destroy(&Crate::from_current_dir()?)
                 .await
@@ -242,7 +190,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             remote,
         }) => {
             invoke(
-                &Function::find_by_name(&all_functions, name)?,
+                name,
                 &crat,
                 payload,
                 headers,
@@ -251,9 +199,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             )
             .await
         }
-        Some(Commands::Logs { name }) => {
-            logs(&Function::find_by_name(&all_functions, name)?, &crat).await
-        }
+        Some(Commands::Logs { name }) => logs(name, &crat).await,
         Some(Commands::List { verbose }) => list(&crat, *verbose).await,
         Some(Commands::Logout {}) => logout().await,
         _ => Ok(()),

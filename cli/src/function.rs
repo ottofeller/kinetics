@@ -5,15 +5,18 @@ use crate::crat::Crate;
 use crate::deploy::DeployConfig;
 use crate::error::Error;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
+use kinetics_parser::{ParsedFunction, Parser};
 use reqwest::StatusCode;
 use serde_json::json;
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use syn::visit::Visit;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncReadExt;
 use tokio::io::BufReader;
+use walkdir::WalkDir;
 use zip::write::SimpleFileOptions;
 
 pub enum Type {
@@ -153,7 +156,7 @@ impl Function {
     }
 
     /// Return true if the function is the only supposed for local invocations
-    pub fn is_local(&self) -> eyre::Result<bool> {
+    pub fn _is_local(&self) -> eyre::Result<bool> {
         if self.meta().is_err() {
             return Err(eyre!("Could not get function's meta {}", self.name,));
         }
@@ -254,6 +257,30 @@ impl Function {
 
         Ok(status.last_modified)
     }
+}
+
+/// Parse current project code
+/// and return all functions encountered with `kinetics` macro.
+pub fn project_functions(crat: &Crate) -> eyre::Result<Vec<ParsedFunction>> {
+    // Parse functions from source code
+    let mut parser = Parser::new();
+
+    for entry in WalkDir::new(&crat.path)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
+    {
+        let content = std::fs::read_to_string(entry.path())?;
+        let syntax = syn::parse_file(&content)?;
+
+        // Set current file relative path for further imports resolution
+        // WARN It prevents to implement parallel parsing of files and requires rework in the future
+        parser.set_relative_path(entry.path().strip_prefix(&crat.path)?.to_str());
+
+        parser.visit_file(&syntax);
+    }
+
+    Ok(parser.functions)
 }
 
 pub async fn build(functions: &[Function], progress: &Progress) -> eyre::Result<()> {

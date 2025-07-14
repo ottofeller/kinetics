@@ -1,10 +1,13 @@
+use crate::build::prepare_crates;
 use crate::client::Client;
+use crate::config::build_config;
 use crate::crat::Crate;
 use crate::deploy::DeployConfig;
 use crate::function::{build, Function};
 use eyre::{eyre, OptionExt, Report};
 use futures::future;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
@@ -25,17 +28,14 @@ impl Pipeline {
     pub async fn run(
         self,
 
-        // All functions are sent to server, so that related resources are always prepared
-        all_functions: Vec<Function>,
-
         // Only selected functions are built and uploaded
-        deploy_functions: Vec<Function>,
+        deploy_functions: &[String],
     ) -> eyre::Result<()> {
         if self.deploy_config.is_some() {
             println!(
                 "    {} `{}` {}",
                 console::style("Using a custom deployment configuration for").yellow(),
-                console::style(self.crat.name.clone()).green().bold(),
+                console::style(&self.crat.name).green().bold(),
                 console::style("crate").yellow(),
             );
         }
@@ -47,19 +47,35 @@ impl Pipeline {
             self.is_deploy_enabled,
         );
 
-        let client = if self.is_deploy_enabled {
-            Some(Client::new(self.deploy_config.is_some())?)
-        } else {
-            None
-        };
+        let deploying_progress = pipeline_progress.new_progress(&self.crat.name);
 
-        build(
-            &deploy_functions,
-            &pipeline_progress.new_progress(&self.crat.name),
-        )
-        .await?;
+        deploying_progress.log_stage("Preparing");
+
+        // All functions to add to the template
+        let all_functions = prepare_crates(PathBuf::from(build_config()?.build_path), &self.crat)
+            .inspect_err(|_| {
+            deploying_progress.error("Preparing");
+            pipeline_progress.total_progress_bar.finish_and_clear();
+        })?;
+
+        let deploy_functions: Vec<Function> = if deploy_functions.is_empty() {
+            all_functions.to_vec()
+        } else {
+            all_functions
+                .iter()
+                .filter(|f| deploy_functions.contains(&f.name))
+                .cloned()
+                .collect()
+        };
+        pipeline_progress.increase_current_function_position();
+
+        build(&deploy_functions, &deploying_progress).await?;
+        pipeline_progress.increase_current_function_position();
 
         if !self.is_deploy_enabled {
+            pipeline_progress.increase_current_function_position();
+            pipeline_progress.total_progress_bar.finish_and_clear();
+
             println!(
                 "    {} `{}` crate building in {:.2}s",
                 console::style("Finished").green().bold(),
@@ -69,6 +85,8 @@ impl Pipeline {
 
             return Ok(());
         }
+
+        let client = Client::new(self.deploy_config.is_some())?;
 
         // Define maximum number of parallel bundling jobs
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
@@ -97,7 +115,7 @@ impl Pipeline {
                 function_progress.log_stage("Uploading");
 
                 function
-                    .upload(&client.unwrap(), deploy_config_clone.as_deref())
+                    .upload(&client, deploy_config_clone.as_deref())
                     .await
                     .map_err(|e| {
                         function_progress.error("Uploading");
@@ -114,7 +132,7 @@ impl Pipeline {
                     );
                 };
 
-                Ok::<Function, Report>(function)
+                Ok(())
             })
         });
 
@@ -139,19 +157,11 @@ impl Pipeline {
             ));
         }
 
-        let deploying_progress = pipeline_progress.new_progress(&self.crat.name);
-
         deploying_progress.log_stage("Provisioning");
 
         let deploy = self
             .crat
-            .deploy(
-                &all_functions
-                    .into_iter()
-                    .filter(|f| !f.is_local().unwrap())
-                    .collect::<Vec<Function>>(),
-                self.deploy_config.as_deref(),
-            )
+            .deploy(&all_functions, self.deploy_config.as_deref())
             .await;
 
         if deploy.is_err() {
@@ -241,7 +251,9 @@ impl PipelineProgress {
         let completed_functions_count = Arc::new(AtomicUsize::new(0));
 
         // +1 for provisioning phase
-        let total_progress_bar = multi_progress.add(ProgressBar::new(total_functions + 1));
+        // +1 for crate preparation phase
+        // +1 for build phase
+        let total_progress_bar = multi_progress.add(ProgressBar::new(total_functions + 3));
 
         total_progress_bar.set_style(
             ProgressStyle::default_bar()

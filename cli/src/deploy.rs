@@ -8,8 +8,7 @@ use std::sync::Arc;
 
 /// The entry point to run the command
 pub async fn run(
-    all_functions: Vec<Function>,
-    deploy_functions: Vec<Function>,
+    deploy_functions: &[String],
     max_concurrency: &usize,
     deploy_config: Option<Arc<dyn DeployConfig>>,
 ) -> eyre::Result<()> {
@@ -20,7 +19,7 @@ pub async fn run(
         .set_crat(Crate::from_current_dir()?)
         .build()
         .wrap_err("Failed to build pipeline")?
-        .run(all_functions, deploy_functions)
+        .run(deploy_functions)
         .await?;
 
     Ok(())
