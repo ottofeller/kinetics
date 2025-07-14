@@ -69,12 +69,6 @@ impl Pipeline {
         };
         pipeline_progress.increase_current_function_position();
 
-        let client = if self.is_deploy_enabled {
-            Some(Client::new(self.deploy_config.is_some())?)
-        } else {
-            None
-        };
-
         build(&deploy_functions, &deploying_progress).await?;
         pipeline_progress.increase_current_function_position();
 
@@ -91,6 +85,8 @@ impl Pipeline {
 
             return Ok(());
         }
+
+        let client = Client::new(self.deploy_config.is_some())?;
 
         // Define maximum number of parallel bundling jobs
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
@@ -119,7 +115,7 @@ impl Pipeline {
                 function_progress.log_stage("Uploading");
 
                 function
-                    .upload(&client.unwrap(), deploy_config_clone.as_deref())
+                    .upload(&client, deploy_config_clone.as_deref())
                     .await
                     .map_err(|e| {
                         function_progress.error("Uploading");
