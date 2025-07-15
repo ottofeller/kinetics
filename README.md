@@ -144,6 +144,29 @@ You can then interact with it like you normally interact with DynamoDB, [example
 - `kinetics logout` – Log out the current user
 - `kinetics logs` - View application logs
 
+### Examples
+
+- list out functions before deployment:
+```sh
+kinetics list
+```
+- invoke a function with parameters:
+```sh
+kinetics invoke DatabaseDatabase -p '{"account": "111", "name": "Carlos"}' -t mytable
+```
+- deploy entire project:
+```sh
+kinetics deploy
+```
+- individual deployment:
+```sh
+kinetics deploy -f DatabaseDatabase,BasicWorkerWorker,QueueQueue
+```
+- output logs for a function:
+```sh
+kinetics logs BasicEndpointEndpoint
+```
+
 ## Support & Community
 
 - support@usekinetics.com. Help with builds, deployments, and runtime.
