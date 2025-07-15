@@ -25,10 +25,8 @@ pub async fn invoke(
     let function = Function::find_by_name(&all_functions, function_name)?;
 
     if is_local {
-        local::invoke(&function, crat, payload, headers, table).await?
+        local::invoke(&function, crat, payload, headers, table).await
     } else {
-        remote::invoke(&function, crat, payload, headers).await?
+        remote::invoke(&function, crat, payload, headers).await
     }
-
-    Ok(())
 }

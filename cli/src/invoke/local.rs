@@ -1,10 +1,10 @@
+use super::dynamodb::LocalDynamoDB;
 use crate::config::build_config;
 use crate::crat::Crate;
 use crate::function::Function;
 use crate::process::Process;
 use crate::secret::Secret;
 use color_eyre::owo_colors::OwoColorize;
-use super::dynamodb::LocalDynamoDB;
 use eyre::WrapErr;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -44,10 +44,10 @@ pub async fn invoke(
 
     let mut dynamodb = LocalDynamoDB::new(&PathBuf::from(&build_config()?.build_path));
 
-    if table.is_some() {
+    if let Some(table) = table {
         dynamodb.start()?;
-        dynamodb.provision(table.unwrap()).await?;
-    }
+        dynamodb.provision(table).await?;
+    };
 
     let mut aws_credentials = HashMap::new();
 
