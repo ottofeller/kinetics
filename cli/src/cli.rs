@@ -145,9 +145,9 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         }) => {
             return init(
                 name,
-                if cron.to_owned() {
+                if *cron {
                     FunctionType::Cron
-                } else if worker.to_owned() {
+                } else if *worker {
                     FunctionType::Worker
                 } else {
                     FunctionType::Endpoint
@@ -175,13 +175,9 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             max_concurrency,
             ..
         }) => deploy::run(functions, max_concurrency, deploy_config).await,
-        Some(Commands::Destroy {}) => {
-            destroy(&Crate::from_current_dir()?)
-                .await
-                .wrap_err("Failed to destroy the project")?;
-
-            Ok(())
-        }
+        Some(Commands::Destroy {}) => destroy(&crat)
+            .await
+            .wrap_err("Failed to destroy the project"),
         Some(Commands::Invoke {
             name,
             payload,
