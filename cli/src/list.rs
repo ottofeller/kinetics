@@ -1,16 +1,14 @@
 use crate::client::Client;
 use crate::config::build_config;
 use crate::crat::Crate;
-use crate::function::Function;
+use crate::function::{project_functions, Function};
 use color_eyre::owo_colors::OwoColorize;
-use kinetics_parser::{ParsedFunction, Parser, Role};
+use kinetics_parser::{ParsedFunction, Role};
 use serde_json::Value;
 use std::collections::HashMap;
-use syn::visit::Visit;
 use tabled::settings::{peaker::Priority, style::Style, Settings, Width};
 use tabled::{Table, Tabled};
 use terminal_size::{terminal_size, Height as TerminalHeight, Width as TerminalWidth};
-use walkdir::WalkDir;
 
 #[derive(Tabled, Clone)]
 struct EndpointRow {
@@ -116,7 +114,7 @@ pub fn display_simple(function: &ParsedFunction, options: &HashMap<&str, String>
 
     match function.role.clone() {
         Role::Endpoint(params) => {
-            if params.url_path.is_some() {
+            if let Some(url_path) = params.url_path {
                 println!(
                     "{}",
                     format!(
@@ -124,7 +122,7 @@ pub fn display_simple(function: &ParsedFunction, options: &HashMap<&str, String>
                         options
                             .get("parent_crate_name")
                             .unwrap_or(&String::from("<your crate name>")),
-                        params.url_path.unwrap()
+                        url_path
                     )
                     .cyan()
                 )
@@ -134,12 +132,8 @@ pub fn display_simple(function: &ParsedFunction, options: &HashMap<&str, String>
         Role::Cron(params) => println!("{} {}", "Scheduled".dimmed(), params.schedule.cyan()),
 
         Role::Worker(params) => {
-            if params.queue_alias.is_some() {
-                println!(
-                    "{} {}",
-                    "Queue".dimmed(),
-                    params.queue_alias.unwrap().cyan()
-                );
+            if let Some(queue_alias) = params.queue_alias {
+                println!("{} {}", "Queue".dimmed(), queue_alias.cyan());
             }
         }
     }
@@ -195,22 +189,10 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
 ///
 /// With some extra information
 pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
-    let mut parser = Parser::new();
-
-    for entry in WalkDir::new(&current_crate.path)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
-    {
-        let content = std::fs::read_to_string(entry.path())?;
-        let syntax = syn::parse_file(&content)?;
-
-        parser.set_relative_path(entry.path().strip_prefix(&current_crate.path)?.to_str());
-        parser.visit_file(&syntax);
-    }
+    let functions = project_functions(current_crate)?;
 
     if !is_verbose {
-        simple(&parser.functions, current_crate);
+        simple(&functions, current_crate);
         return Ok(());
     }
 
@@ -221,14 +203,14 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let mut worker_rows = Vec::new();
     let client = Client::new(false)?;
 
-    if parser.functions.is_empty() {
+    if functions.is_empty() {
         println!("{}", console::style("No functions found").yellow());
         return Ok(());
     }
 
-    for parsed_function in parser.functions.clone() {
+    for parsed_function in functions {
         let function = Function::new(&current_crate.path, &parsed_function.func_name(false))?;
-        let func_path = parsed_function.relative_path.clone();
+        let func_path = parsed_function.relative_path;
         let last_modified = function
             .status(&client)
             .await?
