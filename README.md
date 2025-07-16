@@ -144,6 +144,34 @@ You can then interact with it like you normally interact with DynamoDB, [example
 - `kinetics logout` – Log out the current user
 - `kinetics logs` - View application logs
 
+### Examples
+Try in `examples/` dir. These are the most frequently used commands with examples of input params.
+
+List out functions before deployment. Their names and URLs of REST API endpoints:
+```sh
+kinetics list
+```
+Invoke a function locally with parameters. `--payload` sets the JSON body payload:
+```sh
+kinetics invoke DatabaseDatabase --payload '{"account": "111", "name": "Carlos"}' --table mytable
+```
+Deploy entire project:
+```sh
+kinetics deploy
+```
+Deploy individual function:
+```sh
+kinetics deploy --functions DatabaseDatabase,BasicWorkerWorker,QueueQueue
+```
+Invoke a function remotely by automatically resolving function's name into the URL:
+```sh
+kinetics invoke DatabaseDatabase --remote --payload '{"account": "111", "name": "Carlos"}'
+```
+Output logs for a function:
+```sh
+kinetics logs BasicEndpointEndpoint
+```
+
 ## Support & Community
 
 - support@usekinetics.com. Help with builds, deployments, and runtime.
