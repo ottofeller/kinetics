@@ -7,7 +7,6 @@ use std::env;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
-use std::path::PathBuf;
 use std::process::Command;
 use toml_edit::value;
 use toml_edit::DocumentMut;
@@ -77,7 +76,7 @@ pub async fn init(name: &str, function_type: FunctionType) -> eyre::Result<()> {
                 return halt(
                     "Failed to download template archive",
                     "Please check your internet connection and try again",
-                    project_dir,
+                    &project_dir,
                 );
             }
 
@@ -89,7 +88,7 @@ pub async fn init(name: &str, function_type: FunctionType) -> eyre::Result<()> {
             return halt(
                 "Failed to download template archive",
                 "Please check your internet connection and try again",
-                project_dir,
+                &project_dir,
             );
         }
     };
@@ -102,7 +101,7 @@ pub async fn init(name: &str, function_type: FunctionType) -> eyre::Result<()> {
             return halt(
                 "Failed to unpack template archive",
                 "Check if tar is installed and you have enough FS permissions, and try again.",
-                project_dir.clone(),
+                &project_dir,
             )
         }
     };
@@ -140,7 +139,7 @@ pub async fn init(name: &str, function_type: FunctionType) -> eyre::Result<()> {
         return halt(
             "Failed to move template files",
             "The bash command failed. Check file permissions.",
-            project_dir,
+            &project_dir,
         );
     }
 
@@ -170,22 +169,17 @@ fn rename(project_dir: &Path, name: &str) -> eyre::Result<()> {
         .parse::<DocumentMut>()
         .inspect_err(|e| log::error!("Can't parse: {e:?}"))?;
 
-    let package = doc.get_mut("package");
-
-    if package.is_none() {
+    let Some(package) = doc.get_mut("package") else {
         log::error!("Missing [package] section");
         return Err(eyre!("Invalid Cargo.toml format"));
-    }
+    };
 
     // Update the package name in [package] section
-    let package_table = package.unwrap().as_table_mut();
-
-    if package_table.is_none() {
+    let Some(package_table) = package.as_table_mut() else {
         log::error!("Cargo.toml:package is not a table");
         return Err(eyre!("Invalid Cargo.toml format"));
-    }
+    };
 
-    let package_table = package_table.unwrap();
     package_table["name"] = value(name);
 
     // Write the updated content back
@@ -246,8 +240,8 @@ async fn unpack(response: Response, project_dir: &Path) -> eyre::Result<()> {
 }
 
 /// Clean up, and throw an error
-fn halt(message: &str, details: &str, dir: PathBuf) -> eyre::Result<()> {
+fn halt(message: &str, details: &str, dir: &Path) -> eyre::Result<()> {
     print!("\r\x1B[K");
-    fs::remove_dir_all(&dir).unwrap_or(());
+    fs::remove_dir_all(dir).unwrap_or(());
     Err(Error::new(message, Some(details)).into())
 }
