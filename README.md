@@ -159,9 +159,9 @@ Deploy entire project:
 ```sh
 kinetics deploy
 ```
-Deploy individual function:
+Deploy individual functions:
 ```sh
-kinetics deploy --functions DatabaseDatabase,BasicWorkerWorker,QueueQueue
+kinetics deploy --functions DatabaseDatabase,BasicWorkerWorker
 ```
 Invoke a function remotely by automatically resolving function's name into the URL:
 ```sh
