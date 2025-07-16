@@ -136,7 +136,9 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         Some(Commands::Login { email }) => {
             return login(email).await.map_err(Error::from);
         }
-
+        Some(Commands::Logout {}) => {
+            return logout().await.map_err(Error::from);
+        }
         Some(Commands::Init {
             name,
             cron,
@@ -197,7 +199,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         }
         Some(Commands::Logs { name }) => logs(name, &crat).await,
         Some(Commands::List { verbose }) => list(&crat, *verbose).await,
-        Some(Commands::Logout {}) => logout().await,
         _ => Ok(()),
     }
     .map_err(Error::from)
