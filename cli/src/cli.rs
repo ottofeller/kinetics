@@ -11,6 +11,7 @@ use crate::logger::Logger;
 use crate::login::login;
 use crate::logout::logout;
 use crate::logs::logs;
+use crate::stat::stat;
 use clap::{ArgAction, Parser, Subcommand};
 use eyre::{Ok, WrapErr};
 use std::sync::Arc;
@@ -123,6 +124,17 @@ enum Commands {
         verbose: bool,
     },
 
+    /// Get function statistics
+    Stat {
+        /// Function name to get statistics for
+        #[arg()]
+        name: String,
+
+        /// Period to get statistics for (in days)
+        #[arg(short, long, default_value_t = 7)]
+        period: u32,
+    },
+
     /// Logout from Kinetics platform
     Logout {},
 }
@@ -199,6 +211,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         }
         Some(Commands::Logs { name }) => logs(name, &crat).await,
         Some(Commands::List { verbose }) => list(&crat, *verbose).await,
+        Some(Commands::Stat { name, period }) => stat(name, &crat, *period).await,
         _ => Ok(()),
     }
     .map_err(Error::from)
