@@ -2,6 +2,7 @@ use crate::build;
 use crate::crat::Crate;
 use crate::deploy::{self, DeployConfig};
 use crate::destroy::destroy;
+use crate::rollback::rollback;
 use crate::error::Error;
 use crate::function::Type as FunctionType;
 use crate::init::init;
@@ -50,6 +51,9 @@ enum Commands {
 
     /// Destroy your serverless functions
     Destroy {},
+
+    /// Rollback your serverless functions to previous deployment
+    Rollback {},
 
     /// Start new Kinetics project from template
     Init {
@@ -192,6 +196,9 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         Some(Commands::Destroy {}) => destroy(&crat)
             .await
             .wrap_err("Failed to destroy the project"),
+        Some(Commands::Rollback {}) => rollback(&crat)
+            .await
+            .wrap_err("Failed to rollback the project"),
         Some(Commands::Invoke {
             name,
             payload,

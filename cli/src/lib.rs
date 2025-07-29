@@ -14,6 +14,7 @@ pub mod list;
 pub mod logger;
 pub mod login;
 pub mod logout;
+pub mod rollback;
 pub mod logs;
 pub mod process;
 pub mod secret;

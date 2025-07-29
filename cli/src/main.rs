@@ -16,6 +16,7 @@ mod login;
 mod logout;
 mod logs;
 mod process;
+mod rollback;
 mod secret;
 mod stat;
 use crate::cli::run;
