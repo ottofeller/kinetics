@@ -175,7 +175,7 @@ impl Pipeline {
 
         // Poll the status of the deployment
         while status.status == "IN_PROGRESS" {
-            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+            tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
             status = self.crat.status().await?;
         }
 
