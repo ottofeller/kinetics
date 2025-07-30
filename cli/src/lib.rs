@@ -17,4 +17,4 @@ pub mod logout;
 pub mod logs;
 pub mod process;
 pub mod secret;
-pub mod stat;
+pub mod stats;

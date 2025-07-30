@@ -11,7 +11,7 @@ use crate::logger::Logger;
 use crate::login::login;
 use crate::logout::logout;
 use crate::logs::logs;
-use crate::stat::stat;
+use crate::stats::stats;
 use clap::{ArgAction, Parser, Subcommand};
 use eyre::{Ok, WrapErr};
 use std::sync::Arc;
@@ -125,7 +125,7 @@ enum Commands {
     },
 
     /// Get function statistics
-    Stat {
+    Stats {
         /// Function name to get statistics for
         #[arg()]
         name: String,
@@ -211,7 +211,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         }
         Some(Commands::Logs { name }) => logs(name, &crat).await,
         Some(Commands::List { verbose }) => list(&crat, *verbose).await,
-        Some(Commands::Stat { name, period }) => stat(name, &crat, *period).await,
+        Some(Commands::Stats { name, period }) => stats(name, &crat, *period).await,
         _ => Ok(()),
     }
     .map_err(Error::from)

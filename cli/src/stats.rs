@@ -36,7 +36,7 @@ struct LastCall {
 }
 
 /// Retrieves and displays run statistics for a specific function
-pub async fn stat(function_name: &str, crat: &Crate, period: u32) -> Result<()> {
+pub async fn stats(function_name: &str, crat: &Crate, period: u32) -> Result<()> {
     // Get all function names without any additional manupulations.
     let all_functions = project_functions(crat)?
         .into_iter()
@@ -54,7 +54,7 @@ pub async fn stat(function_name: &str, crat: &Crate, period: u32) -> Result<()> 
     );
 
     let response = client
-        .post("/function/stat")
+        .post("/function/stats")
         .json(&RequestBody {
             crate_name: crat.name.to_owned(),
             function_name: function.name,
