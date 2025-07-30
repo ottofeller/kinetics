@@ -124,9 +124,12 @@ enum Commands {
         verbose: bool,
     },
 
-    /// Get function statistics
+    /// Get function statistics,
+    /// that include run statistics (error/success/total count)
+    /// as well as last call time and status.
     Stats {
-        /// Function name to get statistics for
+        /// Function name to get statistics for.
+        /// Run `kinetics list` to get a complete list of function names in a project.
         #[arg()]
         name: String,
 
