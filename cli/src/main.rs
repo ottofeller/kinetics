@@ -17,6 +17,7 @@ mod logout;
 mod logs;
 mod process;
 mod secret;
+mod stats;
 use crate::cli::run;
 use crate::error::Error;
 
