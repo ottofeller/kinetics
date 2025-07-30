@@ -48,7 +48,7 @@ pub async fn stats(function_name: &str, crat: &Crate, period: u32) -> Result<()>
 
     println!(
         "\n{} {} {}...\n",
-        console::style("Fetching statistics").bold().green(),
+        console::style("Fetching stats").bold().green(),
         console::style("for").dim(),
         console::style(&function.name).bold()
     );
@@ -80,18 +80,18 @@ pub async fn stats(function_name: &str, crat: &Crate, period: u32) -> Result<()>
         Some("Try again later."),
     ))?;
 
-    println!("{}", "Runs:".bold().green());
-    println!("  total: {}", logs_response.runs.total);
-    println!("  success: {}", logs_response.runs.success);
-    println!("  error: {}", logs_response.runs.error);
+    println!("{}", "Runs:".bold());
+    println!("  Total: {}", logs_response.runs.total);
+    println!("  Success: {}", logs_response.runs.success);
+    println!("  Error: {}", logs_response.runs.error);
 
     let Some(last_call) = logs_response.last_call else {
         println!("Never invoked yet");
         return Ok(());
     };
 
-    println!("{}", "Last called:".bold().green());
-    println!("  status: {}", last_call.status);
-    println!("  timestamp: {}", last_call.timestamp);
+    println!("\n{}", "Last called:".bold());
+    println!("  Status: {}", last_call.status);
+    println!("  Timestamp: {}", last_call.timestamp);
     Ok(())
 }
