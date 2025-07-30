@@ -85,14 +85,12 @@ pub async fn stat(function_name: &str, crat: &Crate, period: u32) -> Result<()> 
     println!("  success: {}", logs_response.runs.success);
     println!("  error: {}", logs_response.runs.error);
 
-    print!("{}", "Last called:".bold().green());
     let Some(last_call) = logs_response.last_call else {
-        print!(" NA");
-        println!();
+        println!("Never invoked yet");
         return Ok(());
     };
 
-    println!();
+    println!("{}", "Last called:".bold().green());
     println!("  status: {}", last_call.status);
     println!("  timestamp: {}", last_call.timestamp);
     Ok(())
