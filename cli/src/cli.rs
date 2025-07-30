@@ -130,8 +130,9 @@ enum Commands {
         #[arg()]
         name: String,
 
-        /// Period to get statistics for (in days)
-        #[arg(short, long, default_value_t = 7)]
+        /// Period to get statistics for (in days).
+        /// Maximum value is 7 days.
+        #[arg(short, long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..=7))]
         period: u32,
     },
 
