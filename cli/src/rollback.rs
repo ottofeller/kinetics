@@ -1,18 +1,59 @@
-use crate::client::Client;
+use crate::{client::Client, error::Error};
 use crate::crat::Crate;
-use crate::error::Error;
+use chrono::{DateTime, Utc};
 use eyre::{Context, Result};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Body {
+    name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Response {
+    versions: Vec<Version>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Version {
+    version: u32,
+    update_at: DateTime<Utc>,
+}
 
 /// Rollback a project by one version
 ///
 /// Consequent rollbacks are possible and will revert one version at a time
 pub async fn rollback(crat: &Crate) -> Result<()> {
     let client = Client::new(false).wrap_err("Failed to create client")?;
+
+    let versions: Response = client
+        .request(
+            "/stack/versions",
+            Body {
+                name: crat.name.to_string(),
+            },
+        )
+        .await?;
+
+    if versions.versions.len() < 2 {
+        println!(
+            "{}",
+            console::style("Nothing to rollback, there is only one version").yellow()
+        );
+        return Ok(());
+    }
+
     println!(
-        "{}...\n{}",
+        "{} {} {}...",
         console::style("Rolling back").bold().green(),
-        console::style("Reverting to the previous version...").dim()
+        console::style("to").dim(),
+        console::style(format!(
+            "v{} ({})",
+            versions.versions[1].version,
+            versions.versions[1].update_at.with_timezone(&chrono::Local)
+        ))
+        .bold(),
     );
 
     client
