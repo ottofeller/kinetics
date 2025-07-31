@@ -2,6 +2,7 @@ use crate::crat::Crate;
 use crate::error::Error;
 use crate::function::Function;
 use crate::{client::Client, function::project_functions};
+use chrono::{DateTime, Utc};
 use color_eyre::owo_colors::OwoColorize as _;
 use eyre::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -36,7 +37,7 @@ struct LastCall {
 }
 
 /// Retrieves and displays run statistics for a specific function
-pub async fn stat(function_name: &str, crat: &Crate, period: u32) -> Result<()> {
+pub async fn stats(function_name: &str, crat: &Crate, period: u32) -> Result<()> {
     // Get all function names without any additional manupulations.
     let all_functions = project_functions(crat)?
         .into_iter()
@@ -48,13 +49,13 @@ pub async fn stat(function_name: &str, crat: &Crate, period: u32) -> Result<()> 
 
     println!(
         "\n{} {} {}...\n",
-        console::style("Fetching statistics").bold().green(),
+        console::style("Fetching stats").bold().green(),
         console::style("for").dim(),
         console::style(&function.name).bold()
     );
 
     let response = client
-        .post("/function/stat")
+        .post("/function/stats")
         .json(&RequestBody {
             crate_name: crat.name.to_owned(),
             function_name: function.name,
@@ -80,20 +81,23 @@ pub async fn stat(function_name: &str, crat: &Crate, period: u32) -> Result<()> 
         Some("Try again later."),
     ))?;
 
-    println!("{}", "Runs:".bold().green());
-    println!("  total: {}", logs_response.runs.total);
-    println!("  success: {}", logs_response.runs.success);
-    println!("  error: {}", logs_response.runs.error);
+    println!("{}", "Runs:".bold());
+    println!("  Total: {}", logs_response.runs.total);
+    println!("  Success: {}", logs_response.runs.success);
+    println!("  Error: {}", logs_response.runs.error);
 
-    print!("{}", "Last called:".bold().green());
     let Some(last_call) = logs_response.last_call else {
-        print!(" NA");
-        println!();
+        println!("Never invoked yet");
         return Ok(());
     };
 
-    println!();
-    println!("  status: {}", last_call.status);
-    println!("  timestamp: {}", last_call.timestamp);
+    println!("\n{}", "Last called:".bold());
+
+    println!(
+        "  At: {}",
+        chrono::DateTime::parse_from_rfc3339(&last_call.timestamp)?.with_timezone(&chrono::Local)
+    );
+
+    println!("  Status: {}", last_call.status);
     Ok(())
 }

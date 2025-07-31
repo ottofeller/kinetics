@@ -12,7 +12,7 @@ use crate::logger::Logger;
 use crate::login::login;
 use crate::logout::logout;
 use crate::logs::logs;
-use crate::stat::stat;
+use crate::stats::stats;
 use clap::{ArgAction, Parser, Subcommand};
 use eyre::{Ok, WrapErr};
 use std::sync::Arc;
@@ -128,14 +128,18 @@ enum Commands {
         verbose: bool,
     },
 
-    /// Get function statistics
-    Stat {
-        /// Function name to get statistics for
+    /// Get function statistics,
+    /// that include run statistics (error/success/total count)
+    /// as well as last call time and status.
+    Stats {
+        /// Function name to get statistics for.
+        /// Run `kinetics list` to get a complete list of function names in a project.
         #[arg()]
         name: String,
 
-        /// Period to get statistics for (in days)
-        #[arg(short, long, default_value_t = 7)]
+        /// Period to get statistics for (in days).
+        /// Maximum value is 7 days.
+        #[arg(short, long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..=7))]
         period: u32,
     },
 
@@ -218,7 +222,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         }
         Some(Commands::Logs { name }) => logs(name, &crat).await,
         Some(Commands::List { verbose }) => list(&crat, *verbose).await,
-        Some(Commands::Stat { name, period }) => stat(name, &crat, *period).await,
+        Some(Commands::Stats { name, period }) => stats(name, &crat, *period).await,
         _ => Ok(()),
     }
     .map_err(Error::from)
