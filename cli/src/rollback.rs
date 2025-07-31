@@ -18,7 +18,7 @@ struct Response {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Version {
     version: u32,
-    update_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
 }
 
 /// Rollback a project by one version
@@ -51,7 +51,7 @@ pub async fn rollback(crat: &Crate) -> Result<()> {
         console::style(format!(
             "v{} ({})",
             versions.versions[1].version,
-            versions.versions[1].update_at.with_timezone(&chrono::Local)
+            versions.versions[1].updated_at.with_timezone(&chrono::Local)
         ))
         .bold(),
     );
