@@ -43,7 +43,7 @@ impl Pipeline {
         let start_time = Instant::now();
 
         println!(
-            "    {} {}",
+            "   {} {}",
             console::style("Preparing").green().bold(),
             self.crat.name,
         );
