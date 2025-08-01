@@ -42,21 +42,14 @@ impl Pipeline {
 
         let start_time = Instant::now();
 
-        let pipeline_progress = PipelineProgress::new(
-            deploy_functions.len() as u64 * if self.is_deploy_enabled { 2 } else { 0 },
-            self.is_deploy_enabled,
+        println!(
+            "    {} {}",
+            console::style("Preparing").green().bold(),
+            self.crat.name,
         );
 
-        let deploying_progress = pipeline_progress.new_progress(&self.crat.name);
-
-        deploying_progress.log_stage("Preparing");
-
         // All functions to add to the template
-        let all_functions = prepare_crates(PathBuf::from(build_config()?.build_path), &self.crat)
-            .inspect_err(|_| {
-            deploying_progress.error("Preparing");
-            pipeline_progress.total_progress_bar.finish_and_clear();
-        })?;
+        let all_functions = prepare_crates(PathBuf::from(build_config()?.build_path), &self.crat)?;
 
         let deploy_functions: Vec<Function> = if deploy_functions.is_empty() {
             all_functions.to_vec()
@@ -67,7 +60,13 @@ impl Pipeline {
                 .cloned()
                 .collect()
         };
-        pipeline_progress.increase_current_function_position();
+
+        let pipeline_progress = PipelineProgress::new(
+            deploy_functions.len() as u64 * if self.is_deploy_enabled { 2 } else { 0 },
+            self.is_deploy_enabled,
+        );
+
+        let deploying_progress = pipeline_progress.new_progress(&self.crat.name);
 
         build(&deploy_functions, &deploying_progress).await?;
         pipeline_progress.increase_current_function_position();
@@ -102,7 +101,6 @@ impl Pipeline {
                 let _permit = sem.acquire().await?;
 
                 let function_progress = pipeline_progress.new_progress(&function.name);
-                pipeline_progress.increase_current_function_position();
 
                 function_progress.log_stage("Bundling");
 
@@ -251,9 +249,8 @@ impl PipelineProgress {
         let completed_functions_count = Arc::new(AtomicUsize::new(0));
 
         // +1 for provisioning phase
-        // +1 for crate preparation phase
         // +1 for build phase
-        let total_progress_bar = multi_progress.add(ProgressBar::new(total_functions + 3));
+        let total_progress_bar = multi_progress.add(ProgressBar::new(total_functions + 2));
 
         total_progress_bar.set_style(
             ProgressStyle::default_bar()
