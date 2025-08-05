@@ -256,7 +256,7 @@ impl PipelineProgress {
             ProgressStyle::default_bar()
                 .template(
                     format!(
-                        "   {} [{{bar:40}}] {{percent}}%",
+                        "   {} [{{bar:40}}] {{pos}}/{{len}}",
                         console::style(if is_deploy { "Deploying" } else { "Building" })
                             .cyan()
                             .bold()
