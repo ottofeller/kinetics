@@ -288,6 +288,12 @@ pub async fn build(functions: &[Function], progress: &Progress) -> eyre::Result<
         return Err(eyre!("Attempted to build an empty function list"));
     };
 
+    progress.progress_bar.set_message(format!(
+        "{} {}",
+        console::style("    Building").green().bold(),
+        console::style("Starting...").dim()
+    ));
+
     let mut cmd = tokio::process::Command::new("cargo");
     cmd.arg("lambda")
         .arg("build")

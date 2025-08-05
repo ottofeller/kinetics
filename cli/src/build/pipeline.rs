@@ -43,7 +43,7 @@ impl Pipeline {
         let start_time = Instant::now();
 
         println!(
-            "    {} {}",
+            "   {} {}",
             console::style("Preparing").green().bold(),
             self.crat.name,
         );
@@ -256,7 +256,7 @@ impl PipelineProgress {
             ProgressStyle::default_bar()
                 .template(
                     format!(
-                        "   {} [{{bar:40}}] {{percent}}%",
+                        "   {} [{{bar:40}}] {{pos}}/{{len}}",
                         console::style(if is_deploy { "Deploying" } else { "Building" })
                             .cyan()
                             .bold()
@@ -267,7 +267,7 @@ impl PipelineProgress {
                 .progress_chars("=> "),
         );
 
-        total_progress_bar.set_position(0);
+        total_progress_bar.set_position(1);
 
         Self {
             multi_progress,
