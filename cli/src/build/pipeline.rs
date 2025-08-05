@@ -41,15 +41,13 @@ impl Pipeline {
         }
 
         let start_time = Instant::now();
-
-        println!(
-            "   {} {}",
-            console::style("Preparing").green().bold(),
-            self.crat.name,
-        );
+        print!("{}...", console::style("Preparing").green().bold(),);
 
         // All functions to add to the template
         let all_functions = prepare_crates(PathBuf::from(build_config()?.build_path), &self.crat)?;
+
+        // Clear the previous line, the "Preparing..." step is not a part of the build pipeline
+        print!("\r\x1B[K");
 
         let deploy_functions: Vec<Function> = if deploy_functions.is_empty() {
             all_functions.to_vec()
@@ -267,7 +265,7 @@ impl PipelineProgress {
                 .progress_chars("=> "),
         );
 
-        total_progress_bar.set_position(1);
+        total_progress_bar.set_position(0);
 
         Self {
             multi_progress,
