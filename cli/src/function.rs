@@ -1,4 +1,3 @@
-use crate::build::pipeline::Progress;
 use crate::client::Client;
 use crate::config::build_config;
 use crate::crat::Crate;
@@ -283,17 +282,15 @@ pub fn project_functions(crat: &Crate) -> eyre::Result<Vec<ParsedFunction>> {
     Ok(parser.functions)
 }
 
-pub async fn build(functions: &[Function], progress: &Progress) -> eyre::Result<()> {
+pub async fn build(
+    functions: &[Function],
+    total_progress: &indicatif::ProgressBar,
+) -> eyre::Result<()> {
     let Some(Function { crat, .. }) = functions.iter().next() else {
         return Err(eyre!("Attempted to build an empty function list"));
     };
 
-    progress.progress_bar.set_message(format!(
-        "{} {}",
-        console::style("    Building").green().bold(),
-        console::style("Starting...").dim()
-    ));
-
+    total_progress.set_message("Starting...");
     let mut cmd = tokio::process::Command::new("cargo");
     cmd.arg("lambda")
         .arg("build")
@@ -323,33 +320,12 @@ pub async fn build(functions: &[Function], progress: &Progress) -> eyre::Result<
                 continue;
             }
 
-            let trim_to = 48;
-
-            if line.trim().is_empty() {
-                progress
-                    .progress_bar
-                    .set_message(format!("{}", console::style("    Building").green().bold(),));
-            } else {
-                let line = line.trim();
-
-                progress.progress_bar.set_message(format!(
-                    "{} {}...",
-                    console::style("    Building").green().bold(),
-                    console::style(
-                        if line.len() > trim_to {
-                            &line[..std::cmp::min(line.len(), trim_to) - 1]
-                        } else {
-                            line
-                        }
-                        .to_string()
-                    )
-                    .dim()
-                ));
-            }
+            let regex = regex::Regex::new(r"^[\t ]+").unwrap();
+            total_progress.set_message(regex.replace_all(&line, "").to_string());
         }
     }
 
-    progress.progress_bar.finish_and_clear();
+    total_progress.set_message("");
     let status = child.wait().await?;
 
     if !status.success() {
