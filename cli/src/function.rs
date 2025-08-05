@@ -320,33 +320,12 @@ pub async fn build(
                 continue;
             }
 
-            let trim_to = 48;
-
-            if line.trim().is_empty() {
-                progress
-                    .progress_bar
-                    .set_message(format!("{}", console::style("    Building").green().bold(),));
-            } else {
-                let line = line.trim();
-
-                progress.progress_bar.set_message(format!(
-                    "{} {}...",
-                    console::style("    Building").green().bold(),
-                    console::style(
-                        if line.len() > trim_to {
-                            &line[..std::cmp::min(line.len(), trim_to) - 1]
-                        } else {
-                            line
-                        }
-                        .to_string()
-                    )
-                    .dim()
-                ));
-            }
+            let regex = regex::Regex::new(r"^[\t ]+").unwrap();
+            total_progress.set_message(regex.replace_all(&line, "").to_string());
         }
     }
 
-    progress.progress_bar.finish_and_clear();
+    total_progress.set_message("");
     let status = child.wait().await?;
 
     if !status.success() {
