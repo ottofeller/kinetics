@@ -185,9 +185,8 @@ impl Pipeline {
         pipeline_progress.total_progress_bar.finish_and_clear();
 
         println!(
-            "    {} `{}` crate deployed in {:.2}s",
+            "    {} Deployed in {:.2}s",
             console::style("Finished").green().bold(),
-            self.crat.name,
             start_time.elapsed().as_secs_f64(),
         );
 
