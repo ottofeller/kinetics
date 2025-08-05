@@ -290,7 +290,7 @@ pub async fn build(
         return Err(eyre!("Attempted to build an empty function list"));
     };
 
-    total_progress.set_message("Starting...");
+    total_progress.set_message("Starting cargo...");
     let mut cmd = tokio::process::Command::new("cargo");
     cmd.arg("lambda")
         .arg("build")
