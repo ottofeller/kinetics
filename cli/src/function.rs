@@ -1,4 +1,3 @@
-use crate::build::pipeline::Progress;
 use crate::client::Client;
 use crate::config::build_config;
 use crate::crat::Crate;
@@ -283,17 +282,15 @@ pub fn project_functions(crat: &Crate) -> eyre::Result<Vec<ParsedFunction>> {
     Ok(parser.functions)
 }
 
-pub async fn build(functions: &[Function], progress: &Progress) -> eyre::Result<()> {
+pub async fn build(
+    functions: &[Function],
+    total_progress: &indicatif::ProgressBar,
+) -> eyre::Result<()> {
     let Some(Function { crat, .. }) = functions.iter().next() else {
         return Err(eyre!("Attempted to build an empty function list"));
     };
 
-    progress.progress_bar.set_message(format!(
-        "{} {}",
-        console::style("    Building").green().bold(),
-        console::style("Starting...").dim()
-    ));
-
+    total_progress.set_message("Starting...");
     let mut cmd = tokio::process::Command::new("cargo");
     cmd.arg("lambda")
         .arg("build")

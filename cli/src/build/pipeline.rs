@@ -66,7 +66,12 @@ impl Pipeline {
 
         let deploying_progress = pipeline_progress.new_progress(&self.crat.name);
 
-        build(&deploy_functions, &deploying_progress).await?;
+        pipeline_progress
+            .new_progress(&self.crat.name)
+            .log_stage("Building");
+
+        build(&deploy_functions, &pipeline_progress.total_progress_bar).await?;
+
         pipeline_progress.increase_current_function_position();
 
         if !self.is_deploy_enabled {
