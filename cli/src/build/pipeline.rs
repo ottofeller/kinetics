@@ -267,7 +267,7 @@ impl PipelineProgress {
                 .progress_chars("=> "),
         );
 
-        total_progress_bar.set_position(0);
+        total_progress_bar.set_position(1);
 
         Self {
             multi_progress,
