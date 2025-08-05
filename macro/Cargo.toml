@@ -10,7 +10,7 @@ categories = ["parsing"]
 
 [dependencies]
 syn = "2.0.104"
-kinetics-parser = { path = "../parser", version = "0.5.0" }
+kinetics-parser = { path = "../parser", version = "0.6.0" }
 
 [lib]
 proc-macro = true

@@ -1943,7 +1943,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics-macro"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "kinetics-parser",
  "syn",
@@ -1951,7 +1951,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics-parser"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "color-eyre",
  "syn",
