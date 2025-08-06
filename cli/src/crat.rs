@@ -7,6 +7,7 @@ use eyre::{ContextCompat, Ok, WrapErr};
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use toml::Value;
 
 #[derive(Clone, Debug)]
 pub struct Crate {
@@ -74,7 +75,7 @@ impl Crate {
     ) -> eyre::Result<()> {
         #[derive(serde::Deserialize, serde::Serialize, Debug)]
         pub struct BodyCrate {
-            // Full Cargo.toml
+            /// Full original Cargo.toml not touched by CLI
             pub toml: String,
         }
 
@@ -82,24 +83,40 @@ impl Crate {
         pub struct BodyFunction {
             pub name: String,
 
-            // Full Cargo.toml
+            // Full Cargo.toml filled with extra metadata by CLI
             pub toml: String,
         }
 
         impl TryFrom<&Function> for BodyFunction {
             fn try_from(f: &Function) -> Result<Self, Self::Error> {
                 let mut manifest = f.crat.toml.clone();
-                let function_meta = manifest
+                let functions = manifest
                     .get("package")
                     .wrap_err("No [package]")?
                     .get("metadata")
                     .wrap_err("No [metadata]")?
                     .get("kinetics")
                     .wrap_err("No [kinetics]")?
-                    .get(&f.name)
+                    .get("functions")
+                    .wrap_err("No [functions]")?;
+                let mut function_meta = functions
+                    .clone()
+                    .as_array_mut()
+                    .wrap_err("Invalid format for [functions]")?
+                    .iter_mut()
+                    .find_map(|tbl| {
+                        if tbl.as_table()?.get("function")?.get("name")?.as_str()? == f.name {
+                            Some(tbl)
+                        } else {
+                            None
+                        }
+                    })
                     .wrap_err(format!("No [{}]", f.name))?
+                    .as_table_mut()
+                    .wrap_err("Invalid format for [functions] member")?
                     .clone();
-                manifest["package"]["metadata"]["kinetics"] = function_meta;
+                function_meta.insert("skip_deploy".to_owned(), Value::Boolean(f.skip_deploy));
+                manifest["package"]["metadata"]["kinetics"] = function_meta.into();
 
                 Ok(Self {
                     name: f.name.clone(),
@@ -132,7 +149,7 @@ impl Crate {
 
         let result = client
             .post("/stack/deploy")
-            .json(&serde_json::json!(JsonBody {
+            .json(&JsonBody {
                 crat: BodyCrate {
                     toml: self.toml_string.clone(),
                 },
@@ -141,7 +158,7 @@ impl Crate {
                     .map(BodyFunction::try_from)
                     .collect::<eyre::Result<Vec<BodyFunction>>>()?,
                 secrets,
-            }))
+            })
             .send()
             .await
             .inspect_err(|err| log::error!("{err:?}"))

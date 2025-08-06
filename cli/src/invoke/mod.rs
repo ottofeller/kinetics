@@ -21,7 +21,11 @@ pub async fn invoke(
     is_local: bool,
 ) -> eyre::Result<()> {
     // Get function names as well as pull all updates from the code.
-    let all_functions = prepare_crates(PathBuf::from(build_config()?.build_path), crat)?;
+    let all_functions = prepare_crates(
+        PathBuf::from(build_config()?.build_path),
+        crat,
+        &[function_name.into()],
+    )?;
     let function = Function::find_by_name(&all_functions, function_name)?;
 
     if is_local {
