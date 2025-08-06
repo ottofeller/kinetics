@@ -28,18 +28,18 @@ pub enum Type {
 pub struct Function {
     pub id: String,
     pub name: String,
-    pub skip_deploy: bool,
+    pub is_deploying: bool,
 
     // Original parent crate
     pub crat: Crate,
 }
 
 impl Function {
-    pub fn new(crate_path: &Path, name: &str, skip_deploy: bool) -> eyre::Result<Self> {
+    pub fn new(crate_path: &Path, name: &str, is_deploying: bool) -> eyre::Result<Self> {
         Ok(Function {
             id: uuid::Uuid::new_v4().into(),
             name: name.into(),
-            skip_deploy,
+            is_deploying,
             crat: Crate::new(crate_path.to_path_buf())?,
         })
     }

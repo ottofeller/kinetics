@@ -55,7 +55,7 @@ impl Pipeline {
 
         let deploy_functions: Vec<Function> = all_functions
             .iter()
-            .filter(|f| !f.skip_deploy)
+            .filter(|f| f.is_deploying)
             .cloned()
             .collect();
 

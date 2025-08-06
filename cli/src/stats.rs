@@ -41,7 +41,7 @@ pub async fn stats(function_name: &str, crat: &Crate, period: u32) -> Result<()>
     // Get all function names without any additional manupulations.
     let all_functions = project_functions(crat)?
         .into_iter()
-        .map(|f| Function::new(&crat.path, &f.func_name(false), true))
+        .map(|f| Function::new(&crat.path, &f.func_name(false), false))
         .collect::<eyre::Result<Vec<Function>>>()?;
     let function = Function::find_by_name(&all_functions, function_name)?;
 

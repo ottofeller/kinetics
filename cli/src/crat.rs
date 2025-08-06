@@ -73,6 +73,8 @@ impl Crate {
         functions: &[Function],
         deploy_config: Option<&dyn DeployConfig>,
     ) -> eyre::Result<()> {
+        let deploy_all = functions.iter().all(|f| f.is_deploying);
+
         #[derive(serde::Deserialize, serde::Serialize, Debug)]
         pub struct BodyCrate {
             /// Full original Cargo.toml not touched by CLI
@@ -87,8 +89,8 @@ impl Crate {
             pub toml: String,
         }
 
-        impl TryFrom<&Function> for BodyFunction {
-            fn try_from(f: &Function) -> Result<Self, Self::Error> {
+        impl BodyFunction {
+            fn try_from_function(f: &Function, deploy_all: bool) -> eyre::Result<Self> {
                 let mut manifest = f.crat.toml.clone();
                 let functions = manifest
                     .get("package")
@@ -115,7 +117,13 @@ impl Crate {
                     .as_table_mut()
                     .wrap_err("Invalid format for [functions] member")?
                     .clone();
-                function_meta.insert("skip_deploy".to_owned(), Value::Boolean(f.skip_deploy));
+
+                // Set is_deploying only when the function is deployed,
+                // but there are others that are not.
+                if !deploy_all && f.is_deploying {
+                    function_meta.insert("is_deploying".to_owned(), Value::Boolean(f.is_deploying));
+                }
+
                 manifest["package"]["metadata"]["kinetics"] = function_meta.into();
 
                 Ok(Self {
@@ -123,8 +131,6 @@ impl Crate {
                     toml: toml::to_string(&manifest)?,
                 })
             }
-
-            type Error = eyre::ErrReport;
         }
 
         #[derive(serde::Serialize, Debug)]
@@ -155,7 +161,7 @@ impl Crate {
                 },
                 functions: functions
                     .iter()
-                    .map(BodyFunction::try_from)
+                    .map(|f| BodyFunction::try_from_function(f, deploy_all))
                     .collect::<eyre::Result<Vec<BodyFunction>>>()?,
                 secrets,
             })
