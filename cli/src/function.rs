@@ -35,11 +35,11 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn new(crate_path: &Path, name: &str, is_deploying: bool) -> eyre::Result<Self> {
+    pub fn new(crate_path: &Path, name: &str) -> eyre::Result<Self> {
         Ok(Function {
             id: uuid::Uuid::new_v4().into(),
             name: name.into(),
-            is_deploying,
+            is_deploying: false,
             crat: Crate::new(crate_path.to_path_buf())?,
         })
     }
@@ -67,6 +67,11 @@ impl Function {
             .get("function")
             .wrap_err("No [function]")
             .cloned()
+    }
+
+    pub fn is_deploying(mut self, is_deploying: bool) -> Self {
+        self.is_deploying = is_deploying;
+        self
     }
 
     pub async fn bundle(&self) -> eyre::Result<()> {

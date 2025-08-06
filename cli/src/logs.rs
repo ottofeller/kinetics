@@ -22,7 +22,7 @@ pub async fn logs(function_name: &str, crat: &Crate) -> Result<()> {
     // Get all function names without any additional manupulations.
     let all_functions = project_functions(crat)?
         .into_iter()
-        .map(|f| Function::new(&crat.path, &f.func_name(false), false))
+        .map(|f| Function::new(&crat.path, &f.func_name(false)))
         .collect::<eyre::Result<Vec<Function>>>()?;
     let function = Function::find_by_name(&all_functions, function_name)?;
 

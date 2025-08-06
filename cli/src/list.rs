@@ -209,11 +209,7 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     }
 
     for parsed_function in functions {
-        let function = Function::new(
-            &current_crate.path,
-            &parsed_function.func_name(false),
-            false,
-        )?;
+        let function = Function::new(&current_crate.path, &parsed_function.func_name(false))?;
         let func_path = parsed_function.relative_path;
         let last_modified = function
             .status(&client)
