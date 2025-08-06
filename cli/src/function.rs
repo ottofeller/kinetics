@@ -28,6 +28,7 @@ pub enum Type {
 pub struct Function {
     pub id: String,
     pub name: String,
+    pub is_deploying: bool,
 
     // Original parent crate
     pub crat: Crate,
@@ -38,6 +39,7 @@ impl Function {
         Ok(Function {
             id: uuid::Uuid::new_v4().into(),
             name: name.into(),
+            is_deploying: false,
             crat: Crate::new(crate_path.to_path_buf())?,
         })
     }
@@ -65,6 +67,11 @@ impl Function {
             .get("function")
             .wrap_err("No [function]")
             .cloned()
+    }
+
+    pub fn is_deploying(mut self, is_deploying: bool) -> Self {
+        self.is_deploying = is_deploying;
+        self
     }
 
     pub async fn bundle(&self) -> eyre::Result<()> {

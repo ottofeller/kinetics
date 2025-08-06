@@ -44,20 +44,20 @@ impl Pipeline {
         print!("{}...", console::style("Preparing").green().bold(),);
 
         // All functions to add to the template
-        let all_functions = prepare_crates(PathBuf::from(build_config()?.build_path), &self.crat)?;
+        let all_functions = prepare_crates(
+            PathBuf::from(build_config()?.build_path),
+            &self.crat,
+            &deploy_functions,
+        )?;
 
         // Clear the previous line, the "Preparing..." step is not a part of the build pipeline
         print!("\r\x1B[K");
 
-        let deploy_functions: Vec<Function> = if deploy_functions.is_empty() {
-            all_functions.to_vec()
-        } else {
-            all_functions
-                .iter()
-                .filter(|f| deploy_functions.contains(&f.name))
-                .cloned()
-                .collect()
-        };
+        let deploy_functions: Vec<Function> = all_functions
+            .iter()
+            .filter(|f| f.is_deploying)
+            .cloned()
+            .collect();
 
         let pipeline_progress = PipelineProgress::new(
             deploy_functions.len() as u64 * if self.is_deploy_enabled { 2 } else { 0 },
