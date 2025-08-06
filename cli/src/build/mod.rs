@@ -31,6 +31,9 @@ pub async fn run(deploy_functions: &[String]) -> eyre::Result<()> {
 pub fn prepare_crates(
     dst: PathBuf,
     current_crate: &Crate,
+
+    // prepare_crates() always returns all functions defined in the crate, but relies on this input param
+    // to mark the requested functions as requested for deployment
     deploy_functions: &[String],
 ) -> eyre::Result<Vec<Function>> {
     // Parse functions from source code
