@@ -1,5 +1,9 @@
+use std::path::PathBuf;
+
 use crate::{environment::Environment, Cron, Endpoint, Worker};
+use color_eyre::eyre;
 use syn::{parse::Parse, visit::Visit, Attribute, ItemFn};
+use walkdir::WalkDir;
 
 /// Represents a function in the source code
 #[derive(Debug, Clone)]
@@ -81,8 +85,36 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new() -> Self {
-        Default::default()
+    /// Init new Parser
+    ///
+    /// And optionally parse the requested dir
+    pub fn new(path: Option<&PathBuf>) -> eyre::Result<Self> {
+        let mut parser: Parser = Default::default();
+
+        if path.is_some() {
+            parser.walk_dir(path.unwrap())?;
+        }
+
+        Ok(parser)
+    }
+
+    pub fn walk_dir(&mut self, path: &PathBuf) -> eyre::Result<()> {
+        for entry in WalkDir::new(path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
+        {
+            let content = std::fs::read_to_string(entry.path())?;
+            let syntax = syn::parse_file(&content)?;
+
+            // Set current file relative path for further imports resolution
+            // WARN It prevents to implement parallel parsing of files and requires rework in the future
+            self.set_relative_path(entry.path().strip_prefix(path)?.to_str());
+
+            self.visit_file(&syntax);
+        }
+
+        Ok(())
     }
 
     pub fn set_relative_path(&mut self, file_path: Option<&str>) {

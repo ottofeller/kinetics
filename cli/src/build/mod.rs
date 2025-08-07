@@ -3,10 +3,10 @@ pub mod pipeline;
 mod templates;
 use crate::build::pipeline::Pipeline;
 use crate::crat::Crate;
-use crate::function::{project_functions, Function};
+use crate::function::Function;
 use eyre::{Context, OptionExt};
 use filehash::{FileHash, CHECKSUMS_FILENAME};
-use kinetics_parser::{ParsedFunction, Role};
+use kinetics_parser::{ParsedFunction, Parser, Role};
 use regex::Regex;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -37,7 +37,7 @@ pub fn prepare_crates(
     deploy_functions: &[String],
 ) -> eyre::Result<Vec<Function>> {
     // Parse functions from source code
-    let parsed_functions = project_functions(current_crate)?;
+    let parsed_functions = Parser::new(Some(&current_crate.path))?.functions;
 
     let src = &current_crate.path;
     let dst = dst.join(&current_crate.name);
