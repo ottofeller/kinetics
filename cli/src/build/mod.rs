@@ -401,14 +401,19 @@ fn metadata(
         }
     }
 
-    let environment = parsed_function.role.environment().iter();
+    // Parse json later
+    let environment: String = parsed_function
+        .role
+        .environment()
+        .iter()
+        .map(|(k, v)| format!("{{\"key\": \"{k}\", \"value\": \"{v}\"}}"))
+        .collect::<Vec<String>>()
+        .join(",");
 
-    if let Some(e) = function_meta["environment"]
-        .or_insert(toml_edit::Table::new().into())
-        .as_table_mut()
-    {
-        e.extend(environment)
+    if !environment.is_empty() {
+        function_meta["function"]["environment"] = toml_edit::value(format!("[{environment}]"));
     }
+
     functions_meta.push(function_meta.into());
 
     Ok(())

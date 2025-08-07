@@ -5,7 +5,7 @@ use crate::deploy::DeployConfig;
 use crate::error::Error;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
 use reqwest::StatusCode;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -179,25 +179,25 @@ impl Function {
 
     /// Return env vars assigned to the function in macro definition
     pub fn environment(&self) -> eyre::Result<HashMap<String, String>> {
-        Ok(self
-            .crat
-            .toml
-            .get("package")
-            .wrap_err("No [package]")?
-            .get("metadata")
-            .wrap_err("No [metadata]")?
-            .get("kinetics")
-            .wrap_err("No [kinetics]")?
-            .get(&self.name)
-            .wrap_err(format!("No [{}]", self.name))?
-            .get("environment")
-            .wrap_err("No [environment]")
-            .cloned()?
-            .as_table()
-            .unwrap()
-            .iter()
-            .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string()))
-            .collect::<HashMap<String, String>>())
+        let env = self.meta().wrap_err("Meta")?;
+
+        if env.get("environment").is_none() {
+            return Ok(HashMap::default());
+        }
+
+        Ok(
+            serde_json::from_str::<Value>(env.get("environment").unwrap().as_str().unwrap())?
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| {
+                    (
+                        v["key"].as_str().unwrap().to_string(),
+                        v["value"].as_str().unwrap().to_string(),
+                    )
+                })
+                .collect::<HashMap<String, String>>(),
+        )
     }
 
     /// URL to call the function
