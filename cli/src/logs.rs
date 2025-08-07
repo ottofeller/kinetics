@@ -1,9 +1,10 @@
+use crate::client::Client;
 use crate::crat::Crate;
 use crate::error::Error;
 use crate::function::Function;
-use crate::{client::Client, function::project_functions};
 use chrono::{DateTime, Utc};
 use eyre::{Context, Result};
+use kinetics_parser::Parser;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -20,7 +21,8 @@ struct LogsResponse {
 /// Retrieves and displays logs for a specific function
 pub async fn logs(function_name: &str, crat: &Crate) -> Result<()> {
     // Get all function names without any additional manupulations.
-    let all_functions = project_functions(crat)?
+    let all_functions = Parser::new(Some(&crat.path))?
+        .functions
         .into_iter()
         .map(|f| Function::new(&crat.path, &f.func_name(false)))
         .collect::<eyre::Result<Vec<Function>>>()?;

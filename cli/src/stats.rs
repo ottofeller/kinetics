@@ -1,10 +1,11 @@
+use crate::client::Client;
 use crate::crat::Crate;
 use crate::error::Error;
 use crate::function::Function;
-use crate::{client::Client, function::project_functions};
 use chrono::DateTime;
 use color_eyre::owo_colors::OwoColorize as _;
 use eyre::{Context, Result};
+use kinetics_parser::Parser;
 use serde::{Deserialize, Serialize};
 
 /// Request
@@ -39,7 +40,8 @@ struct LastCall {
 /// Retrieves and displays run statistics for a specific function
 pub async fn stats(function_name: &str, crat: &Crate, period: u32) -> Result<()> {
     // Get all function names without any additional manupulations.
-    let all_functions = project_functions(crat)?
+    let all_functions = Parser::new(Some(&crat.path))?
+        .functions
         .into_iter()
         .map(|f| Function::new(&crat.path, &f.func_name(false)))
         .collect::<eyre::Result<Vec<Function>>>()?;
