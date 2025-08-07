@@ -51,7 +51,8 @@ impl Function {
     }
 
     fn meta(&self) -> eyre::Result<toml::Value> {
-        self.crat
+        let functions = self
+            .crat
             .toml
             .get("package")
             .wrap_err("No [package]")?
@@ -59,7 +60,20 @@ impl Function {
             .wrap_err("No [metadata]")?
             .get("kinetics")
             .wrap_err("No [kinetics]")?
-            .get(&self.name)
+            .get("functions")
+            .wrap_err("No [functions]")?;
+        functions
+            .clone()
+            .as_array_mut()
+            .wrap_err("Invalid format for [functions]")?
+            .iter_mut()
+            .find_map(|tbl| {
+                if tbl.as_table()?.get("function")?.get("name")?.as_str()? == self.name {
+                    Some(tbl)
+                } else {
+                    None
+                }
+            })
             .wrap_err(format!("No [{}]", self.name))?
             .get("function")
             .wrap_err("No [function]")
@@ -174,7 +188,7 @@ impl Function {
 
     /// Return env vars assigned to the function in macro definition
     pub fn environment(&self) -> eyre::Result<HashMap<String, String>> {
-        Ok(self
+        let functions = self
             .crat
             .toml
             .get("package")
@@ -183,7 +197,20 @@ impl Function {
             .wrap_err("No [metadata]")?
             .get("kinetics")
             .wrap_err("No [kinetics]")?
-            .get(&self.name)
+            .get("functions")
+            .wrap_err("No [functions]")?;
+        Ok(functions
+            .clone()
+            .as_array_mut()
+            .wrap_err("Invalid format for [functions]")?
+            .iter_mut()
+            .find_map(|tbl| {
+                if tbl.as_table()?.get("function")?.get("name")?.as_str()? == self.name {
+                    Some(tbl)
+                } else {
+                    None
+                }
+            })
             .wrap_err(format!("No [{}]", self.name))?
             .get("environment")
             .wrap_err("No [environment]")
