@@ -91,7 +91,9 @@ pub fn prepare_crates(
         .into_iter()
         .map(|f| {
             let name = f.func_name(false);
-            Function::new(&dst, &name).map(|f| f.is_deploying(deploy_functions.contains(&name)))
+            Function::new(&dst, &name).map(|f| {
+                f.is_deploying(deploy_functions.is_empty() || deploy_functions.contains(&name))
+            })
         })
         .collect::<eyre::Result<Vec<_>>>()
 }
