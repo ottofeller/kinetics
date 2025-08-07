@@ -59,8 +59,13 @@ impl Function {
             .wrap_err("No [metadata]")?
             .get("kinetics")
             .wrap_err("No [kinetics]")?
-            .get(&self.name)
-            .wrap_err(format!("No [{}]", self.name))?
+            .get("functions")
+            .wrap_err("No [functions]")?
+            .as_array()
+            .wrap_err("The [function] is not an array")?
+            .iter()
+            .find(|v| v["function"].as_table().unwrap()["name"].as_str().unwrap() == self.name)
+            .wrap_err("No Cargo.toml meta found for function")?
             .get("function")
             .wrap_err("No [function]")
             .cloned()
