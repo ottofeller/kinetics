@@ -64,7 +64,12 @@ pub async fn invoke(
         .args(["run", "--bin", &format!("{}Local", function.name)])
         .envs(secrets)
         .envs(aws_credentials)
-        .envs(function.environment()?)
+        .envs(
+            function
+                .environment()
+                .inspect_err(|err| log::error!("{err:?}"))
+                .wrap_err("Failed to parse envs")?,
+        )
         .env("KINETICS_INVOKE_PAYLOAD", payload)
         .env("KINETICS_INVOKE_HEADERS", headers)
         .current_dir(&invoke_dir)
