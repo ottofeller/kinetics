@@ -64,20 +64,13 @@ kinetics login <email>
 # 3. Init a project from template
 kinetics init test; cd test
 
-# 4. View the name of the function to call locally
-kinetics list
+# 4. Call the function locally
+kinetics invoke BasicEndpointEndpoint
 
-# 5. Call the function locally
-kinetics invoke LibEndpoint
-
-# 6. Edit the project name to be unique across all projects
-# deployed to kinetics
-vim Cargo.toml
-
-# 7. Deploy the entire project to the cloud
+# 5. Deploy the entire project to the cloud
 kinetics deploy
 
-# 8. Alternatively you can deploy only selected functions
+# 6. Alternatively you can deploy only selected functions
 kinetics deploy --functions BasicCronCron,BasicWorkerWorker
 ```
 
