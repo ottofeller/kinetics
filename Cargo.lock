@@ -1138,6 +1138,7 @@ dependencies = [
  "aws-sdk-dynamodb",
  "aws-sdk-sqs",
  "aws_lambda_events",
+ "kinetics",
  "kinetics-macro",
  "lambda_http",
  "lambda_runtime",
