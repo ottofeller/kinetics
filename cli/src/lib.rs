@@ -19,3 +19,4 @@ pub mod logs;
 pub mod process;
 pub mod secret;
 pub mod stats;
+pub mod tools;

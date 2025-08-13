@@ -269,9 +269,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sdk-sqs"
-version = "1.79.0"
+version = "1.80.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e257f5bba62658d0c5a53245fb7c5bb1013eaceebf2ab784361f003edef95e0c"
+checksum = "b4fb6da0b6f937f4e9d897744b844e4f75ab13bd0bd1a71174d95a101ffbe948"
 dependencies = [
  "aws-credential-types",
  "aws-runtime",
@@ -1138,6 +1138,7 @@ dependencies = [
  "aws-sdk-dynamodb",
  "aws-sdk-sqs",
  "aws_lambda_events",
+ "kinetics",
  "kinetics-macro",
  "lambda_http",
  "lambda_runtime",
@@ -1905,6 +1906,7 @@ dependencies = [
  "async-trait",
  "aws-config",
  "aws-sdk-dynamodb",
+ "aws-sdk-sqs",
  "chrono",
  "clap",
  "color-eyre",

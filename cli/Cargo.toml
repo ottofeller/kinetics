@@ -16,6 +16,7 @@ path = "src/main.rs"
 [dependencies]
 aws-config = "1.8.3"
 aws-sdk-dynamodb = "1.86.0"
+aws-sdk-sqs = "=1.80.0"
 chrono = { version = "0.4.41", features = ["serde"] }
 uuid = { version = "1.17.0", features = ["v4"] }
 clap = { version = "4.5.42", features = ["derive"] }

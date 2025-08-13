@@ -1,4 +1,5 @@
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
+use kinetics::tools::queue::Client;
 use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
@@ -15,11 +16,8 @@ pub async fn queue(
     _secrets: &HashMap<String, String>,
     queues: &HashMap<String, SendMessageFluentBuilder>,
 ) -> Result<Response<Body>, Error> {
-    queues["example"]
-        .clone()
-        .message_body("Test message")
-        .send()
-        .await?;
+    let client = Client::new(queues["example"].clone());
+    client.send("Test message").await?;
 
     let resp = Response::builder()
         .status(200)
