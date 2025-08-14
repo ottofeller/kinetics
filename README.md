@@ -136,6 +136,7 @@ You can then interact with it like you normally interact with DynamoDB, [example
 - `kinetics list` – List available resources
 - `kinetics logout` – Log out the current user
 - `kinetics logs` - View application logs
+- `kinetics stats` - View run statistics for a function
 
 ### Examples
 Try in `examples/` dir. These are the most frequently used commands with examples of input params.
@@ -164,6 +165,11 @@ Output logs for a function:
 ```sh
 kinetics logs BasicEndpointEndpoint
 ```
+Output run statistics for a function:
+```sh
+kinetics stats BasicEndpointEndpoint
+```
+
 
 ## Support & Community
 

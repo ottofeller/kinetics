@@ -41,6 +41,23 @@ impl Pipeline {
         }
 
         let start_time = Instant::now();
+        print!("{}...", console::style("Preparing").green().bold(),);
+
+        // All functions to add to the template
+        let all_functions = prepare_crates(
+            PathBuf::from(build_config()?.build_path),
+            &self.crat,
+            &deploy_functions,
+        )?;
+
+        // Clear the previous line, the "Preparing..." step is not a part of the build pipeline
+        print!("\r\x1B[K");
+
+        let deploy_functions: Vec<Function> = all_functions
+            .iter()
+            .filter(|f| f.is_deploying)
+            .cloned()
+            .collect();
 
         let pipeline_progress = PipelineProgress::new(
             deploy_functions.len() as u64 * if self.is_deploy_enabled { 2 } else { 0 },
@@ -49,27 +66,12 @@ impl Pipeline {
 
         let deploying_progress = pipeline_progress.new_progress(&self.crat.name);
 
-        deploying_progress.log_stage("Preparing");
+        pipeline_progress
+            .new_progress(&self.crat.name)
+            .log_stage("Building");
 
-        // All functions to add to the template
-        let all_functions = prepare_crates(PathBuf::from(build_config()?.build_path), &self.crat)
-            .inspect_err(|_| {
-            deploying_progress.error("Preparing");
-            pipeline_progress.total_progress_bar.finish_and_clear();
-        })?;
+        build(&deploy_functions, &pipeline_progress.total_progress_bar).await?;
 
-        let deploy_functions: Vec<Function> = if deploy_functions.is_empty() {
-            all_functions.to_vec()
-        } else {
-            all_functions
-                .iter()
-                .filter(|f| deploy_functions.contains(&f.name))
-                .cloned()
-                .collect()
-        };
-        pipeline_progress.increase_current_function_position();
-
-        build(&deploy_functions, &deploying_progress).await?;
         pipeline_progress.increase_current_function_position();
 
         if !self.is_deploy_enabled {
@@ -102,7 +104,6 @@ impl Pipeline {
                 let _permit = sem.acquire().await?;
 
                 let function_progress = pipeline_progress.new_progress(&function.name);
-                pipeline_progress.increase_current_function_position();
 
                 function_progress.log_stage("Bundling");
 
@@ -175,7 +176,7 @@ impl Pipeline {
 
         // Poll the status of the deployment
         while status.status == "IN_PROGRESS" {
-            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+            tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
             status = self.crat.status().await?;
         }
 
@@ -189,9 +190,8 @@ impl Pipeline {
         pipeline_progress.total_progress_bar.finish_and_clear();
 
         println!(
-            "    {} `{}` crate deployed in {:.2}s",
+            "    {} Deployed in {:.2}s",
             console::style("Finished").green().bold(),
-            self.crat.name,
             start_time.elapsed().as_secs_f64(),
         );
 
@@ -212,7 +212,7 @@ impl PipelineBuilder {
         Ok(Pipeline {
             crat: self.crat.ok_or_eyre("No crate provided to the pipeline")?,
             is_deploy_enabled: self.is_deploy_enabled.unwrap_or(false),
-            max_concurrent: self.max_concurrent.unwrap_or(6),
+            max_concurrent: self.max_concurrent.unwrap_or(12),
             deploy_config: self.deploy_config,
         })
     }
@@ -251,15 +251,14 @@ impl PipelineProgress {
         let completed_functions_count = Arc::new(AtomicUsize::new(0));
 
         // +1 for provisioning phase
-        // +1 for crate preparation phase
         // +1 for build phase
-        let total_progress_bar = multi_progress.add(ProgressBar::new(total_functions + 3));
+        let total_progress_bar = multi_progress.add(ProgressBar::new(total_functions + 2));
 
         total_progress_bar.set_style(
             ProgressStyle::default_bar()
                 .template(
                     format!(
-                        "   {} [{{bar:40}}] {{percent}}%",
+                        "   {} [{{bar:30}}] {{pos}}/{{len}} {{wide_msg:.dim}}",
                         console::style(if is_deploy { "Deploying" } else { "Building" })
                             .cyan()
                             .bold()

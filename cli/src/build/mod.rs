@@ -3,10 +3,10 @@ pub mod pipeline;
 mod templates;
 use crate::build::pipeline::Pipeline;
 use crate::crat::Crate;
-use crate::function::{project_functions, Function};
+use crate::function::Function;
 use eyre::{Context, OptionExt};
 use filehash::{FileHash, CHECKSUMS_FILENAME};
-use kinetics_parser::{ParsedFunction, Role};
+use kinetics_parser::{ParsedFunction, Parser, Role};
 use regex::Regex;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -27,10 +27,17 @@ pub async fn run(deploy_functions: &[String]) -> eyre::Result<()> {
 }
 
 /// Parses source code and prepares crates for deployment
-/// Stores crates inside target_directory and returns list of created paths
-pub fn prepare_crates(dst: PathBuf, current_crate: &Crate) -> eyre::Result<Vec<Function>> {
+/// Stores crates inside target_directory and returns list of encountered functions
+pub fn prepare_crates(
+    dst: PathBuf,
+    current_crate: &Crate,
+
+    // prepare_crates() always returns all functions defined in the crate, but relies on this input param
+    // to mark the requested functions as requested for deployment
+    deploy_functions: &[String],
+) -> eyre::Result<Vec<Function>> {
     // Parse functions from source code
-    let parsed_functions = project_functions(current_crate)?;
+    let parsed_functions = Parser::new(Some(&current_crate.path))?.functions;
 
     let src = &current_crate.path;
     let dst = dst.join(&current_crate.name);
@@ -82,7 +89,12 @@ pub fn prepare_crates(dst: PathBuf, current_crate: &Crate) -> eyre::Result<Vec<F
 
     parsed_functions
         .into_iter()
-        .map(|f| Function::new(&dst, &f.func_name(false)))
+        .map(|f| {
+            let name = f.func_name(false);
+            Function::new(&dst, &name).map(|f| {
+                f.is_deploying(deploy_functions.is_empty() || deploy_functions.contains(&name))
+            })
+        })
         .collect::<eyre::Result<Vec<_>>>()
 }
 
@@ -319,10 +331,11 @@ fn metadata(
     manifest: &mut toml_edit::DocumentMut,
 ) -> eyre::Result<()> {
     manifest["package"]["metadata"].or_insert(toml_edit::Table::new().into())["kinetics"]
-        .or_insert(toml_edit::Table::new().into());
-    let kinetics_meta = manifest["package"]["metadata"]["kinetics"]
-        .as_table_mut()
-        .expect("Metadata was created above");
+        .or_insert(toml_edit::Table::new().into())["functions"]
+        .or_insert(toml_edit::ArrayOfTables::new().into());
+    let functions_meta = manifest["package"]["metadata"]["kinetics"]["functions"]
+        .as_array_of_tables_mut()
+        .expect("[functions] array was created above");
 
     let role_str = match &parsed_function.role {
         Role::Endpoint(_) => "endpoint",
@@ -396,7 +409,7 @@ fn metadata(
     {
         e.extend(environment)
     }
-    kinetics_meta.insert(&name, function_meta.into());
+    functions_meta.push(function_meta.into());
 
     Ok(())
 }

@@ -1,22 +1,18 @@
-use crate::build::pipeline::Progress;
 use crate::client::Client;
 use crate::config::build_config;
 use crate::crat::Crate;
 use crate::deploy::DeployConfig;
 use crate::error::Error;
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
-use kinetics_parser::{ParsedFunction, Parser};
 use reqwest::StatusCode;
 use serde_json::json;
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use syn::visit::Visit;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncReadExt;
 use tokio::io::BufReader;
-use walkdir::WalkDir;
 use zip::write::SimpleFileOptions;
 
 pub enum Type {
@@ -29,6 +25,7 @@ pub enum Type {
 pub struct Function {
     pub id: String,
     pub name: String,
+    pub is_deploying: bool,
 
     // Original parent crate
     pub crat: Crate,
@@ -39,6 +36,7 @@ impl Function {
         Ok(Function {
             id: uuid::Uuid::new_v4().into(),
             name: name.into(),
+            is_deploying: false,
             crat: Crate::new(crate_path.to_path_buf())?,
         })
     }
@@ -53,7 +51,8 @@ impl Function {
     }
 
     fn meta(&self) -> eyre::Result<toml::Value> {
-        self.crat
+        let functions = self
+            .crat
             .toml
             .get("package")
             .wrap_err("No [package]")?
@@ -61,11 +60,29 @@ impl Function {
             .wrap_err("No [metadata]")?
             .get("kinetics")
             .wrap_err("No [kinetics]")?
-            .get(&self.name)
+            .get("functions")
+            .wrap_err("No [functions]")?;
+        functions
+            .clone()
+            .as_array_mut()
+            .wrap_err("Invalid format for [functions]")?
+            .iter_mut()
+            .find_map(|tbl| {
+                if tbl.as_table()?.get("function")?.get("name")?.as_str()? == self.name {
+                    Some(tbl)
+                } else {
+                    None
+                }
+            })
             .wrap_err(format!("No [{}]", self.name))?
             .get("function")
             .wrap_err("No [function]")
             .cloned()
+    }
+
+    pub fn is_deploying(mut self, is_deploying: bool) -> Self {
+        self.is_deploying = is_deploying;
+        self
     }
 
     pub async fn bundle(&self) -> eyre::Result<()> {
@@ -171,7 +188,7 @@ impl Function {
 
     /// Return env vars assigned to the function in macro definition
     pub fn environment(&self) -> eyre::Result<HashMap<String, String>> {
-        Ok(self
+        let functions = self
             .crat
             .toml
             .get("package")
@@ -180,7 +197,20 @@ impl Function {
             .wrap_err("No [metadata]")?
             .get("kinetics")
             .wrap_err("No [kinetics]")?
-            .get(&self.name)
+            .get("functions")
+            .wrap_err("No [functions]")?;
+        Ok(functions
+            .clone()
+            .as_array_mut()
+            .wrap_err("Invalid format for [functions]")?
+            .iter_mut()
+            .find_map(|tbl| {
+                if tbl.as_table()?.get("function")?.get("name")?.as_str()? == self.name {
+                    Some(tbl)
+                } else {
+                    None
+                }
+            })
             .wrap_err(format!("No [{}]", self.name))?
             .get("environment")
             .wrap_err("No [environment]")
@@ -259,35 +289,15 @@ impl Function {
     }
 }
 
-/// Parse current project code
-/// and return all functions encountered with `kinetics` macro.
-pub fn project_functions(crat: &Crate) -> eyre::Result<Vec<ParsedFunction>> {
-    // Parse functions from source code
-    let mut parser = Parser::new();
-
-    for entry in WalkDir::new(&crat.path)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
-    {
-        let content = std::fs::read_to_string(entry.path())?;
-        let syntax = syn::parse_file(&content)?;
-
-        // Set current file relative path for further imports resolution
-        // WARN It prevents to implement parallel parsing of files and requires rework in the future
-        parser.set_relative_path(entry.path().strip_prefix(&crat.path)?.to_str());
-
-        parser.visit_file(&syntax);
-    }
-
-    Ok(parser.functions)
-}
-
-pub async fn build(functions: &[Function], progress: &Progress) -> eyre::Result<()> {
+pub async fn build(
+    functions: &[Function],
+    total_progress: &indicatif::ProgressBar,
+) -> eyre::Result<()> {
     let Some(Function { crat, .. }) = functions.iter().next() else {
         return Err(eyre!("Attempted to build an empty function list"));
     };
 
+    total_progress.set_message("Starting cargo...");
     let mut cmd = tokio::process::Command::new("cargo");
     cmd.arg("lambda")
         .arg("build")
@@ -317,33 +327,12 @@ pub async fn build(functions: &[Function], progress: &Progress) -> eyre::Result<
                 continue;
             }
 
-            let trim_to = 48;
-
-            if line.trim().is_empty() {
-                progress
-                    .progress_bar
-                    .set_message(format!("{}", console::style("    Building").green().bold(),));
-            } else {
-                let line = line.trim();
-
-                progress.progress_bar.set_message(format!(
-                    "{} {}...",
-                    console::style("    Building").green().bold(),
-                    console::style(
-                        if line.len() > trim_to {
-                            &line[..std::cmp::min(line.len(), trim_to) - 1]
-                        } else {
-                            line
-                        }
-                        .to_string()
-                    )
-                    .dim()
-                ));
-            }
+            let regex = regex::Regex::new(r"^[\t ]+").unwrap();
+            total_progress.set_message(regex.replace_all(&line, "").to_string());
         }
     }
 
-    progress.progress_bar.finish_and_clear();
+    total_progress.set_message("");
     let status = child.wait().await?;
 
     if !status.success() {

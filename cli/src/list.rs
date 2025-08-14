@@ -1,9 +1,9 @@
 use crate::client::Client;
 use crate::config::build_config;
 use crate::crat::Crate;
-use crate::function::{project_functions, Function};
+use crate::function::Function;
 use color_eyre::owo_colors::OwoColorize;
-use kinetics_parser::{ParsedFunction, Role};
+use kinetics_parser::{ParsedFunction, Parser, Role};
 use serde_json::Value;
 use std::collections::HashMap;
 use tabled::settings::{peaker::Priority, style::Style, Settings, Width};
@@ -189,7 +189,7 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
 ///
 /// With some extra information
 pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
-    let functions = project_functions(current_crate)?;
+    let functions = Parser::new(Some(&current_crate.path))?.functions;
 
     if !is_verbose {
         simple(&functions, current_crate);

@@ -2,6 +2,7 @@ use crate::build;
 use crate::crat::Crate;
 use crate::deploy::{self, DeployConfig};
 use crate::destroy::destroy;
+use crate::rollback::rollback;
 use crate::error::Error;
 use crate::function::Type as FunctionType;
 use crate::init::init;
@@ -11,6 +12,7 @@ use crate::logger::Logger;
 use crate::login::login;
 use crate::logout::logout;
 use crate::logs::logs;
+use crate::stats::stats;
 use clap::{ArgAction, Parser, Subcommand};
 use eyre::{Ok, WrapErr};
 use std::sync::Arc;
@@ -40,7 +42,7 @@ enum Commands {
     /// Deploy your serverless functions to the cloud
     Deploy {
         /// Maximum number of parallel concurrent builds
-        #[arg(short, long, default_value_t = 6)]
+        #[arg(short, long, default_value_t = 12)]
         max_concurrency: usize,
 
         #[arg(short, long, value_delimiter = ',')]
@@ -49,6 +51,9 @@ enum Commands {
 
     /// Destroy your serverless functions
     Destroy {},
+
+    /// Rollback your serverless functions to previous deployment
+    Rollback {},
 
     /// Start new Kinetics project from template
     Init {
@@ -123,6 +128,21 @@ enum Commands {
         verbose: bool,
     },
 
+    /// Get function statistics,
+    /// that include run statistics (error/success/total count)
+    /// as well as last call time and status.
+    Stats {
+        /// Function name to get statistics for.
+        /// Run `kinetics list` to get a complete list of function names in a project.
+        #[arg()]
+        name: String,
+
+        /// Period to get statistics for (in days).
+        /// Maximum value is 7 days.
+        #[arg(short, long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..=7))]
+        period: u32,
+    },
+
     /// Logout from Kinetics platform
     Logout {},
 }
@@ -180,6 +200,9 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         Some(Commands::Destroy {}) => destroy(&crat)
             .await
             .wrap_err("Failed to destroy the project"),
+        Some(Commands::Rollback {}) => rollback(&crat)
+            .await
+            .wrap_err("Failed to rollback the project"),
         Some(Commands::Invoke {
             name,
             payload,
@@ -199,6 +222,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         }
         Some(Commands::Logs { name }) => logs(name, &crat).await,
         Some(Commands::List { verbose }) => list(&crat, *verbose).await,
+        Some(Commands::Stats { name, period }) => stats(name, &crat, *period).await,
         _ => Ok(()),
     }
     .map_err(Error::from)
