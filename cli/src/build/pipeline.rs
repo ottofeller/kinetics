@@ -271,11 +271,11 @@ impl PipelineProgress {
     }
 
     fn increase_current_function_position(&self) {
-        let count = self
-            .completed_functions_count
-            .fetch_add(1, Ordering::SeqCst)
-            + 1;
-        self.total_progress_bar.set_position(count as u64);
+        self.completed_functions_count
+            .fetch_add(1, Ordering::SeqCst);
+
+        self.total_progress_bar
+            .set_position(self.completed_functions_count.load(Ordering::Relaxed) as u64);
     }
 
     fn new_progress(&self, resource_name: &str) -> Progress {
