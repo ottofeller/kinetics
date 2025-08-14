@@ -104,15 +104,6 @@ impl Pipeline {
                 let _permit = sem.acquire().await?;
 
                 let function_progress = pipeline_progress.new_progress(&function.name);
-
-                function_progress.log_stage("Bundling");
-
-                function.bundle().await.map_err(|e| {
-                    function_progress.error("Bundling");
-                    e.wrap_err(format!("Failed to bundle function: \"{}\"", function.name))
-                })?;
-
-                pipeline_progress.increase_current_function_position();
                 function_progress.log_stage("Uploading");
 
                 function
