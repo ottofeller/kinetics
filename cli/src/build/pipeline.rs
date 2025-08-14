@@ -60,7 +60,7 @@ impl Pipeline {
             .collect();
 
         let pipeline_progress = PipelineProgress::new(
-            deploy_functions.len() as u64 * if self.is_deploy_enabled { 2 } else { 0 },
+            deploy_functions.len() as u64 * if self.is_deploy_enabled { 1 } else { 0 },
             self.is_deploy_enabled,
         );
 
@@ -71,7 +71,6 @@ impl Pipeline {
             .log_stage("Building");
 
         build(&deploy_functions, &pipeline_progress.total_progress_bar).await?;
-
         pipeline_progress.increase_current_function_position();
 
         if !self.is_deploy_enabled {
