@@ -202,7 +202,7 @@ impl PipelineBuilder {
         Ok(Pipeline {
             crat: self.crat.ok_or_eyre("No crate provided to the pipeline")?,
             is_deploy_enabled: self.is_deploy_enabled.unwrap_or(false),
-            max_concurrent: self.max_concurrent.unwrap_or(12),
+            max_concurrent: self.max_concurrent.unwrap_or(10),
             deploy_config: self.deploy_config,
         })
     }

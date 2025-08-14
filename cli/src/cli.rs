@@ -42,7 +42,7 @@ enum Commands {
     /// Deploy your serverless functions to the cloud
     Deploy {
         /// Maximum number of parallel concurrent builds
-        #[arg(short, long, default_value_t = 12)]
+        #[arg(short, long, default_value_t = 10)]
         max_concurrency: usize,
 
         #[arg(short, long, value_delimiter = ',')]
