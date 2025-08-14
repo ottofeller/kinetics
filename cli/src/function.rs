@@ -107,13 +107,19 @@ impl Function {
 
         let path = self.bundle_path();
 
-        let presigned = client
+        let response = client
             .post("/upload")
             .body(json!({"name": self.name}).to_string())
             .send()
-            .await?
-            .json::<PreSignedUrl>()
-            .await?;
+            .await
+            .inspect_err(|e| log::error!("Upload request failed: {e:?}"))?;
+
+        let text = response.text().await?;
+        log::debug!("Got response for {}: {}", self.name, text);
+
+        let presigned = serde_json::from_str::<PreSignedUrl>(&text).inspect_err(|e| {
+            log::error!("Failed to parse the response: {e:?}");
+        })?;
 
         let public_client = reqwest::Client::new();
 

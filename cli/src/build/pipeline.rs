@@ -139,13 +139,15 @@ impl Pipeline {
         let (.., errors): (Vec<_>, Vec<_>) = results.into_iter().partition(Result::is_ok);
 
         if !errors.is_empty() {
-            return Err(eyre!(
-                "Failed to process function(s): {:?}",
+            log::error!(
+                "Failed to process functions: {:?}",
                 errors
                     .into_iter()
                     .map(Result::unwrap_err)
                     .collect::<Vec<_>>()
-            ));
+            );
+
+            return Err(eyre!("Failed to process function(s)"));
         }
 
         deploying_progress.log_stage("Provisioning");
