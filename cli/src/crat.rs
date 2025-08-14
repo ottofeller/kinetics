@@ -121,7 +121,17 @@ impl Crate {
                 // Set is_deploying only when the function is deployed,
                 // but there are others that are not.
                 if !deploy_all && f.is_deploying {
-                    function_meta.insert("is_deploying".to_owned(), Value::Boolean(f.is_deploying));
+                    let mut function_namespace = function_meta
+                        .get("function")
+                        .wrap_err("No [function]")?
+                        .clone();
+
+                    function_namespace
+                        .as_table_mut()
+                        .wrap_err("Invalid format for [function]")?
+                        .insert("is_deploying".to_owned(), Value::Boolean(f.is_deploying));
+
+                    function_meta["function"] = function_namespace;
                 }
 
                 manifest["package"]["metadata"]["kinetics"] = function_meta.into();
