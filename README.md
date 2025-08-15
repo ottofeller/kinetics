@@ -20,7 +20,7 @@ pub async fn endpoint(
 }
 ```
 
-Check out more examples [here](https://github.com/kinetics-dev/examples). Including REST API endpoints, queue workers, and cron jobs.
+Check out more examples [here](https://github.com/ottofeller/kinetics/tree/main/examples). Including REST API endpoints, queue workers, and cron jobs.
 
 
 ## Features
