@@ -1,5 +1,5 @@
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
-use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
+use kinetics::tools::queue::Client as QueueClient;
 use kinetics_macro::worker;
 use lambda_runtime::{Error, LambdaEvent};
 use std::collections::HashMap;
@@ -13,7 +13,7 @@ use std::collections::HashMap;
 pub async fn worker(
     event: LambdaEvent<SqsEvent>,
     _secrets: &HashMap<String, String>,
-    _queues: &HashMap<String, SendMessageFluentBuilder>,
+    _queues: &HashMap<String, QueueClient>,
 ) -> Result<SqsBatchResponse, Error> {
     let mut sqs_batch_response = SqsBatchResponse::default();
 

@@ -1,4 +1,4 @@
-use kinetics::tools::queue::Client;
+use kinetics::tools::queue::Client as QueueClient;
 use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
@@ -13,7 +13,7 @@ use std::collections::HashMap;
 pub async fn queue(
     _event: Request,
     _secrets: &HashMap<String, String>,
-    queues: &HashMap<String, Client>,
+    queues: &HashMap<String, QueueClient>,
 ) -> Result<Response<Body>, Error> {
     let client = match queues.get("example") {
         Some(client) => client,

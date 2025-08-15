@@ -1,4 +1,4 @@
-use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
+use kinetics::tools::queue::Client as QueueClient;
 use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
@@ -15,7 +15,7 @@ use std::collections::HashMap;
 pub async fn environment(
     _event: Request,
     _secrets: &HashMap<String, String>,
-    _queues: &HashMap<String, SendMessageFluentBuilder>,
+    _queues: &HashMap<String, QueueClient>,
 ) -> Result<Response<Body>, Error> {
     let env = std::env::vars().collect::<HashMap<_, _>>();
 

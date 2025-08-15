@@ -1,4 +1,4 @@
-use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
+use kinetics::tools::queue::Client as QueueClient;
 use kinetics_macro::cron;
 use std::collections::HashMap;
 
@@ -9,7 +9,7 @@ use std::collections::HashMap;
 #[cron(schedule = "rate(1 hour)")]
 pub async fn cron(
     _secrets: &HashMap<String, String>,
-    _queues: &HashMap<String, SendMessageFluentBuilder>,
+    _queues: &HashMap<String, QueueClient>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("Started cron job");
     Ok(())
