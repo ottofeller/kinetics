@@ -458,6 +458,11 @@ fn deps(
         }
     };
 
+    doc["dependencies"]["kinetics"]
+        .or_insert(toml_edit::Table::new().into())
+        .as_table_mut()
+        .map(|t| t.insert("version", toml_edit::value("0.7.2")));
+
     doc["dependencies"]["aws_lambda_events"]
         .or_insert(toml_edit::Table::new().into())
         .as_table_mut()
