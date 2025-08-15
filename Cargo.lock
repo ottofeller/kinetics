@@ -1916,6 +1916,7 @@ dependencies = [
  "eyre",
  "futures",
  "indicatif",
+ "kinetics-macro",
  "kinetics-parser",
  "log",
  "prettyplease",
