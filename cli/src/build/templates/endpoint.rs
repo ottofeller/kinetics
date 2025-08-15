@@ -59,6 +59,7 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
     } else {
         format!(
             "{import_statement}
+            use kinetics::tools::queue::Client as QueueClient;
             use lambda_http::{{run, service_fn}};\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), lambda_http::Error> {{\n\
@@ -105,9 +106,9 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
 
                 for (k, v) in std::env::vars() {{
                     if k.starts_with(\"KINETICS_QUEUE_\") {{
-                        let queue_client = aws_sdk_sqs::Client::new(&config)
+                        let queue_client = QueueClient::new(aws_sdk_sqs::Client::new(&config)
                             .send_message()
-                            .queue_url(v);
+                            .queue_url(v));
 
                         queues.insert(k.replace(\"KINETICS_QUEUE_\", \"\"), queue_client);
                     }}
