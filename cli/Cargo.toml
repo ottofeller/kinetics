@@ -1,6 +1,6 @@
 [package]
 name = "kinetics"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 description = "Kinetics is a hosting platform for Rust applications that allows you to deploy all types of workloads by writing **only Rust code**."
 license = "Apache-2.0 OR MIT"
@@ -31,7 +31,7 @@ tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
 toml_edit = "0.23.2"
 rust_dotenv = "0.1.2"
-reqwest = { version = "0.12.22", features = ["json", "blocking"] }
+reqwest = { version = "0.12.22", features = ["json", "blocking", "rustls-tls"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.142"
 syn = { version = "2.0", features = ["full", "visit"] }
@@ -45,6 +45,6 @@ crossterm = "0.29.0"
 async-trait = "0.1.88"
 log = "0.4.27"
 env_logger = "0.11.8"
-kinetics-parser = { path = "../parser", version = "0.7.0" }
+kinetics-parser = { path = "../parser", version = "0.7.1" }
 tabled = "0.20.0"
 terminal_size = "0.4.2"
