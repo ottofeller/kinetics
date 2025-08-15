@@ -1,6 +1,7 @@
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use kinetics::macros::worker;
+use kinetics::tools::queue::Client as QueueClient;
 use lambda_runtime::{Error, LambdaEvent};
 use std::collections::HashMap;
 
@@ -13,7 +14,7 @@ use std::collections::HashMap;
 pub async fn worker(
     event: LambdaEvent<SqsEvent>,
     _secrets: &HashMap<String, String>,
-    _queues: &HashMap<String, SendMessageFluentBuilder>,
+    _queues: &HashMap<String, QueueClient>,
 ) -> Result<SqsBatchResponse, Error> {
     let mut sqs_batch_response = SqsBatchResponse::default();
 
@@ -32,6 +33,7 @@ pub async fn worker(
     let body = serde_json::Value::from(record.body.clone().unwrap());
     println!("Got body: {body:?}");
 
+    // Optional: Return a batch item failure to retry the message
     sqs_batch_response
         .batch_item_failures
         .push(BatchItemFailure {

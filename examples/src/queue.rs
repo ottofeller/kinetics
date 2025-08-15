@@ -1,6 +1,6 @@
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use kinetics::macros::endpoint;
-use kinetics::tools::queue::Client;
+use kinetics::tools::queue::Client as QueueClient;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
 use std::collections::HashMap;
@@ -14,9 +14,13 @@ use std::collections::HashMap;
 pub async fn queue(
     _event: Request,
     _secrets: &HashMap<String, String>,
-    queues: &HashMap<String, SendMessageFluentBuilder>,
+    queues: &HashMap<String, QueueClient>,
 ) -> Result<Response<Body>, Error> {
-    let client = Client::new(queues["example"].clone());
+    let client = match queues.get("example") {
+        Some(client) => client,
+        None => return Err(Error::from("Queue not found")),
+    };
+
     client.send("Test message").await?;
 
     let resp = Response::builder()

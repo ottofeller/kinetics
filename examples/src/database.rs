@@ -2,6 +2,7 @@ use aws_sdk_dynamodb::types::AttributeValue::S;
 use aws_sdk_dynamodb::Client;
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use kinetics::macros::endpoint;
+use kinetics::tools::queue::Client as QueueClient;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
 use std::collections::HashMap;
@@ -17,7 +18,7 @@ use std::collections::HashMap;
 pub async fn database(
     _event: Request,
     _secrets: &HashMap<String, String>,
-    _queues: &HashMap<String, SendMessageFluentBuilder>,
+    _queues: &HashMap<String, QueueClient>,
 ) -> Result<Response<Body>, Error> {
     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
     let client = Client::new(&config);
