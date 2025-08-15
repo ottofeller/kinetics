@@ -32,6 +32,7 @@ pub async fn worker(
     let body = serde_json::Value::from(record.body.clone().unwrap());
     println!("Got body: {body:?}");
 
+    // Optional: Return a batch item failure to retry the message
     sqs_batch_response
         .batch_item_failures
         .push(BatchItemFailure {
