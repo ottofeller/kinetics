@@ -23,6 +23,7 @@ clap = { version = "4.5.42", features = ["derive"] }
 eyre = "0.6.12"
 regex = "1.11.1"
 walkdir = "2.5.0"
+kinetics-macro = { path = "../macro" }
 
 # Do not upgrade as compilation fails
 zip = "4.2.0"
