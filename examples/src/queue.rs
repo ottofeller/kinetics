@@ -1,6 +1,6 @@
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
+use kinetics::endpoint;
 use kinetics::tools::queue::Client;
-use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
 use std::collections::HashMap;
