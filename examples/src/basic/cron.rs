@@ -1,5 +1,5 @@
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
-use kinetics::cron;
+use kinetics::macros::cron;
 use std::collections::HashMap;
 
 /// A regular cron job which prints out every hour
