@@ -36,7 +36,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
 
                 match {rust_function_name}(event, &secrets, &queues).await {{
                     Ok(response) => {{
-                        println!(\"{{response:?}}\");
+                        println!(\"{{:?}}\", response.collect());
                     }},
                     Err(err) => {{
                         eprintln!(\"Request failed: {{:?}}\", err);
@@ -109,7 +109,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
 
                 run(service_fn(|event| async {{
                     match {rust_function_name}(event, &secrets, &queues).await {{
-                        Ok(response) => Ok(response),
+                        Ok(response) => Ok(response.collect()),
                         Err(err) => {{
                             eprintln!(\"Error occurred while handling request: {{:?}}\", err);
                             Err(err)
