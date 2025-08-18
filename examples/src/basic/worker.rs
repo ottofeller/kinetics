@@ -30,7 +30,7 @@ pub async fn worker(
     let body = serde_json::Value::from(record.body.clone().unwrap());
     println!("Got body: {body:?}");
 
-    // This always returns the first record from the input batch in retries, just for example
+    // Optionally return the first record from the input batch in retries, just for example
     // Doing so will force the worker to process the item again on the next iteration
     retries.add(&record.message_id.clone().unwrap_or_default());
 
