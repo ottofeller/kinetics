@@ -1,6 +1,6 @@
 [package]
 name = "kinetics"
-version = "0.7.2"
+version = "0.7.3"
 edition = "2021"
 description = "Kinetics is a hosting platform for Rust applications that allows you to deploy all types of workloads by writing **only Rust code**."
 license = "Apache-2.0 OR MIT"
