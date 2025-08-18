@@ -1,5 +1,7 @@
+use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
-use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse};
+use lambda_runtime::LambdaEvent;
+use serde::{Deserialize, Serialize};
 
 pub struct Client {
     queue: SendMessageFluentBuilder,
@@ -53,9 +55,32 @@ impl Retries {
                 .push(BatchItemFailure {
                     item_identifier: id.clone(),
                 });
-
         }
 
         sqs_batch_response
+    }
+}
+
+/// A record received from a queue
+#[derive(Deserialize, Serialize, Debug)]
+pub struct Record {
+    #[serde(default)]
+    pub message_id: Option<String>,
+
+    #[serde(default)]
+    pub body: Option<String>,
+}
+
+impl Record {
+    pub fn from_sqsevent(event: LambdaEvent<SqsEvent>) -> eyre::Result<Vec<Record>> {
+        Ok(event
+            .payload
+            .records
+            .iter()
+            .map(|r| Record {
+                message_id: r.message_id.clone(),
+                body: r.body.clone(),
+            })
+            .collect())
     }
 }

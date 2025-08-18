@@ -49,3 +49,4 @@ env_logger = "0.11.8"
 kinetics-parser = { path = "../parser", version = "0.7.4" }
 tabled = "0.20.0"
 terminal_size = "0.4.2"
+lambda_runtime = "0.14.3"

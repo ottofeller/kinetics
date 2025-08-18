@@ -1,7 +1,8 @@
-use aws_lambda_events::sqs::SqsEvent;
-use kinetics::tools::queue::{Client as QueueClient, Retries as QueueRetries};
+use kinetics::tools::queue::{
+    Client as QueueClient, Record as QueueRecord, Retries as QueueRetries,
+};
 use kinetics_macro::worker;
-use lambda_runtime::{Error, LambdaEvent};
+use lambda_runtime::Error;
 use std::collections::HashMap;
 
 /// A queue worker
@@ -11,13 +12,13 @@ use std::collections::HashMap;
 /// kinetics invoke BasicWorkerWorker --payload '{"name": "John"}'
 #[worker(fifo = true, queue_alias = "example")]
 pub async fn worker(
-    event: LambdaEvent<SqsEvent>,
+    records: Vec<QueueRecord>,
     _secrets: &HashMap<String, String>,
     _queues: &HashMap<String, QueueClient>,
 ) -> Result<QueueRetries, Error> {
     let mut retries = QueueRetries::new();
 
-    let record = match event.payload.records.first() {
+    let record = match records.first() {
         Some(record) => record,
         None => {
             return Err(Box::new(std::io::Error::new(
