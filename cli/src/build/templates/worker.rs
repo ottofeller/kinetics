@@ -3,6 +3,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
         format!(
             "{import_statement}
             use aws_lambda_events::sqs::{{SqsEvent, SqsMessage}};
+            use kinetics::tools::queue::Record as QueueRecord;
 
             #[tokio::main]
             async fn main() -> Result<(), Box<dyn std::error::Error>> {{
@@ -34,7 +35,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
                 let context = lambda_runtime::Context::default();
                 let event = lambda_runtime::LambdaEvent::new(sqs_event, context);
 
-                match {rust_function_name}(event, &secrets, &queues).await {{
+                match {rust_function_name}(QueueRecord::from_sqsevent(event)?, &secrets, &queues).await {{
                     Ok(response) => {{
                         println!(\"{{:?}}\", response.collect());
                     }},
@@ -51,7 +52,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
             "{import_statement}
             use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
             use aws_lambda_events::{{sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
-            use kinetics::tools::queue::Client as QueueClient;
+            use kinetics::tools::queue::{{Client as QueueClient, Record as QueueRecord}};
             #[tokio::main]\n\
             async fn main() -> Result<(), Error> {{\n\
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
@@ -108,7 +109,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
                 println!(\"Serving requests\");
 
                 run(service_fn(|event| async {{
-                    match {rust_function_name}(event, &secrets, &queues).await {{
+                    match {rust_function_name}(QueueRecord::from_sqsevent(event)?, &secrets, &queues).await {{
                         Ok(response) => Ok(response.collect()),
                         Err(err) => {{
                             eprintln!(\"Error occurred while handling request: {{:?}}\", err);
