@@ -4,6 +4,9 @@ pub struct Client {
     queue: SendMessageFluentBuilder,
 }
 
+/// A queue client
+///
+/// Used to send items to the worker queue.
 impl Client {
     pub fn new(queue: SendMessageFluentBuilder) -> Self {
         Client { queue }
