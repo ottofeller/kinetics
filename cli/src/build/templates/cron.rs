@@ -23,6 +23,7 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
         format!(
             "{import_statement}
             use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
+            use kinetics::tools::queue::Client as QueueClient;
             use aws_lambda_events::eventbridge::EventBridgeEvent;\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), Error> {{\n\
@@ -69,9 +70,9 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
 
                 for (k, v) in std::env::vars() {{
                     if k.starts_with(\"KINETICS_QUEUE_\") {{
-                        let queue_client = aws_sdk_sqs::Client::new(&config)
+                        let queue_client = QueueClient::new(aws_sdk_sqs::Client::new(&config)
                             .send_message()
-                            .queue_url(v);
+                            .queue_url(v));
 
                         queues.insert(k.replace(\"KINETICS_QUEUE_\", \"\"), queue_client);
                     }}
