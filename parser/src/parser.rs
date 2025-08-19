@@ -19,17 +19,9 @@ pub struct ParsedFunction {
 }
 
 impl ParsedFunction {
-    /// Generate lambda function name out of Rust function name or macro attribute
-    ///
-    /// By default use the Rust function plus crate path as the function name. Convert
-    /// some-name to SomeName, and do other transformations in order to comply with Lambda
-    /// function name requirements.
-    pub fn func_name(&self, is_local: bool) -> String {
-        let rust_name = &self.rust_function_name;
-        let full_path = format!("{}/{rust_name}", self.relative_path);
-
-        let default_func_name = full_path
-            .as_str()
+    /// Replace any unwanted character in function name and convert a path to CamelCase name
+    pub fn escape_path(path: &str) -> String {
+        return path
             .replace("_", "Undrscr")
             .replace("_", "Dash")
             .split(&['.', '/'])
@@ -40,6 +32,17 @@ impl ParsedFunction {
             })
             .collect::<String>()
             .replacen("Src", "", 1);
+    }
+
+    /// Generate lambda function name out of Rust function name or macro attribute
+    ///
+    /// By default use the Rust function plus crate path as the function name. Convert
+    /// some-name to SomeName, and do other transformations in order to comply with Lambda
+    /// function name requirements.
+    pub fn func_name(&self, is_local: bool) -> String {
+        let rust_name = &self.rust_function_name;
+        let full_path = format!("{}/{rust_name}", self.relative_path);
+        let default_func_name = Self::escape_path(&full_path);
 
         // TODO Check the name for uniqueness
         format!(
