@@ -1878,12 +1878,13 @@ dependencies = [
 
 [[package]]
 name = "kinetics"
-version = "0.7.2"
+version = "0.7.5"
 dependencies = [
  "async-trait",
  "aws-config",
  "aws-sdk-dynamodb",
  "aws-sdk-sqs",
+ "aws_lambda_events",
  "chrono",
  "clap",
  "color-eyre",
@@ -1895,6 +1896,7 @@ dependencies = [
  "indicatif",
  "kinetics-macro",
  "kinetics-parser",
+ "lambda_runtime",
  "log",
  "prettyplease",
  "regex",
@@ -1916,7 +1918,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics-macro"
-version = "0.7.2"
+version = "0.7.5"
 dependencies = [
  "kinetics-parser",
  "syn",
@@ -1924,7 +1926,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics-parser"
-version = "0.7.2"
+version = "0.7.5"
 dependencies = [
  "color-eyre",
  "syn",

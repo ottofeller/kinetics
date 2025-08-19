@@ -1,6 +1,6 @@
 [package]
 name = "kinetics"
-version = "0.7.2"
+version = "0.7.5"
 edition = "2021"
 description = "Kinetics is a hosting platform for Rust applications that allows you to deploy all types of workloads by writing **only Rust code**."
 license = "Apache-2.0 OR MIT"
@@ -17,6 +17,7 @@ path = "src/main.rs"
 aws-config = "1.8.3"
 aws-sdk-dynamodb = "1.86.0"
 aws-sdk-sqs = "=1.80.0"
+aws_lambda_events = "0.17.0"
 chrono = { version = "0.4.41", features = ["serde"] }
 uuid = { version = "1.17.0", features = ["v4"] }
 clap = { version = "4.5.42", features = ["derive"] }
@@ -46,6 +47,7 @@ crossterm = "0.29.0"
 async-trait = "0.1.88"
 log = "0.4.27"
 env_logger = "0.11.8"
-kinetics-parser = { path = "../parser", version = "0.7.2" }
+kinetics-parser = { path = "../parser", version = "0.7.5" }
 tabled = "0.20.0"
 terminal_size = "0.4.2"
+lambda_runtime = "0.14.3"
