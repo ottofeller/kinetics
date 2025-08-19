@@ -6,7 +6,7 @@ use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use kinetics_parser::ParsedFunction;
 use lambda_runtime::LambdaEvent;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 pub struct Client {
     queue: SendMessageFluentBuilder,
@@ -34,7 +34,13 @@ impl Client {
     /// Init the client from the reference to worker function
     ///
     /// This is idempotent operation, the client is initialised just once and than reused.
-    pub async fn from_worker<F>(worker: F) -> eyre::Result<Self> {
+    pub async fn from_worker<'a, Fut>(
+        worker: impl Fn(Vec<Record>, &'a HashMap<String, String>, &'a HashMap<String, Client>) -> Fut,
+    ) -> eyre::Result<Self>
+    where
+        Fut:
+            std::future::Future<Output = Result<Retries, Box<dyn std::error::Error + Send + Sync>>>,
+    {
         let build_config = build_config()?;
         let credentials = Credentials::new(Path::new(&build_config.credentials_path))?;
 
