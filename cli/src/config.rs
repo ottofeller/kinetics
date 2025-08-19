@@ -8,6 +8,11 @@ pub(crate) struct Config<'a> {
     pub(crate) domain: &'a str,
     pub(crate) build_path: &'a str,
     pub(crate) credentials_path: &'a str,
+
+    // Cloud provider account ID
+    // When used through "let confg = build_config()?" clippy complains
+    #[allow(dead_code)]
+    pub(crate) account_id: &'a str,
 }
 
 static CONFIG: OnceLock<Config> = OnceLock::new();
@@ -46,6 +51,7 @@ pub(crate) fn build_config() -> Result<&'static Config<'static>, Error> {
         );
 
         Config {
+            account_id: "430118855033",
             api_base,
             build_path,
             credentials_path,
