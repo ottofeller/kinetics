@@ -1,7 +1,12 @@
+use crate::config::build_config;
+use crate::credentials::Credentials;
+use crate::utils::escape_resource_name;
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
+use kinetics_parser::ParsedFunction;
 use lambda_runtime::LambdaEvent;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 pub struct Client {
     queue: SendMessageFluentBuilder,
@@ -24,6 +29,39 @@ impl Client {
     ) -> eyre::Result<()> {
         self.queue.clone().message_body(message).send().await?;
         Ok(())
+    }
+
+    /// Init the client from the reference to worker function
+    ///
+    /// This is idempotent operation, the client is initialised just once and than reused.
+    pub async fn from_worker<F>(worker: F) -> eyre::Result<Self> {
+        let build_config = build_config()?;
+        let credentials = Credentials::new(Path::new(&build_config.credentials_path))?;
+
+        let (crate_name, function_path) = std::any::type_name_of_val(&worker)
+            .split_once("::")
+            .unwrap();
+
+        let queue_name = format!(
+            "{}D{}D{}",
+            escape_resource_name(&credentials.email),
+            escape_resource_name(&crate_name),
+            // .escape_path() can't deal with "::"
+            escape_resource_name(&ParsedFunction::escape_path(
+                &function_path.replace("::", "/")
+            ))
+        );
+
+        let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+
+        Ok(Client {
+            queue: aws_sdk_sqs::Client::new(&config)
+                .send_message()
+                .queue_url(format!(
+                    "https://sqs.us-east-1.amazonaws.com/{}/{}",
+                    build_config.account_id, queue_name
+                )),
+        })
     }
 }
 
