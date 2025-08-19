@@ -1,4 +1,3 @@
-use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use kinetics::macros::endpoint;
 use kinetics::tools::queue::Client as QueueClient;
 use lambda_http::{Body, Error, Request, Response};

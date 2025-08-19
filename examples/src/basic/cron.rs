@@ -1,4 +1,3 @@
-use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use kinetics::macros::cron;
 use kinetics::tools::queue::Client as QueueClient;
 use std::collections::HashMap;
