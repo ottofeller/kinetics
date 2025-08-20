@@ -9,7 +9,6 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
 
             #[tokio::main]
             async fn main() -> Result<(), lambda_http::Error> {{\n\
-                let queues = std::collections::HashMap::new();
                 let mut secrets = std::collections::HashMap::new();
 
                 for (k, v) in std::env::vars() {{
@@ -43,7 +42,7 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                         );
                 }}
 
-                match {rust_function_name}(event, &secrets, &queues).await {{
+                match {rust_function_name}(event, &secrets).await {{
                     Ok(response) => {{
                         println!(\"{{response:?}}\");
                     }},
@@ -59,7 +58,6 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
     } else {
         format!(
             "{import_statement}
-            use kinetics::tools::queue::Client as QueueClient;
             use lambda_http::{{run, service_fn}};\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), lambda_http::Error> {{\n\
@@ -101,23 +99,10 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                     secrets.insert(name.into(), secret_value.to_string());
                 }}
 
-                println!(\"Provisioning queues\");
-                let mut queues = std::collections::HashMap::new();
-
-                for (k, v) in std::env::vars() {{
-                    if k.starts_with(\"KINETICS_QUEUE_\") {{
-                        let queue_client = QueueClient::new(aws_sdk_sqs::Client::new(&config)
-                            .send_message()
-                            .queue_url(v));
-
-                        queues.insert(k.replace(\"KINETICS_QUEUE_\", \"\"), queue_client);
-                    }}
-                }}
-
                 println!(\"Serving requests\");
 
                 run(service_fn(|event| async {{
-                    match {rust_function_name}(event, &secrets, &queues).await {{
+                    match {rust_function_name}(event, &secrets).await {{
                         Ok(response) => Ok(response),
                         Err(err) => {{
                             eprintln!(\"Error occurred while handling request: {{:?}}\", err);
