@@ -1,5 +1,4 @@
-use crate::config::{build_config, cloud_config};
-use crate::credentials::Credentials;
+use crate::config::cloud_config;
 use crate::utils::escape_resource_name;
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
@@ -7,7 +6,7 @@ use eyre::Context;
 use kinetics_parser::ParsedFunction;
 use lambda_runtime::LambdaEvent;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::Path};
+use std::collections::HashMap;
 
 pub struct Client {
     queue: SendMessageFluentBuilder,
