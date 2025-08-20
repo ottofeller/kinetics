@@ -1,6 +1,6 @@
 [package]
 name = "kinetics-macro"
-version = "0.7.5"
+version = "0.7.6"
 edition = "2021"
 description = "A set of macros used in Kinetics project."
 license = "Apache-2.0 OR MIT"
