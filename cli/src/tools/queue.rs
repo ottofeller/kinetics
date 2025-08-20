@@ -1,11 +1,18 @@
+use crate::utils::escape_resource_name;
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
+use kinetics_parser::ParsedFunction;
 use lambda_runtime::LambdaEvent;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use tokio::sync::OnceCell;
 
 pub struct Client {
     queue: SendMessageFluentBuilder,
 }
+
+// Global cache for AWS SQS client to avoid re-initialization in Lambda
+static SQS_CLIENT: OnceCell<SendMessageFluentBuilder> = OnceCell::const_new();
 
 /// A queue client
 ///
@@ -24,6 +31,54 @@ impl Client {
     ) -> eyre::Result<()> {
         self.queue.clone().message_body(message).send().await?;
         Ok(())
+    }
+
+    /// Init the client from the reference to worker function
+    ///
+    /// This is idempotent operation, the client is initialised just once and than reused.
+    pub async fn from_worker<'a, Fut>(
+        worker: impl Fn(Vec<Record>, &'a HashMap<String, String>) -> Fut,
+    ) -> eyre::Result<Self>
+    where
+        Fut:
+            std::future::Future<Output = Result<Retries, Box<dyn std::error::Error + Send + Sync>>>,
+    {
+        Ok(Client {
+            // Initialize the SQS client just once
+            queue: SQS_CLIENT
+                .get_or_init(|| async {
+                    let (crate_name, function_path) = std::any::type_name_of_val(&worker)
+                        .split_once("::")
+                        .unwrap();
+
+                    let queue_name = format!(
+                        "{}D{}D{}",
+                        escape_resource_name(&std::env::var("KINETICS_USERNAME").unwrap()),
+                        escape_resource_name(&crate_name),
+                        // .escape_path() can't deal with "::"
+                        escape_resource_name(&ParsedFunction::escape_path(
+                            &function_path.replace("::", "/")
+                        ))
+                    );
+
+                    println!("Initializing queue client for {queue_name}");
+
+                    let queue_url = format!(
+                        "https://sqs.us-east-1.amazonaws.com/{}/{}",
+                        &std::env::var("KINETICS_CLOUD_ACCOUNT_ID").unwrap(),
+                        queue_name
+                    );
+
+                    let config =
+                        aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+
+                    aws_sdk_sqs::Client::new(&config)
+                        .send_message()
+                        .queue_url(queue_url)
+                })
+                .await
+                .to_owned(),
+        })
     }
 }
 

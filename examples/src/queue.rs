@@ -1,3 +1,4 @@
+use crate::basic::worker::worker;
 use kinetics::tools::queue::Client as QueueClient;
 use kinetics_macro::endpoint;
 use lambda_http::{Body, Error, Request, Response};
@@ -13,13 +14,8 @@ use std::collections::HashMap;
 pub async fn queue(
     _event: Request,
     _secrets: &HashMap<String, String>,
-    queues: &HashMap<String, QueueClient>,
 ) -> Result<Response<Body>, Error> {
-    let client = match queues.get("example") {
-        Some(client) => client,
-        None => return Err(Error::from("Queue not found")),
-    };
-
+    let client = QueueClient::from_worker(worker).await?;
     client.send("Test message").await?;
 
     let resp = Response::builder()

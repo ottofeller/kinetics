@@ -1,6 +1,4 @@
-use kinetics::tools::queue::{
-    Client as QueueClient, Record as QueueRecord, Retries as QueueRetries,
-};
+use kinetics::tools::queue::{Record as QueueRecord, Retries as QueueRetries};
 use kinetics_macro::worker;
 use lambda_runtime::Error;
 use std::collections::HashMap;
@@ -14,7 +12,6 @@ use std::collections::HashMap;
 pub async fn worker(
     records: Vec<QueueRecord>,
     _secrets: &HashMap<String, String>,
-    _queues: &HashMap<String, QueueClient>,
 ) -> Result<QueueRetries, Error> {
     let mut retries = QueueRetries::new();
 
