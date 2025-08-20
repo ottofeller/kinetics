@@ -3,21 +3,33 @@ use std::path::Path;
 use std::sync::OnceLock;
 
 #[derive(Debug)]
-pub(crate) struct Config<'a> {
-    pub(crate) api_base: &'a str,
-    pub(crate) domain: &'a str,
-    pub(crate) build_path: &'a str,
-    pub(crate) credentials_path: &'a str,
-
+pub(crate) struct CloudConfig<'a> {
     // Cloud provider account ID
-    // When used through "let confg = build_config()?" clippy complains
     #[allow(dead_code)]
     pub(crate) account_id: &'a str,
 }
 
-static CONFIG: OnceLock<Config> = OnceLock::new();
+#[derive(Debug)]
+pub(crate) struct BuildConfig<'a> {
+    pub(crate) api_base: &'a str,
+    pub(crate) domain: &'a str,
+    pub(crate) build_path: &'a str,
+    pub(crate) credentials_path: &'a str,
+}
 
-pub(crate) fn build_config() -> Result<&'static Config<'static>, Error> {
+#[allow(dead_code)]
+static CLOUD_CONFIG: OnceLock<CloudConfig> = OnceLock::new();
+
+static BUILD_CONFIG: OnceLock<BuildConfig> = OnceLock::new();
+
+#[allow(dead_code)]
+pub(crate) fn cloud_config() -> Result<&'static CloudConfig<'static>, Error> {
+    Ok(CLOUD_CONFIG.get_or_init(|| CloudConfig {
+        account_id: "430118855033",
+    }))
+}
+
+pub(crate) fn build_config() -> Result<&'static BuildConfig<'static>, Error> {
     let home_dir = std::env::var("HOME").map_err(|_| {
         log::error!("Failed to get $HOME");
 
@@ -27,7 +39,7 @@ pub(crate) fn build_config() -> Result<&'static Config<'static>, Error> {
         )
     })?;
 
-    Ok(CONFIG.get_or_init(|| {
+    Ok(BUILD_CONFIG.get_or_init(|| {
         let api_base =
             option_env!("KINETICS_API_BASE").unwrap_or("https://backend.usekinetics.com/");
 
@@ -50,8 +62,7 @@ pub(crate) fn build_config() -> Result<&'static Config<'static>, Error> {
                 .into_boxed_str(),
         );
 
-        Config {
-            account_id: "430118855033",
+        BuildConfig {
             api_base,
             build_path,
             credentials_path,

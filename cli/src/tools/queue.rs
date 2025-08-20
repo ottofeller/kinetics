@@ -1,4 +1,4 @@
-use crate::config::build_config;
+use crate::config::{build_config, cloud_config};
 use crate::credentials::Credentials;
 use crate::utils::escape_resource_name;
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
@@ -41,8 +41,7 @@ impl Client {
         Fut:
             std::future::Future<Output = Result<Retries, Box<dyn std::error::Error + Send + Sync>>>,
     {
-        let build_config = build_config()?;
-        let credentials = Credentials::new(Path::new(&build_config.credentials_path))?;
+        let credentials = Credentials::new(Path::new(&build_config()?.credentials_path))?;
 
         let (crate_name, function_path) = std::any::type_name_of_val(&worker)
             .split_once("::")
@@ -65,7 +64,8 @@ impl Client {
                 .send_message()
                 .queue_url(format!(
                     "https://sqs.us-east-1.amazonaws.com/{}/{}",
-                    build_config.account_id, queue_name
+                    cloud_config()?.account_id,
+                    queue_name
                 )),
         })
     }
