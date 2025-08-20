@@ -3,6 +3,7 @@ use crate::credentials::Credentials;
 use crate::utils::escape_resource_name;
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
+use eyre::Context;
 use kinetics_parser::ParsedFunction;
 use lambda_runtime::LambdaEvent;
 use serde::{Deserialize, Serialize};
@@ -41,15 +42,15 @@ impl Client {
         Fut:
             std::future::Future<Output = Result<Retries, Box<dyn std::error::Error + Send + Sync>>>,
     {
-        let credentials = Credentials::new(Path::new(&build_config()?.credentials_path))?;
-
         let (crate_name, function_path) = std::any::type_name_of_val(&worker)
             .split_once("::")
             .unwrap();
 
         let queue_name = format!(
             "{}D{}D{}",
-            escape_resource_name(&credentials.email),
+            escape_resource_name(
+                &std::env::var("KINETICS_USERNAME").wrap_err("KINETICS_USERNAME is missing")?
+            ),
             escape_resource_name(&crate_name),
             // .escape_path() can't deal with "::"
             escape_resource_name(&ParsedFunction::escape_path(
