@@ -1144,8 +1144,8 @@ dependencies = [
  "aws-sdk-dynamodb",
  "aws-sdk-sqs",
  "aws_lambda_events",
- "kinetics 0.7.5",
- "kinetics-macro 0.7.5",
+ "kinetics 0.7.6",
+ "kinetics-macro 0.7.6",
  "lambda_http",
  "lambda_runtime",
  "serde_json",
@@ -1879,9 +1879,9 @@ dependencies = [
 
 [[package]]
 name = "kinetics"
-version = "0.7.5"
+version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66482dc937935aeed696355b405d0692d4529986cf5d72a477df4da7cb47f173"
+checksum = "1e92d7c33ab2c14eef5ba1c1a4f54e7e8e4b0cf8d1c929f74b0ca5214d687190"
 dependencies = [
  "async-trait",
  "aws-config",
@@ -1897,7 +1897,7 @@ dependencies = [
  "eyre",
  "futures",
  "indicatif",
- "kinetics-parser 0.7.5",
+ "kinetics-parser 0.7.6",
  "lambda_runtime",
  "log",
  "prettyplease",
@@ -1920,7 +1920,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics"
-version = "0.7.6"
+version = "0.7.7"
 dependencies = [
  "async-trait",
  "aws-config",
@@ -1936,7 +1936,7 @@ dependencies = [
  "eyre",
  "futures",
  "indicatif",
- "kinetics-parser 0.7.6",
+ "kinetics-parser 0.7.7",
  "lambda_runtime",
  "log",
  "prettyplease",
@@ -1959,27 +1959,27 @@ dependencies = [
 
 [[package]]
 name = "kinetics-macro"
-version = "0.7.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67ce18ffe87b0c48f3f070a44a87178cd15c142e4b1fdf2f1f30b29c74756b59"
-dependencies = [
- "kinetics-parser 0.7.5",
- "syn",
-]
-
-[[package]]
-name = "kinetics-macro"
 version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8d4aef5833b8f0cf1f9941f79e410313d60646717b4ffa4cc3248869915be2f"
 dependencies = [
  "kinetics-parser 0.7.6",
  "syn",
 ]
 
 [[package]]
+name = "kinetics-macro"
+version = "0.7.7"
+dependencies = [
+ "kinetics-parser 0.7.7",
+ "syn",
+]
+
+[[package]]
 name = "kinetics-parser"
-version = "0.7.5"
+version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ef09b23d05cad068d89443facbe61ab6a807c2084a297def586479c8df1c081"
+checksum = "7198137358535d290899327f74a735f147066c63aca3ec690ef8ec352199660c"
 dependencies = [
  "color-eyre",
  "syn",
@@ -1988,7 +1988,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics-parser"
-version = "0.7.6"
+version = "0.7.7"
 dependencies = [
  "color-eyre",
  "syn",
