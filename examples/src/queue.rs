@@ -14,7 +14,6 @@ use std::collections::HashMap;
 pub async fn queue(
     _event: Request,
     _secrets: &HashMap<String, String>,
-    _queues: &HashMap<String, QueueClient>,
 ) -> Result<Response<Body>, Error> {
     let client = QueueClient::from_worker(worker).await?;
     client.send("Test message").await?;
