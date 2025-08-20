@@ -35,7 +35,7 @@ impl Client {
     ///
     /// This is idempotent operation, the client is initialised just once and than reused.
     pub async fn from_worker<'a, Fut>(
-        worker: impl Fn(Vec<Record>, &'a HashMap<String, String>, &'a HashMap<String, Client>) -> Fut,
+        worker: impl Fn(Vec<Record>, &'a HashMap<String, String>) -> Fut,
     ) -> eyre::Result<Self>
     where
         Fut:
