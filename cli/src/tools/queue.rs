@@ -1,4 +1,3 @@
-use crate::config::cloud_config;
 use crate::utils::escape_resource_name;
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
@@ -64,7 +63,8 @@ impl Client {
                 .send_message()
                 .queue_url(format!(
                     "https://sqs.us-east-1.amazonaws.com/{}/{}",
-                    cloud_config()?.account_id,
+                    &std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
+                        .wrap_err("KINETICS_CLOUD_ACCOUNT_ID is missing")?,
                     queue_name
                 )),
         })

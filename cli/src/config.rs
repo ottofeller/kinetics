@@ -3,13 +3,6 @@ use std::path::Path;
 use std::sync::OnceLock;
 
 #[derive(Debug)]
-pub(crate) struct CloudConfig<'a> {
-    // Cloud provider account ID
-    #[allow(dead_code)]
-    pub(crate) account_id: &'a str,
-}
-
-#[derive(Debug)]
 pub(crate) struct BuildConfig<'a> {
     pub(crate) api_base: &'a str,
     pub(crate) domain: &'a str,
@@ -17,17 +10,7 @@ pub(crate) struct BuildConfig<'a> {
     pub(crate) credentials_path: &'a str,
 }
 
-#[allow(dead_code)]
-static CLOUD_CONFIG: OnceLock<CloudConfig> = OnceLock::new();
-
 static BUILD_CONFIG: OnceLock<BuildConfig> = OnceLock::new();
-
-#[allow(dead_code)]
-pub(crate) fn cloud_config() -> Result<&'static CloudConfig<'static>, Error> {
-    Ok(CLOUD_CONFIG.get_or_init(|| CloudConfig {
-        account_id: "430118855033",
-    }))
-}
 
 pub(crate) fn build_config() -> Result<&'static BuildConfig<'static>, Error> {
     let home_dir = std::env::var("HOME").map_err(|_| {
