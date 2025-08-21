@@ -8,7 +8,7 @@ use std::collections::HashMap;
 /// Always returns the first record as failed to process. It will then be retried.
 /// Test locally with the following command:
 /// kinetics invoke BasicWorkerWorker --payload '{"name": "John"}'
-#[worker(fifo = true, queue_alias = "example")]
+#[worker(fifo = true)]
 pub async fn worker(
     records: Vec<QueueRecord>,
     _secrets: &HashMap<String, String>,
