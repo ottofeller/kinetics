@@ -1143,7 +1143,6 @@ dependencies = [
  "aws-config",
  "aws-sdk-dynamodb",
  "aws-sdk-sqs",
- "aws_lambda_events",
  "kinetics 0.7.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "kinetics-macro 0.7.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "lambda_http",
