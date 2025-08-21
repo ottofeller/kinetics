@@ -5,7 +5,6 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
             "{import_statement}
             #[tokio::main]\n\
             async fn main() -> Result<(), Box<dyn std::error::Error>> {{\n\
-                let mut queues = std::collections::HashMap::new();
                 let mut secrets = std::collections::HashMap::new();
 
                 for (k, v) in std::env::vars() {{
@@ -15,7 +14,7 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
                     }}
                 }}
 
-                {rust_function_name}(&secrets, &queues).await?;
+                {rust_function_name}(&secrets).await?;
                 Ok(())
             }}\n\n"
         )
@@ -23,7 +22,6 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
         format!(
             "{import_statement}
             use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
-            use kinetics::tools::queue::Client as QueueClient;
             use aws_lambda_events::eventbridge::EventBridgeEvent;\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), Error> {{\n\
@@ -65,23 +63,10 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
                     secrets.insert(name.into(), secret_value.to_string());
                 }}
 
-                println!(\"Provisioning queues\");
-                let mut queues = std::collections::HashMap::new();
-
-                for (k, v) in std::env::vars() {{
-                    if k.starts_with(\"KINETICS_QUEUE_\") {{
-                        let queue_client = QueueClient::new(aws_sdk_sqs::Client::new(&config)
-                            .send_message()
-                            .queue_url(v));
-
-                        queues.insert(k.replace(\"KINETICS_QUEUE_\", \"\"), queue_client);
-                    }}
-                }}
-
                 println!(\"Serving requests\");
 
                 run(service_fn(|_event: LambdaEvent<EventBridgeEvent<serde_json::Value>>| async {{
-                    match {rust_function_name}(&secrets, &queues).await {{
+                    match {rust_function_name}(&secrets).await {{
                         Ok(()) => Ok(()),
                         Err(err) => {{
                             eprintln!(\"Error occurred while handling request: {{:?}}\", err);

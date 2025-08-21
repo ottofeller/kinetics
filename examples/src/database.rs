@@ -17,7 +17,6 @@ use std::collections::HashMap;
 pub async fn database(
     _event: Request,
     _secrets: &HashMap<String, String>,
-    _queues: &HashMap<String, QueueClient>,
 ) -> Result<Response<Body>, Error> {
     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
     let client = Client::new(&config);

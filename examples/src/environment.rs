@@ -15,7 +15,6 @@ use std::collections::HashMap;
 pub async fn environment(
     _event: Request,
     _secrets: &HashMap<String, String>,
-    _queues: &HashMap<String, QueueClient>,
 ) -> Result<Response<Body>, Error> {
     let env = std::env::vars().collect::<HashMap<_, _>>();
 
