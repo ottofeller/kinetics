@@ -103,7 +103,6 @@ The following attribute macro parameters are available:
 - `concurrency`: Max number of concurrent workers.
 - `fifo`: Set to true to enable FIFO processing.
 - `environment`: Environment variables.
-- `queue_alias`: The alias of the queue to be created for the worker. Will be added in `queues` hash map.
 
 [Example](https://github.com/ottofeller/kinetics/blob/main/examples/src/basic/worker.rs).
 

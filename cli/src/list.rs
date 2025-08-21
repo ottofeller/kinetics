@@ -44,8 +44,6 @@ struct WorkerRow {
     fifo: String,
     #[tabled(rename = "Concurrency")]
     concurrency: String,
-    #[tabled(rename = "Queue Alias")]
-    queue_alias: String,
     #[tabled(rename = "Updated")]
     last_modified: String,
 }
@@ -130,12 +128,7 @@ pub fn display_simple(function: &ParsedFunction, options: &HashMap<&str, String>
         }
 
         Role::Cron(params) => println!("{} {}", "Scheduled".dimmed(), params.schedule.cyan()),
-
-        Role::Worker(params) => {
-            if let Some(queue_alias) = params.queue_alias {
-                println!("{} {}", "Queue".dimmed(), queue_alias.cyan());
-            }
-        }
+        Role::Worker(_) => {}
     }
 }
 
@@ -243,7 +236,6 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
                     environment: format_environment(&format!("{:?}", params.environment)),
                     fifo: format!("{:?}", params.fifo),
                     concurrency: format!("{:?}", params.concurrency),
-                    queue_alias: format!("{:?}", params.queue_alias.unwrap_or("".to_string())),
                     last_modified,
                 });
             }

@@ -6,10 +6,6 @@ use serde_json::json;
 use std::collections::HashMap;
 
 /// Send a message to the queue
-///
-/// Must be processed by worker with #[worker(queue_alias = "example")] macro.
-/// Can't be tested locally, as it requires access to the queue. Deploy with this command:
-/// kinetics deploy
 #[endpoint(url_path = "/queue")]
 pub async fn queue(
     _event: Request,

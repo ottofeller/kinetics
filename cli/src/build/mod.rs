@@ -357,16 +357,11 @@ fn metadata(
         Role::Worker(params) => {
             let mut queue_table = toml_edit::Table::new();
             queue_table["name"] = toml_edit::value(&name);
-            if let Some(queue_alias) = &params.queue_alias {
-                queue_table["alias"] = toml_edit::value(queue_alias);
-            };
             queue_table["concurrency"] = toml_edit::value(params.concurrency as i64);
             queue_table["fifo"] = toml_edit::value(params.fifo);
-
             let mut named_table = toml_edit::Table::new();
             named_table.set_implicit(true); // Don't create an empty queue table
             named_table.insert(&name, queue_table.into());
-
             function_meta.insert("queue", named_table.into());
         }
         Role::Endpoint(params) => {
