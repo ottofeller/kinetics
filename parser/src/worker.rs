@@ -7,7 +7,6 @@ use syn::{
 #[derive(Debug, Clone)]
 pub struct Worker {
     pub name: Option<String>,
-    pub queue_alias: Option<String>,
     pub concurrency: i16,
     pub fifo: bool,
     pub environment: Environment,
@@ -17,7 +16,6 @@ impl Default for Worker {
     fn default() -> Self {
         Worker {
             name: None,
-            queue_alias: None,
             concurrency: 1,
             fifo: false,
             environment: Environment::new(),
@@ -36,9 +34,6 @@ impl Parse for Worker {
             match ident.to_string().as_str() {
                 "name" => {
                     worker.name = Some(input.parse::<LitStr>()?.value());
-                }
-                "queue_alias" => {
-                    worker.queue_alias = Some(input.parse::<LitStr>()?.value());
                 }
                 "environment" => {
                     worker.environment = parse_environment(input)?;
