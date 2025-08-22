@@ -10,7 +10,7 @@ name = "mytable"
 aws-config = "1.8.3"
 aws-sdk-dynamodb = "1.86.0"
 lambda_runtime = "0.14.3"
-kinetics = { path = "../cli" }
+kinetics = "0.7.11"
 lambda_http = "0.16.0"
 tokio = "1.47.1"
 aws-sdk-sqs = "1.78.0"
