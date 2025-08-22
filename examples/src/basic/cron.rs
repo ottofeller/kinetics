@@ -1,4 +1,4 @@
-use kinetics_macro::cron;
+use kinetics::macros::cron;
 use std::collections::HashMap;
 
 /// A regular cron job which prints out every hour

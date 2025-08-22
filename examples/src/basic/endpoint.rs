@@ -1,4 +1,4 @@
-use kinetics_macro::endpoint;
+use kinetics::macros::endpoint;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
 use std::collections::HashMap;
