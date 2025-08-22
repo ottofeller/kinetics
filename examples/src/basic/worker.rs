@@ -1,5 +1,4 @@
 use kinetics::macros::worker;
-use kinetics::tools::queue::Client as QueueClient;
 use kinetics::tools::queue::{Record as QueueRecord, Retries as QueueRetries};
 use lambda_runtime::Error;
 use std::collections::HashMap;

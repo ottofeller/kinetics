@@ -1,5 +1,4 @@
 use kinetics::macros::endpoint;
-use kinetics::tools::queue::Client as QueueClient;
 use lambda_http::{Body, Error, Request, Response};
 use serde_json::json;
 use std::collections::HashMap;

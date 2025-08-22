@@ -1,5 +1,4 @@
 use kinetics::macros::cron;
-use kinetics::tools::queue::Client as QueueClient;
 use std::collections::HashMap;
 
 /// A regular cron job which prints out every hour
