@@ -24,7 +24,7 @@ clap = { version = "4.5.42", features = ["derive"] }
 eyre = "0.6.12"
 regex = "1.11.1"
 walkdir = "2.5.0"
-kinetics-macro = { path = "../macro" }
+kinetics-macro = { path = "../macro", version = "0.7.11" }
 
 # Do not upgrade as compilation fails
 zip = "4.2.0"
@@ -47,7 +47,7 @@ crossterm = "0.29.0"
 async-trait = "0.1.88"
 log = "0.4.27"
 env_logger = "0.11.8"
-kinetics-parser = { path = "../parser" }
+kinetics-parser = { path = "../parser", version = "0.7.11" }
 tabled = "0.20.0"
 terminal_size = "0.4.2"
 lambda_runtime = "0.14.3"
