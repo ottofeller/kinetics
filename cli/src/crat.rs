@@ -75,74 +75,6 @@ impl Crate {
     ) -> eyre::Result<()> {
         let deploy_all = functions.iter().all(|f| f.is_deploying);
 
-        #[derive(serde::Deserialize, serde::Serialize, Debug)]
-        pub struct BodyCrate {
-            /// Full original Cargo.toml not touched by CLI
-            pub toml: String,
-        }
-
-        #[derive(serde::Serialize, Debug)]
-        pub struct BodyFunction {
-            pub name: String,
-
-            // Full Cargo.toml filled with extra metadata by CLI
-            pub toml: String,
-        }
-
-        impl BodyFunction {
-            fn try_from_function(f: &Function, deploy_all: bool) -> eyre::Result<Self> {
-                let mut manifest = f.crat.toml.clone();
-                let functions = manifest
-                    .get("package")
-                    .wrap_err("No [package]")?
-                    .get("metadata")
-                    .wrap_err("No [metadata]")?
-                    .get("kinetics")
-                    .wrap_err("No [kinetics]")?
-                    .get("functions")
-                    .wrap_err("No [functions]")?;
-                let mut function_meta = functions
-                    .clone()
-                    .as_array_mut()
-                    .wrap_err("Invalid format for [functions]")?
-                    .iter_mut()
-                    .find_map(|tbl| {
-                        if tbl.as_table()?.get("function")?.get("name")?.as_str()? == f.name {
-                            Some(tbl)
-                        } else {
-                            None
-                        }
-                    })
-                    .wrap_err(format!("No [{}]", f.name))?
-                    .as_table_mut()
-                    .wrap_err("Invalid format for [functions] member")?
-                    .clone();
-
-                // Set is_deploying only when the function is deployed,
-                // but there are others that are not.
-                if !deploy_all && f.is_deploying {
-                    let mut function_namespace = function_meta
-                        .get("function")
-                        .wrap_err("No [function]")?
-                        .clone();
-
-                    function_namespace
-                        .as_table_mut()
-                        .wrap_err("Invalid format for [function]")?
-                        .insert("is_deploying".to_owned(), Value::Boolean(f.is_deploying));
-
-                    function_meta["function"] = function_namespace;
-                }
-
-                manifest["package"]["metadata"]["kinetics"] = function_meta.into();
-
-                Ok(Self {
-                    name: f.name.clone(),
-                    toml: toml::to_string(&manifest)?,
-                })
-            }
-        }
-
         #[derive(serde::Serialize, Debug)]
         pub struct JsonBody {
             pub crat: BodyCrate,
@@ -228,5 +160,73 @@ impl Crate {
             result.json().await.wrap_err("Failed to parse response")?;
 
         Ok(status)
+    }
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct BodyCrate {
+    /// Full original Cargo.toml not touched by CLI
+    pub toml: String,
+}
+
+#[derive(serde::Serialize, Debug)]
+pub struct BodyFunction {
+    pub name: String,
+
+    // Full Cargo.toml filled with extra metadata by CLI
+    pub toml: String,
+}
+
+impl BodyFunction {
+    pub fn try_from_function(f: &Function, deploy_all: bool) -> eyre::Result<Self> {
+        let mut manifest = f.crat.toml.clone();
+        let functions = manifest
+            .get("package")
+            .wrap_err("No [package]")?
+            .get("metadata")
+            .wrap_err("No [metadata]")?
+            .get("kinetics")
+            .wrap_err("No [kinetics]")?
+            .get("functions")
+            .wrap_err("No [functions]")?;
+        let mut function_meta = functions
+            .clone()
+            .as_array_mut()
+            .wrap_err("Invalid format for [functions]")?
+            .iter_mut()
+            .find_map(|tbl| {
+                if tbl.as_table()?.get("function")?.get("name")?.as_str()? == f.name {
+                    Some(tbl)
+                } else {
+                    None
+                }
+            })
+            .wrap_err(format!("No [{}]", f.name))?
+            .as_table_mut()
+            .wrap_err("Invalid format for [functions] member")?
+            .clone();
+
+        // Set is_deploying only when the function is deployed,
+        // but there are others that are not.
+        if !deploy_all && f.is_deploying {
+            let mut function_namespace = function_meta
+                .get("function")
+                .wrap_err("No [function]")?
+                .clone();
+
+            function_namespace
+                .as_table_mut()
+                .wrap_err("Invalid format for [function]")?
+                .insert("is_deploying".to_owned(), Value::Boolean(f.is_deploying));
+
+            function_meta["function"] = function_namespace;
+        }
+
+        manifest["package"]["metadata"]["kinetics"] = function_meta.into();
+
+        Ok(Self {
+            name: f.name.clone(),
+            toml: toml::to_string(&manifest)?,
+        })
     }
 }
