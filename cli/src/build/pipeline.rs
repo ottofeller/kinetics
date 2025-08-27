@@ -173,7 +173,7 @@ impl Pipeline {
                 deploying_progress.finish(
                     "Provisioning",
                     ProgressStatus::Warn,
-                    Some("Stack was not updated - no changes detected."),
+                    Some("Nothing to update"),
                 );
             }
             Ok(_) => {
