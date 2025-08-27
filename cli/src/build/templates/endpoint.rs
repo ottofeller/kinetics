@@ -6,9 +6,11 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
             use serde_json;
             use reqwest::header::{{HeaderName, HeaderValue}};
             use std::str::FromStr;
-
+            use kinetics::tools::KineticsConfig;
             #[tokio::main]
             async fn main() -> Result<(), lambda_http::Error> {{\n\
+                let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+                let kinetics_config = KineticsConfig::new(&config).await?;
                 let mut secrets = std::collections::HashMap::new();
 
                 for (k, v) in std::env::vars() {{
@@ -42,7 +44,7 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                         );
                 }}
 
-                match {rust_function_name}(event, &secrets).await {{
+                match {rust_function_name}(event, &secrets, &kinetics_config).await {{
                     Ok(response) => {{
                         println!(\"{{response:?}}\");
                     }},
@@ -58,6 +60,7 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
     } else {
         format!(
             "{import_statement}
+            use kinetics::tools::KineticsConfig;
             use lambda_http::{{run, service_fn}};\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), lambda_http::Error> {{\n\
@@ -99,10 +102,11 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                     secrets.insert(name.into(), secret_value.to_string());
                 }}
 
+                let kinetics_config = KineticsConfig::new(&config).await?;
                 println!(\"Serving requests\");
 
                 run(service_fn(|event| async {{
-                    match {rust_function_name}(event, &secrets).await {{
+                    match {rust_function_name}(event, &secrets, &kinetics_config).await {{
                         Ok(response) => Ok(response),
                         Err(err) => {{
                             eprintln!(\"Error occurred while handling request: {{:?}}\", err);

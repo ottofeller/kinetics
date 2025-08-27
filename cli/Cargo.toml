@@ -17,6 +17,7 @@ path = "src/main.rs"
 aws-config = "1.8.3"
 aws-sdk-dynamodb = "1.86.0"
 aws-sdk-sqs = "=1.80.0"
+aws-sdk-dsql = "=1.8.0"
 aws_lambda_events = "0.17.0"
 chrono = { version = "0.4.41", features = ["serde"] }
 uuid = { version = "1.17.0", features = ["v4"] }
