@@ -3,6 +3,8 @@ use crate::config::build_config;
 use crate::crat::Crate;
 use crate::deploy::DeployConfig;
 use crate::error::Error;
+use base64::Engine as _;
+use crc_fast::{CrcAlgorithm::Crc64Nvme, Digest};
 use eyre::{eyre, ContextCompat, WrapErr};
 use reqwest::StatusCode;
 use serde_json::json;
@@ -91,11 +93,12 @@ impl Function {
     }
 
     /// Call the /upload endpoint to get the presigned URL and upload the file
+    /// Returns a boolean indicating whether the resource has been updated.
     pub async fn upload(
         &mut self,
         client: &Client,
         deploy_config: Option<&dyn DeployConfig>,
-    ) -> eyre::Result<()> {
+    ) -> eyre::Result<bool> {
         if let Some(config) = deploy_config {
             return config.upload(self).await;
         }
@@ -106,13 +109,26 @@ impl Function {
         }
 
         let path = self.bundle_path();
+        let data = tokio::fs::read(&path).await?;
+
+        let mut digest = Digest::new(Crc64Nvme);
+        digest.update(&data);
+        let checksum = base64::prelude::BASE64_STANDARD.encode(digest.finalize().to_be_bytes());
 
         let response = client
             .post("/upload")
-            .body(json!({"name": self.name}).to_string())
+            .json(&json!({
+                "name": self.name,
+                "checksum": checksum
+            }))
             .send()
             .await
             .inspect_err(|e| log::error!("Upload request failed: {e:?}"))?;
+
+        // If the file has not changed, skip the upload.
+        if response.status() == StatusCode::NOT_MODIFIED {
+            return Ok(false);
+        }
 
         let text = response.text().await?;
         log::debug!("Got response for {}: {}", self.name, text);
@@ -125,12 +141,12 @@ impl Function {
 
         public_client
             .put(&presigned.url)
-            .body(tokio::fs::read(&path).await?)
+            .body(data)
             .send()
             .await?
             .error_for_status()?;
 
-        Ok(())
+        Ok(true)
     }
 
     /// Return true if the function is the only supposed for local invocations
