@@ -6,7 +6,7 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
             use serde_json;
             use reqwest::header::{{HeaderName, HeaderValue}};
             use std::str::FromStr;
-            use kinetics::tools::KineticsConfig;
+            use kinetics::tools::Config as KineticsConfig;
             #[tokio::main]
             async fn main() -> Result<(), lambda_http::Error> {{\n\
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
@@ -60,7 +60,7 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
     } else {
         format!(
             "{import_statement}
-            use kinetics::tools::KineticsConfig;
+            use kinetics::tools::Config as KineticsConfig;
             use lambda_http::{{run, service_fn}};\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), lambda_http::Error> {{\n\

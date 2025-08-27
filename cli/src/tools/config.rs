@@ -1,4 +1,4 @@
-use crate::tools::database::Database;
+use crate::tools::database::SqlDb;
 use aws_config::SdkConfig;
 use lambda_runtime::Error;
 use std::collections::HashMap;
@@ -7,11 +7,11 @@ use std::collections::HashMap;
 ///
 /// Config is passed into the Lambda handler
 #[derive(Clone, Debug)]
-pub struct KineticsConfig {
-    pub db: HashMap<String, Database>,
+pub struct Config {
+    pub db: HashMap<String, SqlDb>,
 }
 
-impl KineticsConfig {
+impl Config {
     pub async fn new(config: &SdkConfig) -> Result<Self, Error> {
         let mut all_db = HashMap::new();
 
@@ -21,7 +21,7 @@ impl KineticsConfig {
             }
 
             let db_name = key.replace("KINETICS_DATABASE_", "");
-            let db = Database::new(&cluster_id, config).await?;
+            let db = SqlDb::new(&cluster_id, config).await?;
             all_db.insert(db_name, db);
         }
 

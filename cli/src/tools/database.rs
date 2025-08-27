@@ -6,9 +6,9 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 #[derive(Clone, Debug)]
-pub struct Database {
-    // Unique identifier for the DSQL cluster
-    cluster_id: String,
+pub struct SqlDb {
+    /// Public endpoint for the DSQL cluster
+    endpoint: String,
 
     /// Password for DSQL cluster access
     password: Arc<RwLock<AuthToken>>,
@@ -17,24 +17,27 @@ pub struct Database {
     config: SdkConfig,
 }
 
-impl Database {
+/// SQL DB configuration details
+impl SqlDb {
     pub async fn new(cluster_id: &str, config: &SdkConfig) -> Result<Self, Error> {
-        let password = fetch_dsql_password(cluster_id, config).await?;
+        let region = config.region().unwrap_or(&Region::new("us-east-1")).clone();
+        let endpoint = format!("{}.dsql.{}.on.aws", cluster_id, region.as_ref());
+        let password = fetch_dsql_password(&endpoint, config).await?;
 
         let database = Self {
-            cluster_id: cluster_id.to_string(),
+            endpoint,
             password: Arc::new(RwLock::new(password)),
             config: config.clone(),
         };
 
         // Refresh the auth token in the background
-        database.start_token_refresh();
+        database.spawn_token_refresh();
 
         Ok(database)
     }
 
     pub fn endpoint(&self) -> String {
-        generate_cluster_endpoint(&self.cluster_id, &self.config)
+        self.endpoint.clone()
     }
 
     pub fn username(&self) -> String {
@@ -64,9 +67,14 @@ impl Database {
         )
     }
 
-    fn start_token_refresh(&self) {
+    /// Spawns a task that periodically refreshes the authentication token.
+    ///
+    /// The token is fetched every 10 minutes, but the function implements an exponential
+    /// backoff mechanism to retry the fetch operation in case of failure.
+    /// Note: The first token refresh happens after a 10-minute delay.
+    fn spawn_token_refresh(&self) {
         let config = self.config.clone();
-        let cluster_id = self.cluster_id.clone();
+        let cluster_endpoint = self.endpoint.clone();
         let password = self.password.clone();
 
         tokio::spawn(async move {
@@ -80,7 +88,7 @@ impl Database {
             loop {
                 interval.tick().await;
 
-                match fetch_dsql_password(&cluster_id, &config).await {
+                match fetch_dsql_password(&cluster_endpoint, &config).await {
                     Ok(token) => {
                         *password.write().unwrap() = token;
                     }
@@ -101,14 +109,7 @@ impl Database {
     }
 }
 
-fn generate_cluster_endpoint(cluster_id: &str, config: &SdkConfig) -> String {
-    let region = config.region().unwrap_or(&Region::new("us-east-1")).clone();
-    // See https://docs.aws.amazon.com/general/latest/gr/dsql.html
-    format!("{}.dsql.{}.on.aws", cluster_id, region.as_ref())
-}
-
-async fn fetch_dsql_password(cluster_id: &str, config: &SdkConfig) -> Result<AuthToken, Error> {
-    let endpoint = generate_cluster_endpoint(cluster_id, config);
+async fn fetch_dsql_password(endpoint: &str, config: &SdkConfig) -> Result<AuthToken, Error> {
     let signer = AuthTokenGenerator::new(DsqlConfig::builder().hostname(endpoint).build()?);
     signer.db_connect_admin_auth_token(config).await
 }
