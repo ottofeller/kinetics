@@ -114,7 +114,7 @@ impl Pipeline {
                             function_progress.finish(
                                 "Uploading",
                                 ProgressStatus::Warn,
-                                Some("resource not changed"),
+                                Some("No changes, skipped"),
                             );
                         }
                         Ok(())
