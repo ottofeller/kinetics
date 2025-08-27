@@ -105,13 +105,25 @@ impl Pipeline {
                 let function_progress = pipeline_progress.new_progress(&function.name);
                 function_progress.log_stage("Uploading");
 
-                function
+                match function
                     .upload(&client, deploy_config_clone.as_deref())
                     .await
-                    .map_err(|e| {
+                {
+                    Ok(updated) => {
+                        if !updated {
+                            function_progress.finish(
+                                "Uploading",
+                                ProgressStatus::Warn,
+                                Some("resource not changed"),
+                            );
+                        }
+                        Ok(())
+                    }
+                    Err(e) => {
                         function_progress.error("Uploading");
-                        e.wrap_err(format!("Failed to upload function: \"{}\"", function.name))
-                    })?;
+                        Err(e.wrap_err(format!("Failed to upload function: \"{}\"", function.name)))
+                    }
+                }?;
 
                 pipeline_progress.increase_current_function_position();
 
@@ -152,31 +164,41 @@ impl Pipeline {
 
         deploying_progress.log_stage("Provisioning");
 
-        let deploy = self
+        match self
             .crat
             .deploy(&all_functions, self.deploy_config.as_deref())
-            .await;
+            .await
+        {
+            Ok(updated) if !updated => {
+                deploying_progress.finish(
+                    "Provisioning",
+                    ProgressStatus::Warn,
+                    Some("Stack was not updated - no changes detected."),
+                );
+            }
+            Ok(_) => {
+                // Wait for stack deployment if it is updated.
+                deploying_progress.progress_bar.finish_and_clear();
+                let mut status = self.crat.status().await?;
 
-        if deploy.is_err() {
-            deploying_progress.error("Provisioning");
-            pipeline_progress.total_progress_bar.finish_and_clear();
-            return Err(deploy.err().unwrap());
-        }
+                // Poll the status of the deployment
+                while status.status == "IN_PROGRESS" {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+                    status = self.crat.status().await?;
+                }
 
-        deploying_progress.progress_bar.finish_and_clear();
-        let mut status = self.crat.status().await?;
-
-        // Poll the status of the deployment
-        while status.status == "IN_PROGRESS" {
-            tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-            status = self.crat.status().await?;
-        }
-
-        if status.status == "FAILED" {
-            deploying_progress.error("Provisioning");
-            pipeline_progress.total_progress_bar.finish_and_clear();
-            return Err(eyre!("{}", status.errors.unwrap().join("\n")));
-        }
+                if status.status == "FAILED" {
+                    deploying_progress.error("Provisioning");
+                    pipeline_progress.total_progress_bar.finish_and_clear();
+                    return Err(eyre!("{}", status.errors.unwrap().join("\n")));
+                }
+            }
+            Err(err) => {
+                deploying_progress.error("Provisioning");
+                pipeline_progress.total_progress_bar.finish_and_clear();
+                return Err(err);
+            }
+        };
 
         pipeline_progress.increase_current_function_position();
         pipeline_progress.total_progress_bar.finish_and_clear();
@@ -292,6 +314,13 @@ pub struct Progress {
     resource_name: String,
 }
 
+enum ProgressStatus {
+    #[allow(dead_code)]
+    Success,
+    Warn,
+    Error,
+}
+
 impl Progress {
     fn new(
         multi_progress: &MultiProgress,
@@ -318,12 +347,20 @@ impl Progress {
         ));
     }
 
+    fn finish(&self, stage: &str, status: ProgressStatus, message: Option<&str>) {
+        let stage = console::style(self.with_padding(stage)).bold();
+        let stage = match status {
+            ProgressStatus::Success => stage.green(),
+            ProgressStatus::Warn => stage.yellow(),
+            ProgressStatus::Error => stage.red(),
+        };
+        let message = message.map(|m| format!(": {m}")).unwrap_or_default();
+        self.progress_bar
+            .finish_with_message(format!("{} {}{}", stage, self.resource_name, message));
+    }
+
     fn error(&self, stage: &str) {
-        self.progress_bar.finish_with_message(format!(
-            "{} {}",
-            console::style(self.with_padding(stage)).red().bold(),
-            self.resource_name,
-        ));
+        self.finish(stage, ProgressStatus::Error, None);
     }
 
     // Required padding to make the message centered in the cargo-like style

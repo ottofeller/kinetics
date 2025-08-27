@@ -93,11 +93,12 @@ impl Function {
     }
 
     /// Call the /upload endpoint to get the presigned URL and upload the file
+    /// Returns a boolean indicating whether the resource has been updated.
     pub async fn upload(
         &mut self,
         client: &Client,
         deploy_config: Option<&dyn DeployConfig>,
-    ) -> eyre::Result<()> {
+    ) -> eyre::Result<bool> {
         if let Some(config) = deploy_config {
             return config.upload(self).await;
         }
@@ -126,7 +127,7 @@ impl Function {
 
         // If the file has not changed, skip the upload.
         if response.status() == StatusCode::NOT_MODIFIED {
-            return Ok(());
+            return Ok(false);
         }
 
         let text = response.text().await?;
@@ -145,7 +146,7 @@ impl Function {
             .await?
             .error_for_status()?;
 
-        Ok(())
+        Ok(true)
     }
 
     /// Return true if the function is the only supposed for local invocations
