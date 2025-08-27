@@ -16,11 +16,11 @@ impl Config {
         let mut all_db = HashMap::new();
 
         for (key, cluster_id) in std::env::vars() {
-            if !key.starts_with("KINETICS_DATABASE_") {
+            if !key.starts_with("KINETICS_SQLDB_") {
                 continue;
             }
 
-            let db_name = key.replace("KINETICS_DATABASE_", "");
+            let db_name = key.replace("KINETICS_SQLDB_", "");
             let db = SqlDb::new(&cluster_id, config).await?;
             all_db.insert(db_name, db);
         }
