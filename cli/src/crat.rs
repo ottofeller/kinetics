@@ -68,11 +68,12 @@ impl Crate {
     }
 
     /// Deploy all assets using CFN template
+    /// The boolean returned indicates whether the stack was updated.
     pub async fn deploy(
         &self,
         functions: &[Function],
         deploy_config: Option<&dyn DeployConfig>,
-    ) -> eyre::Result<()> {
+    ) -> eyre::Result<bool> {
         let deploy_all = functions.iter().all(|f| f.is_deploying);
 
         #[derive(serde::Serialize, Debug)]
@@ -119,15 +120,15 @@ impl Crate {
         log::info!("got status from /stack/deploy: {}", status);
         log::info!("got response from /stack/deploy: {}", result.text().await?);
 
-        if status != StatusCode::OK {
-            return Err(Error::new(
+        match status {
+            StatusCode::OK => Ok(true),
+            StatusCode::NOT_MODIFIED => Ok(false),
+            _ => Err(Error::new(
                 "Deployment request failed",
                 Some("Try again in a few seconds."),
             )
-            .into());
+            .into()),
         }
-
-        Ok(())
     }
 
     pub async fn status(&self) -> eyre::Result<StatusResponseBody> {

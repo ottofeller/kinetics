@@ -951,6 +951,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "crc"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9710d3b3739c2e349eb44fe848ad0b7c8cb1e42bd87ee49371df2f7acaf3e675"
+dependencies = [
+ "crc-catalog",
+]
+
+[[package]]
+name = "crc-catalog"
+version = "2.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19d374276b40fb8bbdee95aef7c7fa6b5316ec764510eb64b8dd0e2ed0d7e7f5"
+
+[[package]]
+name = "crc-fast"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec9f79df9b0383475ae6df8fcf35d4e29528441706385339daf0fe3f4cce040b"
+dependencies = [
+ "crc",
+ "digest",
+ "libc",
+ "rand",
+ "regex",
+ "rustversion",
+]
+
+[[package]]
 name = "crc32fast"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1933,10 +1962,12 @@ dependencies = [
  "aws-sdk-dynamodb",
  "aws-sdk-sqs",
  "aws_lambda_events",
+ "base64 0.22.1",
  "chrono",
  "clap",
  "color-eyre",
  "console",
+ "crc-fast",
  "crossterm",
  "env_logger",
  "eyre",
