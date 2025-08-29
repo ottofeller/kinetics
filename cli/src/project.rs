@@ -78,7 +78,10 @@ impl Project {
             // Create the cache directory if it doesn't exist
             if let Some(parent) = cache_path.parent() {
                 fs::create_dir_all(parent)
-                    .wrap_err(format!("Failed to create cache directory {:?}", parent))?;
+                    .inspect_err(|e| {
+                        log::error!("Failed to create cache directory {parent:?}: {e:?}")
+                    })
+                    .wrap_err("Failed to create project cache")?;
             }
 
             Cache {
@@ -86,7 +89,8 @@ impl Project {
             }
         } else {
             let cache_content = fs::read_to_string(&cache_path)
-                .wrap_err(format!("Failed to read cache file {:?}", cache_path))?;
+                .inspect_err(|e| log::error!("Failed to read cache file {cache_path:?}: {e:?}"))
+                .wrap_err("Failed to load project cache")?;
 
             serde_json::from_str(&cache_content).unwrap_or_else(|_| Cache {
                 projects: HashMap::new(),
@@ -110,12 +114,13 @@ impl Project {
                     },
                 )
                 .await
+                .inspect_err(|e| log::error!("Request to backend failed: {e:?}"))
                 .wrap_err(Error::new(
                     "Failed to fetch project information",
                     Some("Try again in a few seconds."),
                 ))?;
 
-            println!("RESPONSE: {response:?}");
+            log::info!("Got response: {response:?}");
 
             // Update cache with fresh data
             let project_info = Info {
@@ -129,10 +134,12 @@ impl Project {
             let cache_path = Self::cache_path()?;
 
             let cache_json = serde_json::to_string_pretty(&cache)
-                .wrap_err("Failed to serialize project cache")?;
+                .inspect_err(|e| log::error!("Failed to serialize project cache: {e:?}"))
+                .wrap_err("Failed to process cache")?;
 
             fs::write(&cache_path, cache_json)
-                .wrap_err(format!("Failed to write cache file {:?}", cache_path))?;
+                .inspect_err(|e| log::error!("Failed to write cache file {cache_path:?}: {e:?}"))
+                .wrap_err(format!("Failed to write cache"))?;
         }
 
         Ok(cache)
