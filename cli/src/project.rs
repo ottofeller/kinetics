@@ -142,4 +142,16 @@ impl Project {
 
         Ok(cache)
     }
+
+    pub fn clear_cache() -> eyre::Result<()> {
+        let cache_path = Self::cache_path()?;
+
+        if cache_path.exists() {
+            fs::remove_file(&cache_path)
+                .inspect_err(|e| log::error!("Failed to remove cache file {cache_path:?}: {e:?}"))
+                .wrap_err(format!("Failed to clear the projects cache"))?;
+        }
+
+        Ok(())
+    }
 }
