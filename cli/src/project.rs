@@ -60,9 +60,8 @@ impl Project {
     /// with reading/writing the cache.
     pub async fn base_url(&self) -> eyre::Result<String> {
         let cache = self.load_cache().await?;
-        let project_name = &self.crat.name;
 
-        if let Some(project_info) = cache.projects.get(project_name) {
+        if let Some(project_info) = cache.projects.get(&self.crat.name) {
             return Ok(project_info.url.clone());
         }
 
@@ -96,18 +95,14 @@ impl Project {
 
         // Check if we need to refresh the cache for this project
         let is_expired = if let Some(project_info) = cache.projects.get(project_name) {
-            let now = Utc::now();
-            let cache_age = now - project_info.last_updated;
+            let cache_age = Utc::now() - project_info.last_updated;
             cache_age >= CACHE_EXPIRES_IN
         } else {
             true // No cached data exists
         };
 
         if is_expired {
-            // Fetch fresh data from API
-            let client = Client::new(false)?;
-
-            let response = client
+            let response = Client::new(false)?
                 .request::<BaseUrlRequest, BaseUrlResponse>(
                     "/project/url",
                     BaseUrlRequest {
