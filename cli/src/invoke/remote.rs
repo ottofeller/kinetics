@@ -22,7 +22,7 @@ pub async fn invoke(
         console::style(&display_path).underlined().bold()
     );
 
-    println!("{}\n", console::style(function.url()?).dimmed());
+    println!("{}\n", console::style(function.url().await?).dimmed());
 
     // Parse headers string into HeaderMap
     let mut headers_map = reqwest::header::HeaderMap::new();
@@ -45,7 +45,7 @@ pub async fn invoke(
     let client = reqwest::Client::new();
 
     let response = client
-        .post(function.url()?)
+        .post(function.url().await?)
         .headers(headers_map)
         .body(payload.to_string())
         .send()
