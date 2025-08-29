@@ -171,9 +171,6 @@ fn simple(functions: &[ParsedFunction], project_base_url: &str) {
 /// With some extra information
 pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let functions = Parser::new(Some(&current_crate.path))?.functions;
-    for parsed_function in functions.clone() {
-        println!("FUNCTION: {:?}", parsed_function.func_name(false));
-    }
     let project_base_url = Project::new(current_crate.to_owned()).base_url().await?;
 
     if !is_verbose {
