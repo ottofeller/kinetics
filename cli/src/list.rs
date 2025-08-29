@@ -1,7 +1,7 @@
 use crate::client::Client;
-use crate::config::build_config;
 use crate::crat::Crate;
 use crate::function::Function;
+use crate::project::Project;
 use color_eyre::owo_colors::OwoColorize;
 use kinetics_parser::{ParsedFunction, Parser, Role};
 use serde_json::Value;
@@ -102,7 +102,7 @@ fn verbose(
 }
 
 /// Display the function with its main properties
-pub fn display_simple(function: &ParsedFunction, options: &HashMap<&str, String>) {
+pub fn display_simple(function: &ParsedFunction, project_base_url: &str) {
     println!(
         "{} {} {}",
         function.func_name(false).bold(),
@@ -113,17 +113,7 @@ pub fn display_simple(function: &ParsedFunction, options: &HashMap<&str, String>
     match function.role.clone() {
         Role::Endpoint(params) => {
             if let Some(url_path) = params.url_path {
-                println!(
-                    "{}",
-                    format!(
-                        "https://{}.usekinetics.com{}",
-                        options
-                            .get("parent_crate_name")
-                            .unwrap_or(&String::from("<your crate name>")),
-                        url_path
-                    )
-                    .cyan()
-                )
+                println!("{}", format!("{}{}", project_base_url, url_path).cyan())
             }
         }
 
@@ -132,7 +122,7 @@ pub fn display_simple(function: &ParsedFunction, options: &HashMap<&str, String>
     }
 }
 
-fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
+fn simple(functions: &[ParsedFunction], project_base_url: &str) {
     let crons: Vec<&ParsedFunction> = functions
         .iter()
         .filter(|f| matches!(f.role, Role::Cron(_)))
@@ -150,11 +140,9 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
 
     if !endpoints.is_empty() {
         println!("\n{}\n", "Endpoints".bold().green());
-        let mut options = HashMap::new();
-        options.insert("parent_crate_name", parent_crate.name.clone());
 
         endpoints.iter().for_each(|f| {
-            display_simple(f, &options);
+            display_simple(f, project_base_url);
             println!()
         });
     }
@@ -163,7 +151,7 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
         println!("{}\n", "Workers".bold().green());
 
         workers.iter().for_each(|f| {
-            display_simple(f, &HashMap::new());
+            display_simple(f, project_base_url);
             println!()
         });
     }
@@ -172,7 +160,7 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
         println!("{}\n", "Crons".bold().green());
 
         crons.iter().for_each(|f| {
-            display_simple(f, &HashMap::new());
+            display_simple(f, project_base_url);
             println!()
         });
     }
@@ -183,13 +171,15 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
 /// With some extra information
 pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let functions = Parser::new(Some(&current_crate.path))?.functions;
+    for parsed_function in functions.clone() {
+        println!("FUNCTION: {:?}", parsed_function.func_name(false));
+    }
+    let project_base_url = Project::new(current_crate.to_owned()).base_url().await?;
 
     if !is_verbose {
-        simple(&functions, current_crate);
+        simple(&functions, &project_base_url);
         return Ok(());
     }
-
-    let project_url = format!("https://{}.{}", current_crate.name, build_config()?.domain);
 
     let mut endpoint_rows = Vec::new();
     let mut cron_rows = Vec::new();
@@ -216,7 +206,7 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
                     environment: format_environment(&format!("{:?}", params.environment)),
                     url_path: format!(
                         "{}{}",
-                        project_url,
+                        project_base_url,
                         params.url_path.unwrap_or("".to_string())
                     ),
                     last_modified,

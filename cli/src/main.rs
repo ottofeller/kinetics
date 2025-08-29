@@ -16,6 +16,7 @@ mod login;
 mod logout;
 mod logs;
 mod process;
+mod project;
 mod rollback;
 mod secret;
 mod stats;

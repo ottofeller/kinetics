@@ -17,6 +17,7 @@ pub mod logout;
 pub mod logs;
 pub mod macros;
 pub mod process;
+pub mod project;
 pub mod rollback;
 pub mod secret;
 pub mod stats;
