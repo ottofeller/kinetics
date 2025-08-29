@@ -2,6 +2,7 @@ use crate::config::api_url;
 use crate::config::build_config;
 use crate::credentials::Credentials;
 use crate::error::Error;
+use crate::project::Project;
 use crossterm::{
     event::{self, Event, KeyCode},
     terminal::{disable_raw_mode, enable_raw_mode},
@@ -61,6 +62,10 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
     if !response.status().is_success() {
         return Err(Error::new("Failed to log in", Some("Try again in a few seconds.")).into());
     }
+
+    // Projects cache is currently holding only one user projects. Clear it to avoid
+    // overlapping settings.
+    Project::clear_cache()?;
 
     Ok(response.json::<Credentials>().await?)
 }

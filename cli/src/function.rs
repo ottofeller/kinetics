@@ -1,8 +1,8 @@
 use crate::client::Client;
-use crate::config::build_config;
 use crate::crat::Crate;
 use crate::deploy::DeployConfig;
 use crate::error::Error;
+use crate::project::Project;
 use base64::Engine as _;
 use crc_fast::{CrcAlgorithm::Crc64Nvme, Digest};
 use eyre::{eyre, ContextCompat, WrapErr};
@@ -202,7 +202,7 @@ impl Function {
     /// URL to call the function
     ///
     /// Only relevant for endpoint type of functions.
-    pub fn url(&self) -> eyre::Result<String> {
+    pub async fn url(&self) -> eyre::Result<String> {
         let path = self
             .meta()?
             .get("url_path")
@@ -212,9 +212,8 @@ impl Function {
             .unwrap_or_default();
 
         Ok(format!(
-            "https://{}.{}{}",
-            self.crat.escaped_name(),
-            build_config()?.domain,
+            "{}{}",
+            Project::new(self.crat.to_owned()).base_url().await?,
             path
         ))
     }
