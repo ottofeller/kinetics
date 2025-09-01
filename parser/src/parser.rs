@@ -46,7 +46,7 @@ impl ParsedFunction {
         let name = self.role.name().unwrap_or(&default_func_name);
 
         if name.len() > 64 {
-            Err(eyre::eyre!("Too long function name: {}", name))
+            Err(eyre::eyre!("Function name is longer than 64 chars: {}", name))
         } else {
             // TODO Check the name for uniqueness
             Ok(format!("{}{}", name, if is_local { "Local" } else { "" }))
