@@ -102,10 +102,10 @@ fn verbose(
 }
 
 /// Display the function with its main properties
-pub fn display_simple(function: &ParsedFunction, project_base_url: &str) {
+pub fn display_simple(function: &ParsedFunction, project_base_url: &str) -> eyre::Result<()> {
     println!(
         "{} {} {}",
-        function.func_name(false).bold(),
+        function.func_name(false)?.bold(),
         "from".dimmed(),
         function.relative_path.dimmed(),
     );
@@ -113,16 +113,17 @@ pub fn display_simple(function: &ParsedFunction, project_base_url: &str) {
     match function.role.clone() {
         Role::Endpoint(params) => {
             if let Some(url_path) = params.url_path {
-                println!("{}", format!("{}{}", project_base_url, url_path).cyan())
+                println!("{}", format!("{}{}", project_base_url, url_path).cyan());
             }
         }
 
         Role::Cron(params) => println!("{} {}", "Scheduled".dimmed(), params.schedule.cyan()),
         Role::Worker(_) => {}
     }
+    Ok(())
 }
 
-fn simple(functions: &[ParsedFunction], project_base_url: &str) {
+fn simple(functions: &[ParsedFunction], project_base_url: &str) -> eyre::Result<()> {
     let crons: Vec<&ParsedFunction> = functions
         .iter()
         .filter(|f| matches!(f.role, Role::Cron(_)))
@@ -141,29 +142,28 @@ fn simple(functions: &[ParsedFunction], project_base_url: &str) {
     if !endpoints.is_empty() {
         println!("\n{}\n", "Endpoints".bold().green());
 
-        endpoints.iter().for_each(|f| {
-            display_simple(f, project_base_url);
-            println!()
-        });
+        endpoints
+            .iter()
+            .try_for_each(|f| display_simple(f, project_base_url).inspect(|_| println!()))?;
     }
 
     if !workers.is_empty() {
         println!("{}\n", "Workers".bold().green());
 
-        workers.iter().for_each(|f| {
-            display_simple(f, project_base_url);
-            println!()
-        });
+        workers
+            .iter()
+            .try_for_each(|f| display_simple(f, project_base_url).inspect(|_| println!()))?;
     }
 
     if !crons.is_empty() {
         println!("{}\n", "Crons".bold().green());
 
-        crons.iter().for_each(|f| {
-            display_simple(f, project_base_url);
-            println!()
-        });
+        crons
+            .iter()
+            .try_for_each(|f| display_simple(f, project_base_url).inspect(|_| println!()))?;
     }
+
+    Ok(())
 }
 
 /// Prints out the list of all functions
@@ -174,8 +174,7 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let project_base_url = Project::new(current_crate.to_owned()).base_url().await?;
 
     if !is_verbose {
-        simple(&functions, &project_base_url);
-        return Ok(());
+        return simple(&functions, &project_base_url);
     }
 
     let mut endpoint_rows = Vec::new();
@@ -189,7 +188,7 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     }
 
     for parsed_function in functions {
-        let function = Function::new(&current_crate.path, &parsed_function.func_name(false))?;
+        let function = Function::new(&current_crate.path, &parsed_function.func_name(false)?)?;
         let func_path = parsed_function.relative_path;
         let last_modified = function
             .status(&client)
