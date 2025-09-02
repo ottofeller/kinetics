@@ -120,6 +120,8 @@ pub fn display_simple(function: &ParsedFunction, project_base_url: &str) -> eyre
         Role::Cron(params) => println!("{} {}", "Scheduled".dimmed(), params.schedule.cyan()),
         Role::Worker(_) => {}
     }
+
+    println!();
     Ok(())
 }
 
@@ -144,7 +146,7 @@ fn simple(functions: &[ParsedFunction], project_base_url: &str) -> eyre::Result<
 
         endpoints
             .iter()
-            .try_for_each(|f| display_simple(f, project_base_url).inspect(|_| println!()))?;
+            .try_for_each(|f| display_simple(f, project_base_url))?;
     }
 
     if !workers.is_empty() {
@@ -152,7 +154,7 @@ fn simple(functions: &[ParsedFunction], project_base_url: &str) -> eyre::Result<
 
         workers
             .iter()
-            .try_for_each(|f| display_simple(f, project_base_url).inspect(|_| println!()))?;
+            .try_for_each(|f| display_simple(f, project_base_url))?;
     }
 
     if !crons.is_empty() {
@@ -160,7 +162,7 @@ fn simple(functions: &[ParsedFunction], project_base_url: &str) -> eyre::Result<
 
         crons
             .iter()
-            .try_for_each(|f| display_simple(f, project_base_url).inspect(|_| println!()))?;
+            .try_for_each(|f| display_simple(f, project_base_url))?;
     }
 
     Ok(())
