@@ -35,7 +35,7 @@ impl Client {
 
     /// Init the client from the reference to worker function
     ///
-    /// This is idempotent operation, the client is initialised just once and than reused.
+    /// The client is initialised just once and than reused.
     pub async fn from_worker<'a, Fut>(
         worker: impl Fn(Vec<Record>, &'a HashMap<String, String>) -> Fut,
     ) -> eyre::Result<Self>
