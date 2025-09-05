@@ -22,8 +22,6 @@ impl ParsedFunction {
     /// Convert a path to CamelCase name
     pub fn path_to_name(path: &str) -> String {
         return path
-            .replace("_", "Undrscr")
-            .replace("_", "Dash")
             .split(&['.', '/'])
             .filter(|s| !s.eq(&"rs"))
             .map(|s| match s.chars().next() {
