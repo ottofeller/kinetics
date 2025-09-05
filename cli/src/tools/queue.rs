@@ -1,4 +1,4 @@
-use crate::utils::resource_name;
+use crate::tools::resource_name;
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use kinetics_parser::ParsedFunction;
