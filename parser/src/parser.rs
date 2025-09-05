@@ -19,8 +19,8 @@ pub struct ParsedFunction {
 }
 
 impl ParsedFunction {
-    /// Replace any unwanted character in function name and convert a path to CamelCase name
-    pub fn escape_path(path: &str) -> String {
+    /// Convert a path to CamelCase name
+    pub fn path_to_name(path: &str) -> String {
         return path
             .replace("_", "Undrscr")
             .replace("_", "Dash")
@@ -42,7 +42,7 @@ impl ParsedFunction {
     pub fn func_name(&self, is_local: bool) -> eyre::Result<String> {
         let rust_name = &self.rust_function_name;
         let full_path = format!("{}/{rust_name}", self.relative_path);
-        let default_func_name = Self::escape_path(&full_path);
+        let default_func_name = Self::path_to_name(&full_path);
         let name = self.role.name().unwrap_or(&default_func_name);
 
         if name.len() > 64 {
