@@ -1,4 +1,4 @@
-use crate::utils::escape_resource_name;
+use crate::tools::resource_name;
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use kinetics_parser::ParsedFunction;
@@ -35,7 +35,7 @@ impl Client {
 
     /// Init the client from the reference to worker function
     ///
-    /// This is idempotent operation, the client is initialised just once and than reused.
+    /// The client is initialised just once and than reused.
     pub async fn from_worker<'a, Fut>(
         worker: impl Fn(Vec<Record>, &'a HashMap<String, String>) -> Fut,
     ) -> eyre::Result<Self>
@@ -51,14 +51,10 @@ impl Client {
                         .split_once("::")
                         .unwrap();
 
-                    let queue_name = format!(
-                        "{}D{}D{}",
-                        escape_resource_name(&std::env::var("KINETICS_USERNAME").unwrap()),
-                        escape_resource_name(&crate_name),
-                        // .escape_path() can't deal with "::"
-                        escape_resource_name(&ParsedFunction::escape_path(
-                            &function_path.replace("::", "/")
-                        ))
+                    let queue_name = resource_name(
+                        &std::env::var("KINETICS_USERNAME").unwrap(),
+                        &crate_name,
+                        &ParsedFunction::path_to_name(&function_path.replace("::", "/")),
                     );
 
                     println!("Initializing queue client for {queue_name}");
