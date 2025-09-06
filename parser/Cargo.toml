@@ -1,6 +1,6 @@
 [package]
 name = "kinetics-parser"
-version = "0.7.12"
+version = "0.7.13"
 edition = "2021"
 description = "A parser used for Kinetics project."
 license = "Apache-2.0 OR MIT"
