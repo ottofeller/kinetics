@@ -1,7 +1,7 @@
 use kinetics::macros::worker;
 use kinetics::tools::queue::{Record as QueueRecord, Retries as QueueRetries};
-use lambda_runtime::Error;
 use std::collections::HashMap;
+use tower::BoxError;
 
 /// A queue worker
 ///
@@ -12,7 +12,7 @@ use std::collections::HashMap;
 pub async fn worker(
     records: Vec<QueueRecord>,
     _secrets: &HashMap<String, String>,
-) -> Result<QueueRetries, Error> {
+) -> Result<QueueRetries, BoxError> {
     let mut retries = QueueRetries::new();
 
     let record = match records.first() {
