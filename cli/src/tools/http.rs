@@ -108,6 +108,18 @@ impl TryFrom<Body> for Vec<u8> {
     }
 }
 
+impl TryFrom<Body> for lambda_http::Body {
+    type Error = eyre::Error;
+
+    fn try_from(value: Body) -> Result<Self, Self::Error> {
+        match value {
+            Body::Empty => Ok(lambda_http::Body::Empty),
+            Body::Text(chars) => Ok(lambda_http::Body::Text(chars)),
+            Body::Binary(bytes) => Ok(lambda_http::Body::Binary(bytes)),
+        }
+    }
+}
+
 impl HttpBody for Body {
     type Data = bytes::Bytes;
     type Error = tower::BoxError;
