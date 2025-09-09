@@ -1,6 +1,8 @@
 use kinetics::macros::worker;
 use kinetics::tools::queue::{Record as QueueRecord, Retries as QueueRetries};
 use std::collections::HashMap;
+// As an example use a general-purpose type-erased error from tower.
+// Custom errors would work as well.
 use tower::BoxError;
 
 /// A queue worker

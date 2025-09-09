@@ -2,6 +2,8 @@ use http::{Request, Response};
 use kinetics::macros::endpoint;
 use serde_json::json;
 use std::collections::HashMap;
+// As an example use a general-purpose type-erased error from tower.
+// Custom errors would work as well.
 use tower::BoxError;
 
 /// REST API endpoint which responds with a value of environment variable

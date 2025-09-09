@@ -4,6 +4,8 @@ use http::{Request, Response, StatusCode};
 use kinetics::macros::endpoint;
 use serde_json::json;
 use std::collections::HashMap;
+// As an example use a general-purpose type-erased error from tower.
+// Custom errors would work as well.
 use tower::BoxError;
 
 /// Simply put an item into DB and then retrieve it

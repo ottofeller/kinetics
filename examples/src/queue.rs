@@ -4,6 +4,8 @@ use kinetics::macros::endpoint;
 use kinetics::tools::queue::Client as QueueClient;
 use serde_json::json;
 use std::collections::HashMap;
+// As an example use a general-purpose type-erased error from tower.
+// Custom errors would work as well.
 use tower::BoxError;
 
 /// Send a message to the queue
