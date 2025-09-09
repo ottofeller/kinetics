@@ -450,6 +450,14 @@ fn deps(
                 .or_insert(toml_edit::Table::new().into())
                 .as_table_mut()
                 .map(|t| t.insert("version", toml_edit::value("^0")));
+            doc["dependencies"]["http"]
+                .or_insert(toml_edit::Table::new().into())
+                .as_table_mut()
+                .map(|t| t.insert("version", toml_edit::value("^1.0")));
+            doc["dependencies"]["tower"]
+                .or_insert(toml_edit::Table::new().into())
+                .as_table_mut()
+                .map(|t| t.insert("version", toml_edit::value("^0")));
         }
     };
 
