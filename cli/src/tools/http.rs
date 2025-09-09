@@ -14,6 +14,66 @@ pub enum Body {
     Binary(Vec<u8>),
 }
 
+impl From<lambda_http::Body> for Body {
+    fn from(value: lambda_http::Body) -> Self {
+        match value {
+            lambda_http::Body::Empty => Body::Empty,
+            lambda_http::Body::Text(chars) => Body::Text(chars),
+            lambda_http::Body::Binary(bytes) => Body::Binary(bytes),
+        }
+    }
+}
+
+impl TryFrom<Body> for lambda_http::Body {
+    type Error = eyre::Error;
+
+    fn try_from(value: Body) -> Result<Self, Self::Error> {
+        match value {
+            Body::Empty => Ok(lambda_http::Body::Empty),
+            Body::Text(chars) => Ok(lambda_http::Body::Text(chars)),
+            Body::Binary(bytes) => Ok(lambda_http::Body::Binary(bytes)),
+        }
+    }
+}
+
+impl TryFrom<Body> for () {
+    type Error = eyre::Error;
+
+    fn try_from(_value: Body) -> Result<Self, Self::Error> {
+        // Unit struct usually implies no payload,
+        // thus we just htrow the body away.
+        Ok(())
+    }
+}
+
+impl TryFrom<Body> for String {
+    type Error = eyre::Error;
+
+    fn try_from(value: Body) -> Result<Self, Self::Error> {
+        match value {
+            Body::Empty => Ok(String::new()),
+            Body::Text(chars) => Ok(chars),
+            Body::Binary(bytes) => Ok(String::try_from(bytes)?),
+        }
+    }
+}
+
+impl TryFrom<Body> for Vec<u8> {
+    type Error = eyre::Error;
+
+    fn try_from(value: Body) -> Result<Self, Self::Error> {
+        match value {
+            Body::Empty => Ok(Vec::new()),
+            Body::Text(chars) => Ok(chars.into_bytes()),
+            Body::Binary(bytes) => Ok(bytes),
+        }
+    }
+}
+
+// The remaning implementation are copied from
+// https://github.com/awslabs/aws-lambda-rust-runtime/blob/main/lambda-events/src/encodings/http.rs#L96-L144
+// https://github.com/awslabs/aws-lambda-rust-runtime/blob/main/lambda-events/src/encodings/http.rs#L219-L246
+
 impl From<()> for Body {
     fn from(_: ()) -> Self {
         Body::Empty
@@ -61,62 +121,6 @@ impl From<Vec<u8>> for Body {
 impl<'a> From<&'a [u8]> for Body {
     fn from(b: &'a [u8]) -> Self {
         Body::Binary(b.to_vec())
-    }
-}
-
-impl From<lambda_http::Body> for Body {
-    fn from(value: lambda_http::Body) -> Self {
-        match value {
-            lambda_http::Body::Empty => Body::Empty,
-            lambda_http::Body::Text(chars) => Body::Text(chars),
-            lambda_http::Body::Binary(bytes) => Body::Binary(bytes),
-        }
-    }
-}
-
-impl TryFrom<Body> for () {
-    type Error = eyre::Error;
-
-    fn try_from(_value: Body) -> Result<Self, Self::Error> {
-        // Unit struct usually implies no payload,
-        // thus we just htrow the body away.
-        Ok(())
-    }
-}
-
-impl TryFrom<Body> for String {
-    type Error = eyre::Error;
-
-    fn try_from(value: Body) -> Result<Self, Self::Error> {
-        match value {
-            Body::Empty => Ok(String::new()),
-            Body::Text(chars) => Ok(chars),
-            Body::Binary(bytes) => Ok(String::try_from(bytes)?),
-        }
-    }
-}
-
-impl TryFrom<Body> for Vec<u8> {
-    type Error = eyre::Error;
-
-    fn try_from(value: Body) -> Result<Self, Self::Error> {
-        match value {
-            Body::Empty => Ok(Vec::new()),
-            Body::Text(chars) => Ok(chars.into_bytes()),
-            Body::Binary(bytes) => Ok(bytes),
-        }
-    }
-}
-
-impl TryFrom<Body> for lambda_http::Body {
-    type Error = eyre::Error;
-
-    fn try_from(value: Body) -> Result<Self, Self::Error> {
-        match value {
-            Body::Empty => Ok(lambda_http::Body::Empty),
-            Body::Text(chars) => Ok(lambda_http::Body::Text(chars)),
-            Body::Binary(bytes) => Ok(lambda_http::Body::Binary(bytes)),
-        }
     }
 }
 
