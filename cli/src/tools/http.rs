@@ -77,11 +77,10 @@ impl From<lambda_http::Body> for Body {
 impl TryFrom<Body> for () {
     type Error = eyre::Error;
 
-    fn try_from(value: Body) -> Result<Self, Self::Error> {
-        match value {
-            Body::Empty => Ok(()),
-            _ => Err(eyre::eyre!("Body not empty")),
-        }
+    fn try_from(_value: Body) -> Result<Self, Self::Error> {
+        // Unit struct usually implies no payload,
+        // thus we just htrow the body away.
+        Ok(())
     }
 }
 
