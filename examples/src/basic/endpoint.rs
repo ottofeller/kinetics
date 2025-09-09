@@ -1,5 +1,5 @@
 use http::{Request, Response};
-use kinetics::macros::endpoint;
+use kinetics::{macros::endpoint, tools::http::Body};
 use serde_json::json;
 use std::collections::HashMap;
 use tower::BoxError;
@@ -10,7 +10,7 @@ use tower::BoxError;
 /// kinetics invoke BasicEndpointEndpoint
 #[endpoint(url_path = "/endpoint")]
 pub async fn endpoint(
-    _event: Request<String>,
+    _event: Request<Body>,
     _secrets: &HashMap<String, String>,
 ) -> Result<Response<String>, BoxError> {
     let resp = Response::builder()
