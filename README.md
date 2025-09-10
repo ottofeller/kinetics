@@ -8,9 +8,9 @@ Kinetics is a hosting platform for Rust applications that allows deploying all t
     environment = {"SOME_VAR": "SomeVal"},
 )]
 pub async fn endpoint(
-    _event: Request,
+    _event: Request<()>,
     _secrets: &HashMap<String, String>,
-) -> Result<Response<Body>, Error> {
+) -> Result<Response<Body>, BoxError> {
     let resp = Response::builder()
         .status(200)
         .header("content-type", "text/html")
