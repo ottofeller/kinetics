@@ -2,13 +2,13 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
     if is_local {
         format!(
             "{import_statement}
-            use lambda_http::Request;
+            use http::Request;
             use serde_json;
             use reqwest::header::{{HeaderName, HeaderValue}};
             use std::str::FromStr;
             use kinetics::tools::Config as KineticsConfig;
             #[tokio::main]
-            async fn main() -> Result<(), lambda_http::Error> {{\n\
+            async fn main() -> Result<(), tower::BoxError> {{\n\
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
                 let kinetics_config = KineticsConfig::new(&config).await?;
                 let mut secrets = std::collections::HashMap::new();
@@ -30,7 +30,7 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                     Err(_) => \"{{}}\".into(),
                 }};
 
-                let mut event = Request::new(payload.into());
+                let mut event = Request::new(kinetics::tools::http::Body::from(payload).try_into()?);
                 let headers = event.headers_mut();
 
                 let headers_value = serde_json::from_str::<serde_json::Value>(&headers_json)
@@ -61,7 +61,7 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
         format!(
             "{import_statement}
             use kinetics::tools::Config as KineticsConfig;
-            use lambda_http::{{run, service_fn}};\n\
+            use lambda_http::{{run, service_fn, Request}};\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), lambda_http::Error> {{\n\
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
@@ -105,7 +105,9 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                 let kinetics_config = KineticsConfig::new(&config).await?;
                 println!(\"Serving requests\");
 
-                run(service_fn(|event| async {{
+                run(service_fn(|event: Request| async {{
+                    let (head, body) = event.into_parts();
+                    let event = http::Request::from_parts(head, kinetics::tools::http::Body::from(body).try_into()?);
                     match {rust_function_name}(event, &secrets, &kinetics_config).await {{
                         Ok(response) => Ok(response),
                         Err(err) => {{

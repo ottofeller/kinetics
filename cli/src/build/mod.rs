@@ -90,7 +90,7 @@ pub fn prepare_crates(
     parsed_functions
         .into_iter()
         .map(|f| {
-            let name = f.func_name(false);
+            let name = f.func_name(false)?;
             Function::new(&dst, &name).map(|f| {
                 f.is_deploying(deploy_functions.is_empty() || deploy_functions.contains(&name))
             })
@@ -288,7 +288,7 @@ fn create_lambda_bin(
     manifest: &mut toml_edit::DocumentMut,
     checksum: &mut FileHash,
 ) -> eyre::Result<()> {
-    let function_name = parsed_function.func_name(is_local);
+    let function_name = parsed_function.func_name(is_local)?;
     let lambda_path_local = bin_dir.join(format!("{}.rs", function_name));
     let lambda_path = dst.join(&lambda_path_local);
 
@@ -343,7 +343,7 @@ fn metadata(
         Role::Worker(_) => "worker",
     };
 
-    let name = parsed_function.func_name(is_local);
+    let name = parsed_function.func_name(is_local)?;
 
     // Create a function table for both roles
     let mut function_table = toml_edit::Table::new();
@@ -443,13 +443,21 @@ fn deps(
             doc["dependencies"]["lambda_runtime"]
                 .or_insert(toml_edit::Table::new().into())
                 .as_table_mut()
-                .map(|t| t.insert("version", toml_edit::value("0.13.0")));
+                .map(|t| t.insert("version", toml_edit::value("^0.14")));
         }
         Role::Endpoint(_) => {
             doc["dependencies"]["lambda_http"]
                 .or_insert(toml_edit::Table::new().into())
                 .as_table_mut()
-                .map(|t| t.insert("version", toml_edit::value("0.14.0")));
+                .map(|t| t.insert("version", toml_edit::value("^0")));
+            doc["dependencies"]["http"]
+                .or_insert(toml_edit::Table::new().into())
+                .as_table_mut()
+                .map(|t| t.insert("version", toml_edit::value("^1.0")));
+            doc["dependencies"]["tower"]
+                .or_insert(toml_edit::Table::new().into())
+                .as_table_mut()
+                .map(|t| t.insert("version", toml_edit::value("^0")));
         }
     };
 
@@ -461,7 +469,7 @@ fn deps(
     doc["dependencies"]["aws_lambda_events"]
         .or_insert(toml_edit::Table::new().into())
         .as_table_mut()
-        .map(|t| t.insert("version", toml_edit::value("0.16.0")));
+        .map(|t| t.insert("version", toml_edit::value("^0")));
 
     doc["dependencies"]["aws-config"]
         .or_insert(toml_edit::Table::new().into())

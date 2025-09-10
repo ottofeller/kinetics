@@ -8,9 +8,9 @@ Kinetics is a hosting platform for Rust applications that allows deploying all t
     environment = {"SOME_VAR": "SomeVal"},
 )]
 pub async fn endpoint(
-    _event: Request,
+    _event: Request<()>,
     _secrets: &HashMap<String, String>,
-) -> Result<Response<Body>, Error> {
+) -> Result<Response<Body>, BoxError> {
     let resp = Response::builder()
         .status(200)
         .header("content-type", "text/html")
@@ -21,7 +21,6 @@ pub async fn endpoint(
 ```
 
 Check out more examples [here](https://github.com/ottofeller/kinetics/tree/main/examples). Including REST API endpoints, queue workers, and cron jobs.
-
 
 ## Features
 
@@ -145,37 +144,50 @@ You can then interact with it like you normally interact with DynamoDB, [example
 - `kinetics stats` - View run statistics for a function
 
 ### Examples
+
 Try in `examples/` dir. These are the most frequently used commands with examples of input params.
 
 List out functions before deployment. Their names and URLs of REST API endpoints:
+
 ```sh
 kinetics list
 ```
+
 Invoke a function locally with parameters. `--payload` sets the JSON body payload:
+
 ```sh
 kinetics invoke DatabaseDatabase --payload '{"account": "111", "name": "Carlos"}' --table mytable
 ```
+
 Deploy entire project:
+
 ```sh
 kinetics deploy
 ```
+
 Deploy individual functions:
+
 ```sh
 kinetics deploy --functions DatabaseDatabase,BasicWorkerWorker
 ```
+
 Invoke a function remotely by automatically resolving function's name into the URL:
+
 ```sh
 kinetics invoke DatabaseDatabase --remote --payload '{"account": "111", "name": "Carlos"}'
 ```
+
 Output logs for a function:
+
 ```sh
 kinetics logs BasicEndpointEndpoint
 ```
+
 Output run statistics for a function:
+
 ```sh
 kinetics stats BasicEndpointEndpoint
 ```
-
 
 ## Support & Community
 

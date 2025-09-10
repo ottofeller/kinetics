@@ -41,6 +41,7 @@ impl SqlDb {
     }
 
     pub fn username(&self) -> String {
+        // FIXME Use generated username from lambda env
         "admin".to_string()
     }
 
@@ -53,6 +54,7 @@ impl SqlDb {
     }
 
     pub fn database(&self) -> String {
+        // FIXME Use user defined database name from lambda env
         "postgres".to_string()
     }
 
@@ -111,5 +113,5 @@ impl SqlDb {
 
 async fn fetch_dsql_password(endpoint: &str, config: &SdkConfig) -> Result<AuthToken, Error> {
     let signer = AuthTokenGenerator::new(DsqlConfig::builder().hostname(endpoint).build()?);
-    signer.db_connect_admin_auth_token(config).await
+    signer.db_connect_auth_token(config).await
 }
