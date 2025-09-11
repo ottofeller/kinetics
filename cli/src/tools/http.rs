@@ -53,7 +53,7 @@ impl TryFrom<Body> for String {
         match value {
             Body::Empty => Ok(String::new()),
             Body::Text(chars) => Ok(chars),
-            Body::Binary(bytes) => Ok(String::try_from(bytes)?),
+            Body::Binary(bytes) => Ok(String::from_utf8(bytes)?),
         }
     }
 }
