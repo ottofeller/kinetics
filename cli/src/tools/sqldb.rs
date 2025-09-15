@@ -10,6 +10,9 @@ pub struct SqlDb {
     /// Public endpoint for the DSQL cluster
     endpoint: String,
 
+    /// Username used to access the database
+    username: String,
+
     /// Password for DSQL cluster access
     password: Arc<RwLock<AuthToken>>,
 
@@ -19,7 +22,7 @@ pub struct SqlDb {
 
 /// SQL DB configuration details
 impl SqlDb {
-    pub async fn new(cluster_id: &str, config: &SdkConfig) -> Result<Self, Error> {
+    pub async fn new(cluster_id: &str, username: &str, config: &SdkConfig) -> Result<Self, Error> {
         let region = config.region().unwrap_or(&Region::new("us-east-1")).clone();
         let endpoint = format!("{}.dsql.{}.on.aws", cluster_id, region.as_ref());
         let password = fetch_dsql_password(&endpoint, config).await?;
@@ -27,11 +30,12 @@ impl SqlDb {
         let database = Self {
             endpoint,
             password: Arc::new(RwLock::new(password)),
+            username: username.to_string(),
             config: config.clone(),
         };
 
-        // Refresh the auth token in the background
-        database.spawn_token_refresh();
+        // Refresh the auth password in the background
+        database.spawn_password_refresh();
 
         Ok(database)
     }
@@ -41,8 +45,7 @@ impl SqlDb {
     }
 
     pub fn username(&self) -> String {
-        // FIXME Use generated username from lambda env
-        "admin".to_string()
+        self.username.clone()
     }
 
     pub fn password(&self) -> String {
@@ -54,7 +57,6 @@ impl SqlDb {
     }
 
     pub fn database(&self) -> String {
-        // FIXME Use user defined database name from lambda env
         "postgres".to_string()
     }
 
@@ -74,7 +76,7 @@ impl SqlDb {
     /// The token is fetched every 10 minutes, but the function implements an exponential
     /// backoff mechanism to retry the fetch operation in case of failure.
     /// Note: The first token refresh happens after a 10-minute delay.
-    fn spawn_token_refresh(&self) {
+    fn spawn_password_refresh(&self) {
         let config = self.config.clone();
         let cluster_endpoint = self.endpoint.clone();
         let password = self.password.clone();
