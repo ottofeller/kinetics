@@ -45,7 +45,7 @@ impl Pipeline {
 
         // All functions to add to the template
         let all_functions = prepare_crates(
-            PathBuf::from(build_config()?.build_path),
+            PathBuf::from(build_config()?.kinetics_path),
             &self.crat,
             &deploy_functions,
         )?;

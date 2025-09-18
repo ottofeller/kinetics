@@ -51,7 +51,7 @@ impl Project {
 
     /// Get the static cache path for storing project information.
     fn cache_path() -> eyre::Result<PathBuf> {
-        Ok(PathBuf::from(build_config()?.build_path).join(".projects"))
+        Ok(PathBuf::from(build_config()?.kinetics_path).join(".projects"))
     }
 
     /// Get project base URL, with automatic cache management.

@@ -42,7 +42,7 @@ pub async fn invoke(
         console::style(&display_path).underlined().bold()
     );
 
-    let mut dynamodb = LocalDynamoDB::new(&PathBuf::from(&build_config()?.build_path));
+    let mut dynamodb = LocalDynamoDB::new(&PathBuf::from(&build_config()?.kinetics_path));
 
     if let Some(table) = table {
         dynamodb.start()?;
