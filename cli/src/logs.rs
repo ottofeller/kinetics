@@ -63,7 +63,11 @@ pub async fn logs(function_name: &str, crat: &Crate, period: &Option<String>) ->
     if logs_response.events.is_empty() {
         println!(
             "{}",
-            console::style("No logs found for this function in the last hour.").yellow(),
+            console::style(format!(
+                "No logs found for this function in the last {}.",
+                period.clone().unwrap_or("1 hour".into())
+            ))
+            .yellow(),
         );
 
         return Ok(());
