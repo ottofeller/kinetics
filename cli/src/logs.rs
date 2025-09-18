@@ -19,7 +19,7 @@ struct LogsResponse {
 }
 
 /// Retrieves and displays logs for a specific function
-pub async fn logs(function_name: &str, crat: &Crate) -> Result<()> {
+pub async fn logs(function_name: &str, crat: &Crate, period: &Option<String>) -> Result<()> {
     // Get all function names without any additional manupulations.
     let all_functions = Parser::new(Some(&crat.path))?
         .functions
@@ -41,7 +41,8 @@ pub async fn logs(function_name: &str, crat: &Crate) -> Result<()> {
         .post("/function/logs")
         .json(&serde_json::json!({
             "crate_name": crat.name,
-            "function_name": function.name
+            "function_name": function.name,
+            "period": period,
         }))
         .send()
         .await
