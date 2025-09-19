@@ -14,16 +14,15 @@ pub struct Config {
 impl Config {
     pub async fn new(config: &SdkConfig) -> Result<Self, Error> {
         let mut all_db = HashMap::new();
-
         let cluster_id = std::env::var("KINETICS_SQLDB_CLUSTER_ID")?;
 
-        for (key, username) in std::env::vars() {
-            if !key.starts_with("KINETICS_SQLDB_ROLE_") {
+        for (key, value) in std::env::vars() {
+            if !key.starts_with("KINETICS_SQLDB_USER_") {
                 continue;
             }
 
-            let db = SqlDb::new(&cluster_id, &username, config).await?;
-            let key = key.replace("KINETICS_SQLDB_ROLE_", "");
+            let db = SqlDb::new(&cluster_id, &value, config).await?;
+            let key = key.replace("KINETICS_SQLDB_USER_", "");
             all_db.insert(key, db);
         }
 
