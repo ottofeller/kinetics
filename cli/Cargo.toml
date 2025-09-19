@@ -18,17 +18,15 @@ aws-config = "1.8.3"
 aws-sdk-dynamodb = "1.86.0"
 aws-sdk-sqs = "=1.80.0"
 aws_lambda_events = "^0"
-chrono = { version = "0.4.41", features = ["serde"] }
-uuid = { version = "1.17.0", features = ["v4"] }
-clap = { version = "4.5.42", features = ["derive"] }
+chrono = { version = "0.4.42", features = ["serde"] }
+uuid = { version = "1.18.1", features = ["v4"] }
+clap = { version = "4.5.47", features = ["derive"] }
 eyre = "0.6.12"
-regex = "1.11.1"
+regex = "1.11.2"
 walkdir = "2.5.0"
 kinetics-macro = { path = "../macro", version = "0.7.16" }
 
-# Do not upgrade as compilation fails
-zip = "4.2.0"
-
+zip = "5.1.1"
 tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
 toml_edit = "0.23.2"
