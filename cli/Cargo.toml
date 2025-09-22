@@ -31,29 +31,29 @@ tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
 toml_edit = "0.23.2"
 rust_dotenv = "0.1.2"
-reqwest = { version = "0.12.22", features = [
+reqwest = { version = "0.12.23", features = [
   "json",
   "blocking",
   "rustls-tls",
 ], default-features = false }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.142"
+serde_json = "1.0.145"
 syn = { version = "2.0", features = ["full", "visit"] }
-prettyplease = "0.2.36"
-twox-hash = "2.1.1"
+prettyplease = "0.2.37"
+twox-hash = "2.1.2"
 futures = "0.3.31"
 indicatif = "0.18.0"
-console = "0.16.0"
+console = "0.16.1"
 color-eyre = "0.6.5"
 crossterm = "0.29.0"
-async-trait = "0.1.88"
-log = "0.4.27"
+async-trait = "0.1.89"
+log = "0.4.28"
 env_logger = "0.11.8"
 kinetics-parser = { path = "../parser", version = "0.7.16" }
 tabled = "0.20.0"
-terminal_size = "0.4.2"
-lambda_runtime = "0.14.3"
-crc-fast = "1.4.0"
+terminal_size = "0.4.3"
+lambda_runtime = "0.14.4"
+crc-fast = "1.5.0"
 base64 = "0.22.1"
 sha256 = "1.6.0"
 bytes = "^1.0"

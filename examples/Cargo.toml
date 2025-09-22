@@ -10,9 +10,9 @@ name = "mytable"
 aws-config = "1.8.3"
 aws-sdk-dynamodb = "1.86.0"
 http = "^1.0"
-lambda_runtime = "0.14.3"
-kinetics = { version = "0.7.15" }
+lambda_runtime = "0.14.4"
+kinetics = { version = "0.7.16" }
 tokio = "1.47.1"
 tower = "^0"
 aws-sdk-sqs = "1.78.0"
-serde_json = { version = "1.0.142", features = ["default"] }
+serde_json = { version = "1.0.145", features = ["default"] }
