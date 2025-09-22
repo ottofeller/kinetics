@@ -1,4 +1,4 @@
-use crate::tools::sqldb::SqlDb;
+use crate::sqldb::SqlDb;
 use aws_config::SdkConfig;
 use lambda_runtime::Error;
 use std::collections::HashMap;
