@@ -19,7 +19,7 @@ struct LogsResponse {
 }
 
 /// Retrieves and displays logs for a specific function
-pub async fn logs(function_name: &str, crat: &Crate) -> Result<()> {
+pub async fn logs(function_name: &str, crat: &Crate, period: &Option<String>) -> Result<()> {
     // Get all function names without any additional manupulations.
     let all_functions = Parser::new(Some(&crat.path))?
         .functions
@@ -41,7 +41,8 @@ pub async fn logs(function_name: &str, crat: &Crate) -> Result<()> {
         .post("/function/logs")
         .json(&serde_json::json!({
             "crate_name": crat.name,
-            "function_name": function.name
+            "function_name": function.name,
+            "period": period,
         }))
         .send()
         .await
@@ -62,7 +63,11 @@ pub async fn logs(function_name: &str, crat: &Crate) -> Result<()> {
     if logs_response.events.is_empty() {
         println!(
             "{}",
-            console::style("No logs found for this function in the last hour.").yellow(),
+            console::style(format!(
+                "No logs found for this function in the last {}.",
+                period.clone().unwrap_or("1 hour".into())
+            ))
+            .yellow(),
         );
 
         return Ok(());
