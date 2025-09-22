@@ -22,3 +22,4 @@ pub mod rollback;
 pub mod secret;
 pub mod stats;
 pub mod tools;
+pub mod sqldb;

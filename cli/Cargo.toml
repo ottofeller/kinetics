@@ -17,6 +17,7 @@ path = "src/main.rs"
 aws-config = "1.8.3"
 aws-sdk-dynamodb = "1.86.0"
 aws-sdk-sqs = "=1.80.0"
+aws-sdk-dsql = "=1.8.0"
 aws_lambda_events = "^0"
 chrono = { version = "0.4.41", features = ["serde"] }
 uuid = { version = "1.17.0", features = ["v4"] }
@@ -34,9 +35,9 @@ toml = { workspace = true }
 toml_edit = "0.23.2"
 rust_dotenv = "0.1.2"
 reqwest = { version = "0.12.22", features = [
-  "json",
-  "blocking",
-  "rustls-tls",
+    "json",
+    "blocking",
+    "rustls-tls",
 ], default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.142"
