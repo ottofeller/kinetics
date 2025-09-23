@@ -1,3 +1,4 @@
+use crate::tools::config::Config as KineticsConfig;
 use crate::tools::resource_name;
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
@@ -37,7 +38,7 @@ impl Client {
     ///
     /// The client is initialised just once and than reused.
     pub async fn from_worker<'a, Fut>(
-        worker: impl Fn(Vec<Record>, &'a HashMap<String, String>) -> Fut,
+        worker: impl Fn(Vec<Record>, &'a HashMap<String, String>, &'a KineticsConfig) -> Fut,
     ) -> eyre::Result<Self>
     where
         Fut:
