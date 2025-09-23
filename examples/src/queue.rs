@@ -1,6 +1,7 @@
 use crate::basic::worker::worker;
 use http::{Request, Response, StatusCode};
 use kinetics::macros::endpoint;
+use kinetics::tools::config::Config as KineticsConfig;
 use kinetics::tools::queue::Client as QueueClient;
 use serde_json::json;
 use std::collections::HashMap;
@@ -13,6 +14,7 @@ use tower::BoxError;
 pub async fn queue(
     _event: Request<Vec<u8>>,
     _secrets: &HashMap<String, String>,
+    _config: &KineticsConfig,
 ) -> Result<Response<String>, BoxError> {
     let client = QueueClient::from_worker(worker).await?;
     client.send("Test message").await?;

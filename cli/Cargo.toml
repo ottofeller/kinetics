@@ -17,6 +17,7 @@ path = "src/main.rs"
 aws-config = "1.8.3"
 aws-sdk-dynamodb = "1.86.0"
 aws-sdk-sqs = "=1.80.0"
+aws-sdk-dsql = "=1.8.0"
 aws_lambda_events = "^0"
 chrono = { version = "0.4.42", features = ["serde"] }
 uuid = { version = "1.18.1", features = ["v4"] }
@@ -61,3 +62,4 @@ http = "^1.0"
 http-body = "^1.0"
 lambda_http = "^0"
 tower = "^0"
+percent-encoding = "2.3.2"

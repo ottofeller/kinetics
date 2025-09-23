@@ -1,5 +1,6 @@
 use http::{Request, Response};
 use kinetics::macros::endpoint;
+use kinetics::tools::config::Config as KineticsConfig;
 use serde_json::json;
 use std::collections::HashMap;
 // As an example use a general-purpose type-erased error from tower.
@@ -17,6 +18,7 @@ use tower::BoxError;
 pub async fn environment(
     _event: Request<String>,
     _secrets: &HashMap<String, String>,
+    _config: &KineticsConfig,
 ) -> Result<Response<String>, BoxError> {
     let env = std::env::vars().collect::<HashMap<_, _>>();
 
