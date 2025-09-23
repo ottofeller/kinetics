@@ -2,6 +2,7 @@ use aws_config::{Region, SdkConfig};
 use aws_sdk_dsql::auth_token::{AuthToken, AuthTokenGenerator, Config as DsqlConfig};
 use lambda_runtime::Error;
 use log::error;
+use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
@@ -61,10 +62,11 @@ impl SqlDb {
     }
 
     pub fn connection_string(&self) -> String {
+        let password = utf8_percent_encode(self.password().as_str(), NON_ALPHANUMERIC).to_string();
+
         format!(
-            "postgresql://{username}:{password}@{endpoint}:{port}/{database}",
+            "postgresql://{username}:{password}@{endpoint}:{port}/{database}?sslmode=verify-full",
             username = self.username(),
-            password = self.password(),
             endpoint = self.endpoint(),
             port = self.port(),
             database = self.database(),
