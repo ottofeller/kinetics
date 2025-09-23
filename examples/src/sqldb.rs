@@ -14,7 +14,10 @@ pub async fn handler(
     _secrets: &HashMap<String, String>,
     config: &KineticsConfig,
 ) -> Result<Response<String>, BoxError> {
-    let db = config.db.get("mydb").unwrap();
+    let db = config
+        .db
+        .get("mydb")
+        .ok_or(BoxError::from("Missing db config"))?;
 
     // Connect to the database using sqlx crate and connection string
     let pool = sqlx::postgres::PgPoolOptions::new()
