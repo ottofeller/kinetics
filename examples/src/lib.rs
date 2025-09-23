@@ -3,3 +3,4 @@ pub mod database;
 pub mod environment;
 pub mod queue;
 pub mod secrets;
+pub mod sqldb;

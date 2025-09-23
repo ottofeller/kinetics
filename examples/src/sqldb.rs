@@ -1,0 +1,45 @@
+use http::{Request, Response};
+use kinetics::tools::config::Config as KineticsConfig;
+use kinetics::{macros::endpoint, tools::http::Body};
+use serde_json::json;
+use std::collections::HashMap;
+// As an example use a general-purpose type-erased error from tower.
+// Custom errors would work as well.
+use tower::BoxError;
+
+/// REST API endpoint which responds with JSON {"success": true}
+///
+/// Test locally with the following command:
+/// kinetics invoke BasicEndpointEndpoint
+#[endpoint(url_path = "/sqldb")]
+pub async fn handler(
+    _event: Request<Body>,
+    _secrets: &HashMap<String, String>,
+    config: &KineticsConfig,
+) -> Result<Response<String>, BoxError> {
+    let db = config.db.get("mydb").unwrap();
+
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(1)
+        .connect(&db.connection_string())
+        .await?;
+
+    sqlx::query(r#"CREATE TABLE IF NOT EXISTS my_table (value SMALLINT NOT NULL)"#)
+        .execute(&pool)
+        .await?;
+
+    sqlx::query(r#"INSERT INTO my_table (value) VALUES (1)"#)
+        .execute(&pool)
+        .await?;
+
+    let result = sqlx::query_scalar::<_, i16>(r#"SELECT value FROM "my_table" LIMIT 10"#)
+        .fetch_all(&pool)
+        .await?;
+
+    let resp = Response::builder()
+        .status(200)
+        .header("content-type", "application/json")
+        .body(json!({"values": result}).to_string())?;
+
+    Ok(resp)
+}
