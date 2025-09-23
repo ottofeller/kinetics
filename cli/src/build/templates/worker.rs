@@ -3,7 +3,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
         format!(
             "{import_statement}
             use aws_lambda_events::sqs::{{SqsEvent, SqsMessage}};
-            use kinetics::tools::{{queue::Record as QueueRecord, Config as KineticsConfig}};
+            use kinetics::tools::{{queue::Record as QueueRecord, config::Config as KineticsConfig}};
             #[tokio::main]
             async fn main() -> Result<(), Box<dyn std::error::Error>> {{
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
@@ -52,7 +52,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
             "{import_statement}
             use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
             use aws_lambda_events::{{sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
-            use kinetics::tools::{{queue::Record as QueueRecord, Config as KineticsConfig}};
+            use kinetics::tools::{{queue::Record as QueueRecord, config::Config as KineticsConfig}};
             #[tokio::main]\n\
             async fn main() -> Result<(), Error> {{\n\
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
