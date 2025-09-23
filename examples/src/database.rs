@@ -2,6 +2,7 @@ use aws_sdk_dynamodb::types::AttributeValue::S;
 use aws_sdk_dynamodb::Client;
 use http::{Request, Response, StatusCode};
 use kinetics::macros::endpoint;
+use kinetics::tools::config::Config as KineticsConfig;
 use serde_json::json;
 use std::collections::HashMap;
 // As an example use a general-purpose type-erased error from tower.
@@ -19,6 +20,7 @@ use tower::BoxError;
 pub async fn database(
     _event: Request<()>,
     _secrets: &HashMap<String, String>,
+    _config: &KineticsConfig,
 ) -> Result<Response<String>, BoxError> {
     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
     let client = Client::new(&config);

@@ -1,4 +1,5 @@
 use http::{Request, Response};
+use kinetics::tools::config::Config as KineticsConfig;
 use kinetics::{macros::endpoint, tools::http::Body};
 use serde_json::json;
 use std::collections::HashMap;
@@ -14,6 +15,7 @@ use tower::BoxError;
 pub async fn endpoint(
     _event: Request<Body>,
     _secrets: &HashMap<String, String>,
+    _config: &KineticsConfig,
 ) -> Result<Response<String>, BoxError> {
     let resp = Response::builder()
         .status(200)

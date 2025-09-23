@@ -1,5 +1,6 @@
 use http::{Request, Response, StatusCode};
 use kinetics::macros::endpoint;
+use kinetics::tools::config::Config as KineticsConfig;
 use serde_json::json;
 use std::collections::HashMap;
 // As an example use a general-purpose type-erased error from tower.
@@ -15,6 +16,7 @@ use tower::BoxError;
 pub async fn secrets_endpoint(
     _event: Request<()>,
     secrets: &HashMap<String, String>,
+    _config: &KineticsConfig,
 ) -> Result<Response<String>, BoxError> {
     println!(
         "Found a secret: {}",
