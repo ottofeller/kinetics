@@ -1,5 +1,5 @@
 use http::{Request, Response};
-use kinetics::tools::Config;
+use kinetics::tools::config::Config;
 use kinetics::{macros::endpoint, tools::http::Body};
 use serde_json::json;
 use std::collections::HashMap;
