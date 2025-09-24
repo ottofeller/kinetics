@@ -162,7 +162,25 @@ impl Pipeline {
             return Err(eyre!("Failed to process function(s)"));
         }
 
+        // Check if there's an ongoing deployment and wait for it to finish
+        let mut status = self.crat.status().await?;
+        log::debug!("Pipeline status: {:?}", status.status);
         deploying_progress.log_stage("Provisioning");
+
+        if status.status == "IN_PROGRESS" {
+            pipeline_progress
+                .total_progress_bar
+                .set_message("Waiting for previous deployment to finish...");
+        }
+
+        while status.status == "IN_PROGRESS" {
+            tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+            status = self.crat.status().await?;
+        }
+
+        pipeline_progress
+            .total_progress_bar
+            .set_message("Provisioning resources...");
 
         match self
             .crat
