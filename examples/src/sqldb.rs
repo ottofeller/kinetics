@@ -1,5 +1,5 @@
 use http::{Request, Response};
-use kinetics::tools::config::Config as KineticsConfig;
+use kinetics::tools::Config;
 use kinetics::{macros::endpoint, tools::http::Body};
 use serde_json::json;
 use std::collections::HashMap;
@@ -12,7 +12,7 @@ use tower::BoxError;
 pub async fn handler(
     _event: Request<Body>,
     _secrets: &HashMap<String, String>,
-    config: &KineticsConfig,
+    config: &Config,
 ) -> Result<Response<String>, BoxError> {
     let db = config
         .db
