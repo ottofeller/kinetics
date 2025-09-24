@@ -3,8 +3,11 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
     if is_local {
         format!(
             "{import_statement}
+            use kinetics::tools::config::Config as KineticsConfig;
             #[tokio::main]\n\
             async fn main() -> Result<(), Box<dyn std::error::Error>> {{\n\
+                let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+                let kinetics_config = KineticsConfig::new(&config).await?;
                 let mut secrets = std::collections::HashMap::new();
 
                 for (k, v) in std::env::vars() {{
@@ -21,6 +24,7 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
     } else {
         format!(
             "{import_statement}
+            use kinetics::tools::config::Config as KineticsConfig;
             use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
             use aws_lambda_events::eventbridge::EventBridgeEvent;\n\
             #[tokio::main]\n\
@@ -63,10 +67,11 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
                     secrets.insert(name.into(), secret_value.to_string());
                 }}
 
+                let kinetics_config = KineticsConfig::new(&config).await?;
                 println!(\"Serving requests\");
 
                 run(service_fn(|_event: LambdaEvent<EventBridgeEvent<serde_json::Value>>| async {{
-                    match {rust_function_name}(&secrets).await {{
+                    match {rust_function_name}(&secrets, &kinetics_config).await {{
                         Ok(()) => Ok(()),
                         Err(err) => {{
                             eprintln!(\"Error occurred while handling request: {{:?}}\", err);
