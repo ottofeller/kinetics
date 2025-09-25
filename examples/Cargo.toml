@@ -7,11 +7,11 @@ edition = "2021"
 name = "mytable"
 
 [dependencies]
-aws-config = "1.8.3"
-aws-sdk-dynamodb = "1.86.0"
+aws-config = "1.8.6"
+aws-sdk-dynamodb = "1.93.0"
 http = "^1.0"
 lambda_runtime = "0.14.4"
-kinetics = { version = "0.7.16" }
+kinetics = { version = "0.7.18" }
 tokio = "1.47.1"
 tower = "^0"
 aws-sdk-sqs = "1.78.0"
