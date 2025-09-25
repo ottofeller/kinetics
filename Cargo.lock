@@ -1211,7 +1211,7 @@ dependencies = [
  "aws-sdk-dynamodb",
  "aws-sdk-sqs",
  "http 1.3.1",
- "kinetics 0.7.18",
+ "kinetics 0.7.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "lambda_runtime",
  "serde_json",
  "tokio",
@@ -1945,59 +1945,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics"
-version = "0.7.16"
-dependencies = [
- "async-trait",
- "aws-config",
- "aws-sdk-dsql",
- "aws-sdk-dynamodb",
- "aws-sdk-sqs",
- "aws_lambda_events",
- "base64 0.22.1",
- "bytes",
- "chrono",
- "clap",
- "color-eyre",
- "console",
- "crc-fast",
- "crossterm",
- "env_logger",
- "eyre",
- "futures",
- "http 1.3.1",
- "http-body 1.0.1",
- "indicatif",
- "kinetics-macro 0.7.16",
- "kinetics-parser 0.7.16",
- "lambda_http",
- "lambda_runtime",
- "log",
- "percent-encoding",
- "prettyplease",
- "regex",
- "reqwest",
- "rust_dotenv",
- "serde",
- "serde_json",
- "sha256",
- "syn",
- "tabled",
- "terminal_size",
- "tokio",
- "toml",
- "toml_edit 0.23.6",
- "tower",
- "twox-hash",
- "uuid",
- "walkdir",
- "zip 4.6.1",
-]
-
-[[package]]
-name = "kinetics"
 version = "0.7.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c0298083632b952bca27d00ff35d6c8787daae1c3c355e36c0c73862e8f16f9"
 dependencies = [
  "async-trait",
  "aws-config",
@@ -2042,14 +1990,66 @@ dependencies = [
  "twox-hash",
  "uuid",
  "walkdir",
- "zip 5.1.1",
+ "zip",
+]
+
+[[package]]
+name = "kinetics"
+version = "0.7.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c0298083632b952bca27d00ff35d6c8787daae1c3c355e36c0c73862e8f16f9"
+dependencies = [
+ "async-trait",
+ "aws-config",
+ "aws-sdk-dsql",
+ "aws-sdk-dynamodb",
+ "aws-sdk-sqs",
+ "aws_lambda_events",
+ "base64 0.22.1",
+ "bytes",
+ "chrono",
+ "clap",
+ "color-eyre",
+ "console",
+ "crc-fast",
+ "crossterm",
+ "env_logger",
+ "eyre",
+ "futures",
+ "http 1.3.1",
+ "http-body 1.0.1",
+ "indicatif",
+ "kinetics-macro 0.7.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kinetics-parser 0.7.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lambda_http",
+ "lambda_runtime",
+ "log",
+ "percent-encoding",
+ "prettyplease",
+ "regex",
+ "reqwest",
+ "rust_dotenv",
+ "serde",
+ "serde_json",
+ "sha256",
+ "syn",
+ "tabled",
+ "terminal_size",
+ "tokio",
+ "toml",
+ "toml_edit 0.23.6",
+ "tower",
+ "twox-hash",
+ "uuid",
+ "walkdir",
+ "zip",
 ]
 
 [[package]]
 name = "kinetics-macro"
-version = "0.7.16"
+version = "0.7.18"
 dependencies = [
- "kinetics-parser 0.7.16",
+ "kinetics-parser 0.7.18",
  "syn",
 ]
 
@@ -2059,13 +2059,13 @@ version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ceba3cead412dacfb13be4d188fc8afb8b9e926cd30843143eb67f54f1f6ca1"
 dependencies = [
- "kinetics-parser 0.7.18",
+ "kinetics-parser 0.7.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn",
 ]
 
 [[package]]
 name = "kinetics-parser"
-version = "0.7.16"
+version = "0.7.18"
 dependencies = [
  "color-eyre",
  "syn",
@@ -2178,26 +2178,6 @@ checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if",
  "windows-targets 0.53.3",
-]
-
-[[package]]
-name = "liblzma"
-version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10bf66f4598dc77ff96677c8e763655494f00ff9c1cf79e2eb5bb07bc31f807d"
-dependencies = [
- "liblzma-sys",
-]
-
-[[package]]
-name = "liblzma-sys"
-version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01b9596486f6d60c3bbe644c0e1be1aa6ccc472ad630fe8927b456973d7cb736"
-dependencies = [
- "cc",
- "libc",
- "pkg-config",
 ]
 
 [[package]]
@@ -4366,33 +4346,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "zip"
-version = "4.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "caa8cd6af31c3b31c6631b8f483848b91589021b28fffe50adada48d4f4d2ed1"
-dependencies = [
- "aes",
- "arbitrary",
- "bzip2",
- "constant_time_eq",
- "crc32fast",
- "deflate64",
- "flate2",
- "getrandom 0.3.3",
- "hmac",
- "indexmap 2.11.4",
- "liblzma",
- "memchr",
- "pbkdf2",
- "ppmd-rust",
- "sha1",
- "time",
- "zeroize",
- "zopfli",
- "zstd",
 ]
 
 [[package]]
