@@ -45,7 +45,7 @@ enum Commands {
         #[arg(short, long, default_value_t = 10)]
         max_concurrency: usize,
 
-        #[arg(short, long, value_delimiter = ',')]
+        #[arg(value_delimiter = ',')]
         functions: Vec<String>,
     },
 
