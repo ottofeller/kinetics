@@ -99,14 +99,10 @@ async fn envs(deploy_functions: &[String]) -> eyre::Result<()> {
         return Err(eyre::eyre!("Failed to deploy envs"));
     }
 
-    let default_arr = serde_json::Value::Array(vec![]);
-    let default_vec = vec![];
-
     let fails = response_json
         .get("fails")
-        .unwrap_or(&default_arr)
-        .as_array()
-        .unwrap_or(&default_vec);
+        .and_then(|v| v.as_array())
+        .unwrap_or(&vec![]);
 
     if !fails.is_empty() {
         return Err(eyre::eyre!(
