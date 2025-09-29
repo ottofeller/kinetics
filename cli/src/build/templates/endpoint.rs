@@ -2,14 +2,15 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
     if is_local {
         format!(
             "{import_statement}
-            use lambda_http::Request;
+            use http::Request;
             use serde_json;
             use reqwest::header::{{HeaderName, HeaderValue}};
             use std::str::FromStr;
-
+            use kinetics::tools::config::Config as KineticsConfig;
             #[tokio::main]
-            async fn main() -> Result<(), lambda_http::Error> {{\n\
-                let queues = std::collections::HashMap::new();
+            async fn main() -> Result<(), tower::BoxError> {{\n\
+                let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+                let kinetics_config = KineticsConfig::new(&config).await?;
                 let mut secrets = std::collections::HashMap::new();
 
                 for (k, v) in std::env::vars() {{
@@ -29,7 +30,7 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                     Err(_) => \"{{}}\".into(),
                 }};
 
-                let mut event = Request::new(payload.into());
+                let mut event = Request::new(kinetics::tools::http::Body::from(payload).try_into()?);
                 let headers = event.headers_mut();
 
                 let headers_value = serde_json::from_str::<serde_json::Value>(&headers_json)
@@ -43,7 +44,7 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                         );
                 }}
 
-                match {rust_function_name}(event, &secrets, &queues).await {{
+                match {rust_function_name}(event, &secrets, &kinetics_config).await {{
                     Ok(response) => {{
                         println!(\"{{response:?}}\");
                     }},
@@ -59,7 +60,8 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
     } else {
         format!(
             "{import_statement}
-            use lambda_http::{{run, service_fn}};\n\
+            use kinetics::tools::config::Config as KineticsConfig;
+            use lambda_http::{{run, service_fn, Request}};\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), lambda_http::Error> {{\n\
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
@@ -100,23 +102,13 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                     secrets.insert(name.into(), secret_value.to_string());
                 }}
 
-                println!(\"Provisioning queues\");
-                let mut queues = std::collections::HashMap::new();
-
-                for (k, v) in std::env::vars() {{
-                    if k.starts_with(\"KINETICS_QUEUE_\") {{
-                        let queue_client = aws_sdk_sqs::Client::new(&config)
-                            .send_message()
-                            .queue_url(v);
-
-                        queues.insert(k.replace(\"KINETICS_QUEUE_\", \"\"), queue_client);
-                    }}
-                }}
-
+                let kinetics_config = KineticsConfig::new(&config).await?;
                 println!(\"Serving requests\");
 
-                run(service_fn(|event| async {{
-                    match {rust_function_name}(event, &secrets, &queues).await {{
+                run(service_fn(|event: Request| async {{
+                    let (head, body) = event.into_parts();
+                    let event = http::Request::from_parts(head, kinetics::tools::http::Body::from(body).try_into()?);
+                    match {rust_function_name}(event, &secrets, &kinetics_config).await {{
                         Ok(response) => Ok(response),
                         Err(err) => {{
                             eprintln!(\"Error occurred while handling request: {{:?}}\", err);

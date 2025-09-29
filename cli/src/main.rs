@@ -16,9 +16,11 @@ mod login;
 mod logout;
 mod logs;
 mod process;
+mod project;
 mod rollback;
 mod secret;
 mod stats;
+pub mod sqldb;
 use crate::cli::run;
 use crate::error::Error;
 

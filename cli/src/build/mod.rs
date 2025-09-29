@@ -90,7 +90,7 @@ pub fn prepare_crates(
     parsed_functions
         .into_iter()
         .map(|f| {
-            let name = f.func_name(false);
+            let name = f.func_name(false)?;
             Function::new(&dst, &name).map(|f| {
                 f.is_deploying(deploy_functions.is_empty() || deploy_functions.contains(&name))
             })
@@ -288,7 +288,7 @@ fn create_lambda_bin(
     manifest: &mut toml_edit::DocumentMut,
     checksum: &mut FileHash,
 ) -> eyre::Result<()> {
-    let function_name = parsed_function.func_name(is_local);
+    let function_name = parsed_function.func_name(is_local)?;
     let lambda_path_local = bin_dir.join(format!("{}.rs", function_name));
     let lambda_path = dst.join(&lambda_path_local);
 
@@ -343,7 +343,7 @@ fn metadata(
         Role::Worker(_) => "worker",
     };
 
-    let name = parsed_function.func_name(is_local);
+    let name = parsed_function.func_name(is_local)?;
 
     // Create a function table for both roles
     let mut function_table = toml_edit::Table::new();
@@ -357,16 +357,11 @@ fn metadata(
         Role::Worker(params) => {
             let mut queue_table = toml_edit::Table::new();
             queue_table["name"] = toml_edit::value(&name);
-            if let Some(queue_alias) = &params.queue_alias {
-                queue_table["alias"] = toml_edit::value(queue_alias);
-            };
             queue_table["concurrency"] = toml_edit::value(params.concurrency as i64);
             queue_table["fifo"] = toml_edit::value(params.fifo);
-
             let mut named_table = toml_edit::Table::new();
             named_table.set_implicit(true); // Don't create an empty queue table
             named_table.insert(&name, queue_table.into());
-
             function_meta.insert("queue", named_table.into());
         }
         Role::Endpoint(params) => {
@@ -448,20 +443,33 @@ fn deps(
             doc["dependencies"]["lambda_runtime"]
                 .or_insert(toml_edit::Table::new().into())
                 .as_table_mut()
-                .map(|t| t.insert("version", toml_edit::value("0.13.0")));
+                .map(|t| t.insert("version", toml_edit::value("^0.14")));
         }
         Role::Endpoint(_) => {
             doc["dependencies"]["lambda_http"]
                 .or_insert(toml_edit::Table::new().into())
                 .as_table_mut()
-                .map(|t| t.insert("version", toml_edit::value("0.14.0")));
+                .map(|t| t.insert("version", toml_edit::value("^0")));
+            doc["dependencies"]["http"]
+                .or_insert(toml_edit::Table::new().into())
+                .as_table_mut()
+                .map(|t| t.insert("version", toml_edit::value("^1.0")));
+            doc["dependencies"]["tower"]
+                .or_insert(toml_edit::Table::new().into())
+                .as_table_mut()
+                .map(|t| t.insert("version", toml_edit::value("^0")));
         }
     };
+
+    doc["dependencies"]["kinetics"]
+        .or_insert(toml_edit::Table::new().into())
+        .as_table_mut()
+        .map(|t| t.insert("version", toml_edit::value("0.7.14")));
 
     doc["dependencies"]["aws_lambda_events"]
         .or_insert(toml_edit::Table::new().into())
         .as_table_mut()
-        .map(|t| t.insert("version", toml_edit::value("0.16.0")));
+        .map(|t| t.insert("version", toml_edit::value("^0")));
 
     doc["dependencies"]["aws-config"]
         .or_insert(toml_edit::Table::new().into())

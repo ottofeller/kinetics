@@ -35,7 +35,6 @@ pub fn cron(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// Parameters:
 /// - `name`: override the function name
-/// - `queue_alias`: alias of the queue processed by the worker
 /// - `concurrency`: max number of concurrent workers
 /// - `fifo`: set to true to enable FIFO processing
 /// - `environment`: environment variables

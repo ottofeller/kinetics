@@ -1,7 +1,7 @@
 use crate::client::Client;
-use crate::config::build_config;
 use crate::crat::Crate;
 use crate::function::Function;
+use crate::project::Project;
 use color_eyre::owo_colors::OwoColorize;
 use kinetics_parser::{ParsedFunction, Parser, Role};
 use serde_json::Value;
@@ -44,8 +44,6 @@ struct WorkerRow {
     fifo: String,
     #[tabled(rename = "Concurrency")]
     concurrency: String,
-    #[tabled(rename = "Queue Alias")]
-    queue_alias: String,
     #[tabled(rename = "Updated")]
     last_modified: String,
 }
@@ -104,10 +102,10 @@ fn verbose(
 }
 
 /// Display the function with its main properties
-pub fn display_simple(function: &ParsedFunction, options: &HashMap<&str, String>) {
+pub fn display_simple(function: &ParsedFunction, project_base_url: &str) -> eyre::Result<()> {
     println!(
         "{} {} {}",
-        function.func_name(false).bold(),
+        function.func_name(false)?.bold(),
         "from".dimmed(),
         function.relative_path.dimmed(),
     );
@@ -115,31 +113,19 @@ pub fn display_simple(function: &ParsedFunction, options: &HashMap<&str, String>
     match function.role.clone() {
         Role::Endpoint(params) => {
             if let Some(url_path) = params.url_path {
-                println!(
-                    "{}",
-                    format!(
-                        "https://{}.usekinetics.com{}",
-                        options
-                            .get("parent_crate_name")
-                            .unwrap_or(&String::from("<your crate name>")),
-                        url_path
-                    )
-                    .cyan()
-                )
+                println!("{}", format!("{}{}", project_base_url, url_path).cyan());
             }
         }
 
         Role::Cron(params) => println!("{} {}", "Scheduled".dimmed(), params.schedule.cyan()),
-
-        Role::Worker(params) => {
-            if let Some(queue_alias) = params.queue_alias {
-                println!("{} {}", "Queue".dimmed(), queue_alias.cyan());
-            }
-        }
+        Role::Worker(_) => {}
     }
+
+    println!();
+    Ok(())
 }
 
-fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
+fn simple(functions: &[ParsedFunction], project_base_url: &str) -> eyre::Result<()> {
     let crons: Vec<&ParsedFunction> = functions
         .iter()
         .filter(|f| matches!(f.role, Role::Cron(_)))
@@ -157,32 +143,29 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
 
     if !endpoints.is_empty() {
         println!("\n{}\n", "Endpoints".bold().green());
-        let mut options = HashMap::new();
-        options.insert("parent_crate_name", parent_crate.name.clone());
 
-        endpoints.iter().for_each(|f| {
-            display_simple(f, &options);
-            println!()
-        });
+        endpoints
+            .iter()
+            .try_for_each(|f| display_simple(f, project_base_url))?;
     }
 
     if !workers.is_empty() {
         println!("{}\n", "Workers".bold().green());
 
-        workers.iter().for_each(|f| {
-            display_simple(f, &HashMap::new());
-            println!()
-        });
+        workers
+            .iter()
+            .try_for_each(|f| display_simple(f, project_base_url))?;
     }
 
     if !crons.is_empty() {
         println!("{}\n", "Crons".bold().green());
 
-        crons.iter().for_each(|f| {
-            display_simple(f, &HashMap::new());
-            println!()
-        });
+        crons
+            .iter()
+            .try_for_each(|f| display_simple(f, project_base_url))?;
     }
+
+    Ok(())
 }
 
 /// Prints out the list of all functions
@@ -190,13 +173,11 @@ fn simple(functions: &[ParsedFunction], parent_crate: &Crate) {
 /// With some extra information
 pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let functions = Parser::new(Some(&current_crate.path))?.functions;
+    let project_base_url = Project::new(current_crate.to_owned()).base_url().await?;
 
     if !is_verbose {
-        simple(&functions, current_crate);
-        return Ok(());
+        return simple(&functions, &project_base_url);
     }
-
-    let project_url = format!("https://{}.{}", current_crate.name, build_config()?.domain);
 
     let mut endpoint_rows = Vec::new();
     let mut cron_rows = Vec::new();
@@ -209,7 +190,7 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     }
 
     for parsed_function in functions {
-        let function = Function::new(&current_crate.path, &parsed_function.func_name(false))?;
+        let function = Function::new(&current_crate.path, &parsed_function.func_name(false)?)?;
         let func_path = parsed_function.relative_path;
         let last_modified = function
             .status(&client)
@@ -223,7 +204,7 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
                     environment: format_environment(&format!("{:?}", params.environment)),
                     url_path: format!(
                         "{}{}",
-                        project_url,
+                        project_base_url,
                         params.url_path.unwrap_or("".to_string())
                     ),
                     last_modified,
@@ -243,7 +224,6 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
                     environment: format_environment(&format!("{:?}", params.environment)),
                     fifo: format!("{:?}", params.fifo),
                     concurrency: format!("{:?}", params.concurrency),
-                    queue_alias: format!("{:?}", params.queue_alias.unwrap_or("".to_string())),
                     last_modified,
                 });
             }

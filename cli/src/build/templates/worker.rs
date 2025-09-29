@@ -3,10 +3,11 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
         format!(
             "{import_statement}
             use aws_lambda_events::sqs::{{SqsEvent, SqsMessage}};
-
+            use kinetics::tools::{{queue::Record as QueueRecord, config::Config as KineticsConfig}};
             #[tokio::main]
             async fn main() -> Result<(), Box<dyn std::error::Error>> {{
-                let queues = std::collections::HashMap::new();
+                let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+                let kinetics_config = KineticsConfig::new(&config).await?;
                 let mut secrets = std::collections::HashMap::new();
 
                 for (k, v) in std::env::vars() {{
@@ -34,9 +35,9 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
                 let context = lambda_runtime::Context::default();
                 let event = lambda_runtime::LambdaEvent::new(sqs_event, context);
 
-                match {rust_function_name}(event, &secrets, &queues).await {{
+                match {rust_function_name}(QueueRecord::from_sqsevent(event)?, &secrets, &kinetics_config).await {{
                     Ok(response) => {{
-                        println!(\"{{response:?}}\");
+                        println!(\"{{:?}}\", response.collect());
                     }},
                     Err(err) => {{
                         eprintln!(\"Request failed: {{:?}}\", err);
@@ -51,6 +52,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
             "{import_statement}
             use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
             use aws_lambda_events::{{sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
+            use kinetics::tools::{{queue::Record as QueueRecord, config::Config as KineticsConfig}};
             #[tokio::main]\n\
             async fn main() -> Result<(), Error> {{\n\
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
@@ -91,24 +93,12 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
                     secrets.insert(name.into(), secret_value.to_string());
                 }}
 
-                println!(\"Provisioning queues\");
-                let mut queues = std::collections::HashMap::new();
-
-                for (k, v) in std::env::vars() {{
-                    if k.starts_with(\"KINETICS_QUEUE_\") {{
-                        let queue_client = aws_sdk_sqs::Client::new(&config)
-                            .send_message()
-                            .queue_url(v);
-
-                        queues.insert(k.replace(\"KINETICS_QUEUE_\", \"\"), queue_client);
-                    }}
-                }}
-
+                let kinetics_config = KineticsConfig::new(&config).await?;
                 println!(\"Serving requests\");
 
                 run(service_fn(|event| async {{
-                    match {rust_function_name}(event, &secrets, &queues).await {{
-                        Ok(response) => Ok(response),
+                    match {rust_function_name}(QueueRecord::from_sqsevent(event)?, &secrets, &kinetics_config).await {{
+                        Ok(response) => Ok(response.collect()),
                         Err(err) => {{
                             eprintln!(\"Error occurred while handling request: {{:?}}\", err);
                             Err(err)
@@ -116,7 +106,6 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
                     }}
                 }})).await
             }}
-
 "
         )
     }

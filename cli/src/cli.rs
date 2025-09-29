@@ -2,7 +2,6 @@ use crate::build;
 use crate::crat::Crate;
 use crate::deploy::{self, DeployConfig};
 use crate::destroy::destroy;
-use crate::rollback::rollback;
 use crate::error::Error;
 use crate::function::Type as FunctionType;
 use crate::init::init;
@@ -12,6 +11,7 @@ use crate::logger::Logger;
 use crate::login::login;
 use crate::logout::logout;
 use crate::logs::logs;
+use crate::rollback::rollback;
 use crate::stats::stats;
 use clap::{ArgAction, Parser, Subcommand};
 use eyre::{Ok, WrapErr};
@@ -42,10 +42,10 @@ enum Commands {
     /// Deploy your serverless functions to the cloud
     Deploy {
         /// Maximum number of parallel concurrent builds
-        #[arg(short, long, default_value_t = 12)]
+        #[arg(short, long, default_value_t = 10)]
         max_concurrency: usize,
 
-        #[arg(short, long, value_delimiter = ',')]
+        #[arg(value_delimiter = ',')]
         functions: Vec<String>,
     },
 
@@ -119,6 +119,17 @@ enum Commands {
         /// Function name to retrieve logs for
         #[arg()]
         name: String,
+
+        /// Time period to get logs for.
+        ///
+        /// The period object (e.g. `1day 3hours`) is a concatenation of time spans.
+        /// Where each time span is an integer number and a suffix representing time units.
+        ///
+        /// Maximum available period is 1 month.
+        /// Defaults to 1hour.
+        ///
+        #[arg(short, long)]
+        period: Option<String>,
     },
 
     /// List all serverless functions
@@ -220,7 +231,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             )
             .await
         }
-        Some(Commands::Logs { name }) => logs(name, &crat).await,
+        Some(Commands::Logs { name, period }) => logs(name, &crat, period).await,
         Some(Commands::List { verbose }) => list(&crat, *verbose).await,
         Some(Commands::Stats { name, period }) => stats(name, &crat, *period).await,
         _ => Ok(()),

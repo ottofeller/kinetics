@@ -1,8 +1,11 @@
-use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
-use kinetics_macro::endpoint;
-use lambda_http::{Body, Error, Request, Response};
+use http::{Request, Response, StatusCode};
+use kinetics::macros::endpoint;
+use kinetics::tools::config::Config as KineticsConfig;
 use serde_json::json;
 use std::collections::HashMap;
+// As an example use a general-purpose type-erased error from tower.
+// Custom errors would work as well.
+use tower::BoxError;
 
 /// Print out a secret value
 ///
@@ -11,10 +14,10 @@ use std::collections::HashMap;
 /// kinetics invoke SecretsSecretsUndrscrendpoint
 #[endpoint(url_path = "/secrets")]
 pub async fn secrets_endpoint(
-    _event: Request,
+    _event: Request<()>,
     secrets: &HashMap<String, String>,
-    _queues: &HashMap<String, SendMessageFluentBuilder>,
-) -> Result<Response<Body>, Error> {
+    _config: &KineticsConfig,
+) -> Result<Response<String>, BoxError> {
     println!(
         "Found a secret: {}",
         secrets
@@ -23,9 +26,9 @@ pub async fn secrets_endpoint(
     );
 
     let resp = Response::builder()
-        .status(200)
+        .status(StatusCode::OK)
         .header("content-type", "text/html")
-        .body(json!({"success": true}).to_string().into())
+        .body(json!({"success": true}).to_string())
         .map_err(Box::new)?;
 
     Ok(resp)

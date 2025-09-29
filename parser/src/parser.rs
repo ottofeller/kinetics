@@ -19,19 +19,9 @@ pub struct ParsedFunction {
 }
 
 impl ParsedFunction {
-    /// Generate lambda function name out of Rust function name or macro attribute
-    ///
-    /// By default use the Rust function plus crate path as the function name. Convert
-    /// some-name to SomeName, and do other transformations in order to comply with Lambda
-    /// function name requirements.
-    pub fn func_name(&self, is_local: bool) -> String {
-        let rust_name = &self.rust_function_name;
-        let full_path = format!("{}/{rust_name}", self.relative_path);
-
-        let default_func_name = full_path
-            .as_str()
-            .replace("_", "Undrscr")
-            .replace("_", "Dash")
+    /// Convert a path to CamelCase name
+    pub fn path_to_name(path: &str) -> String {
+        return path
             .split(&['.', '/'])
             .filter(|s| !s.eq(&"rs"))
             .map(|s| match s.chars().next() {
@@ -40,13 +30,28 @@ impl ParsedFunction {
             })
             .collect::<String>()
             .replacen("Src", "", 1);
+    }
 
-        // TODO Check the name for uniqueness
-        format!(
-            "{}{}",
-            self.role.name().unwrap_or(&default_func_name),
-            if is_local { "Local" } else { "" }
-        )
+    /// Generate lambda function name out of Rust function name or macro attribute
+    ///
+    /// By default use the Rust function plus crate path as the function name. Convert
+    /// some-name to SomeName, and do other transformations in order to comply with Lambda
+    /// function name requirements.
+    pub fn func_name(&self, is_local: bool) -> eyre::Result<String> {
+        let rust_name = &self.rust_function_name;
+        let full_path = format!("{}/{rust_name}", self.relative_path);
+        let default_func_name = Self::path_to_name(&full_path);
+        let name = self.role.name().unwrap_or(&default_func_name);
+
+        if name.len() > 64 {
+            Err(eyre::eyre!(
+                "Function name is longer than 64 chars: {}",
+                name
+            ))
+        } else {
+            // TODO Check the name for uniqueness
+            Ok(format!("{}{}", name, if is_local { "Local" } else { "" }))
+        }
     }
 }
 

@@ -32,6 +32,6 @@ pub trait DeployConfig: Send + Sync {
         toml_string: String,
         secrets: HashMap<String, String>,
         functions: &[Function],
-    ) -> eyre::Result<()>;
-    async fn upload(&self, function: &mut Function) -> eyre::Result<()>;
+    ) -> eyre::Result<bool>;
+    async fn upload(&self, function: &mut Function) -> eyre::Result<bool>;
 }

@@ -22,7 +22,7 @@ pub async fn invoke(
 ) -> eyre::Result<()> {
     // Get function names as well as pull all updates from the code.
     let all_functions = prepare_crates(
-        PathBuf::from(build_config()?.build_path),
+        PathBuf::from(build_config()?.kinetics_path),
         crat,
         &[function_name.into()],
     )?;

@@ -1,25 +1,25 @@
-use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
-use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
-use kinetics_macro::worker;
-use lambda_runtime::{Error, LambdaEvent};
+use kinetics::macros::worker;
+use kinetics::tools::config::Config as KineticsConfig;
+use kinetics::tools::queue::{Record as QueueRecord, Retries as QueueRetries};
 use std::collections::HashMap;
+// As an example use a general-purpose type-erased error from tower.
+// Custom errors would work as well.
+use tower::BoxError;
 
 /// A queue worker
 ///
 /// Always returns the first record as failed to process. It will then be retried.
 /// Test locally with the following command:
 /// kinetics invoke BasicWorkerWorker --payload '{"name": "John"}'
-#[worker(fifo = true, queue_alias = "example")]
+#[worker(fifo = true)]
 pub async fn worker(
-    event: LambdaEvent<SqsEvent>,
+    records: Vec<QueueRecord>,
     _secrets: &HashMap<String, String>,
-    _queues: &HashMap<String, SendMessageFluentBuilder>,
-) -> Result<SqsBatchResponse, Error> {
-    let mut sqs_batch_response = SqsBatchResponse::default();
+    _config: &KineticsConfig,
+) -> Result<QueueRetries, BoxError> {
+    let mut retries = QueueRetries::new();
 
-    // Always return the first record from the input batch in batch item failure, just for example
-    // Doing so will force the worker to process the item again on the next iteration
-    let record = match event.payload.records.first() {
+    let record = match records.first() {
         Some(record) => record,
         None => {
             return Err(Box::new(std::io::Error::new(
@@ -32,11 +32,9 @@ pub async fn worker(
     let body = serde_json::Value::from(record.body.clone().unwrap());
     println!("Got body: {body:?}");
 
-    sqs_batch_response
-        .batch_item_failures
-        .push(BatchItemFailure {
-            item_identifier: record.message_id.clone().unwrap_or_default(),
-        });
+    // Optionally return the first record from the input batch in retries, just for example
+    // Doing so will force the worker to process the item again on the next iteration
+    retries.add(&record.message_id.clone().unwrap_or_default());
 
-    Ok(sqs_batch_response)
+    Ok(retries)
 }

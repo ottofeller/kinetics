@@ -1,8 +1,11 @@
-use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
-use kinetics_macro::endpoint;
-use lambda_http::{Body, Error, Request, Response};
+use http::{Request, Response};
+use kinetics::tools::config::Config as KineticsConfig;
+use kinetics::{macros::endpoint, tools::http::Body};
 use serde_json::json;
 use std::collections::HashMap;
+// As an example use a general-purpose type-erased error from tower.
+// Custom errors would work as well.
+use tower::BoxError;
 
 /// REST API endpoint which responds with JSON {"success": true}
 ///
@@ -10,15 +13,14 @@ use std::collections::HashMap;
 /// kinetics invoke BasicEndpointEndpoint
 #[endpoint(url_path = "/endpoint")]
 pub async fn endpoint(
-    _event: Request,
+    _event: Request<Body>,
     _secrets: &HashMap<String, String>,
-    _queues: &HashMap<String, SendMessageFluentBuilder>,
-) -> Result<Response<Body>, Error> {
+    _config: &KineticsConfig,
+) -> Result<Response<String>, BoxError> {
     let resp = Response::builder()
         .status(200)
         .header("content-type", "application/json")
-        .body(json!({"success": true}).to_string().into())
-        .map_err(Box::new)?;
+        .body(json!({"success": true}).to_string())?;
 
     Ok(resp)
 }

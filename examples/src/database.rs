@@ -1,10 +1,13 @@
 use aws_sdk_dynamodb::types::AttributeValue::S;
 use aws_sdk_dynamodb::Client;
-use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
-use kinetics_macro::endpoint;
-use lambda_http::{Body, Error, Request, Response};
+use http::{Request, Response, StatusCode};
+use kinetics::macros::endpoint;
+use kinetics::tools::config::Config as KineticsConfig;
 use serde_json::json;
 use std::collections::HashMap;
+// As an example use a general-purpose type-erased error from tower.
+// Custom errors would work as well.
+use tower::BoxError;
 
 /// Simply put an item into DB and then retrieve it
 ///
@@ -15,10 +18,10 @@ use std::collections::HashMap;
     environment = {"TABLE_NAME": "mytable"},
 )]
 pub async fn database(
-    _event: Request,
+    _event: Request<()>,
     _secrets: &HashMap<String, String>,
-    _queues: &HashMap<String, SendMessageFluentBuilder>,
-) -> Result<Response<Body>, Error> {
+    _config: &KineticsConfig,
+) -> Result<Response<String>, BoxError> {
     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
     let client = Client::new(&config);
     let env = std::env::vars().collect::<HashMap<_, _>>();
@@ -45,11 +48,10 @@ pub async fn database(
         .unwrap();
 
     let name = item.get("name").unwrap().as_s().unwrap();
-
     let resp = Response::builder()
-        .status(200)
+        .status(StatusCode::OK)
         .header("content-type", "application/json")
-        .body(json!({"success": true, name: name}).to_string().into())
+        .body(json!({"success": true, "name": name}).to_string())
         .map_err(Box::new)?;
 
     Ok(resp)

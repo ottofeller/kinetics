@@ -1,31 +1,28 @@
-use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
-use kinetics_macro::endpoint;
-use lambda_http::{Body, Error, Request, Response};
+use crate::basic::worker::worker;
+use http::{Request, Response, StatusCode};
+use kinetics::macros::endpoint;
+use kinetics::tools::config::Config as KineticsConfig;
+use kinetics::tools::queue::Client as QueueClient;
 use serde_json::json;
 use std::collections::HashMap;
+// As an example use a general-purpose type-erased error from tower.
+// Custom errors would work as well.
+use tower::BoxError;
 
 /// Send a message to the queue
-///
-/// Must be processed by worker with #[worker(queue_alias = "example")] macro.
-/// Can't be tested locally, as it requires access to the queue. Deploy with this command:
-/// kinetics deploy
 #[endpoint(url_path = "/queue")]
 pub async fn queue(
-    _event: Request,
+    _event: Request<Vec<u8>>,
     _secrets: &HashMap<String, String>,
-    queues: &HashMap<String, SendMessageFluentBuilder>,
-) -> Result<Response<Body>, Error> {
-    queues["example"]
-        .clone()
-        .message_body("Test message")
-        .send()
-        .await?;
+    _config: &KineticsConfig,
+) -> Result<Response<String>, BoxError> {
+    let client = QueueClient::from_worker(worker).await?;
+    client.send("Test message").await?;
 
     let resp = Response::builder()
-        .status(200)
+        .status(StatusCode::OK)
         .header("content-type", "text/html")
-        .body(json!({"success": true}).to_string().into())
+        .body(json!({"success": true}).to_string())
         .map_err(Box::new)?;
-
     Ok(resp)
 }
