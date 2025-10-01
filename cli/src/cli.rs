@@ -45,7 +45,11 @@ enum Commands {
         #[arg(short, long, default_value_t = 10)]
         max_concurrency: usize,
 
-        #[arg(short, long, value_delimiter = ',')]
+        /// Deploy only environment variables instead of full deployment
+        #[arg(short, long, action = ArgAction::SetTrue)]
+        envs: bool,
+
+        #[arg(value_delimiter = ',')]
         functions: Vec<String>,
     },
 
@@ -206,8 +210,9 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         Some(Commands::Deploy {
             functions,
             max_concurrency,
+            envs,
             ..
-        }) => deploy::run(functions, max_concurrency, deploy_config).await,
+        }) => deploy::run(functions, max_concurrency, *envs, deploy_config).await,
         Some(Commands::Destroy {}) => destroy(&crat)
             .await
             .wrap_err("Failed to destroy the project"),
