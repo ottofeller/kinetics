@@ -4,6 +4,7 @@ use crate::error::Error;
 use crate::function::Function;
 use crate::secret::Secret;
 use eyre::{ContextCompat, Ok, WrapErr};
+use http::response;
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -91,21 +92,28 @@ impl Crate {
                 .await;
         }
 
+        let body = JsonBody {
+            crat: BodyCrate {
+                toml: self.toml_string.clone(),
+            },
+            functions: functions
+                .iter()
+                .map(|f| BodyFunction::try_from_function(f, deploy_all))
+                .collect::<eyre::Result<Vec<BodyFunction>>>()?,
+            secrets,
+        };
+
+        log::debug!(
+            "Sending request to deploy:\n{}",
+            serde_json::to_string_pretty(&body)?
+        );
+
         let result = client
             .post("/stack/deploy")
-            .json(&JsonBody {
-                crat: BodyCrate {
-                    toml: self.toml_string.clone(),
-                },
-                functions: functions
-                    .iter()
-                    .map(|f| BodyFunction::try_from_function(f, deploy_all))
-                    .collect::<eyre::Result<Vec<BodyFunction>>>()?,
-                secrets,
-            })
+            .json(&body)
             .send()
             .await
-            .inspect_err(|err| log::error!("{err:?}"))
+            .inspect_err(|err| log::error!("Error while requesting deploy: {err:?}"))
             .wrap_err(Error::new(
                 "Network request failed",
                 Some("Try again in a few seconds."),
@@ -146,14 +154,18 @@ impl Crate {
                 Some("Try again in a few seconds."),
             ))?;
 
-        if result.status() != StatusCode::OK {
+        let status = result.status();
+        let text = result.text().await?;
+        log::debug!("Got response from /stack/status:\n{status}\n{text}");
+
+        if status != StatusCode::OK {
             return Err(
                 Error::new("Status request failed", Some("Try again in a few seconds.")).into(),
             );
         }
 
         let status: StatusResponseBody =
-            result.json().await.wrap_err("Failed to parse response")?;
+            serde_json::from_str(&text).wrap_err("Failed to parse response")?;
 
         Ok(status)
     }
