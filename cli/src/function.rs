@@ -114,13 +114,16 @@ impl Function {
         let mut digest = Digest::new(Crc64Nvme);
         digest.update(&data);
         let checksum = base64::prelude::BASE64_STANDARD.encode(digest.finalize().to_be_bytes());
+        let body = json!({"name": self.name, "checksum": checksum});
+
+        log::debug!(
+            "Calling /upload with body:\n{}",
+            serde_json::to_string_pretty(&body)?
+        );
 
         let response = client
             .post("/upload")
-            .json(&json!({
-                "name": self.name,
-                "checksum": checksum
-            }))
+            .json(&body)
             .send()
             .await
             .inspect_err(|e| log::error!("Upload request failed: {e:?}"))?;

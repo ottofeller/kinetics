@@ -1314,7 +1314,7 @@ dependencies = [
  "aws-sdk-dynamodb",
  "aws-sdk-sqs",
  "http 1.3.1",
- "kinetics 0.7.19 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kinetics 0.7.19",
  "lambda_runtime",
  "serde_json",
  "sqlx",
@@ -2116,6 +2116,8 @@ dependencies = [
 [[package]]
 name = "kinetics"
 version = "0.7.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd78ce1edafd05ecaeaa3ea86b099b115af0d3610e090616e2b6dd9ea67858ea"
 dependencies = [
  "async-trait",
  "aws-config",
@@ -2165,9 +2167,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics"
-version = "0.7.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd78ce1edafd05ecaeaa3ea86b099b115af0d3610e090616e2b6dd9ea67858ea"
+version = "0.8.1"
 dependencies = [
  "async-trait",
  "aws-config",
@@ -2189,8 +2189,8 @@ dependencies = [
  "http 1.3.1",
  "http-body 1.0.1",
  "indicatif",
- "kinetics-macro 0.7.19 (registry+https://github.com/rust-lang/crates.io-index)",
- "kinetics-parser 0.7.19 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kinetics-macro 0.8.1",
+ "kinetics-parser 0.8.1",
  "lambda_http",
  "lambda_runtime",
  "log",
@@ -2218,6 +2218,8 @@ dependencies = [
 [[package]]
 name = "kinetics-macro"
 version = "0.7.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaf14fc0d0d567140a4e568eda75f2a92f086f6fe6b4b791c020dcabeba14575"
 dependencies = [
  "kinetics-parser 0.7.19",
  "syn",
@@ -2225,17 +2227,17 @@ dependencies = [
 
 [[package]]
 name = "kinetics-macro"
-version = "0.7.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaf14fc0d0d567140a4e568eda75f2a92f086f6fe6b4b791c020dcabeba14575"
+version = "0.8.1"
 dependencies = [
- "kinetics-parser 0.7.19 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kinetics-parser 0.8.1",
  "syn",
 ]
 
 [[package]]
 name = "kinetics-parser"
 version = "0.7.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e2d79a092306a2c7358a0ed8ee041b039c4e146c04c53e047066542c5e3dd02"
 dependencies = [
  "color-eyre",
  "syn",
@@ -2244,9 +2246,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics-parser"
-version = "0.7.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e2d79a092306a2c7358a0ed8ee041b039c4e146c04c53e047066542c5e3dd02"
+version = "0.8.1"
 dependencies = [
  "color-eyre",
  "syn",
