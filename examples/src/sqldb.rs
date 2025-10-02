@@ -14,15 +14,10 @@ pub async fn handler(
     _secrets: &HashMap<String, String>,
     config: &Config,
 ) -> Result<Response<String>, BoxError> {
-    let db = config
-        .db
-        .get("mydb")
-        .ok_or(BoxError::from("Missing db config"))?;
-
     // Connect to the database using sqlx crate and connection string
     let pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(1)
-        .connect(&db.connection_string())
+        .connect(&config.db.connection_string())
         .await?;
 
     // Create a table if it doesn't exist
