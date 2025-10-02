@@ -4,7 +4,6 @@ use crate::error::Error;
 use crate::function::Function;
 use crate::secret::Secret;
 use eyre::{ContextCompat, Ok, WrapErr};
-use http::response;
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::path::PathBuf;
