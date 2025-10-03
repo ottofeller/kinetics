@@ -31,7 +31,22 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
+enum ProjectCommands {
+    /// [DANGER] Destroy in the cloud
+    Destroy {},
+
+    /// Rollback to previous version
+    Rollback {},
+}
+
+#[derive(Subcommand)]
 enum Commands {
+    /// Commands for managing projects
+    Proj {
+        #[command(subcommand)]
+        command: Option<ProjectCommands>,
+    },
+
     /// Build your serverless functions
     Build {
         /// Comma-separated list of function names to build (if not specified, all functions will be built)
@@ -52,12 +67,6 @@ enum Commands {
         #[arg(value_delimiter = ',')]
         functions: Vec<String>,
     },
-
-    /// Destroy your serverless functions
-    Destroy {},
-
-    /// Rollback your serverless functions to previous deployment
-    Rollback {},
 
     /// Start new Kinetics project from template
     Init {
@@ -205,6 +214,27 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         .theme(color_eyre::config::Theme::new())
         .install()?;
 
+    // Project commands
+    match &cli.command {
+        Some(Commands::Proj {
+            command: Some(ProjectCommands::Destroy {}),
+        }) => {
+            return destroy(&crat)
+                .await
+                .wrap_err("Failed to destroy the project")
+                .map_err(Error::from);
+        }
+        Some(Commands::Proj {
+            command: Some(ProjectCommands::Rollback {}),
+        }) => {
+            return rollback(&crat)
+                .await
+                .wrap_err("Failed to rollback the project")
+                .map_err(Error::from);
+        }
+        _ => Ok(()),
+    }?;
+
     match &cli.command {
         Some(Commands::Build { functions, .. }) => build::run(functions).await,
         Some(Commands::Deploy {
@@ -213,12 +243,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             envs,
             ..
         }) => deploy::run(functions, max_concurrency, *envs, deploy_config).await,
-        Some(Commands::Destroy {}) => destroy(&crat)
-            .await
-            .wrap_err("Failed to destroy the project"),
-        Some(Commands::Rollback {}) => rollback(&crat)
-            .await
-            .wrap_err("Failed to rollback the project"),
         Some(Commands::Invoke {
             name,
             payload,
