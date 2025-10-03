@@ -40,11 +40,42 @@ enum ProjectCommands {
 }
 
 #[derive(Subcommand)]
+enum FunctionsCommands {
+    /// List all serverless functions
+    List {
+        /// Show detailed information for each function
+        #[arg(short, long, action = ArgAction::SetTrue)]
+        verbose: bool,
+    },
+
+    /// Get function statistics,
+    /// that include run statistics (error/success/total count)
+    /// as well as last call time and status.
+    Stats {
+        /// Function name to get statistics for.
+        /// Run `kinetics list` to get a complete list of function names in a project.
+        #[arg()]
+        name: String,
+
+        /// Period to get statistics for (in days).
+        /// Maximum value is 7 days.
+        #[arg(short, long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..=7))]
+        period: u32,
+    },
+}
+
+#[derive(Subcommand)]
 enum Commands {
     /// Commands for managing projects
     Proj {
         #[command(subcommand)]
         command: Option<ProjectCommands>,
+    },
+
+    /// Commands for managing functions
+    Func {
+        #[command(subcommand)]
+        command: Option<FunctionsCommands>,
     },
 
     /// Build your serverless functions
@@ -145,28 +176,6 @@ enum Commands {
         period: Option<String>,
     },
 
-    /// List all serverless functions
-    List {
-        /// Show detailed information for each function
-        #[arg(short, long, action = ArgAction::SetTrue)]
-        verbose: bool,
-    },
-
-    /// Get function statistics,
-    /// that include run statistics (error/success/total count)
-    /// as well as last call time and status.
-    Stats {
-        /// Function name to get statistics for.
-        /// Run `kinetics list` to get a complete list of function names in a project.
-        #[arg()]
-        name: String,
-
-        /// Period to get statistics for (in days).
-        /// Maximum value is 7 days.
-        #[arg(short, long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..=7))]
-        period: u32,
-    },
-
     /// Logout from Kinetics platform
     Logout {},
 }
@@ -235,6 +244,27 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         _ => Ok(()),
     }?;
 
+    // Functions commands
+    match &cli.command {
+        Some(Commands::Func {
+            command: Some(FunctionsCommands::List { verbose }),
+        }) => {
+            return list(&crat, *verbose)
+                .await
+                .wrap_err("Failed to destroy the project")
+                .map_err(Error::from);
+        }
+        Some(Commands::Func {
+            command: Some(FunctionsCommands::Stats { name, period }),
+        }) => {
+            return stats(name, &crat, *period)
+                .await
+                .wrap_err("Failed to rollback the project")
+                .map_err(Error::from);
+        }
+        _ => Ok(()),
+    }?;
+
     // Global commands
     match &cli.command {
         Some(Commands::Build { functions, .. }) => build::run(functions).await,
@@ -262,8 +292,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             .await
         }
         Some(Commands::Logs { name, period }) => logs(name, &crat, period).await,
-        Some(Commands::List { verbose }) => list(&crat, *verbose).await,
-        Some(Commands::Stats { name, period }) => stats(name, &crat, *period).await,
         _ => Ok(()),
     }
     .map_err(Error::from)
