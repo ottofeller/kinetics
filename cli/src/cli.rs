@@ -32,7 +32,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum ProjectCommands {
-    /// [DANGER] Destroy in the cloud
+    /// [DANGER] Destroy a project
     Destroy {},
 
     /// Rollback to previous version
@@ -41,7 +41,7 @@ enum ProjectCommands {
 
 #[derive(Subcommand)]
 enum FunctionsCommands {
-    /// List all serverless functions
+    /// List all functions in the project
     List {
         /// Show detailed information for each function
         #[arg(short, long, action = ArgAction::SetTrue)]
@@ -78,14 +78,14 @@ enum Commands {
         command: Option<FunctionsCommands>,
     },
 
-    /// Build your serverless functions
+    /// Build functions, without deployment
     Build {
         /// Comma-separated list of function names to build (if not specified, all functions will be built)
         #[arg(short, long, value_delimiter = ',')]
         functions: Vec<String>,
     },
 
-    /// Deploy your serverless functions to the cloud
+    /// Deploy your functions
     Deploy {
         /// Maximum number of parallel concurrent builds
         #[arg(short, long, default_value_t = 10)]
@@ -99,7 +99,7 @@ enum Commands {
         functions: Vec<String>,
     },
 
-    /// Start new Kinetics project from template
+    /// Start new project from template
     Init {
         /// Name of the project to create
         #[arg()]
@@ -133,7 +133,7 @@ enum Commands {
         worker: bool,
     },
 
-    /// Login to Kinetics platform
+    /// Login
     Login {
         /// Your registered email address
         #[arg()]
