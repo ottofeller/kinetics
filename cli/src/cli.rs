@@ -235,6 +235,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         _ => Ok(()),
     }?;
 
+    // Global commands
     match &cli.command {
         Some(Commands::Build { functions, .. }) => build::run(functions).await,
         Some(Commands::Deploy {
