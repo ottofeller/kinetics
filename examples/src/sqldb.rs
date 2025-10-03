@@ -7,7 +7,9 @@ use std::collections::HashMap;
 // Custom errors would work as well.
 use tower::BoxError;
 
-/// REST API endpoint which responds with JSON {"values": [1, 1, ...]}
+/// Interact with Sql DB
+///
+/// Create a record, then query it from DB, and return the result in http response.
 #[endpoint(url_path = "/sqldb")]
 pub async fn handler(
     _event: Request<Body>,
