@@ -259,7 +259,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         }) => {
             return stats(name, &crat, *period)
                 .await
-                .wrap_err("Failed to rollback the project")
+                .wrap_err("Failed to get function statistics")
                 .map_err(Error::from);
         }
         Some(Commands::Func {
