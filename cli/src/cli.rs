@@ -100,7 +100,7 @@ enum Commands {
         email: String,
     },
 
-    /// Invoke a functions
+    /// Invoke a function
     Invoke {
         #[arg()]
         name: String,
