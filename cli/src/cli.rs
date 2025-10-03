@@ -62,6 +62,24 @@ enum FunctionsCommands {
         #[arg(short, long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..=7))]
         period: u32,
     },
+
+    /// Show function logs
+    Logs {
+        /// Function name to retrieve logs for
+        #[arg()]
+        name: String,
+
+        /// Time period to get logs for.
+        ///
+        /// The period object (e.g. `1day 3hours`) is a concatenation of time spans.
+        /// Where each time span is an integer number and a suffix representing time units.
+        ///
+        /// Maximum available period is 1 month.
+        /// Defaults to 1hour.
+        ///
+        #[arg(short, long)]
+        period: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -158,24 +176,6 @@ enum Commands {
         remote: bool,
     },
 
-    /// Show function logs
-    Logs {
-        /// Function name to retrieve logs for
-        #[arg()]
-        name: String,
-
-        /// Time period to get logs for.
-        ///
-        /// The period object (e.g. `1day 3hours`) is a concatenation of time spans.
-        /// Where each time span is an integer number and a suffix representing time units.
-        ///
-        /// Maximum available period is 1 month.
-        /// Defaults to 1hour.
-        ///
-        #[arg(short, long)]
-        period: Option<String>,
-    },
-
     /// Logout from Kinetics platform
     Logout {},
 }
@@ -262,6 +262,9 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 .wrap_err("Failed to rollback the project")
                 .map_err(Error::from);
         }
+        Some(Commands::Func {
+            command: Some(FunctionsCommands::Logs { name, period }),
+        }) => logs(name, &crat, period).await,
         _ => Ok(()),
     }?;
 
@@ -291,7 +294,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             )
             .await
         }
-        Some(Commands::Logs { name, period }) => logs(name, &crat, period).await,
         _ => Ok(()),
     }
     .map_err(Error::from)
