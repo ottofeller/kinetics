@@ -182,8 +182,7 @@ impl Function {
             .wrap_err("Wrong format of Cargo.toml")?
             .iter()
             .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string()))
-            .collect::<HashMap<String, String>>()
-            .clone())
+            .collect::<HashMap<String, String>>())
     }
 
     /// URL to call the function
