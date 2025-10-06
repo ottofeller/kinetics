@@ -47,7 +47,7 @@ impl Function {
             .cloned()
     }
 
-    fn meta(&self) -> eyre::Result<toml::Value> {
+    pub fn meta(&self) -> eyre::Result<toml::map::Map<String, toml::Value>> {
         let functions = self
             .crat
             .toml
@@ -59,7 +59,8 @@ impl Function {
             .wrap_err("No [kinetics]")?
             .get("functions")
             .wrap_err("No [functions]")?;
-        functions
+
+        Ok(functions
             .clone()
             .as_array_mut()
             .wrap_err("Invalid format for [functions]")?
@@ -72,9 +73,9 @@ impl Function {
                 }
             })
             .wrap_err(format!("No [{}]", self.name))?
-            .get("function")
-            .wrap_err("No [function]")
-            .cloned()
+            .as_table_mut()
+            .wrap_err("Invalid format for [functions] member")?
+            .clone())
     }
 
     pub fn is_deploying(mut self, is_deploying: bool) -> Self {
@@ -168,35 +169,17 @@ impl Function {
 
     /// Return env vars assigned to the function in macro definition
     pub fn environment(&self) -> eyre::Result<HashMap<String, String>> {
-        let functions = self
-            .crat
-            .toml
-            .get("package")
-            .wrap_err("No [package]")?
-            .get("metadata")
-            .wrap_err("No [metadata]")?
-            .get("kinetics")
-            .wrap_err("No [kinetics]")?
-            .get("functions")
-            .wrap_err("No [functions]")?;
-        Ok(functions
-            .clone()
-            .as_array_mut()
-            .wrap_err("Invalid format for [functions]")?
-            .iter_mut()
-            .find_map(|tbl| {
-                if tbl.as_table()?.get("function")?.get("name")?.as_str()? == self.name {
-                    Some(tbl)
-                } else {
-                    None
-                }
-            })
-            .wrap_err(format!("No [{}]", self.name))?
-            .get("environment")
-            .wrap_err("No [environment]")
-            .cloned()?
-            .as_table()
+        let meta = self.meta()?;
+        let envs_toml = meta.get("environment");
+
+        if envs_toml.is_none() {
+            return Ok(HashMap::new());
+        }
+
+        Ok(envs_toml
             .unwrap()
+            .as_table()
+            .wrap_err("Wrong format of Cargo.toml")?
             .iter()
             .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string()))
             .collect::<HashMap<String, String>>())

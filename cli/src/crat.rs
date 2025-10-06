@@ -187,31 +187,7 @@ pub struct BodyFunction {
 impl BodyFunction {
     pub fn try_from_function(f: &Function, deploy_all: bool) -> eyre::Result<Self> {
         let mut manifest = f.crat.toml.clone();
-        let functions = manifest
-            .get("package")
-            .wrap_err("No [package]")?
-            .get("metadata")
-            .wrap_err("No [metadata]")?
-            .get("kinetics")
-            .wrap_err("No [kinetics]")?
-            .get("functions")
-            .wrap_err("No [functions]")?;
-        let mut function_meta = functions
-            .clone()
-            .as_array_mut()
-            .wrap_err("Invalid format for [functions]")?
-            .iter_mut()
-            .find_map(|tbl| {
-                if tbl.as_table()?.get("function")?.get("name")?.as_str()? == f.name {
-                    Some(tbl)
-                } else {
-                    None
-                }
-            })
-            .wrap_err(format!("No [{}]", f.name))?
-            .as_table_mut()
-            .wrap_err("Invalid format for [functions] member")?
-            .clone();
+        let mut function_meta = f.meta()?;
 
         // Set is_deploying only when the function is deployed,
         // but there are others that are not.

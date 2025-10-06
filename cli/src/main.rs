@@ -20,6 +20,7 @@ mod project;
 mod rollback;
 mod secret;
 mod stats;
+mod commands;
 pub mod sqldb;
 use crate::cli::run;
 use crate::error::Error;
