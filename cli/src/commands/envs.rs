@@ -25,7 +25,7 @@ pub async fn list(crat: &Crate) -> eyre::Result<()> {
                     .unwrap()
                     == function.name
             })
-            .ok_or(eyre!("Parsed artifact has no funciton name"))
+            .ok_or(eyre!("Parsed artifact has no function name"))
             .inspect_err(|e| log::error!("{e:?}"))?
             .relative_path
             .to_owned();
