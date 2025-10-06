@@ -1,6 +1,7 @@
 pub mod build;
 pub mod cli;
 pub mod client;
+pub mod commands;
 pub mod config;
 pub mod crat;
 pub mod credentials;
@@ -20,6 +21,6 @@ pub mod process;
 pub mod project;
 pub mod rollback;
 pub mod secret;
+pub mod sqldb;
 pub mod stats;
 pub mod tools;
-pub mod sqldb;

@@ -1,4 +1,5 @@
 use crate::build;
+use crate::commands;
 use crate::crat::Crate;
 use crate::deploy::{self, DeployConfig};
 use crate::destroy::destroy;
@@ -37,6 +38,12 @@ enum ProjectCommands {
 
     /// Rollback to previous version
     Rollback {},
+}
+
+#[derive(Subcommand)]
+enum EnvsCommands {
+    /// List all environment variables for all functions
+    List {},
 }
 
 #[derive(Subcommand)]
@@ -94,6 +101,12 @@ enum Commands {
     Func {
         #[command(subcommand)]
         command: Option<FunctionsCommands>,
+    },
+
+    /// Commands for managing environment variables
+    Envs {
+        #[command(subcommand)]
+        command: Option<EnvsCommands>,
     },
 
     /// Build functions, without deployment
@@ -265,6 +278,20 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         Some(Commands::Func {
             command: Some(FunctionsCommands::Logs { name, period }),
         }) => logs(name, &crat, period).await,
+        _ => Ok(()),
+    }?;
+
+    // Envs commands
+    match &cli.command {
+        Some(Commands::Envs {
+            command: Some(EnvsCommands::List {}),
+        }) => {
+            return commands::envs::list(&crat)
+                .await
+                .wrap_err("Failed to list environment variables")
+                .inspect_err(|e| log::error!("{e:?}"))
+                .map_err(Error::from);
+        }
         _ => Ok(()),
     }?;
 
