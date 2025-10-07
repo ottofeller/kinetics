@@ -69,7 +69,7 @@ impl Project {
         Err(eyre::eyre!("Failed to load project information"))
     }
 
-    /// Get a list of projects created by the account
+    /// Get a list of projects created by user
     pub async fn list() -> eyre::Result<Vec<String>> {
         #[derive(Debug, Deserialize, Serialize)]
         struct ProjectsResponse {
