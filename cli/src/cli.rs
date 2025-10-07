@@ -7,7 +7,7 @@ use crate::error::Error;
 use crate::function::Type as FunctionType;
 use crate::init::init;
 use crate::invoke::invoke;
-use crate::list::list;
+use crate::list;
 use crate::logger::Logger;
 use crate::login::login;
 use crate::logout::logout;
@@ -189,6 +189,9 @@ enum Commands {
         remote: bool,
     },
 
+    /// List projects
+    List {},
+
     /// Logout from Kinetics platform
     Logout {},
 }
@@ -224,7 +227,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             .await
             .map_err(Error::from);
         }
-
+        Some(Commands::List {}) => return list::projects().await,
         _ => {}
     }
 
@@ -262,7 +265,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         Some(Commands::Func {
             command: Some(FunctionsCommands::List { verbose }),
         }) => {
-            return list(&crat, *verbose)
+            return list::functions(&crat, *verbose)
                 .await
                 .wrap_err("Failed to list functions")
                 .map_err(Error::from);

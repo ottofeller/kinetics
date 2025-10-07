@@ -69,6 +69,24 @@ impl Project {
         Err(eyre::eyre!("Failed to load project information"))
     }
 
+    /// Get a list of projects created by the account
+    pub async fn list() -> eyre::Result<Vec<String>> {
+        #[derive(Debug, Deserialize, Serialize)]
+        struct ProjectsResponse {
+            /// A list of project names
+            projects: Vec<String>,
+        }
+
+        Client::new(false)?
+            .request::<(), ProjectsResponse>("/project/list", ())
+            .await
+            .wrap_err(Error::new(
+                "Failed to fetch projects list",
+                Some("Try again in a few seconds."),
+            ))
+            .map(|r| r.projects)
+    }
+
     /// Load the project cache from disk with automatic refresh logic
     async fn load_cache(&self) -> eyre::Result<Cache> {
         let cache_path = Self::cache_path()?;
