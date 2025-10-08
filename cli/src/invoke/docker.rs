@@ -17,6 +17,7 @@ pub struct Docker {
     /// A flag indicating the instance was started
     is_started: bool,
 
+    /// List of services to start
     services: Vec<DockerService>,
 }
 
