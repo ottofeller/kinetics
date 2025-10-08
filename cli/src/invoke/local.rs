@@ -2,6 +2,8 @@ use super::dynamodb::LocalDynamoDB;
 use crate::config::build_config;
 use crate::crat::Crate;
 use crate::function::Function;
+use crate::invoke::docker::Docker;
+use crate::invoke::sqldb::LocalSqlDB;
 use crate::process::Process;
 use crate::secret::Secret;
 use color_eyre::owo_colors::OwoColorize;
@@ -19,6 +21,8 @@ pub async fn invoke(
 
     // DynamoDbB table to provision
     table: Option<&str>,
+
+    is_sqldb_enabled: bool,
 ) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
 
@@ -42,12 +46,24 @@ pub async fn invoke(
         console::style(&display_path).underlined().bold()
     );
 
-    let mut dynamodb = LocalDynamoDB::new(&PathBuf::from(&build_config()?.kinetics_path));
+    let mut docker = Docker::new(&PathBuf::from(&build_config()?.kinetics_path));
+    let mut sqldb_credentials = HashMap::new();
+
+    if is_sqldb_enabled {
+        let sqldb = LocalSqlDB::new();
+        sqldb_credentials.insert(
+            "KINETICS_SQLDB_LOCAL_CONNECTION_STRING",
+            sqldb.connection_string(),
+        );
+        docker.with_sqldb(sqldb);
+    }
 
     if let Some(table) = table {
-        dynamodb.start()?;
-        dynamodb.provision(table).await?;
-    };
+        docker.with_dynamodb(LocalDynamoDB::new(table));
+    }
+
+    docker.start()?;
+    docker.provision().await?;
 
     let mut aws_credentials = HashMap::new();
 
@@ -64,6 +80,7 @@ pub async fn invoke(
         .args(["run", "--bin", &format!("{}Local", function.name)])
         .envs(secrets)
         .envs(aws_credentials)
+        .envs(sqldb_credentials)
         .envs(function.environment()?)
         .env("KINETICS_INVOKE_PAYLOAD", payload)
         .env("KINETICS_INVOKE_HEADERS", headers)

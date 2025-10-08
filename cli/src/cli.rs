@@ -187,6 +187,9 @@ enum Commands {
 
         #[arg(short, long, action = ArgAction::SetFalse)]
         remote: bool,
+
+        #[arg(short, long)]
+        sqldb: bool,
     },
 
     /// Logout from Kinetics platform
@@ -310,6 +313,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             headers,
             table,
             remote,
+            sqldb,
         }) => {
             invoke(
                 name,
@@ -318,6 +322,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 headers,
                 if !table.is_empty() { Some(table) } else { None },
                 remote.to_owned(),
+                sqldb.to_owned(),
             )
             .await
         }

@@ -39,6 +39,7 @@ reqwest = { version = "0.12.23", features = [
 ], default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.145"
+serde_yaml = "0.9.33"
 syn = { version = "2.0", features = ["full", "visit"] }
 prettyplease = "0.2.37"
 twox-hash = "2.1.2"
