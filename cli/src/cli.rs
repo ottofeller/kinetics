@@ -7,7 +7,7 @@ use crate::error::Error;
 use crate::function::Type as FunctionType;
 use crate::init::init;
 use crate::invoke::invoke;
-use crate::list;
+use crate::list::list;
 use crate::logger::Logger;
 use crate::login::login;
 use crate::logout::logout;
@@ -258,7 +258,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         }
         Some(Commands::Proj {
             command: Some(ProjectCommands::List {}),
-        }) => return list::projects().await,
+        }) => return commands::projects::list().await,
         _ => Ok(()),
     }?;
 
@@ -267,7 +267,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         Some(Commands::Func {
             command: Some(FunctionsCommands::List { verbose }),
         }) => {
-            return list::functions(&crat, *verbose)
+            return list(&crat, *verbose)
                 .await
                 .wrap_err("Failed to list functions")
                 .map_err(Error::from);

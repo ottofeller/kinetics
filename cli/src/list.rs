@@ -1,10 +1,8 @@
 use crate::client::Client;
 use crate::crat::Crate;
-use crate::error::Error;
 use crate::function::Function;
 use crate::project::Project;
 use color_eyre::owo_colors::OwoColorize;
-use futures::stream::{self, StreamExt};
 use kinetics_parser::{ParsedFunction, Parser, Role};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -173,7 +171,7 @@ fn simple(functions: &[ParsedFunction], project_base_url: &str) -> eyre::Result<
 /// Prints out the list of all functions
 ///
 /// With some extra information
-pub async fn functions(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
+pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let functions = Parser::new(Some(&current_crate.path))?.functions;
     let project_base_url = Project::new(current_crate.to_owned()).base_url().await?;
 
@@ -235,42 +233,6 @@ pub async fn functions(current_crate: &Crate, is_verbose: bool) -> eyre::Result<
     let (width, _) = get_terminal_size();
 
     verbose(&endpoint_rows, &cron_rows, &worker_rows, width);
-
-    Ok(())
-}
-
-/// Prints out the list of all projects
-pub async fn projects() -> Result<(), Error> {
-    #[derive(Tabled, Clone)]
-    struct ProjectRow {
-        #[tabled(rename = "Name")]
-        name: String,
-        #[tabled(rename = "Status")]
-        status: String,
-    }
-
-    let projects = stream::iter(Project::list().await?)
-        .map(async |name| {
-            Crate::status_by_name(&name).await.map(|status| ProjectRow {
-                name,
-                status: status.status,
-            })
-        })
-        .buffer_unordered(3) // Run up to 3 requests concurrently.
-        .collect::<Vec<_>>()
-        .await
-        .into_iter()
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let (width, _) = get_terminal_size();
-
-    let settings = Settings::default()
-        .with(Width::wrap(width).priority(Priority::max(true)))
-        .with(Width::increase(width));
-
-    let mut table = Table::new(projects.to_vec());
-    table.with(Style::modern()).with(settings);
-    println!("Projects\n{}", table);
 
     Ok(())
 }
