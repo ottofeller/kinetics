@@ -4,7 +4,7 @@ use aws_sdk_dynamodb::types::{
     AttributeDefinition, KeySchemaElement, KeyType, ScalarAttributeType,
 };
 
-const DOCKER_COMPOSE_SERVICE: &str = r#"
+const DOCKER_COMPOSE_SNIPPET: &str = r#"
 local-dynamodb:
     command: "-jar DynamoDBLocal.jar -sharedDb -dbPath ./data"
     image: "amazon/dynamodb-local:latest"
@@ -27,8 +27,8 @@ impl LocalDynamoDB {
         }
     }
 
-    pub fn docker_compose_service(&self) -> &str {
-        DOCKER_COMPOSE_SERVICE
+    pub fn docker_compose_snippet(&self) -> &str {
+        DOCKER_COMPOSE_SNIPPET
     }
 
     /// Provision table with retry mechanism for handling connection issues

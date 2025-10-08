@@ -136,12 +136,12 @@ impl Docker {
 
         for service in &self.services {
             // Prepare service YAML snippets for each service
-            let docker_service_yaml = match service {
-                DockerService::DynamoDB(service) => service.docker_compose_service(),
-                DockerService::SqlDB(service) => service.docker_compose_service(),
+            let service_snippet = match service {
+                DockerService::DynamoDB(service) => service.docker_compose_snippet(),
+                DockerService::SqlDB(service) => service.docker_compose_snippet(),
             };
 
-            let value: Value = serde_yaml::from_str(docker_service_yaml)
+            let value: Value = serde_yaml::from_str(service_snippet)
                 .wrap_err("failed to parse service YAML snippet")?;
 
             let mapping = value

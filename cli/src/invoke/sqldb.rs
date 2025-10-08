@@ -1,4 +1,4 @@
-const DOCKER_COMPOSE_SERVICE: &str = r#"
+const DOCKER_COMPOSE_SNIPPET: &str = r#"
 local-postgres:
     image: "postgres:16"
     shm_size: 128mb
@@ -17,8 +17,8 @@ impl LocalSqlDB {
         Self {}
     }
 
-    pub fn docker_compose_service(&self) -> &str {
-        DOCKER_COMPOSE_SERVICE
+    pub fn docker_compose_snippet(&self) -> &str {
+        DOCKER_COMPOSE_SNIPPET
     }
 
     pub fn connection_string(&self) -> String {
