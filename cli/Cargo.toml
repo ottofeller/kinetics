@@ -14,16 +14,16 @@ name = "kinetics"
 path = "src/main.rs"
 
 [dependencies]
-aws-config = "1.8.3"
-aws-sdk-dynamodb = "1.93.0"
-aws-sdk-sqs = "=1.80.0"
+aws-config = "1.8.7"
+aws-sdk-dynamodb = "1.94.0"
+aws-sdk-sqs = "1.85.0"
 aws-sdk-dsql = "=1.8.0"
 aws_lambda_events = "^0"
 chrono = { version = "0.4.42", features = ["serde"] }
 uuid = { version = "1.18.1", features = ["v4"] }
 clap = { version = "4.5.48", features = ["derive"] }
 eyre = "0.6.12"
-regex = "1.11.2"
+regex = "1.11.3"
 walkdir = "2.5.0"
 kinetics-macro = { path = "../macro", version = "0.8.3" }
 

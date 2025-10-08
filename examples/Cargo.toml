@@ -7,13 +7,13 @@ edition = "2021"
 name = "mytable"
 
 [dependencies]
-aws-config = "1.8.6"
-aws-sdk-dynamodb = "1.93.0"
+aws-config = "1.8.7"
+aws-sdk-dynamodb = "1.94.0"
 http = "^1.0"
 lambda_runtime = "0.14.4"
-kinetics = { version = "0.8.1" }
+kinetics = { version = "0.8.3", path = "../cli/" }
 tokio = "1.47.1"
 tower = "^0"
-aws-sdk-sqs = "1.78.0"
+aws-sdk-sqs = "1.85.0"
 serde_json = { version = "1.0.145", features = ["default"] }
 sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio-rustls"] }
