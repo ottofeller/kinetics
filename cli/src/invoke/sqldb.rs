@@ -22,7 +22,7 @@ impl LocalSqlDB {
     }
 
     pub fn connection_string(&self) -> String {
-        // Be careful with password, change it in DOCKER_COMPOSE_SERVICE accordingly
+        // Be careful with password, change it in `DOCKER_COMPOSE_SNIPPET` accordingly
         "postgres://postgres:localdbpassword@localhost:5432/postgres?sslmode=disable".to_string()
     }
 }
