@@ -1,7 +1,7 @@
 use crate::error::Error;
 use crate::invoke::{dynamodb::LocalDynamoDB, sqldb::LocalSqlDB};
 use crate::process::Process;
-use eyre::{eyre, Context};
+use eyre::{Context, OptionExt};
 use serde_yaml::{Mapping, Value};
 use std::{path::Path, path::PathBuf, process, process::Stdio};
 
@@ -147,7 +147,7 @@ impl Docker {
 
             let mapping = value
                 .as_mapping()
-                .ok_or_else(|| eyre!("Failed to parse service YAML snippet"))?;
+                .ok_or_eyre("Failed to parse service YAML snippet")?;
 
             for (k, v) in mapping {
                 services.insert(k.clone(), v.clone());
