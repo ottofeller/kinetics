@@ -1,98 +1,42 @@
 use crate::client::Client;
 use crate::config::build_config;
-use crate::crat::Crate;
 use crate::error::Error;
 use chrono::{DateTime, Duration, Utc};
-use eyre::WrapErr;
+use eyre::{ContextCompat, WrapErr};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
+const CACHE_EXPIRES_IN: Duration = Duration::minutes(10);
+
 /// Overall project's info
 ///
 /// Stored in a sort of a cache on file system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Info {
+struct Info {
+    pub name: String,
     pub url: String,
-    pub last_updated: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ProjectsResponse {
+    projects: Vec<Info>,
 }
 
 /// The structure of entire cache file
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Cache {
     projects: HashMap<String, Info>,
+    last_updated: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct BaseUrlRequest {
-    name: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct BaseUrlResponse {
-    url: String,
-}
-
-static CACHE_EXPIRES_IN: Duration = Duration::minutes(10);
-
-/// Project (crate) info
-///
-/// Such as base URL.
-pub struct Project {
-    crat: Crate,
-}
-
-impl Project {
-    /// Create a new Project instance for the given crate.
-    pub fn new(crat: Crate) -> Self {
-        Project { crat }
-    }
-
-    /// Get the static cache path for storing project information.
-    fn cache_path() -> eyre::Result<PathBuf> {
-        Ok(PathBuf::from(build_config()?.kinetics_path).join(".projects"))
-    }
-
-    /// Get project base URL, with automatic cache management.
-    ///
-    /// Returns an error if the API request fails or if there are filesystem issues
-    /// with reading/writing the cache.
-    pub async fn base_url(&self) -> eyre::Result<String> {
-        let cache = self.load_cache().await?;
-
-        if let Some(project_info) = cache.projects.get(&self.crat.name) {
-            return Ok(project_info.url.clone());
-        }
-
-        // Should not happen since load_cache handles fetching fresh data
-        Err(eyre::eyre!("Failed to load project information"))
-    }
-
-    /// Get a list of projects created by user
-    pub async fn list() -> eyre::Result<Vec<String>> {
-        #[derive(Debug, Deserialize, Serialize)]
-        struct ProjectsResponse {
-            /// A list of project names
-            projects: Vec<String>,
-        }
-
-        Client::new(false)?
-            .request::<(), ProjectsResponse>("/project/list", ())
-            .await
-            .wrap_err(Error::new(
-                "Failed to fetch projects list",
-                Some("Try again in a few seconds."),
-            ))
-            .map(|r| r.projects)
-    }
-
+impl Cache {
     /// Load the project cache from disk with automatic refresh logic
-    async fn load_cache(&self) -> eyre::Result<Cache> {
-        let cache_path = Self::cache_path()?;
-        let project_name = &self.crat.name;
+    async fn new() -> eyre::Result<Self> {
+        let cache_path = Self::path()?;
 
-        let mut cache = if !cache_path.exists() {
+        let cache: Option<Self> = if !cache_path.exists() {
             // Create the cache directory if it doesn't exist
             if let Some(parent) = cache_path.parent() {
                 fs::create_dir_all(parent)
@@ -102,69 +46,51 @@ impl Project {
                     .wrap_err("Failed to create project cache")?;
             }
 
-            Cache {
-                projects: HashMap::new(),
-            }
+            None
         } else {
+            // Read existing cache
             let cache_content = fs::read_to_string(&cache_path)
                 .inspect_err(|e| log::error!("Failed to read cache file {cache_path:?}: {e:?}"))
                 .wrap_err("Failed to load project cache")?;
 
-            serde_json::from_str(&cache_content).unwrap_or_else(|_| Cache {
-                projects: HashMap::new(),
-            })
+            match serde_json::from_str(&cache_content) {
+                Ok::<Cache, _>(cache) if Utc::now() - cache.last_updated < CACHE_EXPIRES_IN => {
+                    Some(cache)
+                }
+                // The cache will be updated
+                _ => None,
+            }
         };
 
-        // Check if we need to refresh the cache for this project
-        let is_expired = if let Some(project_info) = cache.projects.get(project_name) {
-            let cache_age = Utc::now() - project_info.last_updated;
-            cache_age >= CACHE_EXPIRES_IN
-        } else {
-            true // No cached data exists
+        // Load projects and populate cache if failed to read from disk
+        let cache = match cache {
+            Some(x) => x,
+            None => Self::load().await?,
         };
 
-        if is_expired {
-            let response = Client::new(false)?
-                .request::<BaseUrlRequest, BaseUrlResponse>(
-                    "/project/url",
-                    BaseUrlRequest {
-                        name: project_name.clone(),
-                    },
-                )
-                .await
-                .inspect_err(|e| log::error!("Request to backend failed: {e:?}"))
-                .wrap_err(Error::new(
-                    "Failed to fetch project information",
-                    Some("Try again in a few seconds."),
-                ))?;
+        // Save cache to the file
+        let cache_json = serde_json::to_string_pretty(&cache)
+            .inspect_err(|e| log::error!("Failed to serialize project cache: {e:?}"))
+            .wrap_err("Failed to process cache")?;
 
-            log::info!("Got response: {response:?}");
-
-            // Update cache with fresh data
-            let project_info = Info {
-                url: response.url,
-                last_updated: Utc::now(),
-            };
-
-            cache.projects.insert(project_name.clone(), project_info);
-
-            // Save cache to the file
-            let cache_path = Self::cache_path()?;
-
-            let cache_json = serde_json::to_string_pretty(&cache)
-                .inspect_err(|e| log::error!("Failed to serialize project cache: {e:?}"))
-                .wrap_err("Failed to process cache")?;
-
-            fs::write(&cache_path, cache_json)
-                .inspect_err(|e| log::error!("Failed to write cache file {cache_path:?}: {e:?}"))
-                .wrap_err(format!("Failed to write cache"))?;
-        }
+        let cache_path = Self::path()?;
+        fs::write(&cache_path, cache_json)
+            .inspect_err(|e| log::error!("Failed to write cache file {cache_path:?}: {e:?}"))
+            .wrap_err(format!("Failed to write cache"))?;
 
         Ok(cache)
     }
 
-    pub fn clear_cache() -> eyre::Result<()> {
-        let cache_path = Self::cache_path()?;
+    /// Get a project from cache
+    pub fn get(&mut self, project_name: &str) -> eyre::Result<Info> {
+        self.projects
+            .get(project_name)
+            .wrap_err("Project not found")
+            .cloned()
+    }
+
+    pub fn clear() -> eyre::Result<()> {
+        let cache_path = Self::path()?;
 
         if cache_path.exists() {
             fs::remove_file(&cache_path)
@@ -173,5 +99,90 @@ impl Project {
         }
 
         Ok(())
+    }
+
+    /// Get the static cache path for storing project information.
+    fn path() -> eyre::Result<PathBuf> {
+        Ok(PathBuf::from(build_config()?.kinetics_path).join(".projects"))
+    }
+
+    async fn load() -> eyre::Result<Self> {
+        let response = Client::new(false)?
+            .request::<(), ProjectsResponse>("/projects", ())
+            .await
+            .wrap_err(Error::new(
+                "Failed to fetch project information",
+                Some("Try again in a few seconds."),
+            ))?;
+
+        let projects = HashMap::from_iter(response.projects.into_iter().map(|project| {
+            (
+                project.name.clone(),
+                Info {
+                    name: project.name,
+                    url: project.url,
+                },
+            )
+        }));
+
+        Ok(Self {
+            projects,
+            last_updated: Utc::now(),
+        })
+    }
+}
+
+/// Project (crate) info
+///
+/// Such as base URL.
+pub struct Project {
+    pub name: String,
+    pub base_url: String,
+}
+
+impl From<&Info> for Project {
+    fn from(value: &Info) -> Self {
+        Self {
+            name: value.name.clone(),
+            base_url: value.url.clone(),
+        }
+    }
+}
+
+impl From<Info> for Project {
+    fn from(value: Info) -> Self {
+        Self {
+            name: value.name,
+            base_url: value.url,
+        }
+    }
+}
+
+impl Project {
+    /// Get project by name, with automatic cache management.
+    ///
+    /// Returns an error if the API request fails or if there are filesystem issues
+    /// with reading/writing the cache.
+    pub async fn one(name: &str) -> eyre::Result<Self> {
+        let mut cache = Cache::new().await?;
+
+        cache
+            .get(name)
+            .wrap_err("Failed to load project information")
+            .map(Into::into)
+    }
+
+    /// Get a list of projects created by user
+    ///
+    /// Returns an error if the API request fails or if there are filesystem issues
+    /// with reading/writing the cache.
+    pub async fn all() -> eyre::Result<Vec<Self>> {
+        Cache::new()
+            .await
+            .map(|cache| cache.projects.values().map(Into::into).collect())
+    }
+
+    pub fn clear_cache() -> eyre::Result<()> {
+        Cache::clear()
     }
 }

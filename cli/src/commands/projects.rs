@@ -17,12 +17,14 @@ pub async fn list() -> Result<(), Error> {
         status: String,
     }
 
-    let projects = stream::iter(Project::list().await?)
-        .map(async |name| {
-            Crate::status_by_name(&name).await.map(|status| ProjectRow {
-                name,
-                status: status.status,
-            })
+    let projects = stream::iter(Project::all().await?)
+        .map(async |project| {
+            Crate::status_by_name(&project.name)
+                .await
+                .map(|status| ProjectRow {
+                    name: project.name,
+                    status: status.status,
+                })
         })
         .buffer_unordered(3) // Run up to 3 requests concurrently.
         .collect::<Vec<_>>()
