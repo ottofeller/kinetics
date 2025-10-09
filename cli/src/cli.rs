@@ -191,7 +191,7 @@ enum Commands {
         #[arg(short, long, action = ArgAction::SetFalse)]
         remote: bool,
 
-        #[arg(long="with-database", aliases=["with-db", "wd"])]
+        #[arg(long="with-database", visible_aliases=["with-db", "db"])]
         with_database: bool,
     },
 
