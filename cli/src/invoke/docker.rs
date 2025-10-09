@@ -101,7 +101,9 @@ impl Docker {
         Ok(())
     }
 
-    /// Provision each service individually
+    /// Provision services
+    ///
+    /// This will provision required resources withing a service. E.g. create a database schema.
     pub async fn provision(&self) -> eyre::Result<()> {
         // Collect futures (only for services that actually need provisioning)
         let tasks = self
