@@ -7,27 +7,17 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-
 const CACHE_EXPIRES_IN: Duration = Duration::minutes(10);
-
-/// Overall project's info
-///
-/// Stored in a sort of a cache on file system.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Info {
-    pub name: String,
-    pub url: String,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ProjectsResponse {
-    projects: Vec<Info>,
+    projects: Vec<Project>,
 }
 
 /// The structure of entire cache file
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Cache {
-    projects: HashMap<String, Info>,
+    projects: HashMap<String, Project>,
     last_updated: DateTime<Utc>,
 }
 
@@ -82,7 +72,7 @@ impl Cache {
     }
 
     /// Get a project from cache
-    pub fn get(&self, project_name: &str) -> eyre::Result<Info> {
+    pub fn get(&self, project_name: &str) -> eyre::Result<Project> {
         self.projects
             .get(project_name)
             .wrap_err("Project not found")
@@ -115,15 +105,12 @@ impl Cache {
                 Some("Try again in a few seconds."),
             ))?;
 
-        let projects = HashMap::from_iter(response.projects.into_iter().map(|project| {
-            (
-                project.name.clone(),
-                Info {
-                    name: project.name,
-                    url: project.url,
-                },
-            )
-        }));
+        let projects = HashMap::from_iter(
+            response
+                .projects
+                .into_iter()
+                .map(|project| (project.name.clone(), project)),
+        );
 
         Ok(Self {
             projects,
@@ -135,27 +122,10 @@ impl Cache {
 /// Project (crate) info
 ///
 /// Such as base URL.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
     pub name: String,
-    pub base_url: String,
-}
-
-impl From<&Info> for Project {
-    fn from(value: &Info) -> Self {
-        Self {
-            name: value.name.clone(),
-            base_url: value.url.clone(),
-        }
-    }
-}
-
-impl From<Info> for Project {
-    fn from(value: Info) -> Self {
-        Self {
-            name: value.name,
-            base_url: value.url,
-        }
-    }
+    pub url: String,
 }
 
 impl Project {
@@ -179,7 +149,7 @@ impl Project {
     pub async fn all() -> eyre::Result<Vec<Self>> {
         Cache::new()
             .await
-            .map(|cache| cache.projects.values().map(Into::into).collect())
+            .map(|cache| cache.projects.values().map(|p| p.clone()).collect())
     }
 
     pub fn clear_cache() -> eyre::Result<()> {
