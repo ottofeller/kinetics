@@ -191,6 +191,7 @@ enum Commands {
         #[arg(short, long, action = ArgAction::SetFalse)]
         remote: bool,
 
+        /// Provision local SQL database for invoked function
         #[arg(long="with-database", visible_aliases=["with-db", "db"])]
         with_database: bool,
     },
