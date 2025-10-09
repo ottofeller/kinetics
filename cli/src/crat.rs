@@ -134,6 +134,10 @@ impl Crate {
     }
 
     pub async fn status(&self) -> eyre::Result<StatusResponseBody> {
+        Self::status_by_name(&self.name).await
+    }
+
+    pub async fn status_by_name(name: &str) -> eyre::Result<StatusResponseBody> {
         let client = Client::new(false)?;
 
         #[derive(serde::Serialize, Debug)]
@@ -144,7 +148,7 @@ impl Crate {
         let result = client
             .post("/stack/status")
             .json(&serde_json::json!(JsonBody {
-                name: self.name.clone()
+                name: name.to_owned()
             }))
             .send()
             .await

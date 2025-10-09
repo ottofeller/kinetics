@@ -199,7 +199,7 @@ impl Function {
 
         Ok(format!(
             "{}{}",
-            Project::new(self.crat.to_owned()).base_url().await?,
+            Project::one(&self.crat.name).await?.url,
             path
         ))
     }
