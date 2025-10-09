@@ -1,10 +1,13 @@
 use aws_config::{Region, SdkConfig};
 use aws_sdk_dsql::auth_token::{AuthToken, AuthTokenGenerator, Config as DsqlConfig};
+use eyre::Context;
 use lambda_runtime::Error;
 use log::error;
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
+use url::Url;
 
 #[derive(Clone, Debug)]
 pub struct SqlDb {
@@ -15,10 +18,13 @@ pub struct SqlDb {
     username: String,
 
     /// Password for DSQL cluster access
-    password: Arc<RwLock<AuthToken>>,
+    password: Arc<RwLock<String>>,
 
     /// AWS SDK configuration
     config: SdkConfig,
+
+    /// SSL mode for the connection
+    ssl_mode: String,
 }
 
 /// SQL DB configuration details
@@ -30,13 +36,35 @@ impl SqlDb {
 
         let database = Self {
             endpoint,
-            password: Arc::new(RwLock::new(password)),
+            password: Arc::new(RwLock::new(password.to_string())),
             username: username.to_string(),
             config: config.clone(),
+            ssl_mode: "verify-full".to_string(), // Strictly require TLS for postgres connections
         };
 
         // Refresh the auth password in the background
         database.spawn_password_refresh();
+
+        Ok(database)
+    }
+
+    // Creates a local SQL DB instance using provided connection string
+    pub async fn new_local(connection_string: &str, config: &SdkConfig) -> Result<Self, Error> {
+        // Parse as regular URL postgres://username:password@localhost:5432/dbname
+        let url = Url::parse(connection_string).wrap_err("Failed to parse connection string")?;
+        let params: HashMap<String, String> = url.query_pairs().into_owned().collect();
+
+        let database = Self {
+            username: url.username().to_string(),
+            password: Arc::new(RwLock::new(url.password().unwrap_or("").to_string())),
+            endpoint: url.host_str().unwrap_or("localhost").to_string(),
+            config: config.clone(),
+
+            ssl_mode: params
+                .get("ssl_mode")
+                .unwrap_or(&String::from("disable"))
+                .to_owned(),
+        };
 
         Ok(database)
     }
@@ -65,11 +93,12 @@ impl SqlDb {
         let password = utf8_percent_encode(self.password().as_str(), NON_ALPHANUMERIC).to_string();
 
         format!(
-            "postgresql://{username}:{password}@{endpoint}:{port}/{database}?sslmode=verify-full",
+            "postgresql://{username}:{password}@{endpoint}:{port}/{database}?sslmode={ssl_mode}",
             username = self.username(),
             endpoint = self.endpoint(),
             port = self.port(),
             database = self.database(),
+            ssl_mode = self.ssl_mode,
         )
     }
 
@@ -96,7 +125,7 @@ impl SqlDb {
 
                 match fetch_dsql_password(&cluster_endpoint, &config).await {
                     Ok(token) => {
-                        *password.write().unwrap() = token;
+                        *password.write().unwrap() = token.to_string();
                     }
 
                     Err(err) => {

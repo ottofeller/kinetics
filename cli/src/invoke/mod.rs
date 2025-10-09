@@ -1,12 +1,12 @@
-mod dynamodb;
+mod docker;
 mod local;
 mod remote;
-use std::path::PathBuf;
-
+mod service;
 use crate::build::prepare_crates;
 use crate::config::build_config;
 use crate::crat::Crate;
 use crate::function::Function;
+use std::path::PathBuf;
 
 /// Invoke the function either locally or remotely
 pub async fn invoke(
@@ -19,6 +19,8 @@ pub async fn invoke(
     table: Option<&str>,
 
     is_local: bool,
+
+    is_sqldb_enabled: bool,
 ) -> eyre::Result<()> {
     // Get function names as well as pull all updates from the code.
     let all_functions = prepare_crates(
@@ -29,7 +31,7 @@ pub async fn invoke(
     let function = Function::find_by_name(&all_functions, function_name)?;
 
     if is_local {
-        local::invoke(&function, crat, payload, headers, table).await
+        local::invoke(&function, crat, payload, headers, table, is_sqldb_enabled).await
     } else {
         remote::invoke(&function, crat, payload, headers).await
     }

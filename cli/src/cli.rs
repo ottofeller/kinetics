@@ -190,6 +190,10 @@ enum Commands {
 
         #[arg(short, long, action = ArgAction::SetFalse)]
         remote: bool,
+
+        /// Provision local SQL database for invoked function
+        #[arg(long="with-database", visible_aliases=["with-db", "db"])]
+        with_database: bool,
     },
 
     /// Logout from Kinetics platform
@@ -315,6 +319,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             headers,
             table,
             remote,
+            with_database: sqldb,
         }) => {
             invoke(
                 name,
@@ -323,6 +328,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 headers,
                 if !table.is_empty() { Some(table) } else { None },
                 remote.to_owned(),
+                sqldb.to_owned(),
             )
             .await
         }
