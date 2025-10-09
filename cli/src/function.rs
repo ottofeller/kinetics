@@ -199,7 +199,7 @@ impl Function {
 
         Ok(format!(
             "{}{}",
-            Project::one(&self.crat.name).await?.base_url,
+            Project::one(&self.crat.name).await?.url,
             path
         ))
     }
