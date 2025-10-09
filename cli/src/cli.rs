@@ -191,8 +191,8 @@ enum Commands {
         #[arg(short, long, action = ArgAction::SetFalse)]
         remote: bool,
 
-        #[arg(short, long)]
-        sqldb: bool,
+        #[arg(long="with-database", aliases=["with-db", "wd"])]
+        with_database: bool,
     },
 
     /// Logout from Kinetics platform
@@ -318,7 +318,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             headers,
             table,
             remote,
-            sqldb,
+            with_database: sqldb,
         }) => {
             invoke(
                 name,
