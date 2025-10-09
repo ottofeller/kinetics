@@ -38,6 +38,9 @@ enum ProjectCommands {
 
     /// Rollback to previous version
     Rollback {},
+
+    /// List projects
+    List {},
 }
 
 #[derive(Subcommand)]
@@ -224,7 +227,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             .await
             .map_err(Error::from);
         }
-
         _ => {}
     }
 
@@ -254,6 +256,9 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 .wrap_err("Failed to rollback the project")
                 .map_err(Error::from);
         }
+        Some(Commands::Proj {
+            command: Some(ProjectCommands::List {}),
+        }) => return commands::projects::list().await,
         _ => Ok(()),
     }?;
 
