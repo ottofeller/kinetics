@@ -82,7 +82,7 @@ impl Cache {
     }
 
     /// Get a project from cache
-    pub fn get(&mut self, project_name: &str) -> eyre::Result<Info> {
+    pub fn get(&self, project_name: &str) -> eyre::Result<Info> {
         self.projects
             .get(project_name)
             .wrap_err("Project not found")
@@ -164,7 +164,7 @@ impl Project {
     /// Returns an error if the API request fails or if there are filesystem issues
     /// with reading/writing the cache.
     pub async fn one(name: &str) -> eyre::Result<Self> {
-        let mut cache = Cache::new().await?;
+        let cache = Cache::new().await?;
 
         cache
             .get(name)

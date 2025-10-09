@@ -39,7 +39,7 @@ pub async fn list() -> Result<(), Error> {
         .with(Width::wrap(width).priority(Priority::max(true)))
         .with(Width::increase(width));
 
-    let mut table = Table::new(projects.to_vec());
+    let mut table = Table::new(projects);
     table.with(Style::modern()).with(settings);
     println!("Projects\n{}", table);
 
