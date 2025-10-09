@@ -1,14 +1,9 @@
-use crate::error::Error;
-use crate::invoke::{dynamodb::LocalDynamoDB, sqldb::LocalSqlDB};
+use crate::invoke::service::{LocalSqlDB, Service};
 use crate::process::Process;
+use crate::{error::Error, invoke::service::LocalDynamoDB};
 use eyre::{Context, OptionExt};
 use serde_yaml::{Mapping, Value};
 use std::{path::Path, path::PathBuf, process, process::Stdio};
-
-pub enum DockerService {
-    DynamoDB(LocalDynamoDB),
-    SqlDB(LocalSqlDB),
-}
 
 /// Manage docker containers
 ///
@@ -22,7 +17,7 @@ pub struct Docker {
     is_started: bool,
 
     /// List of services to start
-    services: Vec<DockerService>,
+    services: Vec<Service>,
 }
 
 impl Docker {
@@ -113,8 +108,8 @@ impl Docker {
             .services
             .iter()
             .filter_map(|service| match service {
-                DockerService::DynamoDB(svc) => Some(svc.provision()),
-                DockerService::SqlDB(_) => None, // no-op
+                Service::DynamoDB(svc) => Some(svc.provision()),
+                Service::SqlDB(_) => None, // no-op
             })
             .collect::<Vec<_>>();
 
@@ -127,11 +122,11 @@ impl Docker {
     }
 
     pub fn with_dynamodb(&mut self, dynamodb: LocalDynamoDB) {
-        self.services.push(DockerService::DynamoDB(dynamodb));
+        self.services.push(Service::DynamoDB(dynamodb));
     }
 
     pub fn with_sqldb(&mut self, sqldb: LocalSqlDB) {
-        self.services.push(DockerService::SqlDB(sqldb));
+        self.services.push(Service::SqlDB(sqldb));
     }
 
     /// Creates docker-compose.yml string with all docker services
@@ -142,8 +137,8 @@ impl Docker {
         for service in &self.services {
             // Prepare service YAML snippets for each service
             let service_snippet = match service {
-                DockerService::DynamoDB(service) => service.docker_compose_snippet(),
-                DockerService::SqlDB(service) => service.docker_compose_snippet(),
+                Service::DynamoDB(service) => service.docker_compose_snippet(),
+                Service::SqlDB(service) => service.docker_compose_snippet(),
             };
 
             let value: Value = serde_yaml::from_str(service_snippet)

@@ -1,8 +1,7 @@
 mod docker;
-mod dynamodb;
 mod local;
 mod remote;
-mod sqldb;
+mod service;
 use crate::build::prepare_crates;
 use crate::config::build_config;
 use crate::crat::Crate;
