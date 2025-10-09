@@ -10,6 +10,10 @@ pub enum DockerService {
     SqlDB(LocalSqlDB),
 }
 
+/// Manage docker containers
+///
+/// Docker is mostly used to provision services (e.g. a database, or a queue)
+/// when a function gets invoked locally.
 pub struct Docker {
     /// Path to .kinetics dir
     build_path: PathBuf,
