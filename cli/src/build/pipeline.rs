@@ -179,7 +179,7 @@ impl Pipeline {
         }
 
         pipeline_progress.total_progress_bar.set_message(
-            if deploy_functions.len() >= *build_config()?.provision_warn_threshold {
+            if deploy_functions.len() >= build_config()?.provision_warn_threshold {
                 "May take longer than a minute..."
             } else {
                 "Provisioning resources..."
