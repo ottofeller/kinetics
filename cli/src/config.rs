@@ -7,6 +7,7 @@ pub(crate) struct BuildConfig<'a> {
     pub(crate) api_base: &'a str,
     pub(crate) kinetics_path: &'a str,
     pub(crate) credentials_path: &'a str,
+    pub(crate) provision_warn_threshold: usize,
 }
 
 static BUILD_CONFIG: OnceLock<BuildConfig> = OnceLock::new();
@@ -48,6 +49,7 @@ pub(crate) fn build_config() -> Result<&'static BuildConfig<'static>, Error> {
             api_base,
             kinetics_path: build_path,
             credentials_path,
+            provision_warn_threshold: 5,
         }
     }))
 }

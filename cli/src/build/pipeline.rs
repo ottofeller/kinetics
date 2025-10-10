@@ -92,6 +92,8 @@ impl Pipeline {
         // Define maximum number of parallel bundling jobs
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
 
+        let deploy_functions_len = deploy_functions.len();
+
         let handles = deploy_functions.into_iter().map(|mut function| {
             let client = client.clone();
             let sem = Arc::clone(&semaphore);
@@ -178,9 +180,13 @@ impl Pipeline {
             status = self.crat.status().await?;
         }
 
-        pipeline_progress
-            .total_progress_bar
-            .set_message("Provisioning resources...");
+        pipeline_progress.total_progress_bar.set_message(
+            if deploy_functions_len >= build_config()?.provision_warn_threshold {
+                "May take longer than a minute..."
+            } else {
+                "Provisioning resources..."
+            },
+        );
 
         match self
             .crat
