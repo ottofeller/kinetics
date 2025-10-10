@@ -14,9 +14,9 @@ name = "kinetics"
 path = "src/main.rs"
 
 [dependencies]
-aws-config = "1.8.7"
-aws-sdk-dynamodb = "1.94.0"
-aws-sdk-sqs = "1.85.0"
+aws-config = "1.8.8"
+aws-sdk-dynamodb = "1.95.0"
+aws-sdk-sqs = "1.86.0"
 aws-sdk-dsql = "=1.8.0"
 aws_lambda_events = "^0"
 chrono = { version = "0.4.42", features = ["serde"] }
@@ -27,10 +27,10 @@ regex = "1.11.3"
 walkdir = "2.5.0"
 kinetics-macro = { path = "../macro", version = "0.8.3" }
 
-zip = "5.1.1"
+zip = "6.0.0"
 tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
-toml_edit = "0.23.6"
+toml_edit = "0.23.7"
 rust_dotenv = "0.1.2"
 reqwest = { version = "0.12.23", features = [
     "json",
@@ -39,7 +39,7 @@ reqwest = { version = "0.12.23", features = [
 ], default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.145"
-serde_yaml = "0.9.33"
+serde_yaml = "0.9.34+deprecated"
 syn = { version = "2.0", features = ["full", "visit"] }
 prettyplease = "0.2.37"
 twox-hash = "2.1.2"
