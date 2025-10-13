@@ -1,2 +1,2 @@
 pub mod envs;
-pub mod projects;
+pub mod proj;
