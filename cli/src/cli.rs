@@ -41,6 +41,9 @@ enum ProjectCommands {
 
     /// List projects
     List {},
+
+    /// List all available versions
+    Versions {},
 }
 
 #[derive(Subcommand)]
@@ -263,6 +266,9 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         Some(Commands::Proj {
             command: Some(ProjectCommands::List {}),
         }) => return commands::projects::list().await,
+        Some(Commands::Proj {
+            command: Some(ProjectCommands::Versions {}),
+        }) => return commands::projects::versions(&crat).await,
         _ => Ok(()),
     }?;
 
