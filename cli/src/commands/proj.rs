@@ -72,8 +72,7 @@ pub async fn versions(crat: &Crate) -> Result<(), Error> {
                 .to_string()
                 .dimmed(),
             v.message
-                .unwrap_or("No message".black().to_string())
-                .dimmed()
+                .unwrap_or("No message".black().dimmed().to_string())
         );
     }
 
