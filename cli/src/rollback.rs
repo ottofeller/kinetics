@@ -5,19 +5,19 @@ use eyre::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Body {
+struct VersionsRequest {
     name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct RollbackBody {
+struct RollbackRequest {
     name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     version: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct Response {
+struct VersionsResponse {
     versions: Vec<Version>,
 }
 
@@ -34,10 +34,10 @@ struct Version {
 pub async fn rollback(crat: &Crate, version: Option<u32>) -> Result<()> {
     let client = Client::new(false).wrap_err("Failed to create client")?;
 
-    let versions: Response = client
+    let versions: VersionsResponse = client
         .request(
             "/stack/versions",
-            Body {
+            VersionsRequest {
                 name: crat.name.to_string(),
             },
         )
@@ -84,7 +84,7 @@ pub async fn rollback(crat: &Crate, version: Option<u32>) -> Result<()> {
 
     client
         .post("/stack/rollback")
-        .json(&RollbackBody {
+        .json(&RollbackRequest {
             name: crat.name.to_string(),
             version,
         })
