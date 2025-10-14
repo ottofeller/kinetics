@@ -70,7 +70,6 @@ pub async fn versions(crat: &Crate) -> Result<(), Error> {
             v.updated_at
                 .format("%Y-%m-%d %H:%M:%S")
                 .to_string()
-                .black()
                 .dimmed(),
             v.message
                 .unwrap_or("No message".black().to_string())
