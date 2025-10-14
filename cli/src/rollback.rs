@@ -1,13 +1,19 @@
-use crate::{client::Client, error::Error};
 use crate::crat::Crate;
+use crate::{client::Client, error::Error};
 use chrono::{DateTime, Utc};
 use eyre::{Context, Result};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Body {
     name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RollbackBody {
+    name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    version: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,10 +27,11 @@ struct Version {
     updated_at: DateTime<Utc>,
 }
 
-/// Rollback a project by one version
+/// Rollback a project by one version or to a specific version
 ///
 /// Consequent rollbacks are possible and will revert one version at a time
-pub async fn rollback(crat: &Crate) -> Result<()> {
+/// If version is specified, rollback to that specific version
+pub async fn rollback(crat: &Crate, version: Option<u32>) -> Result<()> {
     let client = Client::new(false).wrap_err("Failed to create client")?;
 
     let versions: Response = client
@@ -36,7 +43,7 @@ pub async fn rollback(crat: &Crate) -> Result<()> {
         )
         .await?;
 
-    if versions.versions.len() < 2 {
+    if versions.versions.len() < 2 && version.is_none() {
         println!(
             "{}",
             console::style("Nothing to rollback, there is only one version").yellow()
@@ -44,21 +51,43 @@ pub async fn rollback(crat: &Crate) -> Result<()> {
         return Ok(());
     }
 
+    let target_version = match version {
+        Some(v) => {
+            // Find the specified version in the list
+            if let Some(target) = versions.versions.iter().find(|ver| ver.version == v) {
+                target.clone()
+            } else {
+                return Err(Error::new(
+                    &format!("Version {} not found", v),
+                    Some("Use 'kinetics proj versions' to see available versions."),
+                )
+                .into());
+            }
+        }
+        None => {
+            // Default behavior: rollback to previous version
+            versions.versions[1].clone()
+        }
+    };
+
     println!(
         "{} {} {}...",
         console::style("Rolling back").bold().green(),
         console::style("to").dim(),
         console::style(format!(
             "v{} ({})",
-            versions.versions[1].version,
-            versions.versions[1].updated_at.with_timezone(&chrono::Local)
+            target_version.version,
+            target_version.updated_at.with_timezone(&chrono::Local)
         ))
         .bold(),
     );
 
     client
         .post("/stack/rollback")
-        .json(&json!({"name": crat.name}))
+        .json(&RollbackBody {
+            name: crat.name.to_string(),
+            version,
+        })
         .send()
         .await?;
 
