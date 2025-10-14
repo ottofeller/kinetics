@@ -32,7 +32,7 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
-enum ProjectCommands {
+enum ProjCommands {
     /// [DANGER] Destroy a project
     Destroy {},
 
@@ -53,7 +53,7 @@ enum EnvsCommands {
 }
 
 #[derive(Subcommand)]
-enum FunctionsCommands {
+enum FuncCommands {
     /// List all functions in the project
     List {
         /// Show detailed information for each function
@@ -100,13 +100,13 @@ enum Commands {
     /// Commands for managing projects
     Proj {
         #[command(subcommand)]
-        command: Option<ProjectCommands>,
+        command: Option<ProjCommands>,
     },
 
     /// Commands for managing functions
     Func {
         #[command(subcommand)]
-        command: Option<FunctionsCommands>,
+        command: Option<FuncCommands>,
     },
 
     /// Commands for managing environment variables
@@ -248,7 +248,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
     // Project commands
     match &cli.command {
         Some(Commands::Proj {
-            command: Some(ProjectCommands::Destroy {}),
+            command: Some(ProjCommands::Destroy {}),
         }) => {
             return destroy(&crat)
                 .await
@@ -256,7 +256,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 .map_err(Error::from);
         }
         Some(Commands::Proj {
-            command: Some(ProjectCommands::Rollback {}),
+            command: Some(ProjCommands::Rollback {}),
         }) => {
             return rollback(&crat)
                 .await
@@ -264,10 +264,10 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 .map_err(Error::from);
         }
         Some(Commands::Proj {
-            command: Some(ProjectCommands::List {}),
+            command: Some(ProjCommands::List {}),
         }) => return commands::proj::list().await,
         Some(Commands::Proj {
-            command: Some(ProjectCommands::Versions {}),
+            command: Some(ProjCommands::Versions {}),
         }) => return commands::proj::versions(&crat).await,
         _ => Ok(()),
     }?;
@@ -275,7 +275,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
     // Functions commands
     match &cli.command {
         Some(Commands::Func {
-            command: Some(FunctionsCommands::List { verbose }),
+            command: Some(FuncCommands::List { verbose }),
         }) => {
             return list(&crat, *verbose)
                 .await
@@ -283,7 +283,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 .map_err(Error::from);
         }
         Some(Commands::Func {
-            command: Some(FunctionsCommands::Stats { name, period }),
+            command: Some(FuncCommands::Stats { name, period }),
         }) => {
             return stats(name, &crat, *period)
                 .await
@@ -291,7 +291,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 .map_err(Error::from);
         }
         Some(Commands::Func {
-            command: Some(FunctionsCommands::Logs { name, period }),
+            command: Some(FuncCommands::Logs { name, period }),
         }) => logs(name, &crat, period).await,
         _ => Ok(()),
     }?;
