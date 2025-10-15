@@ -1,4 +1,4 @@
-use crate::invoke::service::{LocalSqlDB, Service};
+use crate::invoke::service::{LocalQueue, LocalSqlDB, Service};
 use crate::process::Process;
 use crate::{error::Error, invoke::service::LocalDynamoDB};
 use eyre::{Context, OptionExt};
@@ -109,9 +109,20 @@ impl Docker {
         let tasks = self
             .services
             .iter()
-            .filter_map(|service| match service {
-                Service::DynamoDB(svc) => Some(svc.provision()),
-                Service::SqlDB(_) => None, // no-op
+            .map(|service| async move {
+                match service {
+                    Service::DynamoDB(svc) => svc
+                        .provision()
+                        .await
+                        .wrap_err("Failed to provision DynamoDB"),
+
+                    Service::Queue(svc) => svc
+                        .provision()
+                        .await
+                        .wrap_err("Failed to provision SQS Queue"),
+
+                    Service::SqlDB(_) => Ok(()), // no-op
+                }
             })
             .collect::<Vec<_>>();
 
@@ -131,6 +142,10 @@ impl Docker {
         self.services.push(Service::SqlDB(sqldb));
     }
 
+    pub fn with_queue(&mut self, queue: LocalQueue) {
+        self.services.push(Service::Queue(queue));
+    }
+
     /// Creates docker-compose.yml string with all docker services
     fn docker_compose_string(&self) -> eyre::Result<String> {
         // Contains all services for docker-compose.yml file
@@ -140,6 +155,7 @@ impl Docker {
             // Prepare service YAML snippets for each service
             let service_snippet = match service {
                 Service::DynamoDB(service) => service.docker_compose_snippet(),
+                Service::Queue(service) => service.docker_compose_snippet(),
                 Service::SqlDB(service) => service.docker_compose_snippet(),
             };
 

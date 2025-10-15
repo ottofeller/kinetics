@@ -51,22 +51,44 @@ impl Client {
                         .split_once("::")
                         .unwrap();
 
-                    let queue_name = resource_name(
-                        &std::env::var("KINETICS_USERNAME").unwrap(),
-                        &crate_name,
-                        &ParsedFunction::path_to_name(&function_path.replace("::", "/")),
-                    );
+                    let region = std::env::var("AWS_REGION").unwrap_or("us-east-1".to_string());
+                    let is_local = std::env::var("KINETICS_LOCAL_MODE").is_ok();
 
-                    println!("Initializing queue client for {queue_name}");
+                    let queue_endpoint_url = std::env::var("KINETICS_QUEUE_ENDPOINT_URL")
+                        .unwrap_or(format!("https://sqs.{region}.amazonaws.com"));
+
+                    let queue_name = std::env::var("KINETICS_QUEUE_NAME")
+                        .or_else(|_| {
+                            Ok::<String, std::env::VarError>(resource_name(
+                                &std::env::var("KINETICS_USERNAME")
+                                    .expect("KINETICS_USERNAME is not set"),
+                                crate_name,
+                                &ParsedFunction::path_to_name(&function_path.replace("::", "/")),
+                            ))
+                        })
+                        .expect("Queue name is not set");
+
+                    let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
+                        // Local SQS uses a fixed account id
+                        .unwrap_or("000000000000".to_string());
 
                     let queue_url = format!(
-                        "https://sqs.us-east-1.amazonaws.com/{}/{}",
-                        &std::env::var("KINETICS_CLOUD_ACCOUNT_ID").unwrap(),
-                        queue_name
+                        "{queue_endpoint_url}/{account_id}/{queue_name}",
+                        queue_endpoint_url = queue_endpoint_url,
+                        account_id = account_id,
+                        queue_name = queue_name,
                     );
 
-                    let config =
-                        aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+                    let config = if is_local {
+                        aws_config::defaults(aws_config::BehaviorVersion::latest())
+                            .endpoint_url(&queue_endpoint_url)
+                            .load()
+                            .await
+                    } else {
+                        aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await
+                    };
+
+                    println!("Initializing queue client for {queue_name}");
 
                     aws_sdk_sqs::Client::new(&config)
                         .send_message()
