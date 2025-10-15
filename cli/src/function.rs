@@ -191,6 +191,8 @@ impl Function {
     pub async fn url(&self) -> eyre::Result<String> {
         let path = self
             .meta()?
+            .get("function")
+            .wrap_err("Function meta is corrupted in Cargo.toml")?
             .get("url_path")
             .wrap_err("No URL path specified for the function (not an enpoint?)")?
             .as_str()

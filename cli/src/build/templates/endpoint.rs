@@ -80,7 +80,9 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                         .name(secret_name.clone())
                         .with_decryption(true)
                         .send()
-                        .await?;
+                        .await.inspect_err(|e| {{
+                            eprintln!(\"Error fetching secret {{}}: {{:?}}\", secret_name, e);
+                        }})?;
 
                     let result = desc.parameter.unwrap();
 
@@ -89,7 +91,10 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                         .resource_type(aws_sdk_ssm::types::ResourceTypeForTagging::Parameter)
                         .resource_id(secret_name.clone())
                         .send()
-                        .await?
+                        .await
+                        .inspect_err(|e| {{
+                            eprintln!(\"Error fetching tags for secret {{}}: {{:?}}\", secret_name, e);
+                        }})?
                         .tag_list
                         .unwrap_or_default();
 
@@ -102,7 +107,10 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                     secrets.insert(name.into(), secret_value.to_string());
                 }}
 
-                let kinetics_config = KineticsConfig::new(&config).await?;
+                let kinetics_config = KineticsConfig::new(&config).await.inspect_err(|e| {{
+                    eprintln!(\"Error initializing kinetics config: {{:?}}\", e);
+                }})?;
+
                 println!(\"Serving requests\");
 
                 run(service_fn(|event: Request| async {{
