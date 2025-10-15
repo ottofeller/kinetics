@@ -36,8 +36,12 @@ enum ProjCommands {
     /// [DANGER] Destroy a project
     Destroy {},
 
-    /// Rollback to previous version
-    Rollback {},
+    /// Rollback to older version
+    Rollback {
+        /// Specific version to rollback to (optional)
+        #[arg(short, long)]
+        version: Option<u32>,
+    },
 
     /// List projects
     List {},
@@ -256,9 +260,9 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 .map_err(Error::from);
         }
         Some(Commands::Proj {
-            command: Some(ProjCommands::Rollback {}),
+            command: Some(ProjCommands::Rollback { version }),
         }) => {
-            return rollback(&crat)
+            return rollback(&crat, *version)
                 .await
                 .wrap_err("Failed to rollback the project")
                 .map_err(Error::from);
