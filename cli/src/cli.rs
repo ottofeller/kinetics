@@ -1,14 +1,8 @@
-use crate::build;
 use crate::commands;
 use crate::crat::Crate;
-use crate::deploy::{self, DeployConfig};
 use crate::error::Error;
 use crate::function::Type as FunctionType;
-use crate::init::init;
-use crate::invoke::invoke;
 use crate::logger::Logger;
-use crate::login::login;
-use crate::logout::logout;
 use clap::{ArgAction, Parser, Subcommand};
 use eyre::{Ok, WrapErr};
 use std::sync::Arc;
@@ -202,17 +196,17 @@ enum Commands {
     Logout {},
 }
 
-pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Error> {
+pub async fn run(deploy_config: Option<Arc<dyn commands::deploy::DeployConfig>>) -> Result<(), Error> {
     Logger::init();
     let cli = Cli::parse();
 
     // Commands that should be available outside of a project
     match &cli.command {
         Some(Commands::Login { email }) => {
-            return login(email).await.map_err(Error::from);
+            return commands::login::login(email).await.map_err(Error::from);
         }
         Some(Commands::Logout {}) => {
-            return logout().await.map_err(Error::from);
+            return commands::logout::logout().await.map_err(Error::from);
         }
         Some(Commands::Init {
             name,
@@ -220,7 +214,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             endpoint: _,
             worker,
         }) => {
-            return init(
+            return commands::init::init(
                 name,
                 if *cron {
                     FunctionType::Cron
@@ -311,13 +305,13 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
 
     // Global commands
     match &cli.command {
-        Some(Commands::Build { functions, .. }) => build::run(functions).await,
+        Some(Commands::Build { functions, .. }) => commands::build::run(functions).await,
         Some(Commands::Deploy {
             functions,
             max_concurrency,
             envs,
             ..
-        }) => deploy::run(functions, max_concurrency, *envs, deploy_config).await,
+        }) => commands::deploy::run(functions, max_concurrency, *envs, deploy_config).await,
         Some(Commands::Invoke {
             name,
             payload,
@@ -326,7 +320,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             remote,
             with_database: sqldb,
         }) => {
-            invoke(
+            commands::invoke::invoke(
                 name,
                 &crat,
                 payload,

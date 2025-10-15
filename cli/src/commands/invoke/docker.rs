@@ -1,6 +1,6 @@
-use crate::invoke::service::{LocalSqlDB, Service};
+use super::service::{LocalDynamoDB, LocalSqlDB, Service};
+use crate::error::Error;
 use crate::process::Process;
-use crate::{error::Error, invoke::service::LocalDynamoDB};
 use eyre::{Context, OptionExt};
 use serde_yaml::{Mapping, Value};
 use std::{path::Path, path::PathBuf, process, process::Stdio};

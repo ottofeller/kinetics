@@ -1,4 +1,4 @@
-use crate::build::prepare_crates;
+use super::build::prepare_crates;
 use crate::config::build_config;
 use crate::crat::Crate;
 use crossterm::style::Stylize;

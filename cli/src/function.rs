@@ -1,6 +1,6 @@
 use crate::client::Client;
 use crate::crat::Crate;
-use crate::deploy::DeployConfig;
+use crate::commands::deploy::DeployConfig;
 use crate::error::Error;
 use crate::project::Project;
 use base64::Engine as _;

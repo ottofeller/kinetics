@@ -1,7 +1,7 @@
 mod filehash;
 pub mod pipeline;
 mod templates;
-use crate::build::pipeline::Pipeline;
+use pipeline::Pipeline;
 use crate::crat::Crate;
 use crate::function::Function;
 use eyre::{Context, OptionExt};

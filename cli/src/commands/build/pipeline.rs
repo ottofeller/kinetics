@@ -1,8 +1,8 @@
-use crate::build::prepare_crates;
+use super::prepare_crates;
 use crate::client::Client;
 use crate::config::build_config;
 use crate::crat::Crate;
-use crate::deploy::DeployConfig;
+use crate::commands::deploy::DeployConfig;
 use crate::function::{build, Function};
 use eyre::{eyre, OptionExt, Report};
 use futures::future;

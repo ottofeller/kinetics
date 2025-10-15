@@ -2,7 +2,7 @@ mod docker;
 mod local;
 mod remote;
 mod service;
-use crate::build::prepare_crates;
+use super::build::prepare_crates;
 use crate::config::build_config;
 use crate::crat::Crate;
 use crate::function::Function;

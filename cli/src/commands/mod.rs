@@ -1,3 +1,9 @@
+pub mod build;
+pub mod deploy;
 pub mod envs;
-pub mod proj;
 pub mod func;
+pub mod init;
+pub mod login;
+pub mod logout;
+pub mod proj;
+pub mod invoke;

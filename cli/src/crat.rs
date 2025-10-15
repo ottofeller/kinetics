@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::deploy::DeployConfig;
+use crate::commands::deploy::DeployConfig;
 use crate::error::Error;
 use crate::function::Function;
 use crate::secret::Secret;
