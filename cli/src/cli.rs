@@ -2,16 +2,13 @@ use crate::build;
 use crate::commands;
 use crate::crat::Crate;
 use crate::deploy::{self, DeployConfig};
-use crate::destroy::destroy;
 use crate::error::Error;
 use crate::function::Type as FunctionType;
 use crate::init::init;
 use crate::invoke::invoke;
-use crate::commands::func;
 use crate::logger::Logger;
 use crate::login::login;
 use crate::logout::logout;
-use crate::rollback::rollback;
 use clap::{ArgAction, Parser, Subcommand};
 use eyre::{Ok, WrapErr};
 use std::sync::Arc;
@@ -252,7 +249,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         Some(Commands::Proj {
             command: Some(ProjCommands::Destroy {}),
         }) => {
-            return destroy(&crat)
+            return commands::proj::destroy::destroy(&crat)
                 .await
                 .wrap_err("Failed to destroy the project")
                 .map_err(Error::from);
@@ -260,17 +257,17 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         Some(Commands::Proj {
             command: Some(ProjCommands::Rollback { version }),
         }) => {
-            return rollback(&crat, *version)
+            return commands::proj::rollback::rollback(&crat, *version)
                 .await
                 .wrap_err("Failed to rollback the project")
                 .map_err(Error::from);
         }
         Some(Commands::Proj {
             command: Some(ProjCommands::List {}),
-        }) => return commands::proj::list().await,
+        }) => return commands::proj::list::list().await,
         Some(Commands::Proj {
             command: Some(ProjCommands::Versions {}),
-        }) => return commands::proj::versions(&crat).await,
+        }) => return commands::proj::versions::versions(&crat).await,
         _ => Ok(()),
     }?;
 
@@ -279,7 +276,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         Some(Commands::Func {
             command: Some(FuncCommands::List { verbose }),
         }) => {
-            return func::list::list(&crat, *verbose)
+            return commands::func::list::list(&crat, *verbose)
                 .await
                 .wrap_err("Failed to list functions")
                 .map_err(Error::from);
@@ -287,14 +284,14 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         Some(Commands::Func {
             command: Some(FuncCommands::Stats { name, period }),
         }) => {
-            return func::stats::stats(name, &crat, *period)
+            return commands::func::stats::stats(name, &crat, *period)
                 .await
                 .wrap_err("Failed to get function statistics")
                 .map_err(Error::from);
         }
         Some(Commands::Func {
             command: Some(FuncCommands::Logs { name, period }),
-        }) => func::logs::logs(name, &crat, period).await,
+        }) => commands::func::logs::logs(name, &crat, period).await,
         _ => Ok(()),
     }?;
 
