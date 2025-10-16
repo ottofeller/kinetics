@@ -52,7 +52,6 @@ impl Client {
                         .unwrap();
 
                     let region = std::env::var("AWS_REGION").unwrap_or("us-east-1".to_string());
-                    let is_local = std::env::var("KINETICS_LOCAL_MODE").is_ok();
 
                     let queue_endpoint_url = std::env::var("KINETICS_QUEUE_ENDPOINT_URL")
                         .unwrap_or(format!("https://sqs.{region}.amazonaws.com"));
@@ -74,7 +73,8 @@ impl Client {
 
                     let queue_url = format!("{queue_endpoint_url}/{account_id}/{queue_name}");
 
-                    let config = if is_local {
+                    let config = if std::env::var("KINETICS_LOCAL_MODE").is_ok() {
+                        // Redefine endpoint in local mode
                         aws_config::defaults(aws_config::BehaviorVersion::latest())
                             .endpoint_url(&queue_endpoint_url)
                             .load()
