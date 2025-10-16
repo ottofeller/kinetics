@@ -33,9 +33,9 @@ toml = { workspace = true }
 toml_edit = "0.23.7"
 rust_dotenv = "0.1.2"
 reqwest = { version = "0.12.24", features = [
-    "json",
-    "blocking",
-    "rustls-tls",
+  "json",
+  "blocking",
+  "rustls-tls",
 ], default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.145"
