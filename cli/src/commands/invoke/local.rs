@@ -1,8 +1,8 @@
+use super::docker::Docker;
+use super::service::{LocalDynamoDB, LocalQueue, LocalSqlDB};
 use crate::config::build_config;
 use crate::crat::Crate;
 use crate::function::Function;
-use super::docker::Docker;
-use super::service::{LocalDynamoDB, LocalQueue, LocalSqlDB};
 use crate::process::Process;
 use crate::secret::Secret;
 use color_eyre::owo_colors::OwoColorize;
@@ -50,6 +50,7 @@ pub async fn invoke(
 
     let mut local_environment = HashMap::from([
         ("KINETICS_LOCAL_MODE", "true".to_string()),
+        // Local SQS uses a fixed account id
         ("KINETICS_CLOUD_ACCOUNT_ID", "000000000000".to_string()),
     ]);
 
