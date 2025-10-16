@@ -83,7 +83,7 @@ pub async fn login(email: &str) -> eyre::Result<()> {
         return Err(eyre::eyre!("Invalid email format"));
     }
 
-    let mut credentials = Credentials::new(Path::new(&build_config()?.credentials_path))?;
+    let mut credentials = Credentials::new(Path::new(&build_config()?.credentials_path)).await?;
     let mut is_new_session = false;
 
     // If credentials expired — request new token

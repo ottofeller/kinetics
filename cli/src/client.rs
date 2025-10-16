@@ -14,7 +14,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(is_directly: bool) -> eyre::Result<Self> {
+    pub async fn new(is_directly: bool) -> eyre::Result<Self> {
         if is_directly {
             return Ok(Client {
                 access_token: "".into(),
@@ -22,7 +22,7 @@ impl Client {
             });
         }
 
-        let credentials = Credentials::new(Path::new(&build_config()?.credentials_path))?;
+        let credentials = Credentials::new(Path::new(&build_config()?.credentials_path)).await?;
 
         // If credentials expired — request to re-login
         if credentials.expires_at.timestamp() <= Utc::now().timestamp() {

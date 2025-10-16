@@ -87,7 +87,7 @@ impl Pipeline {
             return Ok(());
         }
 
-        let client = Client::new(self.deploy_config.is_some())?;
+        let client = Client::new(self.deploy_config.is_some()).await?;
 
         // Define maximum number of parallel bundling jobs
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
