@@ -62,7 +62,9 @@ impl Credentials {
         let path = Path::new(config.credentials_path);
 
         // Check for environment variable first (higher priority)
-        if let Ok(token) = std::env::var(config.credentials_env) {
+        let token = std::env::var(config.credentials_env).unwrap_or("".into());
+
+        if !token.is_empty() {
             log::info!("Using credentials from env {}", config.credentials_env);
 
             // Fetch token info from backend
