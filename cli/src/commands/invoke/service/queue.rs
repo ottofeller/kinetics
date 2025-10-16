@@ -66,9 +66,7 @@ impl LocalQueue {
             }
         }
 
-        println!("Created local queue: {}", self.queue_name);
-
-        // Create a queue with a hardcoded name
+        log::info!("Queue '{}' created successfully.", self.queue_name);
         Ok(())
     }
 
