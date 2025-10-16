@@ -56,18 +56,22 @@ impl Credentials {
 
     /// Initialize from the path to credentials file
     ///
-    /// First checks KINETICS_ACCESS_TOKEN environment variable, if not found, reads from file
+    /// First checks environment variable, if not found, reads from file
     pub async fn new() -> eyre::Result<Self> {
-        let path = Path::new(build_config()?.credentials_path);
+        let config = build_config()?;
+        let path = Path::new(config.credentials_path);
 
-        // Check for KINETICS_ACCESS_TOKEN environment variable first (higher priority)
-        if let Ok(token) = std::env::var("KINETICS_ACCESS_TOKEN") {
-            log::info!("Using credentials from env var");
+        // Check for environment variable first (higher priority)
+        if let Ok(token) = std::env::var(config.credentials_env) {
+            log::info!("Using credentials from env {}", config.credentials_env);
 
             // Fetch token info from backend
             let info = Self::fetch_info(&token).await.wrap_err(Error::new(
                 "Failed to fetch auth info",
-                Some("Check if your KINETICS_ACCESS_TOKEN is valid."),
+                Some(&format!(
+                    "Check if your {} is valid.",
+                    config.credentials_env
+                )),
             ))?;
 
             return Ok(Credentials {
