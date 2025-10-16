@@ -1,4 +1,4 @@
-use crate::config::api_url;
+use crate::config::{api_url, build_config};
 use crate::error::Error;
 use chrono::{DateTime, Utc};
 use eyre::Context;
@@ -60,7 +60,9 @@ impl Credentials {
     /// Initialize from the path to credentials file
     ///
     /// First checks KINETICS_ACCESS_TOKEN environment variable, if not found, reads from file
-    pub async fn new(path: &Path) -> eyre::Result<Self> {
+    pub async fn new() -> eyre::Result<Self> {
+        let path = Path::new(build_config()?.credentials_path);
+
         // Check for KINETICS_ACCESS_TOKEN environment variable first (higher priority)
         if let Ok(token) = std::env::var("KINETICS_ACCESS_TOKEN") {
             log::info!("Using credentials from env var");
