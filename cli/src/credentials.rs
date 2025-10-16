@@ -46,11 +46,8 @@ impl Credentials {
         log::debug!("Got response from {url}: {text}");
 
         if status != StatusCode::OK {
-            return Err(Error::new(
-                "Failed to fetch auth info",
-                Some("Check if your KINETICS_ACCESS_TOKEN is valid."),
-            )
-            .into());
+            log::error!("Auth info request status is not OK");
+            return Err(eyre::eyre!("Status is not 200"));
         }
 
         Ok(serde_json::from_str(&text)
