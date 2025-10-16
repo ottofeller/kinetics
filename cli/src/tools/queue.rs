@@ -72,12 +72,7 @@ impl Client {
                         // Local SQS uses a fixed account id
                         .unwrap_or("000000000000".to_string());
 
-                    let queue_url = format!(
-                        "{queue_endpoint_url}/{account_id}/{queue_name}",
-                        queue_endpoint_url = queue_endpoint_url,
-                        account_id = account_id,
-                        queue_name = queue_name,
-                    );
+                    let queue_url = format!("{queue_endpoint_url}/{account_id}/{queue_name}");
 
                     let config = if is_local {
                         aws_config::defaults(aws_config::BehaviorVersion::latest())
