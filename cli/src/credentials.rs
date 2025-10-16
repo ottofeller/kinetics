@@ -22,6 +22,7 @@ impl Credentials {
     pub(crate) fn new(path: &Path) -> eyre::Result<Self> {
         let mut credentials = serde_json::from_str::<crate::credentials::Credentials>(
             &std::fs::read_to_string(path)
+                // Create credentials file with empty defaults if it's missing
                 .or_else(|_| {
                     let default =
                         json!({ "email": "", "token": "", "expiresAt": "2000-01-01T00:00:00Z" })
