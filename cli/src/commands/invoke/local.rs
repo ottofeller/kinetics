@@ -1,8 +1,8 @@
 use crate::config::build_config;
 use crate::crat::Crate;
 use crate::function::Function;
-use crate::invoke::docker::Docker;
-use crate::invoke::service::{LocalDynamoDB, LocalQueue, LocalSqlDB};
+use super::docker::Docker;
+use super::service::{LocalDynamoDB, LocalQueue, LocalSqlDB};
 use crate::process::Process;
 use crate::secret::Secret;
 use color_eyre::owo_colors::OwoColorize;

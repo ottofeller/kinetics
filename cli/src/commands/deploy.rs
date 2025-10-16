@@ -1,4 +1,4 @@
-use crate::build::{pipeline::Pipeline, prepare_crates};
+use super::build::{pipeline::Pipeline, prepare_crates};
 use crate::client::Client;
 use crate::config::build_config;
 use crate::crat::Crate;

@@ -1,19 +1,8 @@
-use crate::build;
 use crate::commands;
 use crate::crat::Crate;
-use crate::deploy::{self, DeployConfig};
-use crate::destroy::destroy;
 use crate::error::Error;
 use crate::function::Type as FunctionType;
-use crate::init::init;
-use crate::invoke::invoke;
-use crate::list::list;
 use crate::logger::Logger;
-use crate::login::login;
-use crate::logout::logout;
-use crate::logs::logs;
-use crate::rollback::rollback;
-use crate::stats::stats;
 use clap::{ArgAction, Parser, Subcommand};
 use eyre::{Ok, WrapErr};
 use std::sync::Arc;
@@ -32,15 +21,22 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
-enum ProjectCommands {
+enum ProjCommands {
     /// [DANGER] Destroy a project
     Destroy {},
 
-    /// Rollback to previous version
-    Rollback {},
+    /// Rollback to older version
+    Rollback {
+        /// Specific version to rollback to (optional)
+        #[arg(short, long)]
+        version: Option<u32>,
+    },
 
     /// List projects
     List {},
+
+    /// List all available versions
+    Versions {},
 }
 
 #[derive(Subcommand)]
@@ -50,7 +46,7 @@ enum EnvsCommands {
 }
 
 #[derive(Subcommand)]
-enum FunctionsCommands {
+enum FuncCommands {
     /// List all functions in the project
     List {
         /// Show detailed information for each function
@@ -97,13 +93,13 @@ enum Commands {
     /// Commands for managing projects
     Proj {
         #[command(subcommand)]
-        command: Option<ProjectCommands>,
+        command: Option<ProjCommands>,
     },
 
     /// Commands for managing functions
     Func {
         #[command(subcommand)]
-        command: Option<FunctionsCommands>,
+        command: Option<FuncCommands>,
     },
 
     /// Commands for managing environment variables
@@ -203,17 +199,17 @@ enum Commands {
     Logout {},
 }
 
-pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Error> {
+pub async fn run(deploy_config: Option<Arc<dyn commands::deploy::DeployConfig>>) -> Result<(), Error> {
     Logger::init();
     let cli = Cli::parse();
 
     // Commands that should be available outside of a project
     match &cli.command {
         Some(Commands::Login { email }) => {
-            return login(email).await.map_err(Error::from);
+            return commands::login::login(email).await.map_err(Error::from);
         }
         Some(Commands::Logout {}) => {
-            return logout().await.map_err(Error::from);
+            return commands::logout::logout().await.map_err(Error::from);
         }
         Some(Commands::Init {
             name,
@@ -221,7 +217,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             endpoint: _,
             worker,
         }) => {
-            return init(
+            return commands::init::init(
                 name,
                 if *cron {
                     FunctionType::Cron
@@ -248,48 +244,51 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
     // Project commands
     match &cli.command {
         Some(Commands::Proj {
-            command: Some(ProjectCommands::Destroy {}),
+            command: Some(ProjCommands::Destroy {}),
         }) => {
-            return destroy(&crat)
+            return commands::proj::destroy::destroy(&crat)
                 .await
                 .wrap_err("Failed to destroy the project")
                 .map_err(Error::from);
         }
         Some(Commands::Proj {
-            command: Some(ProjectCommands::Rollback {}),
+            command: Some(ProjCommands::Rollback { version }),
         }) => {
-            return rollback(&crat)
+            return commands::proj::rollback::rollback(&crat, *version)
                 .await
                 .wrap_err("Failed to rollback the project")
                 .map_err(Error::from);
         }
         Some(Commands::Proj {
-            command: Some(ProjectCommands::List {}),
-        }) => return commands::projects::list().await,
+            command: Some(ProjCommands::List {}),
+        }) => return commands::proj::list::list().await,
+        Some(Commands::Proj {
+            command: Some(ProjCommands::Versions {}),
+        }) => return commands::proj::versions::versions(&crat).await,
         _ => Ok(()),
     }?;
 
     // Functions commands
     match &cli.command {
         Some(Commands::Func {
-            command: Some(FunctionsCommands::List { verbose }),
+            command: Some(FuncCommands::List { verbose }),
         }) => {
-            return list(&crat, *verbose)
+            return commands::func::list::list(&crat, *verbose)
                 .await
                 .wrap_err("Failed to list functions")
                 .map_err(Error::from);
         }
         Some(Commands::Func {
-            command: Some(FunctionsCommands::Stats { name, period }),
+            command: Some(FuncCommands::Stats { name, period }),
         }) => {
-            return stats(name, &crat, *period)
+            return commands::func::stats::stats(name, &crat, *period)
                 .await
                 .wrap_err("Failed to get function statistics")
                 .map_err(Error::from);
         }
         Some(Commands::Func {
-            command: Some(FunctionsCommands::Logs { name, period }),
-        }) => logs(name, &crat, period).await,
+            command: Some(FuncCommands::Logs { name, period }),
+        }) => commands::func::logs::logs(name, &crat, period).await,
         _ => Ok(()),
     }?;
 
@@ -309,13 +308,13 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
 
     // Global commands
     match &cli.command {
-        Some(Commands::Build { functions, .. }) => build::run(functions).await,
+        Some(Commands::Build { functions, .. }) => commands::build::run(functions).await,
         Some(Commands::Deploy {
             functions,
             max_concurrency,
             envs,
             ..
-        }) => deploy::run(functions, max_concurrency, *envs, deploy_config).await,
+        }) => commands::deploy::run(functions, max_concurrency, *envs, deploy_config).await,
         Some(Commands::Invoke {
             name,
             payload,
@@ -325,7 +324,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             with_database: sqldb,
             with_queue,
         }) => {
-            invoke(
+            commands::invoke::invoke(
                 name,
                 &crat,
                 payload,
