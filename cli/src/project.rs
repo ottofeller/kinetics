@@ -97,7 +97,7 @@ impl Cache {
     }
 
     async fn load() -> eyre::Result<Self> {
-        let response = Client::new(false)?
+        let response = Client::new(false).await?
             .request::<(), ProjectsResponse>("/projects", ())
             .await
             .wrap_err(Error::new(

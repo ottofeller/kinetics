@@ -27,6 +27,7 @@ pub async fn versions(crat: &Crate) -> Result<(), Error> {
     }
 
     let client = Client::new(false)
+        .await
         .inspect_err(|e| log::error!("Failed to create client: {e:?}"))
         .wrap_err("Authentication failed. Please login first.")?;
 

@@ -1,5 +1,4 @@
 use crate::config::api_url;
-use crate::config::build_config;
 use crate::credentials::Credentials;
 use crate::error::Error;
 use crate::project::Project;
@@ -11,7 +10,6 @@ use eyre::Context;
 use regex::Regex;
 use serde_json::json;
 use std::io::{self, Write};
-use std::path::Path;
 
 /// Request auth code and exchange it for access token
 async fn request(email: &str) -> eyre::Result<Credentials> {
@@ -83,7 +81,7 @@ pub async fn login(email: &str) -> eyre::Result<()> {
         return Err(eyre::eyre!("Invalid email format"));
     }
 
-    let mut credentials = Credentials::new(Path::new(&build_config()?.credentials_path))?;
+    let mut credentials = Credentials::new().await?;
     let mut is_new_session = false;
 
     // If credentials expired — request new token

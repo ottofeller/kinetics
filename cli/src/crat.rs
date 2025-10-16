@@ -78,7 +78,7 @@ impl Crate {
             pub secrets: HashMap<String, String>,
         }
 
-        let client = Client::new(deploy_config.is_some())?;
+        let client = Client::new(deploy_config.is_some()).await?;
         let secrets = HashMap::from_iter(
             Secret::from_dotenv()
                 .iter()
@@ -138,7 +138,7 @@ impl Crate {
     }
 
     pub async fn status_by_name(name: &str) -> eyre::Result<StatusResponseBody> {
-        let client = Client::new(false)?;
+        let client = Client::new(false).await?;
 
         #[derive(serde::Serialize, Debug)]
         pub struct JsonBody {
