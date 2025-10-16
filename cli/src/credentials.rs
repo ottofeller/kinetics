@@ -1,6 +1,9 @@
+use crate::config::api_url;
 use crate::error::Error;
 use chrono::{DateTime, Utc};
 use eyre::Context;
+use reqwest::StatusCode;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
@@ -16,10 +19,69 @@ pub(crate) struct Credentials {
     pub(crate) expires_at: DateTime<Utc>,
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct AuthInfoResponse {
+    email: String,
+    expires_at: DateTime<Utc>,
+}
+
 /// Managing credentials file
 impl Credentials {
+    /// Fetch email and expires_at associated with the token
+    async fn fetch_info(token: &str) -> eyre::Result<AuthInfoResponse> {
+        let url = "/auth/info";
+
+        // Can't use internal client here, as it will create recursion
+        let result = reqwest::Client::new()
+            .get(&api_url(&url))
+            .header("Authorization", token)
+            .send()
+            .await
+            .inspect_err(|e| log::error!("Request to /auth/info failed: {e:?}"))?;
+
+        let status = result.status();
+        let text = result.text().await?;
+        log::debug!("Got status from {url}: {status}");
+        log::debug!("Got response from {url}: {text}");
+
+        if status != StatusCode::OK {
+            return Err(Error::new(
+                "Failed to fetch auth info",
+                Some("Check if your KINETICS_ACCESS_TOKEN is valid."),
+            )
+            .into());
+        }
+
+        Ok(serde_json::from_str(&text)
+            .inspect_err(|e| log::error!("Could not parse auth info response: {e:?}"))?)
+    }
+
     /// Initialize from the path to credentials file
-    pub(crate) fn new(path: &Path) -> eyre::Result<Self> {
+    ///
+    /// First checks KINETICS_ACCESS_TOKEN environment variable, if not found, reads from file
+    pub async fn new(path: &Path) -> eyre::Result<Self> {
+        // Check for KINETICS_ACCESS_TOKEN environment variable first (higher priority)
+        if let Ok(token) = std::env::var("KINETICS_ACCESS_TOKEN") {
+            log::info!("Using credentials from env var");
+
+            // Fetch token info from backend
+            let info = Self::fetch_info(&token).await.wrap_err(Error::new(
+                "Failed to fetch auth info",
+                Some("Check if your KINETICS_ACCESS_TOKEN is valid."),
+            ))?;
+
+            return Ok(Credentials {
+                path: path.to_path_buf(),
+                email: info.email,
+                token,
+                expires_at: info.expires_at,
+            });
+        }
+
+        // Fall back to reading from file
+        log::info!("Using credentials from {}", path.to_string_lossy());
+
         let mut credentials = serde_json::from_str::<crate::credentials::Credentials>(
             &std::fs::read_to_string(path)
                 // Create credentials file with empty defaults if it's missing
