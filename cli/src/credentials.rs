@@ -32,7 +32,7 @@ impl Credentials {
 
         // Can't use internal client here, as it will create recursion
         let result = reqwest::Client::new()
-            .get(&api_url(&url))
+            .get(&api_url(url))
             .header("Authorization", token)
             .send()
             .await
