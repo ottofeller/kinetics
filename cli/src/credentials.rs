@@ -9,7 +9,6 @@ use std::path::{Path, PathBuf};
 
 /// Credentials to be used with API
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
 pub(crate) struct Credentials {
     #[serde(skip)]
     path: PathBuf,
@@ -20,7 +19,6 @@ pub(crate) struct Credentials {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
 struct AuthInfoResponse {
     email: String,
     expires_at: DateTime<Utc>,
@@ -92,7 +90,7 @@ impl Credentials {
                 // Create credentials file with empty defaults if it's missing
                 .or_else(|_| {
                     let default =
-                        json!({ "email": "", "token": "", "expiresAt": "2000-01-01T00:00:00Z" })
+                        json!({ "email": "", "token": "", "expires_at": "2000-01-01T00:00:00Z" })
                             .to_string();
                     if let Some(dir) = path.parent() {
                         if !dir.exists() {
