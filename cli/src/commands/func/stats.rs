@@ -47,7 +47,7 @@ pub async fn stats(function_name: &str, crat: &Crate, period: u32) -> Result<()>
         .collect::<eyre::Result<Vec<Function>>>()?;
     let function = Function::find_by_name(&all_functions, function_name)?;
 
-    let client = Client::new(false)?;
+    let client = Client::new(false).await?;
 
     println!(
         "\n{} {} {}...\n",

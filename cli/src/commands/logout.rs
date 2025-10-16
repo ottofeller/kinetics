@@ -6,7 +6,7 @@ use serde_json::json;
 use std::path::Path;
 
 async fn remove(email: &str) -> eyre::Result<()> {
-    let client = Client::new(false)?;
+    let client = Client::new(false).await?;
 
     let response = client
         .post("/auth/code/logout")
@@ -26,7 +26,7 @@ async fn remove(email: &str) -> eyre::Result<()> {
 /// By cleaning up the local credentials file and voiding credentials on the backend
 pub async fn logout() -> eyre::Result<()> {
     let path = Path::new(&build_config()?.credentials_path);
-    let credentials = Credentials::new(path)?;
+    let credentials = Credentials::new().await?;
 
     if credentials.is_valid(&credentials.email) {
         remove(&credentials.email)
@@ -40,9 +40,7 @@ pub async fn logout() -> eyre::Result<()> {
 
     println!(
         "{}",
-        console::style("Successfully logged out")
-            .green()
-            .bold()
+        console::style("Successfully logged out").green().bold()
     );
 
     Ok(())

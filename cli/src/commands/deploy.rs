@@ -74,7 +74,7 @@ async fn envs(deploy_functions: &[String]) -> eyre::Result<()> {
         envs.insert(function.name.clone(), function_envs);
     }
 
-    let client = Client::new(false)?;
+    let client = Client::new(false).await?;
 
     let result = client
         .post("/stack/deploy/envs")

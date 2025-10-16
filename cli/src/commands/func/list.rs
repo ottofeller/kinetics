@@ -182,7 +182,7 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let mut endpoint_rows = Vec::new();
     let mut cron_rows = Vec::new();
     let mut worker_rows = Vec::new();
-    let client = Client::new(false)?;
+    let client = Client::new(false).await?;
 
     if functions.is_empty() {
         println!("{}", console::style("No functions found").yellow());

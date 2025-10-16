@@ -5,7 +5,7 @@ use serde_json::json;
 use std::io::{self, Write};
 
 pub async fn destroy(crat: &Crate) -> Result<()> {
-    let client = Client::new(false).wrap_err("Failed to create client")?;
+    let client = Client::new(false).await.wrap_err("Failed to create client")?;
 
     print!(
         "{} {}: ",
