@@ -7,7 +7,7 @@ use aws_sdk_dynamodb::types::{
 const DOCKER_COMPOSE_SNIPPET: &str = r#"
 local-dynamodb:
     command: "-jar DynamoDBLocal.jar -sharedDb -dbPath ./data"
-    image: "amazon/dynamodb-local:latest"
+    image: "amazon/dynamodb-local:3.1.0"
     ports:
         - "8000:8000"
     volumes:
