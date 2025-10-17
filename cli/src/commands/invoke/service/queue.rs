@@ -4,7 +4,7 @@ use std::time::Duration;
 
 const DOCKER_COMPOSE_SNIPPET: &str = r#"
 local-sqs:
-    image: "vsouza/sqs-local:latest"
+    image: "vsouza/sqs-local:1.5.7"
     ports:
         - "9324:9324"
 "#;
