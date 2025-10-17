@@ -1,6 +1,6 @@
 const DOCKER_COMPOSE_SNIPPET: &str = r#"
 local-postgres:
-    image: "postgres:16"
+    image: "postgres:16.10"
     shm_size: 128mb
     ports:
         - "5432:5432"
