@@ -49,7 +49,7 @@ pub async fn invoke(
     let mut docker = Docker::new(&PathBuf::from(&build_config()?.kinetics_path));
 
     let mut local_environment = HashMap::from([
-        ("KINETICS_LOCAL_MODE", "true".to_string()),
+        ("KINETICS_IS_LOCAL", "true".to_string()),
         // Local SQS uses a fixed account id
         ("KINETICS_CLOUD_ACCOUNT_ID", "000000000000".to_string()),
     ]);

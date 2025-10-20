@@ -56,6 +56,17 @@ impl Client {
                     let queue_endpoint_url = std::env::var("KINETICS_QUEUE_ENDPOINT_URL")
                         .unwrap_or(format!("https://sqs.{region}.amazonaws.com"));
 
+                    let config = if std::env::var("KINETICS_IS_LOCAL").is_ok() {
+                        // Redefine endpoint in local mode
+                        aws_config::defaults(aws_config::BehaviorVersion::latest())
+                            .endpoint_url(&queue_endpoint_url)
+                            .load()
+                            .await
+                    } else {
+                        aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await
+                    };
+
+                    // Use a hardcoded queue name if it's set, otherwise generate it
                     let queue_name = std::env::var("KINETICS_QUEUE_NAME")
                         .or_else(|_| {
                             Ok::<String, std::env::VarError>(resource_name(
@@ -68,26 +79,15 @@ impl Client {
                         .expect("Queue name is not set");
 
                     let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
-                        // Local SQS uses a fixed account id
-                        .unwrap_or("000000000000".to_string());
-
-                    let queue_url = format!("{queue_endpoint_url}/{account_id}/{queue_name}");
-
-                    let config = if std::env::var("KINETICS_LOCAL_MODE").is_ok() {
-                        // Redefine endpoint in local mode
-                        aws_config::defaults(aws_config::BehaviorVersion::latest())
-                            .endpoint_url(&queue_endpoint_url)
-                            .load()
-                            .await
-                    } else {
-                        aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await
-                    };
+                        .expect("KINETICS_CLOUD_ACCOUNT_ID is not set");
 
                     println!("Initializing queue client for {queue_name}");
 
                     aws_sdk_sqs::Client::new(&config)
                         .send_message()
-                        .queue_url(queue_url)
+                        // Create a full queue URL in a known format:
+                        // https://sqs.us-east1.amazonaws.com/000000000000/kinetics-queue-name
+                        .queue_url(format!("{queue_endpoint_url}/{account_id}/{queue_name}"))
                 })
                 .await
                 .to_owned(),
