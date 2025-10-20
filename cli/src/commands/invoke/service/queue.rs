@@ -10,13 +10,13 @@ local-sqs:
 "#;
 
 pub struct LocalQueue {
-    queue_name: String,
+    name: String,
 }
 
 impl LocalQueue {
     pub fn new() -> Self {
         Self {
-            queue_name: "local-queue".to_string(),
+            name: "local-queue".to_string(),
         }
     }
 
@@ -43,11 +43,7 @@ impl LocalQueue {
 
         // Wait for SQS to be ready and attempt to create the queue with retries
         for attempt in 1..=max_retries {
-            let result = client
-                .create_queue()
-                .queue_name(&self.queue_name)
-                .send()
-                .await;
+            let result = client.create_queue().queue_name(&self.name).send().await;
 
             match result {
                 Ok(_) => return Ok(()),
@@ -66,12 +62,12 @@ impl LocalQueue {
             }
         }
 
-        log::info!("Queue '{}' created successfully.", self.queue_name);
+        log::info!("Queue '{}' created successfully.", self.name);
         Ok(())
     }
 
     pub fn name(&self) -> String {
-        self.queue_name.clone()
+        self.name.clone()
     }
 
     pub fn endpoint_url(&self) -> String {
