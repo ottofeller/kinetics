@@ -70,11 +70,12 @@ impl LocalQueue {
         Ok(())
     }
 
-    pub fn queue_name(&self) -> String {
+    pub fn name(&self) -> String {
         self.queue_name.clone()
     }
 
-    pub fn queue_endpoint_url(&self) -> String {
+    pub fn endpoint_url(&self) -> String {
+        // Keep in mind that the port is hardcoded in DOCKER_COMPOSE_SNIPPET
         "http://localhost:9324".to_string()
     }
 }

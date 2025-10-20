@@ -65,8 +65,8 @@ pub async fn invoke(
 
     if is_queue_enabled {
         let queue = LocalQueue::new();
-        local_environment.insert("KINETICS_QUEUE_NAME", queue.queue_name());
-        local_environment.insert("KINETICS_QUEUE_ENDPOINT_URL", queue.queue_endpoint_url());
+        local_environment.insert("KINETICS_QUEUE_NAME", queue.name());
+        local_environment.insert("KINETICS_QUEUE_ENDPOINT_URL", queue.endpoint_url());
         docker.with_queue(queue);
     }
 
