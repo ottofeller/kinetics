@@ -29,7 +29,7 @@ impl LocalQueue {
         let config = aws_config::defaults(BehaviorVersion::latest())
             .endpoint_url("http://localhost:9324")
             .region("us-east-1")
-            .credentials_provider(aws_sdk_dynamodb::config::Credentials::new(
+            .credentials_provider(aws_sdk_sqs::config::Credentials::new(
                 "key", "secret", None, None, "provider",
             ))
             .load()
