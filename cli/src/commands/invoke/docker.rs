@@ -114,12 +114,12 @@ impl Docker {
                     Service::DynamoDB(svc) => svc
                         .provision()
                         .await
-                        .wrap_err("Failed to provision DynamoDB"),
+                        .wrap_err("Failed to provision local DynamoDB"),
 
                     Service::Queue(svc) => svc
                         .provision()
                         .await
-                        .wrap_err("Failed to provision SQS Queue"),
+                        .wrap_err("Failed to provision local SQS queue"),
 
                     Service::SqlDB(_) => Ok(()), // no-op
                 }
