@@ -80,7 +80,7 @@ pub async fn invoke(
     let mut aws_credentials = HashMap::new();
 
     // Do not mock AWS endpoint when not needed
-    if table.is_some() {
+    if table.is_some() || is_queue_enabled {
         aws_credentials.insert("AWS_IGNORE_CONFIGURED_ENDPOINT_URLS", "false");
         aws_credentials.insert("AWS_ENDPOINT_URL", "http://localhost:8000");
         aws_credentials.insert("AWS_ACCESS_KEY_ID", "key");
