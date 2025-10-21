@@ -83,8 +83,6 @@ impl Client {
                     let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
                         .expect("KINETICS_CLOUD_ACCOUNT_ID is not set");
 
-                    println!("{}", "Initializing local queue...".dim());
-
                     aws_sdk_sqs::Client::new(&config)
                         .send_message()
                         // Create a full queue URL in a known format:
