@@ -1,6 +1,6 @@
 const DOCKER_COMPOSE_SNIPPET: &str = r#"
 local-postgres:
-    image: "postgres:16"
+    image: "postgres:16.10"
     shm_size: 128mb
     ports:
         - "5432:5432"
@@ -17,8 +17,8 @@ impl LocalSqlDB {
         Self {}
     }
 
-    pub fn docker_compose_snippet(&self) -> &str {
-        DOCKER_COMPOSE_SNIPPET
+    pub fn docker_compose_snippet(&self) -> String {
+        DOCKER_COMPOSE_SNIPPET.to_string()
     }
 
     pub fn connection_string(&self) -> String {
