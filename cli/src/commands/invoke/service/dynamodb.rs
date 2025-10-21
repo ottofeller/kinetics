@@ -27,8 +27,8 @@ impl LocalDynamoDB {
         }
     }
 
-    pub fn docker_compose_snippet(&self) -> &str {
-        DOCKER_COMPOSE_SNIPPET
+    pub fn docker_compose_snippet(&self) -> String {
+        DOCKER_COMPOSE_SNIPPET.to_string()
     }
 
     /// Provision table with retry mechanism for handling connection issues
@@ -47,7 +47,7 @@ impl LocalDynamoDB {
 
         // Retry parameters
         let max_retries = 5;
-        let initial_delay_ms = 500;
+        let retry_delay_ms = 1000;
 
         // Wait for DynamoDB to be ready and attempt to create the table with retries
         for attempt in 1..=max_retries {
@@ -106,11 +106,7 @@ impl LocalDynamoDB {
                         err
                     );
 
-                    // Exponential backoff: initial_delay_ms * 2^(attempt-1)
-                    let delay_duration =
-                        std::time::Duration::from_millis(initial_delay_ms * (1 << (attempt - 1)));
-
-                    tokio::time::sleep(delay_duration).await;
+                    tokio::time::sleep(std::time::Duration::from_millis(retry_delay_ms)).await;
                 }
             }
         }

@@ -19,8 +19,8 @@ pub async fn invoke(
     table: Option<&str>,
 
     is_local: bool,
-
     is_sqldb_enabled: bool,
+    is_queue_enabled: bool,
 ) -> eyre::Result<()> {
     // Get function names as well as pull all updates from the code.
     let all_functions = prepare_crates(
@@ -31,7 +31,16 @@ pub async fn invoke(
     let function = Function::find_by_name(&all_functions, function_name)?;
 
     if is_local {
-        local::invoke(&function, crat, payload, headers, table, is_sqldb_enabled).await
+        local::invoke(
+            &function,
+            crat,
+            payload,
+            headers,
+            table,
+            is_sqldb_enabled,
+            is_queue_enabled,
+        )
+        .await
     } else {
         remote::invoke(&function, crat, payload, headers).await
     }

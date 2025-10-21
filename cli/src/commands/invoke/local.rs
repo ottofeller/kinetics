@@ -1,8 +1,8 @@
+use super::docker::Docker;
+use super::service::{LocalDynamoDB, LocalQueue, LocalSqlDB};
 use crate::config::build_config;
 use crate::crat::Crate;
 use crate::function::Function;
-use super::docker::Docker;
-use super::service::{LocalDynamoDB, LocalSqlDB};
 use crate::process::Process;
 use crate::secret::Secret;
 use color_eyre::owo_colors::OwoColorize;
@@ -22,6 +22,7 @@ pub async fn invoke(
     table: Option<&str>,
 
     is_sqldb_enabled: bool,
+    is_queue_enabled: bool,
 ) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
 
@@ -46,15 +47,27 @@ pub async fn invoke(
     );
 
     let mut docker = Docker::new(&PathBuf::from(&build_config()?.kinetics_path));
-    let mut sqldb_credentials = HashMap::new();
+
+    let mut local_environment = HashMap::from([
+        ("KINETICS_IS_LOCAL", "true".to_string()),
+        // Local SQS uses a fixed account id
+        ("KINETICS_CLOUD_ACCOUNT_ID", "000000000000".to_string()),
+    ]);
 
     if is_sqldb_enabled {
         let sqldb = LocalSqlDB::new();
-        sqldb_credentials.insert(
+        local_environment.insert(
             "KINETICS_SQLDB_LOCAL_CONNECTION_STRING",
             sqldb.connection_string(),
         );
         docker.with_sqldb(sqldb);
+    }
+
+    if is_queue_enabled {
+        let queue = LocalQueue::new();
+        local_environment.insert("KINETICS_QUEUE_NAME", queue.name());
+        local_environment.insert("KINETICS_QUEUE_ENDPOINT_URL", queue.endpoint_url());
+        docker.with_queue(queue);
     }
 
     if let Some(table) = table {
@@ -67,7 +80,7 @@ pub async fn invoke(
     let mut aws_credentials = HashMap::new();
 
     // Do not mock AWS endpoint when not needed
-    if table.is_some() {
+    if table.is_some() || is_queue_enabled {
         aws_credentials.insert("AWS_IGNORE_CONFIGURED_ENDPOINT_URLS", "false");
         aws_credentials.insert("AWS_ENDPOINT_URL", "http://localhost:8000");
         aws_credentials.insert("AWS_ACCESS_KEY_ID", "key");
@@ -79,7 +92,7 @@ pub async fn invoke(
         .args(["run", "--bin", &format!("{}Local", function.name)])
         .envs(secrets)
         .envs(aws_credentials)
-        .envs(sqldb_credentials)
+        .envs(local_environment)
         .envs(function.environment()?)
         .env("KINETICS_INVOKE_PAYLOAD", payload)
         .env("KINETICS_INVOKE_HEADERS", headers)

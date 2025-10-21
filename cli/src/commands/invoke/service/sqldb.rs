@@ -17,8 +17,8 @@ impl LocalSqlDB {
         Self {}
     }
 
-    pub fn docker_compose_snippet(&self) -> &str {
-        DOCKER_COMPOSE_SNIPPET
+    pub fn docker_compose_snippet(&self) -> String {
+        DOCKER_COMPOSE_SNIPPET.to_string()
     }
 
     pub fn connection_string(&self) -> String {

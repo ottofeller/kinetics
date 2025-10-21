@@ -190,6 +190,9 @@ enum Commands {
         /// Provision local SQL database for invoked function
         #[arg(long="with-database", visible_aliases=["with-db", "db"])]
         with_database: bool,
+
+        #[arg(long="with-queue", visible_aliases=["queue"])]
+        with_queue: bool,
     },
 
     /// Logout from Kinetics platform
@@ -319,6 +322,7 @@ pub async fn run(deploy_config: Option<Arc<dyn commands::deploy::DeployConfig>>)
             table,
             remote,
             with_database: sqldb,
+            with_queue,
         }) => {
             commands::invoke::invoke(
                 name,
@@ -328,6 +332,7 @@ pub async fn run(deploy_config: Option<Arc<dyn commands::deploy::DeployConfig>>)
                 if !table.is_empty() { Some(table) } else { None },
                 remote.to_owned(),
                 sqldb.to_owned(),
+                with_queue.to_owned(),
             )
             .await
         }
