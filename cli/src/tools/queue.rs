@@ -1,6 +1,7 @@
 use crate::tools::{config::Config as KineticsConfig, resource_name};
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
+use crossterm::style::Stylize;
 use kinetics_parser::ParsedFunction;
 use lambda_runtime::LambdaEvent;
 use serde::{Deserialize, Serialize};
@@ -82,7 +83,7 @@ impl Client {
                     let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
                         .expect("KINETICS_CLOUD_ACCOUNT_ID is not set");
 
-                    println!("Initializing queue client for {queue_name}");
+                    println!("{}", "Initializing local queue...".dim());
 
                     aws_sdk_sqs::Client::new(&config)
                         .send_message()
