@@ -1,7 +1,6 @@
 use crate::tools::{config::Config as KineticsConfig, resource_name};
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
-use crossterm::style::Stylize;
 use kinetics_parser::ParsedFunction;
 use lambda_runtime::LambdaEvent;
 use serde::{Deserialize, Serialize};
