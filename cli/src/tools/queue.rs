@@ -66,7 +66,8 @@ impl Client {
                         aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await
                     };
 
-                    // Use a hardcoded queue name if it's set, otherwise generate it
+                    // Use a hardcoded queue name for local invocations, otherwise generate the name
+                    // out of user and project names
                     let queue_name = std::env::var("KINETICS_QUEUE_NAME")
                         .or_else(|_| {
                             Ok::<String, std::env::VarError>(resource_name(
