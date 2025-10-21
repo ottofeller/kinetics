@@ -1,4 +1,4 @@
-use super::service::{LocalQueue, LocalDynamoDB, LocalSqlDB, Service};
+use super::service::{LocalDynamoDB, LocalQueue, LocalSqlDB, Service};
 use crate::error::Error;
 use crate::process::Process;
 use eyre::{Context, OptionExt};
@@ -159,7 +159,7 @@ impl Docker {
                 Service::SqlDB(service) => service.docker_compose_snippet(),
             };
 
-            let value: Value = serde_yaml::from_str(service_snippet)
+            let value: Value = serde_yaml::from_str(&service_snippet)
                 .wrap_err("failed to parse service YAML snippet")?;
 
             let mapping = value

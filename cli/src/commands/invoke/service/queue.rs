@@ -6,22 +6,27 @@ const DOCKER_COMPOSE_SNIPPET: &str = r#"
 local-sqs:
     image: "vsouza/sqs-local:1.5.7"
     ports:
-        - "9324:9324"
+        - "{{PORT}}"
 "#;
 
 pub struct LocalQueue {
     name: String,
+    port: u16,
 }
 
 impl LocalQueue {
     pub fn new() -> Self {
         Self {
             name: "local-queue".to_string(),
+            port: 9324,
         }
     }
 
-    pub fn docker_compose_snippet(&self) -> &str {
-        DOCKER_COMPOSE_SNIPPET
+    pub fn docker_compose_snippet(&self) -> String {
+        DOCKER_COMPOSE_SNIPPET.replace(
+            "{{PORT}}",
+            format!("{port}:{port}", port = self.port).as_str(),
+        )
     }
 
     pub async fn provision(&self) -> eyre::Result<()> {
@@ -69,7 +74,6 @@ impl LocalQueue {
     }
 
     pub fn endpoint_url(&self) -> String {
-        // Keep in mind that the port is hardcoded in DOCKER_COMPOSE_SNIPPET
-        "http://localhost:9324".to_string()
+        format!("http://localhost:{}", self.port)
     }
 }

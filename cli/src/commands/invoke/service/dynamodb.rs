@@ -27,8 +27,8 @@ impl LocalDynamoDB {
         }
     }
 
-    pub fn docker_compose_snippet(&self) -> &str {
-        DOCKER_COMPOSE_SNIPPET
+    pub fn docker_compose_snippet(&self) -> String {
+        DOCKER_COMPOSE_SNIPPET.to_string()
     }
 
     /// Provision table with retry mechanism for handling connection issues
