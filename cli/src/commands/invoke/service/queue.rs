@@ -38,8 +38,8 @@ impl LocalQueue {
         let client = aws_sdk_sqs::Client::new(&config);
 
         // Retry parameters
-        let max_retries: u32 = 3;
-        let initial_delay_ms: u64 = 200;
+        let max_retries = 5;
+        let retry_delay_ms = 1000;
 
         // Wait for SQS to be ready and attempt to create the queue with retries
         for attempt in 1..=max_retries {
@@ -55,9 +55,7 @@ impl LocalQueue {
                         ).into());
                     }
 
-                    let multiplier = 2u64.saturating_pow(attempt.saturating_sub(1));
-                    let delay_duration = initial_delay_ms.saturating_mul(multiplier);
-                    tokio::time::sleep(Duration::from_millis(delay_duration)).await;
+                    tokio::time::sleep(Duration::from_millis(retry_delay_ms)).await;
                 }
             }
         }
