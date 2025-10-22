@@ -90,19 +90,19 @@ enum FuncCommands {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Commands for managing projects
+    /// Manage projects
     Proj {
         #[command(subcommand)]
         command: Option<ProjCommands>,
     },
 
-    /// Commands for managing functions
+    /// Functions log, telemetry, and management
     Func {
         #[command(subcommand)]
         command: Option<FuncCommands>,
     },
 
-    /// Commands for managing environment variables
+    /// Environment variables for functions
     Envs {
         #[command(subcommand)]
         command: Option<EnvsCommands>,
