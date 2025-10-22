@@ -21,6 +21,25 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
+enum AuthCommands {
+    /// Delete local access token locally and remotely
+    Logout {},
+
+    /// Create a new authentication token
+    Token {
+        /// Time period for which the token is active.
+        ///
+        /// The period object (e.g. `1day 3hours`) is a concatenation of time spans.
+        /// Where each time span is an integer number and a suffix representing time units.
+        ///
+        /// Defaults to 30days.
+        ///
+        #[arg(short, long)]
+        period: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
 enum ProjCommands {
     /// [DANGER] Destroy a project
     Destroy {},
@@ -90,19 +109,25 @@ enum FuncCommands {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Commands for managing projects
+    /// Auth and access tokens
+    Auth {
+        #[command(subcommand)]
+        command: Option<AuthCommands>,
+    },
+
+    /// Manage projects
     Proj {
         #[command(subcommand)]
         command: Option<ProjCommands>,
     },
 
-    /// Commands for managing functions
+    /// Functions log, telemetry, and management
     Func {
         #[command(subcommand)]
         command: Option<FuncCommands>,
     },
 
-    /// Commands for managing environment variables
+    /// Environment variables for functions
     Envs {
         #[command(subcommand)]
         command: Option<EnvsCommands>,
@@ -194,12 +219,11 @@ enum Commands {
         #[arg(long="with-queue", visible_aliases=["queue"])]
         with_queue: bool,
     },
-
-    /// Logout from Kinetics platform
-    Logout {},
 }
 
-pub async fn run(deploy_config: Option<Arc<dyn commands::deploy::DeployConfig>>) -> Result<(), Error> {
+pub async fn run(
+    deploy_config: Option<Arc<dyn commands::deploy::DeployConfig>>,
+) -> Result<(), Error> {
     Logger::init();
     let cli = Cli::parse();
 
@@ -207,9 +231,6 @@ pub async fn run(deploy_config: Option<Arc<dyn commands::deploy::DeployConfig>>)
     match &cli.command {
         Some(Commands::Login { email }) => {
             return commands::login::login(email).await.map_err(Error::from);
-        }
-        Some(Commands::Logout {}) => {
-            return commands::logout::logout().await.map_err(Error::from);
         }
         Some(Commands::Init {
             name,
@@ -240,6 +261,21 @@ pub async fn run(deploy_config: Option<Arc<dyn commands::deploy::DeployConfig>>)
         .display_env_section(false)
         .theme(color_eyre::config::Theme::new())
         .install()?;
+
+    // Auth commands
+    match &cli.command {
+        Some(Commands::Auth {
+            command: Some(AuthCommands::Logout {}),
+        }) => {
+            return commands::auth::logout::logout().await.map_err(Error::from);
+        }
+        Some(Commands::Auth {
+            command: Some(AuthCommands::Token { period }),
+        }) => {
+            return commands::auth::token::token(period).await.map_err(Error::from);
+        }
+        _ => Ok(()),
+    }?;
 
     // Project commands
     match &cli.command {
