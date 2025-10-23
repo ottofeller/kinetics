@@ -1,12 +1,12 @@
 mod filehash;
 pub mod pipeline;
 mod templates;
-use pipeline::Pipeline;
 use crate::crat::Crate;
 use crate::function::Function;
 use eyre::{Context, OptionExt};
 use filehash::{FileHash, CHECKSUMS_FILENAME};
 use kinetics_parser::{ParsedFunction, Parser, Role};
+use pipeline::Pipeline;
 use regex::Regex;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -197,22 +197,6 @@ fn clear_dir(dst: &Path, checksum: &FileHash) -> eyre::Result<()> {
     Ok(())
 }
 
-/// Attempt kinetics macro replacements in .rs files.
-fn remove_kinetics_macro(content: &str) -> eyre::Result<String> {
-    let re_endpoint = Regex::new(r"(?m)^\s*#\s*\[\s*endpoint[^]]*]\s*$")?;
-    let re_cron = Regex::new(r"(?m)^\s*#\s*\[\s*cron[^]]*]\s*$")?;
-    let re_worker = Regex::new(r"(?m)^\s*#\s*\[\s*worker[^]]*]\s*$")?;
-
-    let re_import = Regex::new(
-        r"(?m)^\s*use\s+kinetics_macro(\s*::\s*(\w+|\{\s*\w+(\s*,\s*\w+)*\s*}))?\s*;\s*$",
-    )?;
-
-    let mut new_content = re_endpoint.replace_all(content, "").to_string();
-    new_content = re_worker.replace_all(&new_content, "").to_string();
-    new_content = re_cron.replace_all(&new_content, "").to_string();
-    Ok(re_import.replace_all(&new_content, "").into_owned())
-}
-
 /// Create lib.rs file for the cloned crate.
 /// The file is used as an export point for all the functions.
 fn create_lib(
@@ -257,7 +241,7 @@ fn create_lib(
             }
         }
 
-        remove_kinetics_macro(&lib)?
+        lib
     } else {
         // Create lib.rs file with required exports.
         modules
@@ -289,7 +273,7 @@ fn create_lambda_bin(
     checksum: &mut FileHash,
 ) -> eyre::Result<()> {
     let function_name = parsed_function.func_name(is_local)?;
-    let lambda_path_local = bin_dir.join(format!("{}.rs", function_name));
+    let lambda_path_local = bin_dir.join(format!("{function_name}.rs"));
     let lambda_path = dst.join(&lambda_path_local);
 
     let fn_import = import_statement(
@@ -404,7 +388,7 @@ fn metadata(
     {
         e.extend(environment)
     }
-    functions_meta.push(function_meta.into());
+    functions_meta.push(function_meta);
 
     Ok(())
 }
@@ -567,10 +551,8 @@ fn clean_copy(
     }
 
     // Attempt kinetics macro replacements in .rs files.
-    let content = remove_kinetics_macro(
-        &fs::read_to_string(src_path_full)
-            .wrap_err(format!("Failed to read file {src_path_full:?}"))?,
-    )?;
+    let content = fs::read_to_string(src_path_full)
+        .wrap_err(format!("Failed to read file {src_path_full:?}"))?;
     if checksum.update(
         file_path_relative.to_path_buf(),
         &FileHash::hash_from_bytes(&content).wrap_err_with(|| {

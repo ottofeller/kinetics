@@ -152,3 +152,33 @@ impl HttpBody for Body {
         })
     }
 }
+
+/// Trait that carries the pattern string.
+pub trait PathPattern {
+    /// The pattern, e.g. "/hello/{name}"
+    const PATTERN: &'static str;
+}
+
+pub trait PathExt {
+    /// Get a parameter from path.
+    fn path_param<P: PathPattern>(&self, name: &str) -> Option<&str>;
+}
+
+impl<B> PathExt for http::Request<B> {
+    fn path_param<P: PathPattern>(&self, name: &str) -> Option<&str> {
+        // Split the pattern and the actual path into segments.
+        let pattern_parts = P::PATTERN.split('/').filter(|p| !p.is_empty());
+        let path_parts = self.uri().path().split('/').filter(|p| !p.is_empty());
+
+        // Walk the two slices in parallel.
+        for (pat, seg) in pattern_parts.zip(path_parts) {
+            if pat.starts_with('{') && pat.ends_with('}') {
+                let key = &pat[1..pat.len() - 1];
+                if key == name {
+                    return Some(seg);
+                }
+            }
+        }
+        None
+    }
+}
