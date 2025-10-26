@@ -1,16 +1,34 @@
-pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool) -> String {
+use crate::tools::config::EndpointConfig;
+
+pub fn endpoint(
+    import_statement: &str,
+    rust_function_name: &str,
+    params: EndpointConfig,
+    is_local: bool,
+) -> String {
     if is_local {
         format!(
             "{import_statement}
-            use http::Request;
+            use http::request::Builder;
             use serde_json;
             use reqwest::header::{{HeaderName, HeaderValue}};
             use std::str::FromStr;
-            use kinetics::tools::config::Config as KineticsConfig;
+            use kinetics::tools::config::{{Config as KineticsConfig, EndpointConfig}};
             #[tokio::main]
             async fn main() -> Result<(), tower::BoxError> {{\n\
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-                let kinetics_config = KineticsConfig::new(&config).await?;
+                let endpoint_config = {params};
+                let url_path = std::env::var(\"KINETICS_INVOKE_URL_PATH\").unwrap_or_default();
+                let url_path = if url_path.is_empty() {{
+                    endpoint_config
+                        .clone()
+                        .url_pattern
+                        .unwrap()
+                        .replace(['{{', '}}', '+'], \"\")
+                }} else {{
+                    url_path
+                }};
+                let kinetics_config = KineticsConfig::new(&config, Some(endpoint_config)).await?;
                 let mut secrets = std::collections::HashMap::new();
 
                 for (k, v) in std::env::vars() {{
@@ -30,9 +48,8 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                     Err(_) => \"{{}}\".into(),
                 }};
 
-                let mut event = Request::new(kinetics::tools::http::Body::from(payload).try_into()?);
-                let headers = event.headers_mut();
-
+                let mut event_builder = Builder::new();
+                let headers = event_builder.headers_mut().unwrap();
                 let headers_value = serde_json::from_str::<serde_json::Value>(&headers_json)
                     .unwrap_or_default();
                 let headers_obj = headers_value.as_object().unwrap();
@@ -44,6 +61,9 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                         );
                 }}
 
+                let event = event_builder
+                    .uri(url_path)
+                    .body(kinetics::tools::http::Body::from(payload).try_into()?)?;
                 match {rust_function_name}(event, &secrets, &kinetics_config).await {{
                     Ok(response) => {{
                         println!(\"{{response:?}}\");
@@ -60,7 +80,7 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
     } else {
         format!(
             "{import_statement}
-            use kinetics::tools::config::Config as KineticsConfig;
+            use kinetics::tools::config::{{Config as KineticsConfig, EndpointConfig}};
             use lambda_http::{{run, service_fn, Request}};\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), lambda_http::Error> {{\n\
@@ -107,7 +127,8 @@ pub fn endpoint(import_statement: &str, rust_function_name: &str, is_local: bool
                     secrets.insert(name.into(), secret_value.to_string());
                 }}
 
-                let kinetics_config = KineticsConfig::new(&config).await.inspect_err(|e| {{
+                let endpoint_config = {params};
+                let kinetics_config = KineticsConfig::new(&config, Some(endpoint_config)).await.inspect_err(|e| {{
                     eprintln!(\"Error initializing kinetics config: {{:?}}\", e);
                 }})?;
 

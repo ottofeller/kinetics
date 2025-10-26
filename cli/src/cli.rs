@@ -203,6 +203,9 @@ enum Commands {
         #[arg(long, default_value = "{}")]
         headers: String,
 
+        #[arg(long, default_value = "")]
+        url_path: String,
+
         #[arg(short, long, default_value = "{}")]
         payload: String,
 
@@ -272,7 +275,9 @@ pub async fn run(
         Some(Commands::Auth {
             command: Some(AuthCommands::Token { period }),
         }) => {
-            return commands::auth::token::token(period).await.map_err(Error::from);
+            return commands::auth::token::token(period)
+                .await
+                .map_err(Error::from);
         }
         _ => Ok(()),
     }?;
@@ -355,6 +360,7 @@ pub async fn run(
             name,
             payload,
             headers,
+            url_path,
             table,
             remote,
             with_database: sqldb,
@@ -365,6 +371,7 @@ pub async fn run(
                 &crat,
                 payload,
                 headers,
+                url_path,
                 if !table.is_empty() { Some(table) } else { None },
                 remote.to_owned(),
                 sqldb.to_owned(),

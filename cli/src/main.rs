@@ -1,5 +1,6 @@
 mod cli;
 mod client;
+mod commands;
 mod config;
 mod crat;
 mod credentials;
@@ -9,8 +10,8 @@ mod logger;
 mod process;
 mod project;
 mod secret;
-mod commands;
 pub mod sqldb;
+pub mod tools;
 use crate::cli::run;
 use crate::error::Error;
 

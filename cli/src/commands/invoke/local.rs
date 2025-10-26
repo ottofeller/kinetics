@@ -17,6 +17,7 @@ pub async fn invoke(
     crat: &Crate,
     payload: &str,
     headers: &str,
+    url_path: &str,
 
     // DynamoDbB table to provision
     table: Option<&str>,
@@ -96,6 +97,7 @@ pub async fn invoke(
         .envs(function.environment()?)
         .env("KINETICS_INVOKE_PAYLOAD", payload)
         .env("KINETICS_INVOKE_HEADERS", headers)
+        .env("KINETICS_INVOKE_URL_PATH", url_path)
         .current_dir(&invoke_dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
