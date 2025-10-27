@@ -44,6 +44,6 @@ pub async fn invoke(
         )
         .await
     } else {
-        remote::invoke(&function, crat, payload, headers).await
+        remote::invoke(&function, crat, payload, headers, url_path).await
     }
 }
