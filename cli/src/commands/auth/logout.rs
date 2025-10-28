@@ -28,7 +28,7 @@ pub async fn logout() -> eyre::Result<()> {
     let path = Path::new(&build_config()?.credentials_path);
     let credentials = Credentials::new().await?;
 
-    if credentials.is_valid(&credentials.email) {
+    if credentials.is_valid() {
         remove(&credentials.email)
             .await
             .wrap_err("Logout request failed")?;

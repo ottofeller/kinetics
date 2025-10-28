@@ -4,6 +4,7 @@ use crate::error::Error;
 use chrono::{DateTime, Duration, Utc};
 use eyre::{ContextCompat, WrapErr};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -15,6 +16,8 @@ struct ProjectsResponse {
 }
 
 /// The structure of entire cache file
+///
+/// The cache is stored in a file, and gets refreshed automatically when it expires
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Cache {
     projects: HashMap<String, Project>,
@@ -97,7 +100,8 @@ impl Cache {
     }
 
     async fn load() -> eyre::Result<Self> {
-        let response = Client::new(false).await?
+        let response = Client::new(false)
+            .await?
             .request::<(), ProjectsResponse>("/projects", ())
             .await
             .wrap_err(Error::new(
@@ -154,5 +158,18 @@ impl Project {
 
     pub fn clear_cache() -> eyre::Result<()> {
         Cache::clear()
+    }
+
+    /// Destroy the project by sending a DELETE request to /projects/{name}
+    pub async fn destroy(&self) -> eyre::Result<()> {
+        Client::new(false)
+            .await
+            .wrap_err("Failed to create client")?
+            .post("/stack/destroy")
+            .json(&json!({"crate_name": self.name}))
+            .send()
+            .await?;
+
+        Ok(())
     }
 }

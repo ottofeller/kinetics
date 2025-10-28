@@ -116,10 +116,8 @@ impl Credentials {
     }
 
     /// Credentials are presented for the email and are not expired
-    pub fn is_valid(&self, email: &str) -> bool {
-        !self.token.is_empty()
-            && self.expires_at.timestamp() > Utc::now().timestamp()
-            && self.email == email
+    pub fn is_valid(&self) -> bool {
+        !self.token.is_empty() && self.expires_at.timestamp() > Utc::now().timestamp()
     }
 
     /// Update credentials file with new email, token, and expiration time

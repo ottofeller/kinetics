@@ -42,7 +42,11 @@ enum AuthCommands {
 #[derive(Subcommand)]
 enum ProjCommands {
     /// [DANGER] Destroy a project
-    Destroy {},
+    Destroy {
+        /// Name of the project to destroy (optional, defaults to current crate name)
+        #[arg(short, long)]
+        name: Option<String>,
+    },
 
     /// Rollback to older version
     Rollback {
@@ -254,13 +258,7 @@ pub async fn run(
         _ => {}
     }
 
-    let crat = Crate::from_current_dir()?;
-
-    color_eyre::config::HookBuilder::default()
-        .display_location_section(false)
-        .display_env_section(false)
-        .theme(color_eyre::config::Theme::new())
-        .install()?;
+    let crat = Crate::from_current_dir();
 
     // Auth commands
     match &cli.command {
@@ -272,7 +270,9 @@ pub async fn run(
         Some(Commands::Auth {
             command: Some(AuthCommands::Token { period }),
         }) => {
-            return commands::auth::token::token(period).await.map_err(Error::from);
+            return commands::auth::token::token(period)
+                .await
+                .map_err(Error::from);
         }
         _ => Ok(()),
     }?;
@@ -280,17 +280,17 @@ pub async fn run(
     // Project commands
     match &cli.command {
         Some(Commands::Proj {
-            command: Some(ProjCommands::Destroy {}),
+            command: Some(ProjCommands::Destroy { name }),
         }) => {
-            return commands::proj::destroy::destroy(&crat)
+            return commands::proj::destroy::destroy(&crat.ok(), name.as_deref())
                 .await
-                .wrap_err("Failed to destroy the project")
+                .inspect_err(|err| log::error!("Error: {:?}", err))
                 .map_err(Error::from);
         }
         Some(Commands::Proj {
             command: Some(ProjCommands::Rollback { version }),
         }) => {
-            return commands::proj::rollback::rollback(&crat, *version)
+            return commands::proj::rollback::rollback(&crat?, *version)
                 .await
                 .wrap_err("Failed to rollback the project")
                 .map_err(Error::from);
@@ -300,9 +300,12 @@ pub async fn run(
         }) => return commands::proj::list::list().await,
         Some(Commands::Proj {
             command: Some(ProjCommands::Versions {}),
-        }) => return commands::proj::versions::versions(&crat).await,
+        }) => return commands::proj::versions::versions(&crat?).await,
         _ => Ok(()),
     }?;
+
+    // Since this point all commands need the crat to be presented
+    let crat = crat?;
 
     // Functions commands
     match &cli.command {
