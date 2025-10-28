@@ -9,7 +9,7 @@ pub async fn list() -> Result<(), Error> {
     Project::all()
         .await
         .inspect_err(|e| log::error!("Failed to load list of projects: {e}"))
-        .wrap_err("Request failed. Tray again later.")?
+        .wrap_err("Request failed. Try again later.")?
         .iter()
         .for_each(|p| println!("{}\n{}\n\n", p.name.clone().bold(), p.url.dimmed()));
 
