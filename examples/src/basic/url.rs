@@ -21,8 +21,8 @@ impl std::error::Error for InternalError {}
 ///
 /// Test locally with the following command:
 /// kinetics invoke BasicUrlHello --url-path /hello/john/smith/jr
-#[endpoint(url_path = "/hello/{name}/{rest+}")]
-pub async fn hello(
+#[endpoint(url_path = "/hello/{name}/{*rest}")]
+pub async fn path(
     event: Request<Body>,
     _secrets: &HashMap<String, String>,
     config: &KineticsConfig,
@@ -35,9 +35,7 @@ pub async fn hello(
             .expect("Endpoint must have its config set")
             .url_pattern
             .as_ref()
-            .expect("The pattern exists")
-            // Switch to matchit compatible format.
-            .replace("{rest+}", "{*rest}"),
+            .expect("The pattern exists"),
         (),
     )?;
 

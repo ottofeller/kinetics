@@ -24,7 +24,7 @@ pub fn endpoint(
                         .clone()
                         .url_pattern
                         .unwrap()
-                        .replace(['{{', '}}', '+'], \"\")
+                        .replace(['{{', '}}', '+', '*'], \"\")
                 }} else {{
                     url_path
                 }};
