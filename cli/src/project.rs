@@ -17,7 +17,7 @@ struct ProjectsResponse {
 
 /// The structure of entire cache file
 ///
-/// The cache is stored in a file, and gets refreshed automatically when it expires=
+/// The cache is stored in a file, and gets refreshed automatically when it expires
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Cache {
     projects: HashMap<String, Project>,
