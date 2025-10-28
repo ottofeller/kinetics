@@ -3,7 +3,7 @@ use crate::tools::config::EndpointConfig;
 pub fn endpoint(
     import_statement: &str,
     rust_function_name: &str,
-    params: EndpointConfig,
+    config: EndpointConfig,
     is_local: bool,
 ) -> String {
     if is_local {
@@ -17,7 +17,7 @@ pub fn endpoint(
             #[tokio::main]
             async fn main() -> Result<(), tower::BoxError> {{\n\
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-                let endpoint_config = {params};
+                let endpoint_config = {config};
                 let url_path = std::env::var(\"KINETICS_INVOKE_URL_PATH\").unwrap_or_default();
                 let url_path = if url_path.is_empty() {{
                     endpoint_config
@@ -127,7 +127,7 @@ pub fn endpoint(
                     secrets.insert(name.into(), secret_value.to_string());
                 }}
 
-                let endpoint_config = {params};
+                let endpoint_config = {config};
                 let kinetics_config = KineticsConfig::new(&config, Some(endpoint_config)).await.inspect_err(|e| {{
                     eprintln!(\"Error initializing kinetics config: {{:?}}\", e);
                 }})?;
