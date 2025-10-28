@@ -26,18 +26,8 @@ pub async fn destroy(crat: &Crate) -> Result<()> {
         return Ok(());
     }
 
-    println!(
-        "{}: {}",
-        console::style("Destroying").bold(),
-        console::style(&crat.name)
-    );
-
-    client
-        .post("/stack/destroy")
-        .json(&json!({"crate_name": crat.name}))
-        .send()
-        .await?;
-
-    println!("{}", console::style("Application destroyed").green());
+    println!("{}: {}", "Destroying".bold(), &project.name);
+    project.destroy().await?;
+    println!("{}", console::style("Project destroyed").green());
     Ok(())
 }
