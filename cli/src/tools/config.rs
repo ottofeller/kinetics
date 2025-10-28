@@ -1,6 +1,5 @@
 use crate::sqldb::SqlDb;
 use aws_config::SdkConfig;
-use kinetics_parser::Endpoint;
 use lambda_runtime::Error;
 
 /// Configuration of an endpoint lambda
@@ -36,7 +35,7 @@ impl std::fmt::Display for EndpointConfig {
 #[derive(Clone, Debug)]
 pub struct Config {
     pub db: SqlDb,
-    pub endpoint: Option<EndpointConfig>,
+    endpoint: Option<EndpointConfig>,
 }
 
 impl Config {
@@ -60,5 +59,12 @@ impl Config {
             db: SqlDb::new_local(&connection_string, config).await?,
             endpoint,
         })
+    }
+
+    pub fn url_pattern(&self) -> Option<String> {
+        self.endpoint
+            .as_ref()
+            .map(|e| e.url_pattern.clone())
+            .unwrap_or_default()
     }
 }

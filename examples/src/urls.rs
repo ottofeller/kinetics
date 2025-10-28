@@ -28,16 +28,7 @@ pub async fn path(
     config: &KineticsConfig,
 ) -> Result<Response<String>, BoxError> {
     let mut router = matchit::Router::new();
-    router.insert(
-        config
-            .endpoint
-            .as_ref()
-            .expect("Endpoint must have its config set")
-            .url_pattern
-            .as_ref()
-            .expect("The pattern exists"),
-        (),
-    )?;
+    router.insert(config.url_pattern().expect("The pattern exists"), ())?;
 
     let matched = router.at(event.uri().path())?;
     let name = matched.params.get("name").ok_or(InternalError {})?;
