@@ -9,10 +9,10 @@ pub struct EndpointConfig {
     pub url_pattern: Option<String>,
 }
 
-impl From<&Endpoint> for EndpointConfig {
-    fn from(value: &Endpoint) -> Self {
+impl EndpointConfig {
+    pub fn new(url_pattern: &Option<String>) -> Self {
         Self {
-            url_pattern: value.url_path.clone(),
+            url_pattern: url_pattern.to_owned(),
         }
     }
 }
