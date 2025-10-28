@@ -7,7 +7,7 @@ use std::io::{self, Write};
 pub async fn destroy(crat: &Option<Crate>, name: Option<&str>) -> Result<()> {
     if crat.is_none() && name.is_none() {
         return Err(eyre!(
-            "Either provide --name argument or run command in crate's dir"
+            "Either provide --name argument or run command in project's dir"
         ));
     }
 
