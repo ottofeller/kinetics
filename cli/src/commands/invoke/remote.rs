@@ -24,7 +24,11 @@ pub async fn invoke(
         console::style(&display_path).underlined().bold()
     );
 
+    // `url_path` arg defaults to empty string,
+    // thus fall back to the url_path from macro
+    // in order to call correct function.
     let url = if url_path.is_empty() {
+        // Replace templating characters as they are not a part of a URL.
         function.url().await?.replace(['{', '}', '+', '*'], "")
     } else {
         format!(
