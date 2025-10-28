@@ -17,3 +17,4 @@ tower = "^0"
 aws-sdk-sqs = "1.86.0"
 serde_json = { version = "1.0.145", features = ["default"] }
 sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio-rustls"] }
+matchit = "0.8.6"

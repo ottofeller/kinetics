@@ -207,6 +207,9 @@ enum Commands {
         #[arg(long, default_value = "{}")]
         headers: String,
 
+        #[arg(long, default_value = "")]
+        url_path: String,
+
         #[arg(short, long, default_value = "{}")]
         payload: String,
 
@@ -358,6 +361,7 @@ pub async fn run(
             name,
             payload,
             headers,
+            url_path,
             table,
             remote,
             with_database: sqldb,
@@ -368,6 +372,7 @@ pub async fn run(
                 &crat,
                 payload,
                 headers,
+                url_path,
                 if !table.is_empty() { Some(table) } else { None },
                 remote.to_owned(),
                 sqldb.to_owned(),

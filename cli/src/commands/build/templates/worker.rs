@@ -7,7 +7,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
             #[tokio::main]
             async fn main() -> Result<(), Box<dyn std::error::Error>> {{
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-                let kinetics_config = KineticsConfig::new(&config).await?;
+                let kinetics_config = KineticsConfig::new(&config, None).await?;
                 let mut secrets = std::collections::HashMap::new();
 
                 for (k, v) in std::env::vars() {{
@@ -93,7 +93,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
                     secrets.insert(name.into(), secret_value.to_string());
                 }}
 
-                let kinetics_config = KineticsConfig::new(&config).await?;
+                let kinetics_config = KineticsConfig::new(&config, None).await?;
                 println!(\"Serving requests\");
 
                 run(service_fn(|event| async {{

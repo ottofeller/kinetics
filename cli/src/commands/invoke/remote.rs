@@ -1,5 +1,6 @@
 use crate::crat::Crate;
 use crate::function::Function;
+use crate::project::Project;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
 use std::path::Path;
@@ -10,6 +11,7 @@ pub async fn invoke(
     crat: &Crate,
     payload: &str,
     headers: &str,
+    url_path: &str,
 ) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
     let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", crat.name));
@@ -22,7 +24,21 @@ pub async fn invoke(
         console::style(&display_path).underlined().bold()
     );
 
-    println!("{}\n", console::style(function.url().await?).dimmed());
+    // `url_path` arg defaults to empty string,
+    // thus fall back to the url_path from macro
+    // in order to call correct function.
+    let url = if url_path.is_empty() {
+        // Replace templating characters as they are not a part of a URL.
+        function.url().await?.replace(['{', '}', '+', '*'], "")
+    } else {
+        format!(
+            "{}/{}",
+            Project::one(&function.crat.name).await?.url,
+            url_path
+        )
+    };
+
+    println!("{}\n", console::style(&url).dimmed());
 
     // Parse headers string into HeaderMap
     let mut headers_map = reqwest::header::HeaderMap::new();
@@ -45,7 +61,7 @@ pub async fn invoke(
     let client = reqwest::Client::new();
 
     let response = client
-        .post(function.url().await?)
+        .post(url)
         .headers(headers_map)
         .body(payload.to_string())
         .send()

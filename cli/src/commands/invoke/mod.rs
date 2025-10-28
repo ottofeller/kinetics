@@ -14,6 +14,7 @@ pub async fn invoke(
     crat: &Crate,
     payload: &str,
     headers: &str,
+    url_path: &str,
 
     // DynamoDbB table to provision, only relevant for local invocations
     table: Option<&str>,
@@ -36,12 +37,13 @@ pub async fn invoke(
             crat,
             payload,
             headers,
+            url_path,
             table,
             is_sqldb_enabled,
             is_queue_enabled,
         )
         .await
     } else {
-        remote::invoke(&function, crat, payload, headers).await
+        remote::invoke(&function, crat, payload, headers, url_path).await
     }
 }

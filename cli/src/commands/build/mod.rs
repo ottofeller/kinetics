@@ -1,12 +1,13 @@
 mod filehash;
 pub mod pipeline;
 mod templates;
-use pipeline::Pipeline;
 use crate::crat::Crate;
 use crate::function::Function;
+use crate::tools::config::EndpointConfig;
 use eyre::{Context, OptionExt};
 use filehash::{FileHash, CHECKSUMS_FILENAME};
 use kinetics_parser::{ParsedFunction, Parser, Role};
+use pipeline::Pipeline;
 use regex::Regex;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -306,7 +307,10 @@ fn create_lambda_bin(
 
     let rust_function_name = parsed_function.rust_function_name.clone();
     let main_code = match &parsed_function.role {
-        Role::Endpoint(_) => templates::endpoint(&fn_import, &rust_function_name, is_local),
+        Role::Endpoint(params) => {
+            let endpoint_config = EndpointConfig::new(&params.url_path);
+            templates::endpoint(&fn_import, &rust_function_name, endpoint_config, is_local)
+        }
         Role::Worker(_) => templates::worker(&fn_import, &rust_function_name, is_local),
         Role::Cron(_) => templates::cron(&fn_import, &rust_function_name, is_local),
     };
