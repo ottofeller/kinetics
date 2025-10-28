@@ -254,13 +254,7 @@ pub async fn run(
         _ => {}
     }
 
-    let crat = Crate::from_current_dir()?;
-
-    color_eyre::config::HookBuilder::default()
-        .display_location_section(false)
-        .display_env_section(false)
-        .theme(color_eyre::config::Theme::new())
-        .install()?;
+    let crat = Crate::from_current_dir();
 
     // Auth commands
     match &cli.command {
