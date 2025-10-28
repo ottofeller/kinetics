@@ -85,7 +85,7 @@ pub async fn login(email: &str) -> eyre::Result<()> {
     let mut is_new_session = false;
 
     // If credentials expired — request new token
-    if !credentials.is_valid(email) {
+    if !credentials.is_valid() || credentials.email != email {
         credentials.write(request(email).await?)?;
         is_new_session = true;
     }
