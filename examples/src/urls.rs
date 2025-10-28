@@ -20,7 +20,7 @@ impl std::error::Error for InternalError {}
 /// REST API endpoint handles URL path parameters
 ///
 /// Test locally with the following command:
-/// kinetics invoke BasicUrlHello --url-path /hello/john/smith/jr
+/// kinetics invoke UrlsPath --url-path /hello/john/smith/jr
 #[endpoint(url_path = "/hello/{name}/{*rest}")]
 pub async fn path(
     event: Request<Body>,
