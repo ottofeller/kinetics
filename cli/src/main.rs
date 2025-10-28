@@ -11,7 +11,7 @@ mod process;
 mod project;
 mod secret;
 pub mod sqldb;
-pub mod tools;
+pub(crate) mod tools;
 use crate::cli::run;
 use crate::error::Error;
 
