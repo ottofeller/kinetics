@@ -1,7 +1,7 @@
-use std::path::PathBuf;
-
 use crate::{environment::Environment, Cron, Endpoint, Worker};
 use color_eyre::eyre;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use syn::{parse::Parse, visit::Visit, Attribute, ItemFn};
 use walkdir::WalkDir;
 
@@ -21,15 +21,14 @@ pub struct ParsedFunction {
 impl ParsedFunction {
     /// Convert a path to CamelCase name
     pub fn path_to_name(path: &str) -> String {
-        return path
-            .split(&['.', '/'])
+        path.split(&['.', '/'])
             .filter(|s| !s.eq(&"rs"))
             .map(|s| match s.chars().next() {
                 Some(first) => first.to_uppercase().collect::<String>() + &s[1..],
                 None => String::new(),
             })
             .collect::<String>()
-            .replacen("Src", "", 1);
+            .replacen("Src", "", 1)
     }
 
     /// Generate lambda function name out of Rust function name or macro attribute
@@ -55,7 +54,7 @@ impl ParsedFunction {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Role {
     Endpoint(Endpoint),
     Cron(Cron),
