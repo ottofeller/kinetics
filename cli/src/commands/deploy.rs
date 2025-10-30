@@ -1,13 +1,12 @@
 use super::build::{pipeline::Pipeline, prepare_crates};
 use crate::client::Client;
-use crate::config::build_config;
+use crate::config::{build_config, KineticsConfig};
 use crate::crat::Crate;
 use crate::function::Function;
 use async_trait::async_trait;
 use eyre::WrapErr;
 use reqwest::StatusCode;
 use serde_json::json;
-
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -142,7 +141,7 @@ async fn full(
 pub trait DeployConfig: Send + Sync {
     async fn deploy(
         &self,
-        toml_string: String,
+        config: &KineticsConfig,
         secrets: HashMap<String, String>,
         functions: &[Function],
     ) -> eyre::Result<bool>;

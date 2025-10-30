@@ -143,7 +143,6 @@ impl Project {
         cache
             .get(name)
             .wrap_err("Failed to load project information")
-            .map(Into::into)
     }
 
     /// Get a list of projects created by user
@@ -153,7 +152,7 @@ impl Project {
     pub async fn all() -> eyre::Result<Vec<Self>> {
         Cache::new()
             .await
-            .map(|cache| cache.projects.values().map(|p| p.clone()).collect())
+            .map(|cache| cache.projects.values().cloned().collect())
     }
 
     pub fn clear_cache() -> eyre::Result<()> {

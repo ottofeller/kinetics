@@ -43,7 +43,7 @@ pub async fn stats(function_name: &str, crat: &Crate, period: u32) -> Result<()>
     let all_functions = Parser::new(Some(&crat.path))?
         .functions
         .into_iter()
-        .map(|f| Function::new(&crat.path, &f.func_name(false)?))
+        .map(|f| Function::new(crat, &f))
         .collect::<eyre::Result<Vec<Function>>>()?;
     let function = Function::find_by_name(&all_functions, function_name)?;
 

@@ -1,21 +1,25 @@
 use crate::client::Client;
 use crate::commands::deploy::DeployConfig;
+use crate::config::KineticsConfig;
 use crate::error::Error;
 use crate::function::Function;
 use crate::secret::Secret;
 use eyre::{ContextCompat, Ok, WrapErr};
+use kinetics_parser::Role;
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use toml::Value;
 
 #[derive(Clone, Debug)]
 pub struct Crate {
     /// Path to the crate's root directory
     pub path: PathBuf,
+
+    /// Crate (project) name
     pub name: String,
-    pub toml: toml::Value,
-    pub toml_string: String,
+
+    /// User-defined config
+    pub config: KineticsConfig,
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -27,6 +31,7 @@ pub struct StatusResponseBody {
 impl Crate {
     pub fn new(path: PathBuf) -> eyre::Result<Self> {
         let cargo_toml_path = path.join("Cargo.toml");
+
         let cargo_toml_string = std::fs::read_to_string(&cargo_toml_path).wrap_err(Error::new(
             &format!("Failed to read {cargo_toml_path:?}"),
             None,
@@ -41,7 +46,8 @@ impl Crate {
                 ))?;
 
         Ok(Crate {
-            path,
+            path: path.clone(),
+
             name: cargo_toml
                 .get("package")
                 .and_then(|pkg| pkg.get("name"))
@@ -52,8 +58,7 @@ impl Crate {
                 ))?
                 .to_string(),
 
-            toml: cargo_toml,
-            toml_string: cargo_toml_string,
+            config: KineticsConfig::from_path(path)?,
         })
     }
 
@@ -69,16 +74,8 @@ impl Crate {
         functions: &[Function],
         deploy_config: Option<&dyn DeployConfig>,
     ) -> eyre::Result<bool> {
-        let deploy_all = functions.iter().all(|f| f.is_deploying);
-
-        #[derive(serde::Serialize, Debug)]
-        pub struct JsonBody {
-            pub crat: BodyCrate,
-            pub functions: Vec<BodyFunction>,
-            pub secrets: HashMap<String, String>,
-        }
-
         let client = Client::new(deploy_config.is_some()).await?;
+
         let secrets = HashMap::from_iter(
             Secret::from_dotenv()
                 .iter()
@@ -86,20 +83,16 @@ impl Crate {
         );
 
         if let Some(config) = deploy_config {
-            return config
-                .deploy(self.toml_string.clone(), secrets, functions)
-                .await;
+            return config.deploy(&self.config, secrets, functions).await;
         }
 
-        let body = JsonBody {
-            crat: BodyCrate {
-                toml: self.toml_string.clone(),
-            },
+        let body = DeployRequest {
+            secrets,
             functions: functions
                 .iter()
-                .map(|f| BodyFunction::try_from_function(f, deploy_all))
+                .map(|f| BodyFunction::try_from_function(f))
                 .collect::<eyre::Result<Vec<BodyFunction>>>()?,
-            secrets,
+            config: self.config.clone(),
         };
 
         log::debug!(
@@ -147,9 +140,9 @@ impl Crate {
 
         let result = client
             .post("/stack/status")
-            .json(&serde_json::json!(JsonBody {
-                name: name.to_owned()
-            }))
+            .json(&JsonBody {
+                name: name.to_owned(),
+            })
             .send()
             .await
             .wrap_err(Error::new(
@@ -174,46 +167,31 @@ impl Crate {
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct BodyCrate {
-    /// Full original Cargo.toml not touched by CLI
-    pub toml: String,
+/// A structure representing a deployment request which contains configuration, secrets, and functions to be deployed.
+#[derive(Debug, serde::Serialize)]
+pub struct DeployRequest {
+    pub config: KineticsConfig,
+    pub secrets: HashMap<String, String>,
+    pub functions: Vec<BodyFunction>,
 }
 
 #[derive(serde::Serialize, Debug)]
 pub struct BodyFunction {
-    pub name: String,
+    is_deploying: bool,
+    name: String,
+    environment: HashMap<String, String>,
 
-    // Full Cargo.toml filled with extra metadata by CLI
-    pub toml: String,
+    // FIXME Config and role aren't the same thing consider to use a different name
+    config: Role,
 }
 
 impl BodyFunction {
-    pub fn try_from_function(f: &Function, deploy_all: bool) -> eyre::Result<Self> {
-        let mut manifest = f.crat.toml.clone();
-        let mut function_meta = f.meta()?;
-
-        // Set is_deploying only when the function is deployed,
-        // but there are others that are not.
-        if !deploy_all && f.is_deploying {
-            let mut function_namespace = function_meta
-                .get("function")
-                .wrap_err("No [function]")?
-                .clone();
-
-            function_namespace
-                .as_table_mut()
-                .wrap_err("Invalid format for [function]")?
-                .insert("is_deploying".to_owned(), Value::Boolean(f.is_deploying));
-
-            function_meta["function"] = function_namespace;
-        }
-
-        manifest["package"]["metadata"]["kinetics"] = function_meta.into();
-
+    pub fn try_from_function(f: &Function) -> eyre::Result<Self> {
         Ok(Self {
             name: f.name.clone(),
-            toml: toml::to_string(&manifest)?,
+            environment: f.environment()?,
+            is_deploying: f.is_deploying,
+            config: f.role.clone(),
         })
     }
 }

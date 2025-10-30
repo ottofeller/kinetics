@@ -69,8 +69,7 @@ pub fn prepare_crates(
                 &mut checksum,
             )?;
 
-            // Fill in necessary data in Cargo.toml
-            metadata(parsed_function, is_local, &mut manifest)?;
+            // Add dependencies required to run a lambda to Cargo.toml
             deps(parsed_function, is_local, &mut manifest)?;
         }
     }
@@ -92,8 +91,10 @@ pub fn prepare_crates(
         .into_iter()
         .map(|f| {
             let name = f.func_name(false)?;
-            Function::new(&dst, &name).map(|f| {
-                f.is_deploying(deploy_functions.is_empty() || deploy_functions.contains(&name))
+
+            Function::new(current_crate, &f).map(|f| {
+                // Mark function as requested (or not) for deployment
+                f.set_is_deploying(deploy_functions.is_empty() || deploy_functions.contains(&name))
             })
         })
         .collect::<eyre::Result<Vec<_>>>()
@@ -324,91 +325,6 @@ fn create_lambda_bin(
         fs::write(&lambda_path, &lambda_content)
             .wrap_err(format!("Failed to write {lambda_path:?}"))?;
     }
-
-    Ok(())
-}
-
-/// Write function metadata into the project Cargo.toml
-fn metadata(
-    parsed_function: &ParsedFunction,
-    is_local: bool,
-    manifest: &mut toml_edit::DocumentMut,
-) -> eyre::Result<()> {
-    manifest["package"]["metadata"].or_insert(toml_edit::Table::new().into())["kinetics"]
-        .or_insert(toml_edit::Table::new().into())["functions"]
-        .or_insert(toml_edit::ArrayOfTables::new().into());
-    let functions_meta = manifest["package"]["metadata"]["kinetics"]["functions"]
-        .as_array_of_tables_mut()
-        .expect("[functions] array was created above");
-
-    let role_str = match &parsed_function.role {
-        Role::Endpoint(_) => "endpoint",
-        Role::Cron(_) => "cron",
-        Role::Worker(_) => "worker",
-    };
-
-    let name = parsed_function.func_name(is_local)?;
-
-    // Create a function table for both roles
-    let mut function_table = toml_edit::Table::new();
-    function_table["name"] = toml_edit::value(&name);
-    function_table["role"] = toml_edit::value(role_str);
-    function_table["is_local"] = toml_edit::value(is_local);
-    let mut function_meta = toml_edit::Table::new();
-    function_meta.insert("function", function_table.into());
-
-    match &parsed_function.role {
-        Role::Worker(params) => {
-            let mut queue_table = toml_edit::Table::new();
-            queue_table["name"] = toml_edit::value(&name);
-            queue_table["concurrency"] = toml_edit::value(params.concurrency as i64);
-            queue_table["fifo"] = toml_edit::value(params.fifo);
-            let mut named_table = toml_edit::Table::new();
-            named_table.set_implicit(true); // Don't create an empty queue table
-            named_table.insert(&name, queue_table.into());
-            function_meta.insert("queue", named_table.into());
-        }
-        Role::Endpoint(params) => {
-            let mut endpoint_table = toml_edit::Table::new();
-            if let Some(url_path) = &params.url_path {
-                endpoint_table["url_path"] = toml_edit::value(url_path);
-            }
-
-            endpoint_table["queues"] = toml_edit::value(
-                serde_json::to_string(&params.queues.clone().unwrap_or_default()).unwrap(),
-            );
-
-            if params.is_disabled.is_some() {
-                endpoint_table["is_disabled"] = toml_edit::value(params.is_disabled.unwrap());
-            }
-
-            // Update function table with endpoint configuration
-            // Function table has been created above
-            if let Some(f) = function_meta["function"].as_table_mut() {
-                f.extend(endpoint_table)
-            }
-        }
-        Role::Cron(params) => {
-            let mut cron_table = toml_edit::Table::new();
-            cron_table["schedule"] = toml_edit::value(params.schedule.to_string());
-
-            // Update function table with cron configuration
-            // Function table has been created above
-            if let Some(f) = function_meta["function"].as_table_mut() {
-                f.extend(cron_table)
-            }
-        }
-    }
-
-    let environment = parsed_function.role.environment().iter();
-
-    if let Some(e) = function_meta["environment"]
-        .or_insert(toml_edit::Table::new().into())
-        .as_table_mut()
-    {
-        e.extend(environment)
-    }
-    functions_meta.push(function_meta.into());
 
     Ok(())
 }
