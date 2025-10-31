@@ -23,9 +23,16 @@ pub enum Type {
 /// Represents a function in the project
 #[derive(Clone, Debug)]
 pub struct Function {
+    /// The name of the function
     pub name: String,
+
+    /// Whether the function is requested for deployment
     pub is_deploying: bool,
+
+    /// The role of the function with parameters
     pub role: Role,
+
+    /// The crate that contains the function, it belongs to Crate in the build directory
     pub crat: Crate,
 }
 

@@ -87,12 +87,15 @@ pub fn prepare_crates(
     checksum.save().wrap_err("Failed to save checksums")?;
     clear_dir(&dst, &checksum)?;
 
+    // Create a new crate instance for the build directory
+    let dst_crate = Crate::new(dst.to_path_buf())?;
+
     parsed_functions
         .into_iter()
         .map(|f| {
             let name = f.func_name(false)?;
 
-            Function::new(current_crate, &f).map(|f| {
+            Function::new(&dst_crate, &f).map(|f| {
                 // Mark function as requested (or not) for deployment
                 f.set_is_deploying(deploy_functions.is_empty() || deploy_functions.contains(&name))
             })
