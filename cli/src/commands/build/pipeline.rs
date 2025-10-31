@@ -1,8 +1,8 @@
 use super::prepare_crates;
 use crate::client::Client;
+use crate::commands::deploy::DeployConfig;
 use crate::config::build_config;
 use crate::crat::Crate;
-use crate::commands::deploy::DeployConfig;
 use crate::function::{build, Function};
 use eyre::{eyre, OptionExt, Report};
 use futures::future;
@@ -47,7 +47,7 @@ impl Pipeline {
         let all_functions = prepare_crates(
             PathBuf::from(build_config()?.kinetics_path),
             &self.crat,
-            &deploy_functions,
+            deploy_functions,
         )?;
 
         // Clear the previous line, the "Preparing..." step is not a part of the build pipeline
