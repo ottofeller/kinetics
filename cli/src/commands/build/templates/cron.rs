@@ -17,7 +17,7 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
                     }}
                 }}
 
-                {rust_function_name}(&secrets).await?;
+                {rust_function_name}(&secrets, &kinetics_config).await?;
                 Ok(())
             }}\n\n"
         )
