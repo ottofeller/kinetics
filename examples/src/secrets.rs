@@ -10,6 +10,7 @@ use tower::BoxError;
 /// Print out a secret value
 ///
 /// The secret must be defined in .env.secrets, in the root of the project (same level as Cargo.toml).
+///
 /// Test locally with the following command:
 /// kinetics invoke SecretsSecretsUndrscrendpoint
 #[endpoint(url_path = "/secrets")]

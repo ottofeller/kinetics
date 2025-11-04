@@ -10,6 +10,9 @@ use tower::BoxError;
 /// Interact with Sql DB
 ///
 /// Create a record, then query it from DB, and return the result in http response.
+///
+/// Test locally with the following command:
+/// kinetics invoke DatabaseDatabase --with-db
 #[endpoint(url_path = "/database")]
 pub async fn database(
     _event: Request<Body>,
