@@ -5,7 +5,7 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
             "{import_statement}
             use kinetics::tools::config::Config as KineticsConfig;
             #[tokio::main]\n\
-            async fn main() -> Result<(), Box<dyn std::error::Error>> {{\n\
+            async fn main() -> Result<(), tower::BoxError> {{\n\
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
                 let kinetics_config = KineticsConfig::new(&config, None).await?;
                 let mut secrets = std::collections::HashMap::new();

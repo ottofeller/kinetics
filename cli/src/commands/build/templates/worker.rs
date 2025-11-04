@@ -5,7 +5,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
             use aws_lambda_events::sqs::{{SqsEvent, SqsMessage}};
             use kinetics::tools::{{queue::Record as QueueRecord, config::Config as KineticsConfig}};
             #[tokio::main]
-            async fn main() -> Result<(), Box<dyn std::error::Error>> {{
+            async fn main() -> Result<(), tower::BoxError> {{
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
                 let kinetics_config = KineticsConfig::new(&config, None).await?;
                 let mut secrets = std::collections::HashMap::new();
