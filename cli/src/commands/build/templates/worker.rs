@@ -36,9 +36,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
                 let event = lambda_runtime::LambdaEvent::new(sqs_event, context);
 
                 match {rust_function_name}(QueueRecord::from_sqsevent(event)?, &secrets, &kinetics_config).await {{
-                    Ok(response) => {{
-                        println!(\"{{:?}}\", response.collect());
-                    }},
+                    Ok(response) => {{}},
                     Err(err) => {{
                         eprintln!(\"Request failed: {{:?}}\", err);
                     }}
