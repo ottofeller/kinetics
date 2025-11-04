@@ -61,7 +61,7 @@ The infrastructure is always provisioned automatically.
 # 1. Install
 cargo install kinetics
 
-# 2. Login or sign up
+# 2. Login or sign up, you will receive auth code to this email
 kinetics login <email>
 
 # 3. Init a project from template
