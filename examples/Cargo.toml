@@ -3,9 +3,6 @@ name = "example"
 version = "0.9.2"
 edition = "2021"
 
-[package.metadata.kinetics.kvdb.users]
-name = "mytable"
-
 [dependencies]
 aws-config = "1.8.8"
 aws-sdk-dynamodb = "1.95.0"
