@@ -29,8 +29,7 @@ pub async fn secrets(
     let resp = Response::builder()
         .status(StatusCode::OK)
         .header("content-type", "text/html")
-        .body(json!({"success": true}).to_string())
-        .map_err(Box::new)?;
+        .body(json!({"success": true}).to_string())?;
 
     Ok(resp)
 }
