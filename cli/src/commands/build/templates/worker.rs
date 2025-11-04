@@ -6,6 +6,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
             use kinetics::tools::{{queue::Record as QueueRecord, config::Config as KineticsConfig}};
             #[tokio::main]
             async fn main() -> Result<(), tower::BoxError> {{
+                let user_function = {rust_function_name};
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
                 let kinetics_config = KineticsConfig::new(&config, None).await?;
                 let mut secrets = std::collections::HashMap::new();
@@ -35,7 +36,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
                 let context = lambda_runtime::Context::default();
                 let event = lambda_runtime::LambdaEvent::new(sqs_event, context);
 
-                match {rust_function_name}(QueueRecord::from_sqsevent(event)?, &secrets, &kinetics_config).await {{
+                match user_function(QueueRecord::from_sqsevent(event)?, &secrets, &kinetics_config).await {{
                     Ok(response) => {{}},
                     Err(err) => {{
                         eprintln!(\"Request failed: {{:?}}\", err);
@@ -53,6 +54,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
             use kinetics::tools::{{queue::Record as QueueRecord, config::Config as KineticsConfig}};
             #[tokio::main]\n\
             async fn main() -> Result<(), Error> {{\n\
+                let user_function = {rust_function_name};
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
                 println!(\"Provisioning secrets\");
                 let secrets_client = aws_sdk_ssm::Client::new(&config);
@@ -95,7 +97,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
                 println!(\"Serving requests\");
 
                 run(service_fn(|event| async {{
-                    match {rust_function_name}(QueueRecord::from_sqsevent(event)?, &secrets, &kinetics_config).await {{
+                    match user_function(QueueRecord::from_sqsevent(event)?, &secrets, &kinetics_config).await {{
                         Ok(response) => Ok(response.collect()),
                         Err(err) => {{
                             eprintln!(\"Error occurred while handling request: {{:?}}\", err);
