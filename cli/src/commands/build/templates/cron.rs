@@ -5,7 +5,8 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
             "{import_statement}
             use kinetics::tools::config::Config as KineticsConfig;
             #[tokio::main]\n\
-            async fn main() -> Result<(), Box<dyn std::error::Error>> {{\n\
+            async fn main() -> Result<(), tower::BoxError> {{\n\
+                let user_function = {rust_function_name};
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
                 let kinetics_config = KineticsConfig::new(&config, None).await?;
                 let mut secrets = std::collections::HashMap::new();
@@ -17,7 +18,7 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
                     }}
                 }}
 
-                {rust_function_name}(&secrets).await?;
+                user_function(&secrets, &kinetics_config).await?;
                 Ok(())
             }}\n\n"
         )
@@ -29,6 +30,7 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
             use aws_lambda_events::eventbridge::EventBridgeEvent;\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), Error> {{\n\
+                let user_function = {rust_function_name};
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
                 println!(\"Provisioning secrets\");
                 let secrets_client = aws_sdk_ssm::Client::new(&config);
@@ -71,7 +73,7 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
                 println!(\"Serving requests\");
 
                 run(service_fn(|_event: LambdaEvent<EventBridgeEvent<serde_json::Value>>| async {{
-                    match {rust_function_name}(&secrets, &kinetics_config).await {{
+                    match user_function(&secrets, &kinetics_config).await {{
                         Ok(()) => Ok(()),
                         Err(err) => {{
                             eprintln!(\"Error occurred while handling request: {{:?}}\", err);

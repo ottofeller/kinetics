@@ -9,6 +9,7 @@ use tower::BoxError;
 /// A queue worker
 ///
 /// Always returns the first record as failed to process. It will then be retried.
+///
 /// Test locally with the following command:
 /// kinetics invoke BasicWorkerWorker --payload '{"name": "John"}'
 #[worker(fifo = true)]
