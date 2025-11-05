@@ -46,7 +46,7 @@ When you launch a worker function, we automatically provision its queue. Other f
 
 🔑 **Secrets**
 
-Automatically provision secrets from `.env.secrets` file and makes it available in your functions.
+Automatically provision secrets from `.env.secrets` file and make it available in your functions.
 
 📚 **Logs**
 Monitor your functions with just CLI. Each function gets its own stream of logs.
@@ -156,7 +156,7 @@ Invoke a function locally with parameters. `--payload` sets the JSON body payloa
 kinetics invoke BasicWorkerWorker --payload '{"name": "John"}'
 ```
 
-Invoke a function which needs a DB. DB gets provisioned locally is fully operational, not just a mock for requests.
+Invoke a function which needs a DB. DB gets provisioned locally and is fully operational, not just a mock for requests.
 
 ```sh
 kinetics invoke DatabaseDatabase --with-db
