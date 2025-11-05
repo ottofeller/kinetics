@@ -156,7 +156,7 @@ Invoke a function locally with parameters. `--payload` sets the JSON body payloa
 kinetics invoke BasicWorkerWorker --payload '{"name": "John"}'
 ```
 
-Invoke a function which needs a DB. DB gets provisioned locally is fully operational, not just a mock for requests.
+Invoke a function which needs a DB. DB gets provisioned locally and is fully operational, not just a mock for requests.
 
 ```sh
 kinetics invoke DatabaseDatabase --with-db
