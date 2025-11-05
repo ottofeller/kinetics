@@ -17,7 +17,7 @@ impl std::fmt::Display for InternalError {
 
 impl std::error::Error for InternalError {}
 
-/// REST API endpoint handles URL path parameters
+/// An endpoint with params in URL path
 ///
 /// Test locally with the following command:
 /// kinetics invoke UrlsPath --url-path /hello/john/smith/jr
