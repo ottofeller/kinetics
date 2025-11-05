@@ -6,13 +6,15 @@ use crate::project::Project;
 use base64::Engine as _;
 use crc_fast::{CrcAlgorithm::Crc64Nvme, Digest};
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
-use kinetics_parser::{ParsedFunction, Role};
 use reqwest::StatusCode;
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
+
+// Re-export types from kinetics-parser
+pub use kinetics_parser::{ParsedFunction, Role};
 
 pub enum Type {
     Cron,
@@ -131,11 +133,11 @@ impl Function {
     }
 
     /// Return env vars assigned to the function in macro definition
-    pub fn environment(&self) -> eyre::Result<HashMap<String, String>> {
+    pub fn environment(&self) -> HashMap<String, String> {
         match &self.role {
-            Role::Endpoint(endpoint) => Ok(endpoint.environment.clone()),
-            Role::Cron(cron) => Ok(cron.environment.clone()),
-            Role::Worker(worker) => Ok(worker.environment.clone()),
+            Role::Endpoint(endpoint) => endpoint.environment.clone(),
+            Role::Cron(cron) => cron.environment.clone(),
+            Role::Worker(worker) => worker.environment.clone(),
         }
     }
 
@@ -151,7 +153,7 @@ impl Function {
 
         Ok(format!(
             "{}{}",
-            Project::one(&self.crat.name).await?.url,
+            Project::one(&self.crat.project.name).await?.url,
             url_path
         ))
     }
@@ -174,7 +176,7 @@ impl Function {
         let result = client
             .post("/function/status")
             .json(&JsonBody {
-                crate_name: self.crat.name.clone(),
+                crate_name: self.crat.project.name.clone(),
                 function_name: self.name.clone(),
             })
             .send()
@@ -189,7 +191,7 @@ impl Function {
             return Err(Error::new(
                 &format!(
                     "Function status request failed for {}/{}",
-                    self.crat.name.clone(),
+                    self.crat.project.name.clone(),
                     self.name.clone()
                 ),
                 Some("Try again in a few seconds."),

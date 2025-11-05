@@ -1,7 +1,7 @@
 mod cli;
 mod client;
 mod commands;
-mod config;
+pub mod config;
 mod crat;
 mod credentials;
 mod error;

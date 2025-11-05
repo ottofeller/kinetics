@@ -1,5 +1,5 @@
 pub mod build;
-pub mod kinetics;
+pub mod project;
 
 pub use build::*;
-pub use kinetics::*;
+pub use project::*;

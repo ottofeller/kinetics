@@ -1,11 +1,10 @@
 use crate::client::Client;
 use crate::commands::deploy::DeployConfig;
-use crate::config::KineticsConfig;
+use crate::config::Project as ProjectConfig;
 use crate::error::Error;
-use crate::function::Function;
+use crate::function::{Function, Role};
 use crate::secret::Secret;
 use eyre::{ContextCompat, Ok, WrapErr};
-use kinetics_parser::Role;
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -18,8 +17,8 @@ pub struct Crate {
     /// Crate (project) name
     pub name: String,
 
-    /// User-defined config
-    pub config: KineticsConfig,
+    /// User-defined project config
+    pub project: ProjectConfig,
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -45,20 +44,20 @@ impl Crate {
                     None,
                 ))?;
 
+        let name = cargo_toml
+            .get("package")
+            .and_then(|pkg| pkg.get("name"))
+            .and_then(|name| name.as_str())
+            .wrap_err(Error::new(
+                &format!("No crate name property in {cargo_toml_path:?}"),
+                Some("Cargo.toml is invalid, or you are in a wrong dir."),
+            ))?
+            .to_string();
+
         Ok(Crate {
             path: path.clone(),
-
-            name: cargo_toml
-                .get("package")
-                .and_then(|pkg| pkg.get("name"))
-                .and_then(|name| name.as_str())
-                .wrap_err(Error::new(
-                    &format!("No crate name property in {cargo_toml_path:?}"),
-                    Some("Cargo.toml is invalid, or you are in a wrong dir."),
-                ))?
-                .to_string(),
-
-            config: KineticsConfig::from_path(path)?,
+            project: ProjectConfig::from_path(&name, path)?,
+            name,
         })
     }
 
@@ -83,16 +82,16 @@ impl Crate {
         );
 
         if let Some(config) = deploy_config {
-            return config.deploy(&self.config, secrets, functions).await;
+            return config.deploy(&self.project, secrets, functions).await;
         }
 
         let body = DeployRequest {
             secrets,
             functions: functions
                 .iter()
-                .map(|f| BodyFunction::try_from_function(f))
-                .collect::<eyre::Result<Vec<BodyFunction>>>()?,
-            config: self.config.clone(),
+                .map(FunctionRequest::from_function)
+                .collect::<eyre::Result<Vec<_>>>()?,
+            project: self.project.clone(),
         };
 
         log::debug!(
@@ -168,30 +167,28 @@ impl Crate {
 }
 
 /// A structure representing a deployment request which contains configuration, secrets, and functions to be deployed.
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct DeployRequest {
-    pub config: KineticsConfig,
+    pub project: ProjectConfig,
     pub secrets: HashMap<String, String>,
-    pub functions: Vec<BodyFunction>,
+    pub functions: Vec<FunctionRequest>,
 }
 
-#[derive(serde::Serialize, Debug)]
-pub struct BodyFunction {
-    is_deploying: bool,
-    name: String,
-    environment: HashMap<String, String>,
-
-    // FIXME Config and role aren't the same thing consider to use a different name
-    config: Role,
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct FunctionRequest {
+    pub is_deploying: bool,
+    pub name: String,
+    pub environment: HashMap<String, String>,
+    pub role: Role,
 }
 
-impl BodyFunction {
-    pub fn try_from_function(f: &Function) -> eyre::Result<Self> {
+impl FunctionRequest {
+    pub fn from_function(f: &Function) -> eyre::Result<Self> {
         Ok(Self {
             name: f.name.clone(),
-            environment: f.environment()?,
+            environment: f.environment(),
             is_deploying: f.is_deploying,
-            config: f.role.clone(),
+            role: f.role.clone(),
         })
     }
 }

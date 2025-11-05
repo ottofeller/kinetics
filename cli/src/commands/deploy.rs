@@ -1,6 +1,6 @@
 use super::build::{pipeline::Pipeline, prepare_crates};
 use crate::client::Client;
-use crate::config::{build_config, KineticsConfig};
+use crate::config::{build_config, Project};
 use crate::crat::Crate;
 use crate::function::Function;
 use async_trait::async_trait;
@@ -52,7 +52,7 @@ async fn envs(deploy_functions: &[String]) -> eyre::Result<()> {
     let mut envs = HashMap::new();
 
     for function in &functions {
-        let function_envs = function.environment()?;
+        let function_envs = function.environment();
 
         let envs_string = function_envs
             .keys()
@@ -141,7 +141,7 @@ async fn full(
 pub trait DeployConfig: Send + Sync {
     async fn deploy(
         &self,
-        config: &KineticsConfig,
+        config: &Project,
         secrets: HashMap<String, String>,
         functions: &[Function],
     ) -> eyre::Result<bool>;

@@ -1,6 +1,7 @@
 use crate::{environment::Environment, Cron, Endpoint, Worker};
 use color_eyre::eyre;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use std::path::PathBuf;
 use syn::{parse::Parse, visit::Visit, Attribute, ItemFn};
 use walkdir::WalkDir;
@@ -59,6 +60,18 @@ pub enum Role {
     Endpoint(Endpoint),
     Cron(Cron),
     Worker(Worker),
+}
+
+impl Display for Role {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            Role::Endpoint(_) => "endpoint",
+            Role::Cron(_) => "cron",
+            Role::Worker(_) => "worker",
+        };
+
+        write!(f, "{}", str)
+    }
 }
 
 impl Role {

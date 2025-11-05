@@ -8,7 +8,7 @@ use syn::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Worker {
     pub name: Option<String>,
-    pub concurrency: i16,
+    pub concurrency: u32,
     pub fifo: bool,
     pub environment: Environment,
 }
@@ -40,7 +40,7 @@ impl Parse for Worker {
                     worker.environment = parse_environment(input)?;
                 }
                 "concurrency" => {
-                    worker.concurrency = input.parse::<LitInt>()?.base10_parse::<i16>()?;
+                    worker.concurrency = input.parse::<LitInt>()?.base10_parse::<u32>()?;
                 }
                 "fifo" => {
                     worker.fifo = match input.parse::<LitBool>() {

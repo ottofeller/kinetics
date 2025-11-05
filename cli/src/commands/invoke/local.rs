@@ -94,7 +94,7 @@ pub async fn invoke(
         .envs(secrets)
         .envs(aws_credentials)
         .envs(local_environment)
-        .envs(function.environment()?)
+        .envs(function.environment())
         .env("KINETICS_INVOKE_PAYLOAD", payload)
         .env("KINETICS_INVOKE_HEADERS", headers)
         .env("KINETICS_INVOKE_URL_PATH", url_path)
