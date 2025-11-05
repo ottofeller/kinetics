@@ -46,7 +46,7 @@ When you launch a worker function, we automatically provision its queue. Other f
 
 🔑 **Secrets**
 
-Automatically provision secrets from `.env.secrets` file and makes it available in your functions.
+Automatically provision secrets from `.env.secrets` file and make it available in your functions.
 
 📚 **Logs**
 Monitor your functions with just CLI. Each function gets its own stream of logs.
