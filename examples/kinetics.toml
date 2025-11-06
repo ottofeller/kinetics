@@ -1,2 +1,8 @@
+[project]
+name = "examples"
+
 [[kvdb]]
 name = "mytable"
+
+[sqldb]
+enabled = true
