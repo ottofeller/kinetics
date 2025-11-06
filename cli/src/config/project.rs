@@ -57,14 +57,17 @@ impl Project {
 struct FileConfig {
     /// [project]
     /// name = "some-project"
+    #[serde(default)]
     pub project: ProjectSection,
 
     /// [[kvdb]]
     /// name = "kvdb"
+    #[serde(default)]
     pub kvdb: Vec<Kvdb>,
 
     /// [sqldb]
     /// enabled = true
+    #[serde(default)]
     pub sqldb: SqldbSection,
 }
 
