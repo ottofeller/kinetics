@@ -89,8 +89,8 @@ impl Crate {
             secrets,
             functions: functions
                 .iter()
-                .map(FunctionRequest::from_function)
-                .collect::<eyre::Result<Vec<_>>>()?,
+                .map(|f| f.into())
+                .collect::<Vec<FunctionRequest>>(),
             project: self.project.clone(),
         };
 
@@ -182,13 +182,13 @@ pub struct FunctionRequest {
     pub role: Role,
 }
 
-impl FunctionRequest {
-    pub fn from_function(f: &Function) -> eyre::Result<Self> {
-        Ok(Self {
+impl From<&Function> for FunctionRequest {
+    fn from(f: &Function) -> Self {
+        Self {
             name: f.name.clone(),
             environment: f.environment(),
             is_deploying: f.is_deploying,
             role: f.role.clone(),
-        })
+        }
     }
 }
