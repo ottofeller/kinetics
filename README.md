@@ -34,22 +34,26 @@ Deploy REST API endpoints, queue workers, and cron jobs.
 
 🏕️ **Works offline**
 
-Test your functions locally with no connection to the internet. We mock DB as well, so all requests to DB also work locally. No configuration required.
+Run your functions locally, with no connection to the internet. Requests to DB and queues are served locally as well.
 
 💿 **Comes with DB**
 
-Seamlessly provision KV DB if your workload needs a persistent storage.
+For every project we provision a DB, with connection string being added to function config automatically.
+
+📥 **Comes with queues**
+
+When you launch a worker function, we automatically provision its queue. Other functions access the queue by simply importing the worker function.
 
 🔑 **Secrets**
 
-Automatically provision secrets from `.env.secrets` file.
+Automatically provision secrets from `.env.secrets` file and make it available in your functions.
 
 📚 **Logs**
-Monitor your functions with just CLI.
+Monitor your functions with just CLI. Each function gets its own stream of logs.
 
 🤖 **No infrastructure management**
 
-The infrastructure is provisioned automatically, e.g. a queue for the worker workload.
+The infrastructure is always provisioned automatically.
 
 ## Getting started
 
@@ -57,7 +61,7 @@ The infrastructure is provisioned automatically, e.g. a queue for the worker wor
 # 1. Install
 cargo install kinetics
 
-# 2. Login or sign up
+# 2. Login or sign up, you will receive auth code to this email
 kinetics login <email>
 
 # 3. Init a project from template
@@ -70,16 +74,14 @@ kinetics invoke BasicEndpointEndpoint
 kinetics deploy
 
 # 6. Alternatively you can deploy only selected functions
-kinetics deploy --functions BasicCronCron,BasicWorkerWorker
+kinetics deploy BasicCronCron,BasicWorkerWorker
 ```
 
 > Kinetics is currently in ⚠️ **active development** and may contain bugs or result in unexpected behavior. The service is free for the first **100,000 invocations** of your functions, regardless of the type of workload.
 >
-> If you have any issues, please contact us at support@usekinetics.com.
+> If you have any issues, please contact us at support@kineticscloud.com.
 
 ## Documentation
-
-All configuration can be done through attribute macro parameters, or through modifications to `Cargo.toml` file in your project. All types of workloads support environment variables. These can be changed **without redeploying** (this feature is WIP).
 
 #### Endpoint
 
@@ -105,6 +107,12 @@ The following attribute macro parameters are available:
 
 [Example](https://github.com/ottofeller/kinetics/blob/main/examples/src/basic/cron.rs).
 
+#### Env vars
+
+A macro for any type of workload accepts JSON array with environment variables.
+
+[Example](https://github.com/ottofeller/kinetics/blob/8cab4e6719b7dea944459ca59a82935d5e30e074/examples/src/environment.rs).
+
 #### Secrets
 
 Store secrets in `.env.secrets` file in the root directory of your crate. Kinetics will automatically pick it up and provision to all of your workloads in the second parameter of the function as `HashMap<String, String>`.
@@ -113,14 +121,7 @@ Store secrets in `.env.secrets` file in the root directory of your crate. Kineti
 
 #### Database
 
-Database is defined in `Cargo.toml`:
-
-```toml
-[package.metadata.kinetics.kvdb.test]
-# You will need this name to connect to the database
-# If not defined then the resource name from above will be used as DB name
-name = "test"
-```
+We automatically provision one SQL DB for each project. Also `kinetics invoke --with-db [Function name]` will automatically provision DB locally and replace the connection string with local endpoint.
 
 You can then interact with it like you normally interact with DynamoDB, [example](https://github.com/ottofeller/kinetics/blob/main/examples/src/database.rs).
 
@@ -128,28 +129,37 @@ You can then interact with it like you normally interact with DynamoDB, [example
 
 - `kinetics init` - Init new project from template
 - `kinetics login` - Log in with email
+- `kinetics logout` – Log out the current user
 - `kinetics invoke` - Invoke function locally
 - `kinetics deploy` - Deploy your application
-- `kinetics destroy` - Destroy application
-- `kinetics list` – List available resources
-- `kinetics logout` – Log out the current user
-- `kinetics logs` - View application logs
-- `kinetics stats` - View run statistics for a function
+- `kinetics proj destroy` - Destroy application
+- `kinetics proj rollback` - Rollback project to previous version
+- `kinetics proj versions` - Show all versions of the project
+- `kinetics proj list` - Show all user's projects
+- `kinetics func list` - List available resources
+- `kinetics func stats` - View run statistics for a function
+- `kinetics func logs` - View application logs
 
 ### Examples
 
 Try in `examples/` dir. These are the most frequently used commands with examples of input params.
 
-List out functions before deployment. Their names and URLs of REST API endpoints:
+Print out all available functions before deployment. Their names and URLs of REST API endpoints:
 
 ```sh
-kinetics list
+kinetics func list
 ```
 
 Invoke a function locally with parameters. `--payload` sets the JSON body payload:
 
 ```sh
-kinetics invoke DatabaseDatabase --payload '{"account": "111", "name": "Carlos"}' --table mytable
+kinetics invoke BasicWorkerWorker --payload '{"name": "John"}'
+```
+
+Invoke a function which needs a DB. DB gets provisioned locally and is fully operational, not just a mock for requests.
+
+```sh
+kinetics invoke DatabaseDatabase --with-db
 ```
 
 Deploy entire project:
@@ -161,25 +171,25 @@ kinetics deploy
 Deploy individual functions:
 
 ```sh
-kinetics deploy --functions DatabaseDatabase,BasicWorkerWorker
+kinetics deploy DatabaseDatabase,BasicWorkerWorker
 ```
 
 Invoke a function remotely by automatically resolving function's name into the URL:
 
 ```sh
-kinetics invoke DatabaseDatabase --remote --payload '{"account": "111", "name": "Carlos"}'
+kinetics invoke DatabaseDatabase --remote
 ```
 
 Output logs for a function:
 
 ```sh
-kinetics logs BasicEndpointEndpoint
+kinetics func logs BasicEndpointEndpoint
 ```
 
 Output run statistics for a function:
 
 ```sh
-kinetics stats BasicEndpointEndpoint
+kinetics func stats BasicEndpointEndpoint
 ```
 
 ## Support & Community

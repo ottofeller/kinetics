@@ -213,6 +213,7 @@ enum Commands {
         #[arg(short, long, default_value = "{}")]
         payload: String,
 
+        /// [DEPRECATED]
         #[arg(short, long, default_value = "")]
         table: String,
 

@@ -10,6 +10,9 @@ use std::collections::HashMap;
 use tower::BoxError;
 
 /// Send a message to the queue
+///
+/// Test locally with the following command:
+/// kinetics invoke QueueQueue --with-queue
 #[endpoint(url_path = "/queue")]
 pub async fn queue(
     _event: Request<Vec<u8>>,

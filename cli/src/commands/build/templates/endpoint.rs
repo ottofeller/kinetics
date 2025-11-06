@@ -16,6 +16,7 @@ pub fn endpoint(
             use kinetics::tools::config::{{Config as KineticsConfig, EndpointConfig}};
             #[tokio::main]
             async fn main() -> Result<(), tower::BoxError> {{\n\
+                let user_function = {rust_function_name};
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
                 let endpoint_config = {config};
                 let url_path = std::env::var(\"KINETICS_INVOKE_URL_PATH\").unwrap_or_default();
@@ -64,7 +65,7 @@ pub fn endpoint(
                 let event = event_builder
                     .uri(url_path)
                     .body(kinetics::tools::http::Body::from(payload).try_into()?)?;
-                match {rust_function_name}(event, &secrets, &kinetics_config).await {{
+                match user_function(event, &secrets, &kinetics_config).await {{
                     Ok(response) => {{
                         println!(\"{{response:?}}\");
                     }},
@@ -84,6 +85,7 @@ pub fn endpoint(
             use lambda_http::{{run, service_fn, Request}};\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), lambda_http::Error> {{\n\
+                let user_function = {rust_function_name};
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
                 println!(\"Fetching secrets\");
                 let secrets_client = aws_sdk_ssm::Client::new(&config);
@@ -137,7 +139,7 @@ pub fn endpoint(
                 run(service_fn(|event: Request| async {{
                     let (head, body) = event.into_parts();
                     let event = http::Request::from_parts(head, kinetics::tools::http::Body::from(body).try_into()?);
-                    match {rust_function_name}(event, &secrets, &kinetics_config).await {{
+                    match user_function(event, &secrets, &kinetics_config).await {{
                         Ok(response) => Ok(response),
                         Err(err) => {{
                             eprintln!(\"Error occurred while handling request: {{:?}}\", err);
