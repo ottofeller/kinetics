@@ -2,7 +2,7 @@ use aws_config::{Region, SdkConfig};
 use aws_sdk_dsql::auth_token::{AuthToken, AuthTokenGenerator, Config as DsqlConfig};
 use eyre::Context;
 use lambda_runtime::Error;
-use log::error;
+use log::{error, info};
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -32,7 +32,16 @@ impl SqlDb {
     pub async fn new(cluster_id: &str, username: &str, config: &SdkConfig) -> Result<Self, Error> {
         let region = config.region().unwrap_or(&Region::new("us-east-1")).clone();
         let endpoint = format!("{}.dsql.{}.on.aws", cluster_id, region.as_ref());
-        let password = fetch_dsql_password(&endpoint, config).await?;
+        info!("Initializing SQL DB connection: {}", endpoint);
+
+        let password = fetch_dsql_password(&endpoint, config)
+            .await
+            .map_err(|err| {
+                eyre::eyre!(
+                    "Failed to fetch auth token for cluster {cluster_id}: {username}: {:?}",
+                    err
+                )
+            })?;
 
         let database = Self {
             endpoint,
@@ -145,6 +154,11 @@ impl SqlDb {
 }
 
 async fn fetch_dsql_password(endpoint: &str, config: &SdkConfig) -> Result<AuthToken, Error> {
-    let signer = AuthTokenGenerator::new(DsqlConfig::builder().hostname(endpoint).build()?);
+    let dsql_config = DsqlConfig::builder()
+        .hostname(endpoint)
+        .build()
+        .map_err(|err| eyre::eyre!("Failed to build DSQL config: {:?}", err))?;
+
+    let signer = AuthTokenGenerator::new(dsql_config);
     signer.db_connect_auth_token(config).await
 }
