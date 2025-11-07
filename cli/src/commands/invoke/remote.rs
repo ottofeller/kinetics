@@ -14,7 +14,7 @@ pub async fn invoke(
     url_path: &str,
 ) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
-    let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", crat.name));
+    let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", crat.project.name));
     let display_path = format!("{}/src/bin/{}.rs", invoke_dir.display(), function.name);
 
     println!(
@@ -33,7 +33,7 @@ pub async fn invoke(
     } else {
         format!(
             "{}/{}",
-            Project::one(&function.crat.name).await?.url,
+            Project::one(&function.crat.project.name).await?.url,
             url_path
         )
     };

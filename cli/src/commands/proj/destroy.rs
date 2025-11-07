@@ -13,7 +13,7 @@ pub async fn destroy(crat: &Option<Crate>, name: Option<&str>) -> Result<()> {
 
     let project_name = match name {
         Some(name) => name,
-        None => crat.as_ref().unwrap().name.as_str(),
+        None => crat.as_ref().unwrap().project.name.as_str(),
     };
 
     let project = match Project::one(project_name).await {

@@ -40,7 +40,7 @@ pub async fn logs(function_name: &str, crat: &Crate, period: &Option<String>) ->
     let response = client
         .post("/function/logs")
         .json(&serde_json::json!({
-            "crate_name": crat.name,
+            "crate_name": crat.project.name,
             "function_name": function.name,
             "period": period,
         }))

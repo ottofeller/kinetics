@@ -59,7 +59,7 @@ pub async fn stats(function_name: &str, crat: &Crate, period: u32) -> Result<()>
     let response = client
         .post("/function/stats")
         .json(&RequestBody {
-            crate_name: crat.name.to_owned(),
+            crate_name: crat.project.name.to_owned(),
             function_name: function.name,
             period,
         })

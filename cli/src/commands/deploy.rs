@@ -78,7 +78,7 @@ async fn envs(deploy_functions: &[String]) -> eyre::Result<()> {
     let result = client
         .post("/stack/deploy/envs")
         .json(&json!({
-            "crate_name": crat.name.clone(),
+            "crate_name": crat.project.name.clone(),
             "functions": envs,
         }))
         .send()

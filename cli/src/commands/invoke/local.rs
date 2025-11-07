@@ -37,7 +37,7 @@ pub async fn invoke(
         );
     }
 
-    let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", crat.name));
+    let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", crat.project.name));
     let display_path = format!("{}/src/bin/{}Local.rs", invoke_dir.display(), function.name);
 
     println!(

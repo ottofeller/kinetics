@@ -41,7 +41,7 @@ pub fn prepare_crates(
     let parsed_functions = Parser::new(Some(&current_crate.path))?.functions;
 
     let src = &current_crate.path;
-    let dst = dst.join(&current_crate.name);
+    let dst = dst.join(&current_crate.project.name);
     // Checksums of source files for preventing rewrite existing files
     let mut checksum = FileHash::new(dst.to_path_buf());
 

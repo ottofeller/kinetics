@@ -32,13 +32,15 @@ struct Version {
 /// Consequent rollbacks are possible and will revert one version at a time
 /// If version is specified, rollback to that specific version
 pub async fn rollback(crat: &Crate, version: Option<u32>) -> Result<()> {
-    let client = Client::new(false).await.wrap_err("Failed to create client")?;
+    let client = Client::new(false)
+        .await
+        .wrap_err("Failed to create client")?;
 
     let versions: VersionsResponse = client
         .request(
             "/stack/versions",
             VersionsRequest {
-                name: crat.name.to_string(),
+                name: crat.project.name.to_string(),
             },
         )
         .await?;
@@ -85,7 +87,7 @@ pub async fn rollback(crat: &Crate, version: Option<u32>) -> Result<()> {
     client
         .post("/stack/rollback")
         .json(&RollbackRequest {
-            name: crat.name.to_string(),
+            name: crat.project.name.to_string(),
             version,
         })
         .send()

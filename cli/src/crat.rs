@@ -14,9 +14,6 @@ pub struct Crate {
     /// Path to the crate's root directory
     pub path: PathBuf,
 
-    /// Crate (project) name
-    pub name: String,
-
     /// User-defined project config
     pub project: ProjectConfig,
 }
@@ -57,7 +54,6 @@ impl Crate {
         Ok(Crate {
             path: path.clone(),
             project: ProjectConfig::from_path(&name, path)?,
-            name,
         })
     }
 
@@ -126,7 +122,7 @@ impl Crate {
     }
 
     pub async fn status(&self) -> eyre::Result<StatusResponseBody> {
-        Self::status_by_name(&self.name).await
+        Self::status_by_name(&self.project.name).await
     }
 
     pub async fn status_by_name(name: &str) -> eyre::Result<StatusResponseBody> {
