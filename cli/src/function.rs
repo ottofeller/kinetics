@@ -149,7 +149,7 @@ impl Function {
             Role::Endpoint(endpoint) => endpoint.url_path.clone(),
             _ => None,
         }
-        .ok_or_eyre("No URL path specified for the function (not an enpoint?)")?;
+        .ok_or_eyre("No URL path specified for the function (not an endpoint?)")?;
 
         Ok(format!(
             "{}{}",
