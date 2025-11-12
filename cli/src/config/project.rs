@@ -2,7 +2,9 @@ use eyre::Context;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// Project is the project global configuration
+/// Managing user's project
+///
+/// Used for calling relevant API's and handling configuration. Maps one2one from user's crate.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Project {
     /// Project name (used as a prefix for all resources)
@@ -10,9 +12,6 @@ pub struct Project {
 
     /// KVDBs to be created
     pub kvdb: Vec<Kvdb>,
-
-    /// Enables or disables SQL DB for the project
-    pub sqldb: Sqldb,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,35 +19,9 @@ pub struct Kvdb {
     pub name: String,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Sqldb {
-    pub is_enabled: bool,
-}
-
 impl Project {
     pub fn from_path(name: &str, path: PathBuf) -> eyre::Result<Self> {
-        let config_toml_path = path.join("kinetics.toml");
-
-        if let Ok(toml_string) = std::fs::read_to_string(&config_toml_path) {
-            let config: FileConfig =
-                toml::from_str(&toml_string).wrap_err("Failed to parse kinetics.toml")?;
-
-            // Convert config to Project struct
-            let mut project: Project = config.into();
-
-            // If name is not set, use the project name from Cargo.toml
-            if project.name.is_empty() {
-                project.name = name.to_string();
-            }
-
-            Ok(project)
-        } else {
-            // Just use a default config if kinetics.toml is not found.
-            Ok(Project {
-                name: name.to_string(),
-                ..Default::default()
-            })
-        }
+        Ok(FileConfig::from_path(name, path)?.into())
     }
 }
 
@@ -64,31 +37,39 @@ struct FileConfig {
     /// name = "kvdb"
     #[serde(default)]
     pub kvdb: Vec<Kvdb>,
-
-    /// [sqldb]
-    /// enabled = true
-    #[serde(default)]
-    pub sqldb: SqldbSection,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
 struct ProjectSection {
-    pub name: Option<String>,
+    pub name: String,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
-struct SqldbSection {
-    pub enabled: bool,
+impl FileConfig {
+    fn from_path(name: &str, path: PathBuf) -> eyre::Result<Self> {
+        let config_toml_path = path.join("kinetics.toml");
+
+        if let Ok(toml_string) = std::fs::read_to_string(&config_toml_path) {
+            let mut config: FileConfig =
+                toml::from_str(&toml_string).wrap_err("Failed to parse kinetics.toml")?;
+
+            // Set fallback project name if not explicitly set in kinetics.toml
+            if config.project.name.is_empty() {
+                config.project.name = name.to_string();
+            }
+
+            Ok(config)
+        } else {
+            // Return default config if kinetics.toml is not found
+            Ok(FileConfig::default())
+        }
+    }
 }
 
 impl From<FileConfig> for Project {
     fn from(cfg: FileConfig) -> Self {
         Project {
-            name: cfg.project.name.unwrap_or_default(),
+            name: cfg.project.name,
             kvdb: cfg.kvdb,
-            sqldb: Sqldb {
-                is_enabled: cfg.sqldb.enabled,
-            },
         }
     }
 }
