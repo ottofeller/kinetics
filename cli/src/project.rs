@@ -11,6 +11,70 @@ use std::path::PathBuf;
 
 const CACHE_EXPIRES_IN: Duration = Duration::minutes(10);
 
+/// Managing user's project
+///
+/// Used for handling configuration and calling relevant APIs
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Project {
+    /// Project name (used as a prefix for all resources)
+    pub name: String,
+
+    /// URL of the project, e.g. https://project-name.kinetics.app
+    pub url: String,
+
+    /// KVDBs to be created
+    pub kvdb: Vec<Kvdb>,
+}
+
+impl Project {
+    /// Creates a new project instance by reading `kinetics.toml` from a given file `path`
+    ///
+    /// Returns default config if kinetics.toml does not exist. In that case the name will be taken
+    /// from the ` Cargo.toml ` file in the same path
+    pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
+        Ok(FileConfig::from_path(path)?.into())
+    }
+
+    /// Get project by name, with automatic cache management.
+    ///
+    /// Returns an error if the API request fails or if there are filesystem issues
+    /// with reading/writing the cache.
+    pub async fn fetch_one(name: &str) -> eyre::Result<Self> {
+        let cache = Cache::new().await?;
+
+        cache
+            .get(name)
+            .wrap_err("Failed to load project information")
+    }
+
+    /// Get a list of projects created by user
+    ///
+    /// Returns an error if the API request fails or if there are filesystem issues
+    /// with reading/writing the cache.
+    pub async fn fetch_all() -> eyre::Result<Vec<Self>> {
+        Cache::new()
+            .await
+            .map(|cache| cache.projects.values().cloned().collect())
+    }
+
+    pub fn clear_cache() -> eyre::Result<()> {
+        Cache::clear()
+    }
+
+    /// Destroy the project by sending a DELETE request to /projects/{name}
+    pub async fn destroy(&self) -> eyre::Result<()> {
+        Client::new(false)
+            .await
+            .wrap_err("Failed to create client")?
+            .post("/stack/destroy")
+            .json(&json!({"crate_name": self.name}))
+            .send()
+            .await?;
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct ProjectsResponse {
     projects: Vec<Project>,
@@ -125,67 +189,6 @@ impl Cache {
     }
 }
 
-/// Managing user's project
-///
-/// Used for handling configuration and calling relevant APIs
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Project {
-    /// Project name (used as a prefix for all resources)
-    pub name: String,
-
-    /// URL of the project, e.g. https://project-name.kinetics.app
-    pub url: String,
-
-    /// KVDBs to be created
-    pub kvdb: Vec<Kvdb>,
-}
-
-impl Project {
-    /// Creates project from the local directory
-    pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
-        Ok(FileConfig::from_path(path)?.into())
-    }
-
-    /// Get project by name, with automatic cache management.
-    ///
-    /// Returns an error if the API request fails or if there are filesystem issues
-    /// with reading/writing the cache.
-    pub async fn one(name: &str) -> eyre::Result<Self> {
-        let cache = Cache::new().await?;
-
-        cache
-            .get(name)
-            .wrap_err("Failed to load project information")
-    }
-
-    /// Get a list of projects created by user
-    ///
-    /// Returns an error if the API request fails or if there are filesystem issues
-    /// with reading/writing the cache.
-    pub async fn all() -> eyre::Result<Vec<Self>> {
-        Cache::new()
-            .await
-            .map(|cache| cache.projects.values().cloned().collect())
-    }
-
-    pub fn clear_cache() -> eyre::Result<()> {
-        Cache::clear()
-    }
-
-    /// Destroy the project by sending a DELETE request to /projects/{name}
-    pub async fn destroy(&self) -> eyre::Result<()> {
-        Client::new(false)
-            .await
-            .wrap_err("Failed to create client")?
-            .post("/stack/destroy")
-            .json(&json!({"crate_name": self.name}))
-            .send()
-            .await?;
-
-        Ok(())
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Kvdb {
     pub name: String,
@@ -212,9 +215,13 @@ struct ProjectSection {
 
 /// FileConfig is the structure of kinetics.toml
 impl FileConfig {
-    /// Reads kinetics.toml from path
+    /// Reads a `FileConfig` instance from a given directory path
     ///
-    /// If project name is not defined in kinet
+    /// This function looks for a `kinetics.toml` file in the specified directory.
+    /// If the `kinetics.toml` file is not present or cannot be read, it returns a default
+    /// configuration instead. Additionally, if the `kinetics.toml` file does not explicitly set
+    /// the project name, the function will fallback to extracting the name from a `Cargo.toml`
+    /// file in the same directory.
     fn from_path(path: PathBuf) -> eyre::Result<Self> {
         let config_toml_path = path.join("kinetics.toml");
 
@@ -240,7 +247,7 @@ impl FileConfig {
         Ok(config)
     }
 
-    /// Reads Cargo.toml name from path
+    /// Reads Cargo.toml in a given directory and returns the name
     fn cargo_toml_name(path: PathBuf) -> eyre::Result<String> {
         let cargo_toml_path = path.join("Cargo.toml");
 

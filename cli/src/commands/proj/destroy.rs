@@ -16,7 +16,7 @@ pub async fn destroy(crat: &Option<Crate>, name: Option<&str>) -> Result<()> {
         None => crat.as_ref().unwrap().project.name.as_str(),
     };
 
-    let project = match Project::one(project_name).await {
+    let project = match Project::fetch_one(project_name).await {
         Ok(project) => project,
         Err(_) => {
             println!("{}", "Project not found".yellow());

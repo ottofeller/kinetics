@@ -33,7 +33,7 @@ pub async fn invoke(
     } else {
         format!(
             "{}/{}",
-            Project::one(&function.crat.project.name).await?.url,
+            Project::fetch_one(&function.crat.project.name).await?.url,
             url_path
         )
     };
