@@ -174,7 +174,6 @@ pub struct DeployRequest {
 pub struct FunctionRequest {
     pub is_deploying: bool,
     pub name: String,
-    pub environment: HashMap<String, String>,
     pub role: Role,
 }
 
@@ -182,7 +181,6 @@ impl From<&Function> for FunctionRequest {
     fn from(f: &Function) -> Self {
         Self {
             name: f.name.clone(),
-            environment: f.environment(),
             is_deploying: f.is_deploying,
             role: f.role.clone(),
         }

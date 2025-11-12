@@ -45,7 +45,7 @@ pub async fn list(crat: &Crate) -> eyre::Result<()> {
             format!("from {}", path).dim()
         );
 
-        for (key, value) in env_vars {
+        for (key, value) in env_vars.clone() {
             println!("{} {}", key.dim(), value.black());
         }
 

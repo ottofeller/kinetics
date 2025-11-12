@@ -132,13 +132,9 @@ impl Function {
         Ok(true)
     }
 
-    /// Return env vars assigned to the function in macro definition
-    pub fn environment(&self) -> HashMap<String, String> {
-        match &self.role {
-            Role::Endpoint(endpoint) => endpoint.environment.clone(),
-            Role::Cron(cron) => cron.environment.clone(),
-            Role::Worker(worker) => worker.environment.clone(),
-        }
+    /// Returns env vars assigned to the function in macro definition
+    pub fn environment(&self) -> &HashMap<String, String> {
+        self.role.environment()
     }
 
     /// URL to call the function
