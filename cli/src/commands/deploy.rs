@@ -1,8 +1,9 @@
 use super::build::{pipeline::Pipeline, prepare_crates};
 use crate::client::Client;
-use crate::config::{build_config, Project};
+use crate::config::build_config;
 use crate::crat::Crate;
 use crate::function::Function;
+use crate::project::Project;
 use async_trait::async_trait;
 use eyre::WrapErr;
 use reqwest::StatusCode;

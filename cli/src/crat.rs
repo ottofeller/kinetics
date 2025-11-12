@@ -1,10 +1,10 @@
 use crate::client::Client;
 use crate::commands::deploy::DeployConfig;
-use crate::config::Project as ProjectConfig;
 use crate::error::Error;
 use crate::function::{Function, Role};
+use crate::project::Project;
 use crate::secret::Secret;
-use eyre::{ContextCompat, Ok, WrapErr};
+use eyre::{Ok, WrapErr};
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -14,8 +14,8 @@ pub struct Crate {
     /// Path to the crate's root directory
     pub path: PathBuf,
 
-    /// User-defined project config
-    pub project: ProjectConfig,
+    /// Current project
+    pub project: Project,
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -26,34 +26,9 @@ pub struct StatusResponseBody {
 
 impl Crate {
     pub fn new(path: PathBuf) -> eyre::Result<Self> {
-        let cargo_toml_path = path.join("Cargo.toml");
-
-        let cargo_toml_string = std::fs::read_to_string(&cargo_toml_path).wrap_err(Error::new(
-            &format!("Failed to read {cargo_toml_path:?}"),
-            None,
-        ))?;
-
-        let cargo_toml: toml::Value =
-            cargo_toml_string
-                .parse::<toml::Value>()
-                .wrap_err(Error::new(
-                    &format!("Failed to parse TOML in {cargo_toml_path:?}"),
-                    None,
-                ))?;
-
-        let name = cargo_toml
-            .get("package")
-            .and_then(|pkg| pkg.get("name"))
-            .and_then(|name| name.as_str())
-            .wrap_err(Error::new(
-                &format!("No crate name property in {cargo_toml_path:?}"),
-                Some("Cargo.toml is invalid, or you are in a wrong dir."),
-            ))?
-            .to_string();
-
         Ok(Crate {
             path: path.clone(),
-            project: ProjectConfig::from_path(&name, path)?,
+            project: Project::from_path(path)?,
         })
     }
 
@@ -165,7 +140,7 @@ impl Crate {
 /// A structure representing a deployment request which contains configuration, secrets, and functions to be deployed.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct DeployRequest {
-    pub project: ProjectConfig,
+    pub project: Project,
     pub secrets: HashMap<String, String>,
     pub functions: Vec<FunctionRequest>,
 }

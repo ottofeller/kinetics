@@ -1,14 +1,14 @@
 mod cli;
 mod client;
 mod commands;
-pub mod config;
+mod config;
 mod crat;
 mod credentials;
 mod error;
 mod function;
 mod logger;
 mod process;
-mod project;
+pub mod project;
 mod secret;
 pub mod sqldb;
 pub mod tools;
