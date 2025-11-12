@@ -141,7 +141,7 @@ async fn full(
 pub trait DeployConfig: Send + Sync {
     async fn deploy(
         &self,
-        config: &Project,
+        project: &Project,
         secrets: HashMap<String, String>,
         functions: &[Function],
     ) -> eyre::Result<bool>;
