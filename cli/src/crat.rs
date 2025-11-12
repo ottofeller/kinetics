@@ -14,7 +14,7 @@ pub struct Crate {
     /// Path to the crate's root directory
     pub path: PathBuf,
 
-    /// Current project
+    /// Current project, will reaplce the Crate struct completely in the next iteration
     pub project: Project,
 }
 
