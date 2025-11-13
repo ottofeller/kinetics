@@ -2,7 +2,6 @@ use crate::client::Client;
 use crate::crat::Crate;
 use crate::error::Error;
 use crate::function::Function;
-use chrono::DateTime;
 use color_eyre::owo_colors::OwoColorize as _;
 use eyre::{Context, Result};
 use kinetics_parser::Parser;
@@ -21,7 +20,6 @@ struct RequestBody {
 #[derive(Deserialize)]
 struct JsonResponse {
     runs: Runs,
-    last_call: Option<LastCall>,
 }
 
 #[derive(Deserialize)]
@@ -31,19 +29,13 @@ struct Runs {
     total: u64,
 }
 
-#[derive(Deserialize)]
-struct LastCall {
-    timestamp: String,
-    status: String,
-}
-
 /// Retrieves and displays run statistics for a specific function
 pub async fn stats(function_name: &str, crat: &Crate, period: u32) -> Result<()> {
     // Get all function names without any additional manupulations.
     let all_functions = Parser::new(Some(&crat.path))?
         .functions
         .into_iter()
-        .map(|f| Function::new(&crat.path, &f.func_name(false)?))
+        .map(|f| Function::new(crat, &f))
         .collect::<eyre::Result<Vec<Function>>>()?;
     let function = Function::find_by_name(&all_functions, function_name)?;
 
@@ -59,7 +51,7 @@ pub async fn stats(function_name: &str, crat: &Crate, period: u32) -> Result<()>
     let response = client
         .post("/function/stats")
         .json(&RequestBody {
-            crate_name: crat.name.to_owned(),
+            crate_name: crat.project.name.to_owned(),
             function_name: function.name,
             period,
         })
@@ -88,18 +80,5 @@ pub async fn stats(function_name: &str, crat: &Crate, period: u32) -> Result<()>
     println!("  Success: {}", logs_response.runs.success);
     println!("  Error: {}", logs_response.runs.error);
 
-    let Some(last_call) = logs_response.last_call else {
-        println!("Never invoked yet");
-        return Ok(());
-    };
-
-    println!("\n{}", "Last called:".bold());
-
-    println!(
-        "  At: {}",
-        DateTime::parse_from_rfc3339(&last_call.timestamp)?.with_timezone(&chrono::Local)
-    );
-
-    println!("  Status: {}", last_call.status);
     Ok(())
 }

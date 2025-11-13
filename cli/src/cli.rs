@@ -73,7 +73,7 @@ enum FuncCommands {
     /// List all functions in the project
     List {
         /// Show detailed information for each function
-        #[arg(short, long, action = ArgAction::SetTrue)]
+        #[arg(short, long)]
         verbose: bool,
     },
 

@@ -1,8 +1,8 @@
 use super::prepare_crates;
 use crate::client::Client;
+use crate::commands::deploy::DeployConfig;
 use crate::config::build_config;
 use crate::crat::Crate;
-use crate::commands::deploy::DeployConfig;
 use crate::function::{build, Function};
 use eyre::{eyre, OptionExt, Report};
 use futures::future;
@@ -35,7 +35,7 @@ impl Pipeline {
             println!(
                 "    {} `{}` {}",
                 console::style("Using a custom deployment configuration for").yellow(),
-                console::style(&self.crat.name).green().bold(),
+                console::style(&self.crat.project.name).green().bold(),
                 console::style("crate").yellow(),
             );
         }
@@ -47,7 +47,7 @@ impl Pipeline {
         let all_functions = prepare_crates(
             PathBuf::from(build_config()?.kinetics_path),
             &self.crat,
-            &deploy_functions,
+            deploy_functions,
         )?;
 
         // Clear the previous line, the "Preparing..." step is not a part of the build pipeline
@@ -64,10 +64,10 @@ impl Pipeline {
             self.is_deploy_enabled,
         );
 
-        let deploying_progress = pipeline_progress.new_progress(&self.crat.name);
+        let deploying_progress = pipeline_progress.new_progress(&self.crat.project.name);
 
         pipeline_progress
-            .new_progress(&self.crat.name)
+            .new_progress(&self.crat.project.name)
             .log_stage("Building");
 
         build(&deploy_functions, &pipeline_progress.total_progress_bar).await?;
@@ -80,7 +80,7 @@ impl Pipeline {
             println!(
                 "    {} `{}` crate building in {:.2}s",
                 console::style("Finished").green().bold(),
-                self.crat.name,
+                self.crat.project.name,
                 start_time.elapsed().as_secs_f64(),
             );
 

@@ -8,7 +8,7 @@ mod error;
 mod function;
 mod logger;
 mod process;
-mod project;
+pub mod project;
 mod secret;
 pub mod sqldb;
 pub mod tools;

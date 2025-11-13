@@ -1,21 +1,21 @@
 use crate::client::Client;
 use crate::commands::deploy::DeployConfig;
 use crate::error::Error;
-use crate::function::Function;
+use crate::function::{Function, Role};
+use crate::project::Project;
 use crate::secret::Secret;
-use eyre::{ContextCompat, Ok, WrapErr};
+use eyre::{Ok, WrapErr};
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use toml::Value;
 
 #[derive(Clone, Debug)]
 pub struct Crate {
     /// Path to the crate's root directory
     pub path: PathBuf,
-    pub name: String,
-    pub toml: toml::Value,
-    pub toml_string: String,
+
+    /// Current project, will reaplce the Crate struct completely in the next iteration
+    pub project: Project,
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -26,34 +26,9 @@ pub struct StatusResponseBody {
 
 impl Crate {
     pub fn new(path: PathBuf) -> eyre::Result<Self> {
-        let cargo_toml_path = path.join("Cargo.toml");
-        let cargo_toml_string = std::fs::read_to_string(&cargo_toml_path).wrap_err(Error::new(
-            &format!("Failed to read {cargo_toml_path:?}"),
-            None,
-        ))?;
-
-        let cargo_toml: toml::Value =
-            cargo_toml_string
-                .parse::<toml::Value>()
-                .wrap_err(Error::new(
-                    &format!("Failed to parse TOML in {cargo_toml_path:?}"),
-                    None,
-                ))?;
-
         Ok(Crate {
-            path,
-            name: cargo_toml
-                .get("package")
-                .and_then(|pkg| pkg.get("name"))
-                .and_then(|name| name.as_str())
-                .wrap_err(Error::new(
-                    &format!("No crate name property in {cargo_toml_path:?}"),
-                    Some("Cargo.toml is invalid, or you are in a wrong dir."),
-                ))?
-                .to_string(),
-
-            toml: cargo_toml,
-            toml_string: cargo_toml_string,
+            path: path.clone(),
+            project: Project::from_path(path)?,
         })
     }
 
@@ -69,16 +44,8 @@ impl Crate {
         functions: &[Function],
         deploy_config: Option<&dyn DeployConfig>,
     ) -> eyre::Result<bool> {
-        let deploy_all = functions.iter().all(|f| f.is_deploying);
-
-        #[derive(serde::Serialize, Debug)]
-        pub struct JsonBody {
-            pub crat: BodyCrate,
-            pub functions: Vec<BodyFunction>,
-            pub secrets: HashMap<String, String>,
-        }
-
         let client = Client::new(deploy_config.is_some()).await?;
+
         let secrets = HashMap::from_iter(
             Secret::from_dotenv()
                 .iter()
@@ -86,20 +53,16 @@ impl Crate {
         );
 
         if let Some(config) = deploy_config {
-            return config
-                .deploy(self.toml_string.clone(), secrets, functions)
-                .await;
+            return config.deploy(&self.project, secrets, functions).await;
         }
 
-        let body = JsonBody {
-            crat: BodyCrate {
-                toml: self.toml_string.clone(),
-            },
+        let body = DeployRequest {
+            secrets,
             functions: functions
                 .iter()
-                .map(|f| BodyFunction::try_from_function(f, deploy_all))
-                .collect::<eyre::Result<Vec<BodyFunction>>>()?,
-            secrets,
+                .map(|f| f.into())
+                .collect::<Vec<FunctionRequest>>(),
+            project: self.project.clone(),
         };
 
         log::debug!(
@@ -134,7 +97,7 @@ impl Crate {
     }
 
     pub async fn status(&self) -> eyre::Result<StatusResponseBody> {
-        Self::status_by_name(&self.name).await
+        Self::status_by_name(&self.project.name).await
     }
 
     pub async fn status_by_name(name: &str) -> eyre::Result<StatusResponseBody> {
@@ -147,9 +110,9 @@ impl Crate {
 
         let result = client
             .post("/stack/status")
-            .json(&serde_json::json!(JsonBody {
-                name: name.to_owned()
-            }))
+            .json(&JsonBody {
+                name: name.to_owned(),
+            })
             .send()
             .await
             .wrap_err(Error::new(
@@ -174,46 +137,27 @@ impl Crate {
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct BodyCrate {
-    /// Full original Cargo.toml not touched by CLI
-    pub toml: String,
+/// A structure representing a deployment request which contains configuration, secrets, and functions to be deployed.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct DeployRequest {
+    pub project: Project,
+    pub secrets: HashMap<String, String>,
+    pub functions: Vec<FunctionRequest>,
 }
 
-#[derive(serde::Serialize, Debug)]
-pub struct BodyFunction {
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct FunctionRequest {
+    pub is_deploying: bool,
     pub name: String,
-
-    // Full Cargo.toml filled with extra metadata by CLI
-    pub toml: String,
+    pub role: Role,
 }
 
-impl BodyFunction {
-    pub fn try_from_function(f: &Function, deploy_all: bool) -> eyre::Result<Self> {
-        let mut manifest = f.crat.toml.clone();
-        let mut function_meta = f.meta()?;
-
-        // Set is_deploying only when the function is deployed,
-        // but there are others that are not.
-        if !deploy_all && f.is_deploying {
-            let mut function_namespace = function_meta
-                .get("function")
-                .wrap_err("No [function]")?
-                .clone();
-
-            function_namespace
-                .as_table_mut()
-                .wrap_err("Invalid format for [function]")?
-                .insert("is_deploying".to_owned(), Value::Boolean(f.is_deploying));
-
-            function_meta["function"] = function_namespace;
-        }
-
-        manifest["package"]["metadata"]["kinetics"] = function_meta.into();
-
-        Ok(Self {
+impl From<&Function> for FunctionRequest {
+    fn from(f: &Function) -> Self {
+        Self {
             name: f.name.clone(),
-            toml: toml::to_string(&manifest)?,
-        })
+            is_deploying: f.is_deploying,
+            role: f.role.clone(),
+        }
     }
 }

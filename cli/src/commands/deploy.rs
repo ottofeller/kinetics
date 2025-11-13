@@ -3,11 +3,11 @@ use crate::client::Client;
 use crate::config::build_config;
 use crate::crat::Crate;
 use crate::function::Function;
+use crate::project::Project;
 use async_trait::async_trait;
 use eyre::WrapErr;
 use reqwest::StatusCode;
 use serde_json::json;
-
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -53,7 +53,7 @@ async fn envs(deploy_functions: &[String]) -> eyre::Result<()> {
     let mut envs = HashMap::new();
 
     for function in &functions {
-        let function_envs = function.environment()?;
+        let function_envs = function.environment();
 
         let envs_string = function_envs
             .keys()
@@ -79,7 +79,7 @@ async fn envs(deploy_functions: &[String]) -> eyre::Result<()> {
     let result = client
         .post("/stack/deploy/envs")
         .json(&json!({
-            "crate_name": crat.name.clone(),
+            "crate_name": crat.project.name.clone(),
             "functions": envs,
         }))
         .send()
@@ -142,7 +142,7 @@ async fn full(
 pub trait DeployConfig: Send + Sync {
     async fn deploy(
         &self,
-        toml_string: String,
+        project: &Project,
         secrets: HashMap<String, String>,
         functions: &[Function],
     ) -> eyre::Result<bool>;
