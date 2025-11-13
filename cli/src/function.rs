@@ -1,18 +1,20 @@
 use crate::client::Client;
-use crate::crat::Crate;
 use crate::commands::deploy::DeployConfig;
+use crate::crat::Crate;
 use crate::error::Error;
 use crate::project::Project;
 use base64::Engine as _;
 use crc_fast::{CrcAlgorithm::Crc64Nvme, Digest};
-use eyre::{eyre, ContextCompat, WrapErr};
+use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
 use reqwest::StatusCode;
 use serde_json::json;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Stdio;
-use tokio::io::AsyncBufReadExt;
-use tokio::io::BufReader;
+use tokio::io::{AsyncBufReadExt, BufReader};
+
+// Re-export types from kinetics-parser
+pub use kinetics_parser::{ParsedFunction, Role};
 
 pub enum Type {
     Cron,
@@ -20,21 +22,29 @@ pub enum Type {
     Worker,
 }
 
+/// Represents a function in the project
 #[derive(Clone, Debug)]
 pub struct Function {
+    /// The name of the function
     pub name: String,
+
+    /// Whether the function is requested for deployment
     pub is_deploying: bool,
 
-    // Original parent crate
+    /// The role of the function with parameters
+    pub role: Role,
+
+    /// The crate that contains the function, it belongs to Crate in the build directory
     pub crat: Crate,
 }
 
 impl Function {
-    pub fn new(crate_path: &Path, name: &str) -> eyre::Result<Self> {
+    pub fn new(crat: &Crate, function: &ParsedFunction) -> eyre::Result<Self> {
         Ok(Function {
-            name: name.into(),
+            name: function.func_name(false)?,
             is_deploying: false,
-            crat: Crate::new(crate_path.to_path_buf())?,
+            crat: crat.clone(),
+            role: function.role.clone(),
         })
     }
 
@@ -47,38 +57,7 @@ impl Function {
             .cloned()
     }
 
-    pub fn meta(&self) -> eyre::Result<toml::map::Map<String, toml::Value>> {
-        let functions = self
-            .crat
-            .toml
-            .get("package")
-            .wrap_err("No [package]")?
-            .get("metadata")
-            .wrap_err("No [metadata]")?
-            .get("kinetics")
-            .wrap_err("No [kinetics]")?
-            .get("functions")
-            .wrap_err("No [functions]")?;
-
-        Ok(functions
-            .clone()
-            .as_array_mut()
-            .wrap_err("Invalid format for [functions]")?
-            .iter_mut()
-            .find_map(|tbl| {
-                if tbl.as_table()?.get("function")?.get("name")?.as_str()? == self.name {
-                    Some(tbl)
-                } else {
-                    None
-                }
-            })
-            .wrap_err(format!("No [{}]", self.name))?
-            .as_table_mut()
-            .wrap_err("Invalid format for [functions] member")?
-            .clone())
-    }
-
-    pub fn is_deploying(mut self, is_deploying: bool) -> Self {
+    pub fn set_is_deploying(mut self, is_deploying: bool) -> Self {
         self.is_deploying = is_deploying;
         self
     }
@@ -153,56 +132,25 @@ impl Function {
         Ok(true)
     }
 
-    /// Return true if the function is the only supposed for local invocations
-    pub fn _is_local(&self) -> eyre::Result<bool> {
-        if self.meta().is_err() {
-            return Err(eyre!("Could not get function's meta {}", self.name,));
-        }
-
-        Ok(self
-            .meta()?
-            .get("is_local")
-            .unwrap_or(&toml::Value::Boolean(false))
-            .as_bool()
-            .unwrap_or(false))
-    }
-
-    /// Return env vars assigned to the function in macro definition
-    pub fn environment(&self) -> eyre::Result<HashMap<String, String>> {
-        let meta = self.meta()?;
-        let envs_toml = meta.get("environment");
-
-        if envs_toml.is_none() {
-            return Ok(HashMap::new());
-        }
-
-        Ok(envs_toml
-            .unwrap()
-            .as_table()
-            .wrap_err("Wrong format of Cargo.toml")?
-            .iter()
-            .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_string()))
-            .collect::<HashMap<String, String>>())
+    /// Returns env vars assigned to the function in macro definition
+    pub fn environment(&self) -> &HashMap<String, String> {
+        self.role.environment()
     }
 
     /// URL to call the function
     ///
     /// Only relevant for endpoint type of functions.
     pub async fn url(&self) -> eyre::Result<String> {
-        let path = self
-            .meta()?
-            .get("function")
-            .wrap_err("Function meta is corrupted in Cargo.toml")?
-            .get("url_path")
-            .wrap_err("No URL path specified for the function (not an enpoint?)")?
-            .as_str()
-            .map(|s| s.to_string())
-            .unwrap_or_default();
+        let url_path = match &self.role {
+            Role::Endpoint(endpoint) => endpoint.url_path.clone(),
+            _ => None,
+        }
+        .ok_or_eyre("No URL path specified for the function (not an endpoint?)")?;
 
         Ok(format!(
             "{}{}",
-            Project::one(&self.crat.name).await?.url,
-            path
+            Project::fetch_one(&self.crat.project.name).await?.url,
+            url_path
         ))
     }
 
@@ -223,10 +171,10 @@ impl Function {
 
         let result = client
             .post("/function/status")
-            .json(&serde_json::json!(JsonBody {
-                crate_name: self.crat.name.clone(),
+            .json(&JsonBody {
+                crate_name: self.crat.project.name.clone(),
                 function_name: self.name.clone(),
-            }))
+            })
             .send()
             .await
             .inspect_err(|err| log::error!("{err:?}"))
@@ -239,7 +187,7 @@ impl Function {
             return Err(Error::new(
                 &format!(
                     "Function status request failed for {}/{}",
-                    self.crat.name.clone(),
+                    self.crat.project.name.clone(),
                     self.name.clone()
                 ),
                 Some("Try again in a few seconds."),
@@ -285,15 +233,14 @@ pub async fn build(
 
     if let Some(stderr) = child.stderr.take() {
         let mut reader = BufReader::new(stderr).lines();
+        let regex = regex::Regex::new(r"^[\t ]+")?;
 
         while let Some(line) = reader.next_line().await? {
             if line.trim().starts_with("error") || is_failed {
                 is_failed = true;
                 error_message_lines.push(line);
                 continue;
-            }
-
-            let regex = regex::Regex::new(r"^[\t ]+").unwrap();
+            };
             total_progress.set_message(regex.replace_all(&line, "").to_string());
         }
     }

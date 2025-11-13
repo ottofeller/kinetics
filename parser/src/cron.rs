@@ -1,10 +1,11 @@
 use crate::environment::{parse_environment, Environment};
+use serde::{Deserialize, Serialize};
 use syn::{
     parse::{Parse, ParseStream},
     token, Ident, LitStr,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Cron {
     pub name: Option<String>,
     pub schedule: String,

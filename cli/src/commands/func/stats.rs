@@ -35,7 +35,7 @@ pub async fn stats(function_name: &str, crat: &Crate, period: u32) -> Result<()>
     let all_functions = Parser::new(Some(&crat.path))?
         .functions
         .into_iter()
-        .map(|f| Function::new(&crat.path, &f.func_name(false)?))
+        .map(|f| Function::new(crat, &f))
         .collect::<eyre::Result<Vec<Function>>>()?;
     let function = Function::find_by_name(&all_functions, function_name)?;
 
@@ -51,7 +51,7 @@ pub async fn stats(function_name: &str, crat: &Crate, period: u32) -> Result<()>
     let response = client
         .post("/function/stats")
         .json(&RequestBody {
-            crate_name: crat.name.to_owned(),
+            crate_name: crat.project.name.to_owned(),
             function_name: function.name,
             period,
         })

@@ -35,7 +35,7 @@ pub async fn versions(crat: &Crate) -> Result<(), Error> {
         .request::<Body, Response>(
             "/stack/versions",
             Body {
-                name: crat.name.clone(),
+                name: crat.project.name.clone(),
             },
         )
         .await

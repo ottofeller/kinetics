@@ -2,7 +2,7 @@ use super::build::prepare_crates;
 use crate::config::build_config;
 use crate::crat::Crate;
 use crossterm::style::Stylize;
-use eyre::{eyre, Context};
+use eyre::eyre;
 use kinetics_parser::Parser;
 use std::path::PathBuf;
 
@@ -33,9 +33,7 @@ pub async fn list(crat: &Crate) -> eyre::Result<()> {
         let function_name = function.clone().name;
 
         // Get environment variables for this function
-        let env_vars = function
-            .environment()
-            .wrap_err(format!("Failed to get envs for {function_name}"))?;
+        let env_vars = function.environment();
 
         if env_vars.is_empty() {
             continue;
@@ -47,7 +45,7 @@ pub async fn list(crat: &Crate) -> eyre::Result<()> {
             format!("from {}", path).dim()
         );
 
-        for (key, value) in env_vars {
+        for (key, value) in env_vars.clone() {
             println!("{} {}", key.dim(), value.black());
         }
 

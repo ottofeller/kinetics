@@ -6,7 +6,7 @@ use eyre::Context;
 
 /// Prints out the list of all projects
 pub async fn list() -> Result<(), Error> {
-    Project::all()
+    Project::fetch_all()
         .await
         .inspect_err(|e| log::error!("Failed to load list of projects: {e}"))
         .wrap_err("Request failed. Try again later.")?

@@ -173,7 +173,7 @@ fn simple(functions: &[ParsedFunction], project_base_url: &str) -> eyre::Result<
 /// With some extra information
 pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     let functions = Parser::new(Some(&current_crate.path))?.functions;
-    let project_base_url = Project::one(&current_crate.name).await?.url;
+    let project_base_url = Project::fetch_one(&current_crate.project.name).await?.url;
 
     if !is_verbose {
         return simple(&functions, &project_base_url);
@@ -190,12 +190,14 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     }
 
     for parsed_function in functions {
-        let function = Function::new(&current_crate.path, &parsed_function.func_name(false)?)?;
-        let func_path = parsed_function.relative_path;
+        let function = Function::new(current_crate, &parsed_function)?;
+
         let last_modified = function
             .status(&client)
             .await?
             .unwrap_or_else(|| "NA".into());
+
+        let func_path = parsed_function.relative_path;
 
         match parsed_function.role {
             Role::Endpoint(params) => {

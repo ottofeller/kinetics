@@ -1,10 +1,11 @@
 use crate::environment::{parse_environment, Environment};
+use serde::{Deserialize, Serialize};
 use syn::{
     parse::{Parse, ParseStream},
     token, Ident, LitBool, LitStr,
 };
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct Endpoint {
     pub name: Option<String>,
     pub url_path: Option<String>,
