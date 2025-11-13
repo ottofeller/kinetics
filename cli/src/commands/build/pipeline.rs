@@ -1,9 +1,9 @@
-use super::prepare_crates;
+use super::prepare_functions;
 use crate::client::Client;
 use crate::commands::deploy::DeployConfig;
 use crate::config::build_config;
-use crate::crat::Crate;
 use crate::function::{build, Function};
+use crate::project::Project;
 use eyre::{eyre, OptionExt, Report};
 use futures::future;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -15,7 +15,7 @@ use tokio::sync::Semaphore;
 
 pub struct Pipeline {
     is_deploy_enabled: bool,
-    crat: Crate,
+    project: Project,
     max_concurrent: usize,
     deploy_config: Option<Arc<dyn DeployConfig>>,
 }
@@ -35,8 +35,8 @@ impl Pipeline {
             println!(
                 "    {} `{}` {}",
                 console::style("Using a custom deployment configuration for").yellow(),
-                console::style(&self.crat.project.name).green().bold(),
-                console::style("crate").yellow(),
+                console::style(&self.project.name).green().bold(),
+                console::style("project").yellow(),
             );
         }
 
@@ -44,9 +44,9 @@ impl Pipeline {
         print!("{}...", console::style("Preparing").green().bold(),);
 
         // All functions to add to the template
-        let all_functions = prepare_crates(
+        let all_functions = prepare_functions(
             PathBuf::from(build_config()?.kinetics_path),
-            &self.crat,
+            &self.project,
             deploy_functions,
         )?;
 
@@ -64,10 +64,10 @@ impl Pipeline {
             self.is_deploy_enabled,
         );
 
-        let deploying_progress = pipeline_progress.new_progress(&self.crat.project.name);
+        let deploying_progress = pipeline_progress.new_progress(&self.project.name);
 
         pipeline_progress
-            .new_progress(&self.crat.project.name)
+            .new_progress(&self.project.name)
             .log_stage("Building");
 
         build(&deploy_functions, &pipeline_progress.total_progress_bar).await?;
@@ -78,9 +78,9 @@ impl Pipeline {
             pipeline_progress.total_progress_bar.finish_and_clear();
 
             println!(
-                "    {} `{}` crate building in {:.2}s",
+                "    {} `{}` project building in {:.2}s",
                 console::style("Finished").green().bold(),
-                self.crat.project.name,
+                self.project.name,
                 start_time.elapsed().as_secs_f64(),
             );
 
@@ -165,7 +165,7 @@ impl Pipeline {
         }
 
         // Check if there's an ongoing deployment and wait for it to finish
-        let mut status = self.crat.status().await?;
+        let mut status = self.project.status().await?;
         log::debug!("Pipeline status: {:?}", status.status);
         deploying_progress.log_stage("Provisioning");
 
@@ -177,7 +177,7 @@ impl Pipeline {
 
         while status.status == "IN_PROGRESS" {
             tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-            status = self.crat.status().await?;
+            status = self.project.status().await?;
         }
 
         pipeline_progress.total_progress_bar.set_message(
@@ -189,7 +189,7 @@ impl Pipeline {
         );
 
         match self
-            .crat
+            .project
             .deploy(&all_functions, self.deploy_config.as_deref())
             .await
         {
@@ -203,12 +203,12 @@ impl Pipeline {
             Ok(_) => {
                 // Wait for stack deployment if it is updated.
                 deploying_progress.progress_bar.finish_and_clear();
-                let mut status = self.crat.status().await?;
+                let mut status = self.project.status().await?;
 
                 // Poll the status of the deployment
                 while status.status == "IN_PROGRESS" {
                     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-                    status = self.crat.status().await?;
+                    status = self.project.status().await?;
                 }
 
                 if status.status == "FAILED" {
@@ -240,7 +240,7 @@ impl Pipeline {
 #[derive(Default)]
 pub struct PipelineBuilder {
     is_deploy_enabled: Option<bool>,
-    crat: Option<Crate>,
+    project: Option<Project>,
     max_concurrent: Option<usize>,
     deploy_config: Option<Arc<dyn DeployConfig>>,
 }
@@ -248,7 +248,9 @@ pub struct PipelineBuilder {
 impl PipelineBuilder {
     pub fn build(self) -> eyre::Result<Pipeline> {
         Ok(Pipeline {
-            crat: self.crat.ok_or_eyre("No crate provided to the pipeline")?,
+            project: self
+                .project
+                .ok_or_eyre("No project provided to the pipeline")?,
             is_deploy_enabled: self.is_deploy_enabled.unwrap_or(false),
             max_concurrent: self.max_concurrent.unwrap_or(10),
             deploy_config: self.deploy_config,
@@ -265,8 +267,8 @@ impl PipelineBuilder {
         self
     }
 
-    pub fn set_crat(mut self, crat: Crate) -> Self {
-        self.crat = Some(crat);
+    pub fn set_project(mut self, project: Project) -> Self {
+        self.project = Some(project);
         self
     }
 

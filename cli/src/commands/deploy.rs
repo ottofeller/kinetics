@@ -1,7 +1,6 @@
-use super::build::{pipeline::Pipeline, prepare_crates};
+use super::build::{pipeline::Pipeline, prepare_functions};
 use crate::client::Client;
 use crate::config::build_config;
-use crate::crat::Crate;
 use crate::function::Function;
 use crate::project::Project;
 use async_trait::async_trait;
@@ -31,11 +30,11 @@ pub async fn run(
 /// Deploy only environment variables for functions
 async fn envs(deploy_functions: &[String]) -> eyre::Result<()> {
     println!("{}...", console::style("Provisioning envs").green().bold());
-    let crat = Crate::from_current_dir()?;
+    let project = Project::from_current_dir()?;
 
-    let functions: Vec<Function> = prepare_crates(
+    let functions: Vec<Function> = prepare_functions(
         PathBuf::from(build_config()?.kinetics_path),
-        &crat,
+        &project,
         deploy_functions,
     )?
     .iter()
@@ -79,7 +78,7 @@ async fn envs(deploy_functions: &[String]) -> eyre::Result<()> {
     let result = client
         .post("/stack/deploy/envs")
         .json(&json!({
-            "crate_name": crat.project.name.clone(),
+            "project_name": project.name.clone(),
             "functions": envs,
         }))
         .send()
@@ -131,7 +130,7 @@ async fn full(
         .set_max_concurrent(max_concurrency)
         .with_deploy_enabled(true)
         .with_deploy_config(deploy_config)
-        .set_crat(Crate::from_current_dir()?)
+        .set_project(Project::from_current_dir()?)
         .build()
         .wrap_err("Failed to build pipeline")?
         .run(deploy_functions)

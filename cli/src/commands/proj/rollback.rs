@@ -1,4 +1,4 @@
-use crate::crat::Crate;
+use crate::project::Project;
 use crate::{client::Client, error::Error};
 use chrono::{DateTime, Utc};
 use eyre::{Context, Result};
@@ -31,7 +31,7 @@ struct Version {
 ///
 /// Consequent rollbacks are possible and will revert one version at a time
 /// If version is specified, rollback to that specific version
-pub async fn rollback(crat: &Crate, version: Option<u32>) -> Result<()> {
+pub async fn rollback(project: &Project, version: Option<u32>) -> Result<()> {
     let client = Client::new(false)
         .await
         .wrap_err("Failed to create client")?;
@@ -40,7 +40,7 @@ pub async fn rollback(crat: &Crate, version: Option<u32>) -> Result<()> {
         .request(
             "/stack/versions",
             VersionsRequest {
-                name: crat.project.name.to_string(),
+                name: project.name.to_string(),
             },
         )
         .await?;
@@ -87,18 +87,18 @@ pub async fn rollback(crat: &Crate, version: Option<u32>) -> Result<()> {
     client
         .post("/stack/rollback")
         .json(&RollbackRequest {
-            name: crat.project.name.to_string(),
+            name: project.name.to_string(),
             version,
         })
         .send()
         .await?;
 
-    let mut status = crat.status().await?;
+    let mut status = project.status().await?;
 
     // Poll the status of the rollback
     while status.status == "IN_PROGRESS" {
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-        status = crat.status().await?;
+        status = project.status().await?;
     }
 
     if status.status == "FAILED" {

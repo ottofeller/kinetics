@@ -1,4 +1,3 @@
-use crate::crat::Crate;
 use crate::function::Function;
 use crate::project::Project;
 use color_eyre::owo_colors::OwoColorize;
@@ -8,13 +7,13 @@ use std::path::Path;
 /// Resolve function name into URL and call it remotely
 pub async fn invoke(
     function: &Function,
-    crat: &Crate,
+    project: &Project,
     payload: &str,
     headers: &str,
     url_path: &str,
 ) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
-    let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", crat.project.name));
+    let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", project.name));
     let display_path = format!("{}/src/bin/{}.rs", invoke_dir.display(), function.name);
 
     println!(
@@ -33,7 +32,7 @@ pub async fn invoke(
     } else {
         format!(
             "{}/{}",
-            Project::fetch_one(&function.crat.project.name).await?.url,
+            Project::fetch_one(&function.project.name).await?.url,
             url_path
         )
     };

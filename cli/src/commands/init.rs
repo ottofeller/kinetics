@@ -146,7 +146,7 @@ pub async fn init(name: &str, function_type: FunctionType) -> eyre::Result<()> {
     // Remove the now empty extracted directory
     fs::remove_dir_all(&extracted_dir).unwrap_or(());
 
-    print!("\r\x1B[K{}", console::style("Renaming crate").dim());
+    print!("\r\x1B[K{}", console::style("Renaming project").dim());
 
     rename(&project_dir, name).wrap_err(Error::new(
         "Failed to update Cargo.toml",

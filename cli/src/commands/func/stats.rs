@@ -1,7 +1,7 @@
 use crate::client::Client;
-use crate::crat::Crate;
 use crate::error::Error;
 use crate::function::Function;
+use crate::project::Project;
 use chrono::DateTime;
 use color_eyre::owo_colors::OwoColorize as _;
 use eyre::{Context, Result};
@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// Request
 #[derive(Serialize)]
 struct RequestBody {
-    crate_name: String,
+    project_name: String,
     function_name: String,
     /// The period (measured in days) to get statistics for
     period: u32,
@@ -38,12 +38,12 @@ struct LastCall {
 }
 
 /// Retrieves and displays run statistics for a specific function
-pub async fn stats(function_name: &str, crat: &Crate, period: u32) -> Result<()> {
+pub async fn stats(function_name: &str, project: &Project, period: u32) -> Result<()> {
     // Get all function names without any additional manupulations.
-    let all_functions = Parser::new(Some(&crat.path))?
+    let all_functions = Parser::new(Some(&project.path))?
         .functions
         .into_iter()
-        .map(|f| Function::new(crat, &f))
+        .map(|f| Function::new(project, &f))
         .collect::<eyre::Result<Vec<Function>>>()?;
     let function = Function::find_by_name(&all_functions, function_name)?;
 
@@ -59,7 +59,7 @@ pub async fn stats(function_name: &str, crat: &Crate, period: u32) -> Result<()>
     let response = client
         .post("/function/stats")
         .json(&RequestBody {
-            crate_name: crat.project.name.to_owned(),
+            project_name: project.name.to_owned(),
             function_name: function.name,
             period,
         })

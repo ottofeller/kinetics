@@ -2,7 +2,6 @@ pub mod cli;
 pub mod client;
 pub mod commands;
 pub mod config;
-pub mod crat;
 pub mod credentials;
 pub mod error;
 pub mod function;

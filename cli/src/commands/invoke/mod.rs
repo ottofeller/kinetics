@@ -2,16 +2,17 @@ mod docker;
 mod local;
 mod remote;
 mod service;
-use super::build::prepare_crates;
+use super::build::prepare_functions;
 use crate::config::build_config;
-use crate::crat::Crate;
 use crate::function::Function;
+use crate::project::Project;
 use std::path::PathBuf;
 
 /// Invoke the function either locally or remotely
+#[allow(clippy::too_many_arguments)]
 pub async fn invoke(
     function_name: &str,
-    crat: &Crate,
+    project: &Project,
     payload: &str,
     headers: &str,
     url_path: &str,
@@ -24,9 +25,9 @@ pub async fn invoke(
     is_queue_enabled: bool,
 ) -> eyre::Result<()> {
     // Get function names as well as pull all updates from the code.
-    let all_functions = prepare_crates(
+    let all_functions = prepare_functions(
         PathBuf::from(build_config()?.kinetics_path),
-        crat,
+        project,
         &[function_name.into()],
     )?;
     let function = Function::find_by_name(&all_functions, function_name)?;
@@ -34,7 +35,7 @@ pub async fn invoke(
     if is_local {
         local::invoke(
             &function,
-            crat,
+            project,
             payload,
             headers,
             url_path,
@@ -44,6 +45,6 @@ pub async fn invoke(
         )
         .await
     } else {
-        remote::invoke(&function, crat, payload, headers, url_path).await
+        remote::invoke(&function, project, payload, headers, url_path).await
     }
 }
