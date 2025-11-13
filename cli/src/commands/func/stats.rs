@@ -2,7 +2,6 @@ use crate::client::Client;
 use crate::error::Error;
 use crate::function::Function;
 use crate::project::Project;
-use chrono::DateTime;
 use color_eyre::owo_colors::OwoColorize as _;
 use eyre::{Context, Result};
 use kinetics_parser::Parser;
