@@ -21,7 +21,6 @@ struct RequestBody {
 #[derive(Deserialize)]
 struct JsonResponse {
     runs: Runs,
-    last_call: Option<LastCall>,
 }
 
 #[derive(Deserialize)]
@@ -29,12 +28,6 @@ struct Runs {
     success: u64,
     error: u64,
     total: u64,
-}
-
-#[derive(Deserialize)]
-struct LastCall {
-    timestamp: String,
-    status: String,
 }
 
 /// Retrieves and displays run statistics for a specific function
@@ -88,18 +81,5 @@ pub async fn stats(function_name: &str, project: &Project, period: u32) -> Resul
     println!("  Success: {}", logs_response.runs.success);
     println!("  Error: {}", logs_response.runs.error);
 
-    let Some(last_call) = logs_response.last_call else {
-        println!("Never invoked yet");
-        return Ok(());
-    };
-
-    println!("\n{}", "Last called:".bold());
-
-    println!(
-        "  At: {}",
-        DateTime::parse_from_rfc3339(&last_call.timestamp)?.with_timezone(&chrono::Local)
-    );
-
-    println!("  Status: {}", last_call.status);
     Ok(())
 }

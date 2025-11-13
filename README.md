@@ -102,7 +102,7 @@ The following attribute macro parameters are available:
 
 #### Cron
 
-- `schedule`: [Schedule expression](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-scheduleexpression).
+- `schedule`: We support [these](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-scheduleexpression) types of expressions.
 - `environment`: Environment variables.
 
 [Example](https://github.com/ottofeller/kinetics/blob/main/examples/src/basic/cron.rs).
