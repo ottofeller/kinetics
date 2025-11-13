@@ -354,6 +354,9 @@ impl FileConfig {
         let mut config: FileConfig =
             toml::from_str(&toml_string).wrap_err("Failed to parse kinetics.toml")?;
 
+        // Set the path to the directory containing kinetics.toml
+        config.path = path.clone();
+
         // If project name is explicitly set in kinetics.toml, return it right away
         if !config.project.name.is_empty() {
             return Ok(config);
