@@ -204,7 +204,7 @@ pub async fn build(
     functions: &[Function],
     total_progress: &indicatif::ProgressBar,
 ) -> eyre::Result<()> {
-    let Some(Function { project: crat, .. }) = functions.iter().next() else {
+    let Some(Function { project, .. }) = functions.iter().next() else {
         return Err(eyre!("Attempted to build an empty function list"));
     };
 
@@ -217,7 +217,7 @@ pub async fn build(
         .arg("x86_64-unknown-linux-musl")
         .arg("--output-format")
         .arg("zip")
-        .current_dir(&crat.path)
+        .current_dir(&project.path)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
