@@ -1,13 +1,18 @@
 use crate::client::Client;
+use crate::commands::deploy::DeployConfig;
 use crate::config::build_config;
 use crate::error::Error;
+use crate::function::Function;
+use crate::secret::Secret;
 use chrono::{DateTime, Duration, Utc};
 use eyre::{ContextCompat, WrapErr};
+use http::StatusCode;
+use kinetics_parser::Role;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const CACHE_EXPIRES_IN: Duration = Duration::minutes(10);
 
@@ -16,6 +21,9 @@ const CACHE_EXPIRES_IN: Duration = Duration::minutes(10);
 /// Used for handling configuration and calling relevant APIs
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
+    #[serde(skip)]
+    pub path: PathBuf,
+
     /// Project name (used as a prefix for all resources)
     pub name: String,
 
@@ -33,6 +41,11 @@ impl Project {
     /// from the ` Cargo.toml ` file in the same path
     pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
         Ok(FileConfig::from_path(path)?.into())
+    }
+
+    /// Creates a new project instance from the current directory
+    pub fn from_current_dir() -> eyre::Result<Self> {
+        Self::from_path(std::env::current_dir().wrap_err("Failed to get current dir")?)
     }
 
     /// Get project by name, with automatic cache management.
@@ -67,11 +80,110 @@ impl Project {
             .await
             .wrap_err("Failed to create client")?
             .post("/stack/destroy")
-            .json(&json!({"crate_name": self.name}))
+            .json(&json!({"project_name": self.name}))
             .send()
             .await?;
 
         Ok(())
+    }
+
+    /// Deploy all assets using CFN template
+    /// The boolean returned indicates whether the stack was updated.
+    pub async fn deploy(
+        &self,
+        functions: &[Function],
+        deploy_config: Option<&dyn DeployConfig>,
+    ) -> eyre::Result<bool> {
+        let client = Client::new(deploy_config.is_some()).await?;
+
+        let secrets = HashMap::from_iter(
+            Secret::from_dotenv()
+                .iter()
+                .map(|s| (s.name.clone(), s.value())),
+        );
+
+        if let Some(config) = deploy_config {
+            return config.deploy(self, secrets, functions).await;
+        }
+
+        let body = DeployRequest {
+            secrets,
+            functions: functions
+                .iter()
+                .map(|f| f.into())
+                .collect::<Vec<FunctionRequest>>(),
+            project: self.clone(),
+        };
+
+        log::debug!(
+            "Sending request to deploy:\n{}",
+            serde_json::to_string_pretty(&body)?
+        );
+
+        let result = client
+            .post("/stack/deploy")
+            .json(&body)
+            .send()
+            .await
+            .inspect_err(|err| log::error!("Error while requesting deploy: {err:?}"))
+            .wrap_err(Error::new(
+                "Network request failed",
+                Some("Try again in a few seconds."),
+            ))?;
+
+        let status = result.status();
+        log::info!("got status from /stack/deploy: {}", status);
+        log::info!("got response from /stack/deploy: {}", result.text().await?);
+
+        match status {
+            StatusCode::OK => eyre::Ok(true),
+            StatusCode::NOT_MODIFIED => eyre::Ok(false),
+            _ => Err(Error::new(
+                "Deployment request failed",
+                Some("Try again in a few seconds."),
+            )
+            .into()),
+        }
+    }
+
+    pub async fn status(&self) -> eyre::Result<StatusResponseBody> {
+        Self::status_by_name(&self.name).await
+    }
+
+    pub async fn status_by_name(name: &str) -> eyre::Result<StatusResponseBody> {
+        let client = Client::new(false).await?;
+
+        #[derive(serde::Serialize, Debug)]
+        pub struct JsonBody {
+            pub name: String,
+        }
+
+        let result = client
+            .post("/stack/status")
+            .json(&JsonBody {
+                name: name.to_owned(),
+            })
+            .send()
+            .await
+            .wrap_err(Error::new(
+                "Network request failed",
+                Some("Try again in a few seconds."),
+            ))?;
+
+        let status = result.status();
+        let text = result.text().await?;
+        log::debug!("Got response from /stack/status:\n{status}\n{text}");
+
+        if status != StatusCode::OK {
+            return Err(
+                Error::new("Status request failed", Some("Try again in a few seconds.")).into(),
+            );
+        }
+
+        let status: StatusResponseBody =
+            serde_json::from_str(&text).wrap_err("Failed to parse response")?;
+
+        eyre::Ok(status)
     }
 }
 
@@ -206,6 +318,9 @@ struct FileConfig {
     /// name = "kvdb"
     #[serde(default)]
     pub kvdb: Vec<Kvdb>,
+
+    #[serde(skip)]
+    path: PathBuf,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -229,8 +344,9 @@ impl FileConfig {
             // Return default config if kinetics.toml is not found
             return Ok(Self {
                 project: ProjectSection {
-                    name: Self::cargo_toml_name(path)?,
+                    name: Self::cargo_toml_name(path.as_path())?,
                 },
+                path,
                 ..Default::default()
             });
         };
@@ -238,17 +354,20 @@ impl FileConfig {
         let mut config: FileConfig =
             toml::from_str(&toml_string).wrap_err("Failed to parse kinetics.toml")?;
 
+        // Set the path to the directory containing kinetics.toml
+        config.path = path.clone();
+
         // If project name is explicitly set in kinetics.toml, return it right away
         if !config.project.name.is_empty() {
             return Ok(config);
         }
 
-        config.project.name = Self::cargo_toml_name(path)?;
+        config.project.name = Self::cargo_toml_name(path.as_path())?;
         Ok(config)
     }
 
     /// Reads Cargo.toml in a given directory and returns the name
-    fn cargo_toml_name(path: PathBuf) -> eyre::Result<String> {
+    fn cargo_toml_name(path: &Path) -> eyre::Result<String> {
         let cargo_toml_path = path.join("Cargo.toml");
 
         let cargo_toml_string = fs::read_to_string(&cargo_toml_path).wrap_err(Error::new(
@@ -278,9 +397,41 @@ impl FileConfig {
     }
 }
 
+#[derive(serde::Deserialize, Debug)]
+pub struct StatusResponseBody {
+    pub status: String,
+    pub errors: Option<Vec<String>>,
+}
+
+/// A structure representing a deployment request which contains configuration, secrets, and functions to be deployed.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct DeployRequest {
+    pub project: Project,
+    pub secrets: HashMap<String, String>,
+    pub functions: Vec<FunctionRequest>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct FunctionRequest {
+    pub is_deploying: bool,
+    pub name: String,
+    pub role: Role,
+}
+
+impl From<&Function> for FunctionRequest {
+    fn from(f: &Function) -> Self {
+        Self {
+            name: f.name.clone(),
+            is_deploying: f.is_deploying,
+            role: f.role.clone(),
+        }
+    }
+}
+
 impl From<FileConfig> for Project {
     fn from(cfg: FileConfig) -> Self {
         Project {
+            path: cfg.path,
             name: cfg.project.name,
             url: "".to_string(), // Unknown at this point, will be populated by the API
             kvdb: cfg.kvdb,

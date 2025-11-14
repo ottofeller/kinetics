@@ -2,7 +2,6 @@ mod cli;
 mod client;
 mod commands;
 mod config;
-mod crat;
 mod credentials;
 mod error;
 mod function;

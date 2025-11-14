@@ -1,9 +1,9 @@
 use super::docker::Docker;
 use super::service::{LocalDynamoDB, LocalQueue, LocalSqlDB};
 use crate::config::build_config;
-use crate::crat::Crate;
 use crate::function::Function;
 use crate::process::Process;
+use crate::project::Project;
 use crate::secret::Secret;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::WrapErr;
@@ -12,9 +12,10 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 /// Invoke the function locally
+#[allow(clippy::too_many_arguments)]
 pub async fn invoke(
     function: &Function,
-    crat: &Crate,
+    project: &Project,
     payload: &str,
     headers: &str,
     url_path: &str,
@@ -37,7 +38,7 @@ pub async fn invoke(
         );
     }
 
-    let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", crat.project.name));
+    let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", project.name));
     let display_path = format!("{}/src/bin/{}Local.rs", invoke_dir.display(), function.name);
 
     println!(

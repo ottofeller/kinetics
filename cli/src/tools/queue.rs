@@ -47,7 +47,7 @@ impl Client {
             // Initialize the SQS client just once
             queue: SQS_CLIENT
                 .get_or_init(|| async {
-                    let (crate_name, function_path) = std::any::type_name_of_val(&worker)
+                    let (project_name, function_path) = std::any::type_name_of_val(&worker)
                         .split_once("::")
                         .unwrap();
 
@@ -73,7 +73,7 @@ impl Client {
                             Ok::<String, std::env::VarError>(resource_name(
                                 &std::env::var("KINETICS_USERNAME")
                                     .expect("KINETICS_USERNAME is not set"),
-                                crate_name,
+                                project_name,
                                 &ParsedFunction::path_to_name(&function_path.replace("::", "/")),
                             ))
                         })

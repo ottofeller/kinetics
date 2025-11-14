@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::crat::Crate;
 use crate::function::Function;
 use crate::project::Project;
 use color_eyre::owo_colors::OwoColorize;
@@ -171,9 +170,9 @@ fn simple(functions: &[ParsedFunction], project_base_url: &str) -> eyre::Result<
 /// Prints out the list of all functions
 ///
 /// With some extra information
-pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
-    let functions = Parser::new(Some(&current_crate.path))?.functions;
-    let project_base_url = Project::fetch_one(&current_crate.project.name).await?.url;
+pub async fn list(project: &Project, is_verbose: bool) -> eyre::Result<()> {
+    let functions = Parser::new(Some(&project.path))?.functions;
+    let project_base_url = Project::fetch_one(&project.name).await?.url;
 
     if !is_verbose {
         return simple(&functions, &project_base_url);
@@ -190,7 +189,7 @@ pub async fn list(current_crate: &Crate, is_verbose: bool) -> eyre::Result<()> {
     }
 
     for parsed_function in functions {
-        let function = Function::new(current_crate, &parsed_function)?;
+        let function = Function::new(project, &parsed_function)?;
 
         let last_modified = function
             .status(&client)

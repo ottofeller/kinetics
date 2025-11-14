@@ -1,8 +1,8 @@
 use crate::commands;
-use crate::crat::Crate;
 use crate::error::Error;
 use crate::function::Type as FunctionType;
 use crate::logger::Logger;
+use crate::project::Project;
 use clap::{ArgAction, Parser, Subcommand};
 use eyre::{Ok, WrapErr};
 use std::sync::Arc;
@@ -43,7 +43,7 @@ enum AuthCommands {
 enum ProjCommands {
     /// [DANGER] Destroy a project
     Destroy {
-        /// Name of the project to destroy (optional, defaults to current crate name)
+        /// Name of the project to destroy (optional, defaults to current project name)
         #[arg(short, long)]
         name: Option<String>,
     },
@@ -262,7 +262,7 @@ pub async fn run(
         _ => {}
     }
 
-    let crat = Crate::from_current_dir();
+    let project = Project::from_current_dir();
 
     // Auth commands
     match &cli.command {
@@ -286,7 +286,7 @@ pub async fn run(
         Some(Commands::Proj {
             command: Some(ProjCommands::Destroy { name }),
         }) => {
-            return commands::proj::destroy::destroy(&crat.ok(), name.as_deref())
+            return commands::proj::destroy::destroy(&project.ok(), name.as_deref())
                 .await
                 .inspect_err(|err| log::error!("Error: {:?}", err))
                 .map_err(Error::from);
@@ -294,7 +294,7 @@ pub async fn run(
         Some(Commands::Proj {
             command: Some(ProjCommands::Rollback { version }),
         }) => {
-            return commands::proj::rollback::rollback(&crat?, *version)
+            return commands::proj::rollback::rollback(&project?, *version)
                 .await
                 .wrap_err("Failed to rollback the project")
                 .map_err(Error::from);
@@ -304,19 +304,19 @@ pub async fn run(
         }) => return commands::proj::list::list().await,
         Some(Commands::Proj {
             command: Some(ProjCommands::Versions {}),
-        }) => return commands::proj::versions::versions(&crat?).await,
+        }) => return commands::proj::versions::versions(&project?).await,
         _ => Ok(()),
     }?;
 
-    // Since this point all commands need the crat to be presented
-    let crat = crat?;
+    // Since this point all commands need the project to be presented
+    let project = project?;
 
     // Functions commands
     match &cli.command {
         Some(Commands::Func {
             command: Some(FuncCommands::List { verbose }),
         }) => {
-            return commands::func::list::list(&crat, *verbose)
+            return commands::func::list::list(&project, *verbose)
                 .await
                 .wrap_err("Failed to list functions")
                 .map_err(Error::from);
@@ -324,14 +324,14 @@ pub async fn run(
         Some(Commands::Func {
             command: Some(FuncCommands::Stats { name, period }),
         }) => {
-            return commands::func::stats::stats(name, &crat, *period)
+            return commands::func::stats::stats(name, &project, *period)
                 .await
                 .wrap_err("Failed to get function statistics")
                 .map_err(Error::from);
         }
         Some(Commands::Func {
             command: Some(FuncCommands::Logs { name, period }),
-        }) => commands::func::logs::logs(name, &crat, period).await,
+        }) => commands::func::logs::logs(name, &project, period).await,
         _ => Ok(()),
     }?;
 
@@ -340,7 +340,7 @@ pub async fn run(
         Some(Commands::Envs {
             command: Some(EnvsCommands::List {}),
         }) => {
-            return commands::envs::list(&crat)
+            return commands::envs::list(&project)
                 .await
                 .wrap_err("Failed to list environment variables")
                 .inspect_err(|e| log::error!("{e:?}"))
@@ -370,7 +370,7 @@ pub async fn run(
         }) => {
             commands::invoke::invoke(
                 name,
-                &crat,
+                &project,
                 payload,
                 headers,
                 url_path,

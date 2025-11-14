@@ -1,15 +1,15 @@
-use super::build::prepare_crates;
+use super::build::prepare_functions;
 use crate::config::build_config;
-use crate::crat::Crate;
+use crate::project::Project;
 use crossterm::style::Stylize;
 use eyre::eyre;
 use kinetics_parser::Parser;
 use std::path::PathBuf;
 
 /// Lists all environment variables for all functions in the current crate
-pub async fn list(crat: &Crate) -> eyre::Result<()> {
-    let functions = prepare_crates(PathBuf::from(build_config()?.kinetics_path), &crat, &vec![])?;
-    let parsed_functions = Parser::new(Some(&crat.path))?.functions;
+pub async fn list(project: &Project) -> eyre::Result<()> {
+    let functions = prepare_functions(PathBuf::from(build_config()?.kinetics_path), project, &[])?;
+    let parsed_functions = Parser::new(Some(&project.path))?.functions;
 
     if functions.is_empty() {
         println!("{}", "No functions found".yellow());

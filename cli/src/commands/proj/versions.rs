@@ -1,6 +1,6 @@
 use crate::client::Client;
-use crate::crat::Crate;
 use crate::error::Error;
+use crate::project::Project;
 use chrono::{DateTime, Utc};
 use color_eyre::owo_colors::OwoColorize;
 use crossterm::style::Stylize;
@@ -8,7 +8,7 @@ use eyre::Context;
 use serde::{Deserialize, Serialize};
 
 /// Prints out the list of all available versions for the project
-pub async fn versions(crat: &Crate) -> Result<(), Error> {
+pub async fn versions(project: &Project) -> Result<(), Error> {
     #[derive(Clone, Debug, Serialize, Deserialize)]
     struct Version {
         version: u32,
@@ -35,7 +35,7 @@ pub async fn versions(crat: &Crate) -> Result<(), Error> {
         .request::<Body, Response>(
             "/stack/versions",
             Body {
-                name: crat.project.name.clone(),
+                name: project.name.clone(),
             },
         )
         .await

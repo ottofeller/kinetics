@@ -1,8 +1,8 @@
 mod filehash;
 pub mod pipeline;
 mod templates;
-use crate::crat::Crate;
 use crate::function::Function;
+use crate::project::Project;
 use crate::tools::config::EndpointConfig;
 use eyre::{Context, OptionExt};
 use filehash::{FileHash, CHECKSUMS_FILENAME};
@@ -18,7 +18,7 @@ use walkdir::WalkDir;
 pub async fn run(deploy_functions: &[String]) -> eyre::Result<()> {
     Pipeline::builder()
         .with_deploy_enabled(false)
-        .set_crat(Crate::from_current_dir()?)
+        .set_project(Project::from_current_dir()?)
         .build()
         .wrap_err("Failed to build pipeline")?
         .run(deploy_functions)
@@ -27,21 +27,20 @@ pub async fn run(deploy_functions: &[String]) -> eyre::Result<()> {
     Ok(())
 }
 
-/// Parses source code and prepares crates for deployment
-/// Stores crates inside target_directory and returns list of encountered functions
-pub fn prepare_crates(
+/// Parses source code and prepares project for deployment
+/// Stores rust crate inside target_directory and returns list of encountered functions
+pub fn prepare_functions(
     dst: PathBuf,
-    current_crate: &Crate,
+    current_project: &Project,
 
-    // prepare_crates() always returns all functions defined in the crate, but relies on this input param
+    // prepare_functions() always returns all functions defined in the project, but relies on this input param
     // to mark the requested functions as requested for deployment
     deploy_functions: &[String],
 ) -> eyre::Result<Vec<Function>> {
     // Parse functions from source code
-    let parsed_functions = Parser::new(Some(&current_crate.path))?.functions;
-
-    let src = &current_crate.path;
-    let dst = dst.join(&current_crate.project.name);
+    let parsed_functions = Parser::new(Some(&current_project.path))?.functions;
+    let src = &current_project.path;
+    let dst = dst.join(&current_project.name);
     // Checksums of source files for preventing rewrite existing files
     let mut checksum = FileHash::new(dst.to_path_buf());
 
@@ -87,15 +86,15 @@ pub fn prepare_crates(
     checksum.save().wrap_err("Failed to save checksums")?;
     clear_dir(&dst, &checksum)?;
 
-    // Create a new crate instance for the build directory
-    let dst_crate = Crate::new(dst.to_path_buf())?;
+    // Create a new project instance for the target build directory
+    let dst_project = Project::from_path(dst.to_path_buf())?;
 
     parsed_functions
         .into_iter()
         .map(|f| {
             let name = f.func_name(false)?;
 
-            Function::new(&dst_crate, &f).map(|f| {
+            Function::new(&dst_project, &f).map(|f| {
                 // Mark function as requested (or not) for deployment
                 f.set_is_deploying(deploy_functions.is_empty() || deploy_functions.contains(&name))
             })
@@ -103,9 +102,9 @@ pub fn prepare_crates(
         .collect::<eyre::Result<Vec<_>>>()
 }
 
-/// Clone the crate dir to a new directory
+/// Clone the project dir to a new directory
 fn clone(src: &Path, dst: &Path, checksum: &mut FileHash) -> eyre::Result<()> {
-    fs::create_dir_all(dst).wrap_err("Failed to create dir to clone the crate to")?;
+    fs::create_dir_all(dst).wrap_err("Failed to create dir to clone the project to")?;
 
     // Skip source target from copying
     let src_target = src.join("target");
@@ -281,7 +280,7 @@ fn create_lib(
     Ok(())
 }
 
-/// Create crate with the code necessary to build lambda
+/// Create a function with the code necessary to build lambda
 ///
 /// Set up the function according to cargo lambda guides
 /// within the `bin` folder.
@@ -429,7 +428,7 @@ fn deps(
 fn import_statement(
     relative_path: &str,
     rust_name: &str,
-    crate_name: &str,
+    project_name: &str,
 ) -> eyre::Result<String> {
     let relative_path =
         PathBuf::from_str(relative_path.strip_prefix("src/").unwrap_or(relative_path))?;
@@ -465,9 +464,9 @@ fn import_statement(
 
     // If module path is empty then the function is located in the lib.rs file
     let import_statement = if module_path.is_empty() {
-        format!("use {crate_name}::{rust_name};")
+        format!("use {project_name}::{rust_name};")
     } else {
-        format!("use {crate_name}::{module_path}::{rust_name};")
+        format!("use {project_name}::{module_path}::{rust_name};")
     };
 
     Ok(import_statement)

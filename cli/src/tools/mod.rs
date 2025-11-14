@@ -9,7 +9,7 @@ pub mod queue;
 ///
 /// The string is truncated to 64 symbols, which is the maximum length
 /// for a resource name in most platforms.
-pub fn resource_name(user_name: &str, crate_name: &str, resource_name: &str) -> String {
+pub fn resource_name(user_name: &str, project_name: &str, resource_name: &str) -> String {
     format!(
         "{}{}",
         // Keep readable name to distinguish resources in the dahsboards
@@ -20,7 +20,7 @@ pub fn resource_name(user_name: &str, crate_name: &str, resource_name: &str) -> 
             .collect::<String>()
             .to_lowercase(),
         // Add hash for uniqueness
-        sha256::digest(format!("{}-{}-{}", user_name, crate_name, resource_name))
+        sha256::digest(format!("{}-{}-{}", user_name, project_name, resource_name))
             .to_string()
             .chars()
             .take(32)
