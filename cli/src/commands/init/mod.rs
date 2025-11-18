@@ -156,11 +156,12 @@ pub async fn init(
         Some("Template might be corrupted (reach us at support@usekinetics.com), or check file system permissions."),
     ))?;
 
+    print!("\r\x1B[K");
     if is_git_enabled {
         init_git(&project_dir)?;
     }
 
-    print!("\r\x1B[K{}\n", console::style("Done").cyan());
+    println!("{}", console::style("Done").cyan());
     Ok(())
 }
 
@@ -297,7 +298,11 @@ fn init_git(project_dir: &Path) -> eyre::Result<()> {
     fs::write(deploy_workflow_path, deploy_workflow).wrap_err(Error::new(
         "Failed to write deploy workflow file",
         Some("Check file system permissions."),
-    ))
+    ))?;
+
+    println!("{}", console::style("A github workflow for continious deployment was added to the project. Make sure to pull a token and save it to the repo under KINETICS_TOKEN name in order to properly authenticate the workflow. For details see https://github.com/ottofeller/kinetics/blob/main/README.md#deploy-from-github-actions").dim());
+
+    Ok(())
 }
 
 /// Clean up, and throw an error
