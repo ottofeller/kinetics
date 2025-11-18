@@ -75,10 +75,6 @@ kinetics deploy
 
 # 6. Alternatively you can deploy only selected functions
 kinetics deploy BasicCronCron,BasicWorkerWorker
-
-#7. The newly inited project contains a github workflow for continious deployment.
-# Get a token and add it as KINETICS_TOKEN secret to your repo to enable deploys.
-kinetics auth token
 ```
 
 > Kinetics is currently in ⚠️ **active development** and may contain bugs or result in unexpected behavior. The service is free for the first **100,000 invocations** of your functions, regardless of the type of workload.
@@ -195,6 +191,14 @@ Output run statistics for a function:
 ```sh
 kinetics func stats BasicEndpointEndpoint
 ```
+
+## Deploy from github actions
+The newly initialized project contains a github workflow for continious deployment.
+- After calling `kinetics init <project-name>`
+- run `kinetics auth token` to get a token
+- and add it as `KINETICS_TOKEN` secret to your repo to enable deploys.
+
+After this setup main branch updaits will be automatically deployed.
 
 ## Support & Community
 
