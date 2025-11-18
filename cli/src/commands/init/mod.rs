@@ -20,7 +20,7 @@ const ENDPOINT_TEMPLATE_URL: &str =
 const WORKER_TEMPLATE_URL: &str =
     "https://github.com/ottofeller/kinetics-worker-template/archive/refs/heads/main.zip";
 
-const GITHUB_DEPLY_TEMPLATE: &str = include_str!("github-deploy.yaml");
+const GITHUB_DEPLY_TEMPLATE: &str = include_str!("github-workflow-template.yaml");
 
 /// Initialize a new Kinetics project by downloading and unpacking a template archive
 ///
