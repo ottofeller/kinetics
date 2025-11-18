@@ -26,7 +26,11 @@ const GITHUB_DEPLY_TEMPLATE: &str = include_str!("github-workflow-template.yaml"
 ///
 /// Downloads the Kinetics template archive into a new directory,
 /// customizes it with the provided project name, and sets up a ready-to-use project structure.
-pub async fn init(name: &str, function_type: FunctionType, init_git: bool) -> eyre::Result<()> {
+pub async fn init(
+    name: &str,
+    function_type: FunctionType,
+    is_git_enabled: bool,
+) -> eyre::Result<()> {
     let project_dir = env::current_dir()
         .wrap_err(Error::new(
             "Failed to determine current directory",
@@ -152,8 +156,8 @@ pub async fn init(name: &str, function_type: FunctionType, init_git: bool) -> ey
         Some("Template might be corrupted (reach us at support@usekinetics.com), or check file system permissions."),
     ))?;
 
-    if init_git {
-        git(&project_dir)?;
+    if is_git_enabled {
+        init_git(&project_dir)?;
     }
 
     print!("\r\x1B[K{}\n", console::style("Done").cyan());
@@ -243,7 +247,7 @@ async fn unpack(response: Response, project_dir: &Path) -> eyre::Result<()> {
 }
 
 /// Setup git and github workflow for automatic deployments
-fn git(project_dir: &Path) -> eyre::Result<()> {
+fn init_git(project_dir: &Path) -> eyre::Result<()> {
     // Init git only for a new project
     let is_repo = Command::new("git")
         .arg("rev-parse")
