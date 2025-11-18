@@ -26,7 +26,7 @@ const GITHUB_DEPLY_TEMPLATE: &str = include_str!("github-deploy.yaml");
 ///
 /// Downloads the Kinetics template archive into a new directory,
 /// customizes it with the provided project name, and sets up a ready-to-use project structure.
-pub async fn init(name: &str, function_type: FunctionType) -> eyre::Result<()> {
+pub async fn init(name: &str, function_type: FunctionType, init_git: bool) -> eyre::Result<()> {
     let project_dir = env::current_dir()
         .wrap_err(Error::new(
             "Failed to determine current directory",
@@ -152,54 +152,9 @@ pub async fn init(name: &str, function_type: FunctionType) -> eyre::Result<()> {
         Some("Template might be corrupted (reach us at support@usekinetics.com), or check file system permissions."),
     ))?;
 
-    // Init git only for a new project
-    let is_repo = Command::new("git")
-        .arg("rev-parse")
-        .arg("--is-inside-work-tree")
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .map(|exit_status| exit_status.success())
-        .unwrap_or_default();
-
-    if !is_repo {
-        log::info!("No git repo found. Init a new one.");
-
-        let status = Command::new("git")
-            .args(["init", "--quiet"])
-            .current_dir(&project_dir)
-            .status()
-            .inspect_err(|e| log::error!("Can't init git: {:?}", e))
-            .wrap_err(Error::new(
-                "Failed to init git",
-                Some("Make sure you have proper permissions."),
-            ))?;
-
-        if !status.success() {
-            log::error!("Can't init git: {:?}", status);
-
-            return halt(
-                "Failed to init git",
-                "Failed to init git . Check file permissions.",
-                &project_dir,
-            );
-        }
+    if init_git {
+        git(&project_dir)?;
     }
-
-    // Add a github CD workflow
-    let deploy_workflow = GITHUB_DEPLY_TEMPLATE.replace("PLACEHOLDER_DIR_PATH", ".");
-    let workflow_dir = project_dir.join(".github/workflows");
-    fs::create_dir_all(&workflow_dir)
-        .inspect_err(|e| log::error!("{e:?}"))
-        .wrap_err(Error::new(
-            "Failed to create github workflows directory",
-            Some("Check file system permissions."),
-        ))?;
-    let deploy_workflow_path = workflow_dir.join("kinetics-deploy.yaml");
-    fs::write(deploy_workflow_path, deploy_workflow).wrap_err(Error::new(
-        "Failed to write deploy workflow file",
-        Some("Check file system permissions."),
-    ))?;
 
     print!("\r\x1B[K{}\n", console::style("Done").cyan());
     Ok(())
@@ -285,6 +240,60 @@ async fn unpack(response: Response, project_dir: &Path) -> eyre::Result<()> {
     }
 
     Ok(())
+}
+
+/// Setup git and github workflow for automatic deployments
+fn git(project_dir: &Path) -> eyre::Result<()> {
+    // Init git only for a new project
+    let is_repo = Command::new("git")
+        .arg("rev-parse")
+        .arg("--is-inside-work-tree")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|exit_status| exit_status.success())
+        .unwrap_or_default();
+
+    if is_repo {
+        return Ok(());
+    }
+
+    log::info!("No git repo found. Init a new one.");
+
+    let status = Command::new("git")
+        .args(["init", "--quiet"])
+        .current_dir(&project_dir)
+        .status()
+        .inspect_err(|e| log::error!("Can't init git: {:?}", e))
+        .wrap_err(Error::new(
+            "Failed to init git",
+            Some("Make sure you have proper permissions."),
+        ))?;
+
+    if !status.success() {
+        log::error!("Can't init git: {:?}", status);
+
+        return halt(
+            "Failed to init git",
+            "Failed to init git . Check file permissions.",
+            &project_dir,
+        );
+    }
+
+    // Add a github CD workflow
+    let deploy_workflow = GITHUB_DEPLY_TEMPLATE.replace("PLACEHOLDER_DIR_PATH", ".");
+    let workflow_dir = project_dir.join(".github/workflows");
+    fs::create_dir_all(&workflow_dir)
+        .inspect_err(|e| log::error!("{e:?}"))
+        .wrap_err(Error::new(
+            "Failed to create github workflows directory",
+            Some("Check file system permissions."),
+        ))?;
+    let deploy_workflow_path = workflow_dir.join("kinetics-deploy.yaml");
+    fs::write(deploy_workflow_path, deploy_workflow).wrap_err(Error::new(
+        "Failed to write deploy workflow file",
+        Some("Check file system permissions."),
+    ))
 }
 
 /// Clean up, and throw an error
