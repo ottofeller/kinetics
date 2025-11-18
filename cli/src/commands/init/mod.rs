@@ -248,7 +248,7 @@ async fn unpack(response: Response, project_dir: &Path) -> eyre::Result<()> {
 
 /// Setup git and github workflow for automatic deployments
 fn init_git(project_dir: &Path) -> eyre::Result<()> {
-    // Init git only for a new project
+    // Do not init git if it's already there
     let is_repo = Command::new("git")
         .arg("rev-parse")
         .arg("--is-inside-work-tree")
@@ -293,7 +293,7 @@ fn init_git(project_dir: &Path) -> eyre::Result<()> {
             "Failed to create github workflows directory",
             Some("Check file system permissions."),
         ))?;
-    let deploy_workflow_path = workflow_dir.join("kinetics-deploy.yaml");
+    let deploy_workflow_path = workflow_dir.join("kinetics.yaml");
     fs::write(deploy_workflow_path, deploy_workflow).wrap_err(Error::new(
         "Failed to write deploy workflow file",
         Some("Check file system permissions."),
