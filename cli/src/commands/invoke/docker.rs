@@ -121,7 +121,10 @@ impl Docker {
                         .await
                         .wrap_err("Failed to provision local SQS queue"),
 
-                    Service::SqlDB(_) => Ok(()), // no-op
+                    Service::SqlDB(svc) => svc
+                        .provision()
+                        .await
+                        .wrap_err("Failed to provision local SQLDB"),
                 }
             })
             .collect::<Vec<_>>();

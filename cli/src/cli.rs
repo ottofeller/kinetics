@@ -226,6 +226,9 @@ enum Commands {
 
         #[arg(long="with-queue", visible_aliases=["queue"])]
         with_queue: bool,
+
+        #[arg(short, long, value_delimiter = ',')]
+        fixtures: Vec<String>,
     },
 }
 
@@ -367,6 +370,7 @@ pub async fn run(
             remote,
             with_database: sqldb,
             with_queue,
+            fixtures,
         }) => {
             commands::invoke::invoke(
                 name,
@@ -378,6 +382,7 @@ pub async fn run(
                 remote.to_owned(),
                 sqldb.to_owned(),
                 with_queue.to_owned(),
+                fixtures,
             )
             .await
         }

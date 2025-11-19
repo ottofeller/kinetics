@@ -23,6 +23,7 @@ pub async fn invoke(
     is_local: bool,
     is_sqldb_enabled: bool,
     is_queue_enabled: bool,
+    fixtures: &[String],
 ) -> eyre::Result<()> {
     // Get function names as well as pull all updates from the code.
     let all_functions = prepare_functions(
@@ -42,6 +43,7 @@ pub async fn invoke(
             table,
             is_sqldb_enabled,
             is_queue_enabled,
+            fixtures,
         )
         .await
     } else {
