@@ -196,7 +196,7 @@ kinetics func stats BasicEndpointEndpoint
 The newly initialized project contains a github workflow for continious deployment.
 - After calling `kinetics init <project-name>`
 - run `kinetics auth token` to get a token
-- and add it as `KINETICS_TOKEN` secret to your repo to enable deploys.
+- and add it as `KINETICS_ACCESS_TOKEN` secret to your repo to enable deploys.
 
 After this setup main branch updaits will be automatically deployed.
 
