@@ -161,7 +161,7 @@ pub async fn init(
         init_git(&project_dir)?;
     }
 
-    println!("{}", console::style("Done").cyan());
+    println!("{}", console::style("Done").bold().green());
     Ok(())
 }
 
@@ -307,8 +307,13 @@ fn init_git(project_dir: &Path) -> eyre::Result<()> {
         Some("Check file system permissions."),
     ))?;
 
-    println!("{}", console::style("A github workflow for continious deployment was added to the project. Make sure to pull a token and save it to the repo under KINETICS_TOKEN name in order to properly authenticate the workflow. For details see https://github.com/ottofeller/kinetics/blob/main/README.md#deploy-from-github-actions").dim());
-
+    println!(
+        "\n{}\n{}\n",
+        console::style("A github workflow was added to the project, requires configuration").dim(),
+        console::style(
+            "https://github.com/ottofeller/kinetics/blob/main/README.md#deploy-from-github-actions"
+        ).cyan()
+    );
     Ok(())
 }
 
