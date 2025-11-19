@@ -106,8 +106,13 @@ pub fn prepare_functions(
 fn clone(src: &Path, dst: &Path, checksum: &mut FileHash) -> eyre::Result<()> {
     fs::create_dir_all(dst).wrap_err("Failed to create dir to clone the project to")?;
 
-    // Skip source target from copying
-    let src_target = src.join("target");
+    let skip_paths = vec![
+        // Skip the target dir, cargo lambda use it (if exist) for incremental builds.
+        src.join("target"),
+        src.join(".git"),
+        src.join(".github"),
+    ];
+
     // Handle Cargo.toml as a special case
     let relative_cargo_path = Path::new("Cargo.toml");
     let src_cargo_path = src.join(relative_cargo_path);
@@ -115,8 +120,11 @@ fn clone(src: &Path, dst: &Path, checksum: &mut FileHash) -> eyre::Result<()> {
     for entry in WalkDir::new(src)
         .into_iter()
         .filter_map(|e| e.ok())
-        // Skip the target dir, cargo lambda use it (if exist) for incremental builds.
-        .filter(|entry| !entry.path().starts_with(&src_target))
+        .filter(|entry| {
+            !skip_paths
+                .iter()
+                .any(|prefix| entry.path().starts_with(prefix))
+        })
     {
         let src_path = entry.path();
 

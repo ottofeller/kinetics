@@ -1,0 +1,33 @@
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Install kinetics
+        uses: taiki-e/cache-cargo-install-action@v2
+        with:
+          tool: kinetics
+
+      - name: Run kinetics deploy
+        env:
+          DEPLOY_DIR: PLACEHOLDER_DIR_PATH
+          KINETICS_TOKEN: ${{ secrets.KINETICS_TOKEN }}
+        run: |
+          cd "${DEPLOY_DIR:-.}"
+          kinetics deploy
