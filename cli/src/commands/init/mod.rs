@@ -285,6 +285,13 @@ fn init_git(project_dir: &Path) -> eyre::Result<()> {
         );
     }
 
+    fs::write(project_dir.join(".gitignore"), "target/\n")
+        .inspect_err(|e| log::error!("Can't write .gitignore file: {:?}", e))
+        .wrap_err(Error::new(
+            "Failed to write .gitignore file",
+            Some("Check file system permissions."),
+        ))?;
+
     // Add a github CD workflow
     let deploy_workflow = GITHUB_DEPLY_TEMPLATE.replace("PLACEHOLDER_DIR_PATH", ".");
     let workflow_dir = project_dir.join(".github/workflows");
