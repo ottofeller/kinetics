@@ -228,9 +228,9 @@ impl<'a> SqlDbFixtures<'a> {
         ))
     }
 
-    /// Converts provided `Value` to a string suitable for SQL arguments.
+    /// Converts provided `Value` to a string suitable for SQL arguments
+    /// Returns `None` if the value is JSON Null, which sqlx handles correctly as SQL NULL
     /// For example, `Value::Bool(true)` becomes `"true"`.
-    /// For `Value::Array` and `Value::Object`, the method serializes the value to string.
     fn value_to_string(value: &Value) -> Option<String> {
         match value {
             Value::Null => None,
