@@ -20,11 +20,17 @@ const ENDPOINT_TEMPLATE_URL: &str =
 const WORKER_TEMPLATE_URL: &str =
     "https://github.com/ottofeller/kinetics-worker-template/archive/refs/heads/main.zip";
 
+const GITHUB_WORKFLOW_TEMPLATE: &str = include_str!("github-workflow-template.yaml");
+
 /// Initialize a new Kinetics project by downloading and unpacking a template archive
 ///
 /// Downloads the Kinetics template archive into a new directory,
 /// customizes it with the provided project name, and sets up a ready-to-use project structure.
-pub async fn init(name: &str, function_type: FunctionType) -> eyre::Result<()> {
+pub async fn init(
+    name: &str,
+    function_type: FunctionType,
+    is_git_enabled: bool,
+) -> eyre::Result<()> {
     let project_dir = env::current_dir()
         .wrap_err(Error::new(
             "Failed to determine current directory",
@@ -95,15 +101,12 @@ pub async fn init(name: &str, function_type: FunctionType) -> eyre::Result<()> {
 
     print!("\r\x1B[K{}", console::style("Extracting template").dim());
 
-    match unpack(response, &project_dir).await {
-        Ok(_) => (),
-        Err(_) => {
-            return halt(
-                "Failed to unpack template archive",
-                "Check if tar is installed and you have enough FS permissions, and try again.",
-                &project_dir,
-            )
-        }
+    if let Err(_) = unpack(response, &project_dir).await {
+        return halt(
+            "Failed to unpack template archive",
+            "Check if tar is installed and you have enough FS permissions, and try again.",
+            &project_dir,
+        );
     };
 
     print!("\r\x1B[K{}", console::style("Cleaning up").dim());
@@ -153,7 +156,12 @@ pub async fn init(name: &str, function_type: FunctionType) -> eyre::Result<()> {
         Some("Template might be corrupted (reach us at support@usekinetics.com), or check file system permissions."),
     ))?;
 
-    print!("\r\x1B[K{}\n", console::style("Done").cyan());
+    print!("\r\x1B[K");
+    if is_git_enabled {
+        init_git(&project_dir)?;
+    }
+
+    println!("{}", console::style("Done").bold().green());
     Ok(())
 }
 
@@ -236,6 +244,76 @@ async fn unpack(response: Response, project_dir: &Path) -> eyre::Result<()> {
         return Err(eyre!("Failed to extract template archive"));
     }
 
+    Ok(())
+}
+
+/// Setup git and github workflow for automatic deployments
+fn init_git(project_dir: &Path) -> eyre::Result<()> {
+    // Do not init git if it's already there
+    let is_repo = Command::new("git")
+        .arg("rev-parse")
+        .arg("--is-inside-work-tree")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|exit_status| exit_status.success())
+        .unwrap_or_default();
+
+    if is_repo {
+        return Ok(());
+    }
+
+    log::info!("No git repo found. Init a new one.");
+
+    let status = Command::new("git")
+        .args(["init", "--quiet"])
+        .current_dir(&project_dir)
+        .status()
+        .inspect_err(|e| log::error!("Can't init git: {:?}", e))
+        .wrap_err(Error::new(
+            "Failed to init git",
+            Some("Make sure you have proper permissions."),
+        ))?;
+
+    if !status.success() {
+        log::error!("Can't init git: {:?}", status);
+
+        return halt(
+            "Failed to init git",
+            "Failed to init git . Check file permissions.",
+            &project_dir,
+        );
+    }
+
+    fs::write(project_dir.join(".gitignore"), "target/\n")
+        .inspect_err(|e| log::error!("Can't write .gitignore file: {:?}", e))
+        .wrap_err(Error::new(
+            "Failed to write .gitignore file",
+            Some("Check file system permissions."),
+        ))?;
+
+    // Add a github CD workflow
+    let github_workflow = GITHUB_WORKFLOW_TEMPLATE.replace("PLACEHOLDER_DIR_PATH", ".");
+    let workflow_dir = project_dir.join(".github/workflows");
+    fs::create_dir_all(&workflow_dir)
+        .inspect_err(|e| log::error!("{e:?}"))
+        .wrap_err(Error::new(
+            "Failed to create github workflows directory",
+            Some("Check file system permissions."),
+        ))?;
+    let deploy_workflow_path = workflow_dir.join("kinetics.yaml");
+    fs::write(deploy_workflow_path, github_workflow).wrap_err(Error::new(
+        "Failed to write deploy workflow file",
+        Some("Check file system permissions."),
+    ))?;
+
+    println!(
+        "\n{}\n{}\n",
+        console::style("A github workflow was added to the project, requires configuration").dim(),
+        console::style(
+            "https://github.com/ottofeller/kinetics/blob/main/README.md#deploy-from-github-actions"
+        ).cyan()
+    );
     Ok(())
 }
 
