@@ -36,20 +36,14 @@ pub async fn database(
         .await?;
 
     // Read values from the table
-    let result = sqlx::query_scalar::<_, i16>(r#"SELECT value FROM "my_table""#)
+    let result = sqlx::query_scalar::<_, i16>(r#"SELECT value FROM "my_table" LIMIT 10"#)
         .fetch_all(&pool)
         .await?;
 
     let resp = Response::builder()
         .status(200)
         .header("content-type", "application/json")
-        .body(
-            json!({
-                "values": result.iter().take(10).collect::<Vec<_>>(),
-                "total": result.len(),
-            })
-            .to_string(),
-        )?;
+        .body(json!({"values": result}).to_string())?;
 
     Ok(resp)
 }
