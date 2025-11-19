@@ -20,7 +20,7 @@ const ENDPOINT_TEMPLATE_URL: &str =
 const WORKER_TEMPLATE_URL: &str =
     "https://github.com/ottofeller/kinetics-worker-template/archive/refs/heads/main.zip";
 
-const GITHUB_DEPLY_TEMPLATE: &str = include_str!("github-workflow-template.yaml");
+const GITHUB_WORKFLOW_TEMPLATE: &str = include_str!("github-workflow-template.yaml");
 
 /// Initialize a new Kinetics project by downloading and unpacking a template archive
 ///
@@ -293,7 +293,7 @@ fn init_git(project_dir: &Path) -> eyre::Result<()> {
         ))?;
 
     // Add a github CD workflow
-    let deploy_workflow = GITHUB_DEPLY_TEMPLATE.replace("PLACEHOLDER_DIR_PATH", ".");
+    let github_workflow = GITHUB_WORKFLOW_TEMPLATE.replace("PLACEHOLDER_DIR_PATH", ".");
     let workflow_dir = project_dir.join(".github/workflows");
     fs::create_dir_all(&workflow_dir)
         .inspect_err(|e| log::error!("{e:?}"))
@@ -302,7 +302,7 @@ fn init_git(project_dir: &Path) -> eyre::Result<()> {
             Some("Check file system permissions."),
         ))?;
     let deploy_workflow_path = workflow_dir.join("kinetics.yaml");
-    fs::write(deploy_workflow_path, deploy_workflow).wrap_err(Error::new(
+    fs::write(deploy_workflow_path, github_workflow).wrap_err(Error::new(
         "Failed to write deploy workflow file",
         Some("Check file system permissions."),
     ))?;
