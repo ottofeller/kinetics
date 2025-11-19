@@ -190,6 +190,10 @@ enum Commands {
             required = false
         )]
         worker: bool,
+
+        /// Disable git repository initialization
+        #[arg(short, long)]
+        no_git: bool,
     },
 
     /// Login
@@ -248,6 +252,7 @@ pub async fn run(
             cron,
             endpoint: _,
             worker,
+            no_git,
         }) => {
             return commands::init::init(
                 name,
@@ -258,6 +263,7 @@ pub async fn run(
                 } else {
                     FunctionType::Endpoint
                 },
+                !*no_git,
             )
             .await
             .map_err(Error::from);
