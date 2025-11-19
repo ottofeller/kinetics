@@ -53,11 +53,15 @@ impl LocalSqlDB {
         let retry_delay_ms = 1000;
 
         for attempt in 1..=max_retries {
+            // Retry only if the connection fails
             let fixtures = SqlDbFixtures::new(self.connection_string(), &self.fixtures).await;
 
             match fixtures {
                 Ok(fixtures) => {
-                    fixtures.load_all().await?;
+                    fixtures
+                        .load_all()
+                        .await
+                        .wrap_err("Failed to load fixtures")?;
                     return Ok(());
                 }
                 Err(err) => {
