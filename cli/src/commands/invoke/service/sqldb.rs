@@ -42,6 +42,7 @@ impl LocalSqlDB {
     }
 
     /// Provision database with a retry mechanism for handling connection issues
+    ///
     /// If fixtures are provided, the method tries to connect to the database and load fixtures.
     pub async fn provision(&self) -> eyre::Result<()> {
         // Do nothing if there are no fixtures to load
@@ -204,6 +205,7 @@ impl<'a> Fixtures<'a> {
     }
 
     /// Fetches column types from the provided `table`
+    ///
     /// Returns a hashmap where `key` is the column name and `value` is the PostgreSQL type
     async fn fetch_column_types(&self, table: &str) -> eyre::Result<HashMap<String, String>> {
         let rows = sqlx::query(
@@ -228,6 +230,7 @@ impl<'a> Fixtures<'a> {
     }
 
     /// Converts provided `Value` to a string suitable for SQL arguments
+    ///
     /// Returns `None` if the value is JSON Null, which sqlx handles correctly as SQL NULL
     /// For example, `Value::Bool(true)` becomes `"true"`.
     fn value_to_string(value: &Value) -> Option<String> {
