@@ -54,7 +54,7 @@ impl LocalSqlDB {
 
         for attempt in 1..=max_retries {
             // Retry only if the connection fails
-            let fixtures = SqlDbFixtures::new(self.connection_string(), &self.fixtures).await;
+            let fixtures = Fixtures::new(self.connection_string(), &self.fixtures).await;
 
             match fixtures {
                 Ok(fixtures) => {
@@ -80,7 +80,7 @@ impl LocalSqlDB {
 
 /// A structure representing SQL database fixtures used for setting up or interacting
 /// with a database during testing or other operations.
-struct SqlDbFixtures<'a> {
+struct Fixtures<'a> {
     /// Connection pool to the database
     connections_pool: Pool<Postgres>,
 
@@ -88,7 +88,7 @@ struct SqlDbFixtures<'a> {
     fixtures: &'a [String],
 }
 
-impl<'a> SqlDbFixtures<'a> {
+impl<'a> Fixtures<'a> {
     pub async fn new(connection_string: String, fixtures: &'a [String]) -> eyre::Result<Self> {
         Ok(Self {
             connections_pool: PgPoolOptions::new()
