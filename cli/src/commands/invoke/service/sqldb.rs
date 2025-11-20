@@ -58,10 +58,7 @@ impl LocalSqlDB {
 
             match fixtures {
                 Ok(fixtures) => {
-                    fixtures
-                        .load_all()
-                        .await
-                        .wrap_err("Failed to load fixtures")?;
+                    fixtures.apply().await.wrap_err("Failed to load fixtures")?;
                     return Ok(());
                 }
                 Err(err) => {
@@ -100,14 +97,14 @@ impl<'a> Fixtures<'a> {
         })
     }
 
-    /// Loads all fixtures into the database
-    pub async fn load_all(&self) -> eyre::Result<()> {
+    /// Apply all fixtures into the database
+    pub async fn apply(&self) -> eyre::Result<()> {
         let current_dir = std::env::current_dir().wrap_err("Failed to get current directory")?;
         let fixtures_dir = current_dir.join("fixtures");
 
         for fixture in self.fixtures {
             let file_path = fixtures_dir.join(fixture);
-            self.load_from_file(&file_path).await?;
+            self.load(&file_path).await?;
         }
 
         Ok(())
@@ -126,17 +123,17 @@ impl<'a> Fixtures<'a> {
     ///   ]
     /// }
     /// ```
-    async fn load_from_file(&self, file_path: &Path) -> eyre::Result<()> {
+    async fn load(&self, file_path: &Path) -> eyre::Result<()> {
         let content = tokio::fs::read_to_string(file_path)
             .await
             .wrap_err("Failed to read fixture")?;
 
         let json_value: Value =
-            serde_json::from_str(&content).wrap_err("Failed to parse fixture file")?;
+            serde_json::from_str(&content).wrap_err("Fixtures JSON is invalid")?;
 
         let object = json_value
             .as_object()
-            .wrap_err("Fixture file must be a JSON object")?;
+            .wrap_err("Fixture file must be a JSON object \"{<table name>: [ {<column name>: <column value>} ]}\"")?;
 
         // All inserts from fixtures are executed in a single transaction
         let mut tx = self
