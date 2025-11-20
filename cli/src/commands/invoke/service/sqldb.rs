@@ -214,8 +214,6 @@ impl<'a> SqlDbFixtures<'a> {
             SELECT a.attname AS column_name,
                    format_type(a.atttypid, a.atttypmod) AS type_sql
             FROM pg_attribute a
-            JOIN pg_class c ON c.oid = a.attrelid
-            JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE a.attrelid = to_regclass($1) -- resolves table names using the search_path
               AND a.attnum > 0
               AND NOT a.attisdropped
