@@ -203,4 +203,4 @@ After this setup main branch updaits will be automatically deployed.
 ## Support & Community
 
 - support@usekinetics.com. Help with builds, deployments, and runtime.
-- [GitHub Issues](https://github.com/usekinetics/kinetics/issues). Persistent bugs, and feature requests.
+- [GitHub Issues](https://github.com/ottofeller/kinetics/issues). Persistent bugs, and feature requests.

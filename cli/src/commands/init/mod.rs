@@ -153,7 +153,7 @@ pub async fn init(
 
     rename(&project_dir, name).wrap_err(Error::new(
         "Failed to update Cargo.toml",
-        Some("Template might be corrupted (reach us at support@usekinetics.com), or check file system permissions."),
+        Some("Template might be corrupted (reach us at support@kineticscloud.com), or check file system permissions."),
     ))?;
 
     print!("\r\x1B[K");

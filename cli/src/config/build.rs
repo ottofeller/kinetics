@@ -25,7 +25,7 @@ pub(crate) fn build_config() -> Result<&'static BuildConfig<'static>, Error> {
 
     Ok(BUILD_CONFIG.get_or_init(|| {
         let api_base =
-            option_env!("KINETICS_API_BASE").unwrap_or("https://backend.usekinetics.com/");
+            option_env!("KINETICS_API_BASE").unwrap_or("https://backend.kineticscloud.com/");
 
         let build_path_raw = Path::new(&home_dir).join(".kinetics");
 
