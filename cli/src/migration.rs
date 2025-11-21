@@ -58,12 +58,6 @@ impl<'a> Migration<'a> {
                 continue;
             }
 
-            println!(
-                "{}: {}",
-                console::style("Applying migration").green(),
-                console::style(&migration).dimmed()
-            );
-
             let sql = tokio::fs::read_to_string(&self.path.join(&migration))
                 .await
                 .wrap_err("Failed to read migration file")?;
@@ -72,6 +66,12 @@ impl<'a> Migration<'a> {
                 .execute(&mut *tx)
                 .await
                 .wrap_err("Failed to apply migration")?;
+
+            println!(
+                "{}: {}",
+                console::style("Done").green(),
+                console::style(&migration).dimmed()
+            );
 
             sqlx::query("INSERT INTO schema_migrations (id) VALUES ($1)")
                 .bind(&migration)
