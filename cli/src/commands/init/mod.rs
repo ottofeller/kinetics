@@ -293,7 +293,12 @@ fn init_git(project_dir: &Path) -> eyre::Result<()> {
         ))?;
 
     // Add a github CD workflow
-    let github_workflow = GITHUB_WORKFLOW_TEMPLATE.replace("PLACEHOLDER_DIR_PATH", ".");
+    let github_workflow = GITHUB_WORKFLOW_TEMPLATE
+        .replace("PLACEHOLDER_DIR_PATH", ".")
+        .replace(
+            "tool: kinetics",
+            &format!("tool: kinetics@{}", env!("CARGO_PKG_VERSION")),
+        );
     let workflow_dir = project_dir.join(".github/workflows");
     fs::create_dir_all(&workflow_dir)
         .inspect_err(|e| log::error!("{e:?}"))
@@ -312,7 +317,8 @@ fn init_git(project_dir: &Path) -> eyre::Result<()> {
         console::style("A github workflow was added to the project, requires configuration").dim(),
         console::style(
             "https://github.com/ottofeller/kinetics/blob/main/README.md#deploy-from-github-actions"
-        ).cyan()
+        )
+        .cyan()
     );
     Ok(())
 }
