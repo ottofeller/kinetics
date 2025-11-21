@@ -21,6 +21,26 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
+enum MigrationsCommands {
+    Apply {
+        /// Relative path to migrations directory
+        #[arg(short, long, value_name = "PATH", default_value = "migrations")]
+        path: Option<String>,
+    },
+
+    /// Create a new migration file
+    Create {
+        /// User-defined name for the migration
+        #[arg(value_name = "NAME", required = true)]
+        name: String,
+
+        /// Relative path to migrations directory
+        #[arg(short, long, value_name = "PATH", default_value = "migrations")]
+        path: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
 enum AuthCommands {
     /// Delete local access token locally and remotely
     Logout {},
@@ -156,6 +176,11 @@ enum Commands {
 
         #[arg(value_delimiter = ',')]
         functions: Vec<String>,
+    },
+
+    Migrations {
+        #[command(subcommand)]
+        command: Option<MigrationsCommands>,
     },
 
     /// Start new project from template
@@ -311,6 +336,28 @@ pub async fn run(
         Some(Commands::Proj {
             command: Some(ProjCommands::Versions {}),
         }) => return commands::proj::versions::versions(&project?).await,
+        _ => Ok(()),
+    }?;
+
+    match &cli.command {
+        Some(Commands::Migrations {
+            command: Some(MigrationsCommands::Apply { path }),
+        }) => {
+            return commands::migrations::apply(path.as_deref())
+                .await
+                .wrap_err("Failed to apply migrations")
+                .map_err(Error::from)
+        }
+
+        Some(Commands::Migrations {
+            command: Some(MigrationsCommands::Create { name, path }),
+        }) => {
+            return commands::migrations::create(path.as_deref(), name)
+                .await
+                .wrap_err("Failed to create migration")
+                .map_err(Error::from);
+        }
+
         _ => Ok(()),
     }?;
 
