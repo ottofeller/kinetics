@@ -154,6 +154,10 @@ enum Commands {
         #[arg(short, long, action = ArgAction::SetTrue)]
         envs: bool,
 
+        /// Use hotswap deployment for faster updates
+        #[arg(long, action = ArgAction::SetTrue)]
+        hotswap: bool,
+
         #[arg(value_delimiter = ',')]
         functions: Vec<String>,
     },
@@ -362,8 +366,11 @@ pub async fn run(
             functions,
             max_concurrency,
             envs,
+            hotswap,
             ..
-        }) => commands::deploy::run(functions, max_concurrency, *envs, deploy_config).await,
+        }) => {
+            commands::deploy::run(functions, max_concurrency, *envs, *hotswap, deploy_config).await
+        }
         Some(Commands::Invoke {
             name,
             payload,

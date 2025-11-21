@@ -15,6 +15,7 @@ use tokio::sync::Semaphore;
 
 pub struct Pipeline {
     is_deploy_enabled: bool,
+    is_hotswap: bool,
     project: Project,
     max_concurrent: usize,
     deploy_config: Option<Arc<dyn DeployConfig>>,
@@ -190,7 +191,7 @@ impl Pipeline {
 
         match self
             .project
-            .deploy(&all_functions, self.deploy_config.as_deref())
+            .deploy(&all_functions, self.is_hotswap, self.deploy_config.as_deref())
             .await
         {
             Ok(updated) if !updated => {
@@ -240,6 +241,7 @@ impl Pipeline {
 #[derive(Default)]
 pub struct PipelineBuilder {
     is_deploy_enabled: Option<bool>,
+    is_hotswap: Option<bool>,
     project: Option<Project>,
     max_concurrent: Option<usize>,
     deploy_config: Option<Arc<dyn DeployConfig>>,
@@ -252,6 +254,7 @@ impl PipelineBuilder {
                 .project
                 .ok_or_eyre("No project provided to the pipeline")?,
             is_deploy_enabled: self.is_deploy_enabled.unwrap_or(false),
+            is_hotswap: self.is_hotswap.unwrap_or(false),
             max_concurrent: self.max_concurrent.unwrap_or(10),
             deploy_config: self.deploy_config,
         })
@@ -264,6 +267,11 @@ impl PipelineBuilder {
 
     pub fn with_deploy_enabled(mut self, is_deploy_enabled: bool) -> Self {
         self.is_deploy_enabled = Some(is_deploy_enabled);
+        self
+    }
+
+    pub fn with_hotswap(mut self, is_hotswap: bool) -> Self {
+        self.is_hotswap = Some(is_hotswap);
         self
     }
 

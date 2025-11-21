@@ -16,12 +16,13 @@ pub async fn run(
     deploy_functions: &[String],
     max_concurrency: &usize,
     is_only_envs: bool,
+    is_hotswap: bool,
     deploy_config: Option<Arc<dyn DeployConfig>>,
 ) -> eyre::Result<()> {
     if is_only_envs {
         envs(deploy_functions).await?;
     } else {
-        full(deploy_functions, *max_concurrency, deploy_config).await?;
+        full(deploy_functions, *max_concurrency, is_hotswap, deploy_config).await?;
     }
 
     Ok(())
@@ -124,11 +125,13 @@ async fn envs(deploy_functions: &[String]) -> eyre::Result<()> {
 async fn full(
     deploy_functions: &[String],
     max_concurrency: usize,
+    is_hotswap: bool,
     deploy_config: Option<Arc<dyn DeployConfig>>,
 ) -> eyre::Result<()> {
     Pipeline::builder()
         .set_max_concurrent(max_concurrency)
         .with_deploy_enabled(true)
+        .with_hotswap(is_hotswap)
         .with_deploy_config(deploy_config)
         .set_project(Project::from_current_dir()?)
         .build()

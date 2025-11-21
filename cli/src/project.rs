@@ -92,6 +92,7 @@ impl Project {
     pub async fn deploy(
         &self,
         functions: &[Function],
+        is_hotswap: bool,
         deploy_config: Option<&dyn DeployConfig>,
     ) -> eyre::Result<bool> {
         let client = Client::new(deploy_config.is_some()).await?;
@@ -107,6 +108,7 @@ impl Project {
         }
 
         let body = DeployRequest {
+            is_hotswap,
             secrets,
             functions: functions
                 .iter()
@@ -406,6 +408,7 @@ pub struct StatusResponseBody {
 /// A structure representing a deployment request which contains configuration, secrets, and functions to be deployed.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct DeployRequest {
+    pub is_hotswap: bool,
     pub project: Project,
     pub secrets: HashMap<String, String>,
     pub functions: Vec<FunctionRequest>,
