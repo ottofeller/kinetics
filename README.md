@@ -75,6 +75,9 @@ kinetics deploy
 
 # 6. Alternatively you can deploy only selected functions
 kinetics deploy BasicCronCron,BasicWorkerWorker
+
+# 7. Faster way, but you lose rollbacks
+kinetics deploy --hotswap BasicCronCron
 ```
 
 > Kinetics is currently in ⚠️ **active development** and may contain bugs or result in unexpected behavior. The service is free for the first **100,000 invocations** of your functions, regardless of the type of workload.
@@ -83,9 +86,11 @@ kinetics deploy BasicCronCron,BasicWorkerWorker
 
 ## Documentation
 
+Kinetics supports several types of workloads(functions): endpoint, worker, and cron.
+
 #### Endpoint
 
-The following attribute macro parameters are available:
+A REST API endpoint. The following attribute macro parameters are available:
 
 - `url_path`: The URL path of the endpoint.
 - `environment`: Environment variables.
@@ -94,6 +99,8 @@ The following attribute macro parameters are available:
 
 #### Worker
 
+A queue worker. When deployed, a corresponding queue gets provisioned automatically.
+
 - `concurrency`: Max number of concurrent workers.
 - `fifo`: Set to true to enable FIFO processing.
 - `environment`: Environment variables.
@@ -101,6 +108,8 @@ The following attribute macro parameters are available:
 [Example](https://github.com/ottofeller/kinetics/blob/main/examples/src/basic/worker.rs).
 
 #### Cron
+
+A regular job.
 
 - `schedule`: We support [these](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-scheduleexpression) types of expressions.
 - `environment`: Environment variables.
@@ -172,6 +181,12 @@ Deploy individual functions:
 
 ```sh
 kinetics deploy DatabaseDatabase,BasicWorkerWorker
+```
+
+Deploy faster, but without the ability to roll back.
+
+```sh
+kinetics deploy --hotswap DatabaseDatabase
 ```
 
 Invoke a function remotely by automatically resolving function's name into the URL:
