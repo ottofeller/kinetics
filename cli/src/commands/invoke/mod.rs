@@ -1,7 +1,7 @@
-mod docker;
+pub mod docker;
 mod local;
 mod remote;
-mod service;
+pub mod service;
 use super::build::prepare_functions;
 use crate::config::build_config;
 use crate::function::Function;
