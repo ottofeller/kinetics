@@ -24,6 +24,21 @@ jobs:
         with:
           tool: kinetics
 
+      - name: Install zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.13.0
+
+      - name: Install cargo lambda
+        uses: zerj9/setup-cargo-lambda@v0.1.2
+
+      - name: Cache kinetics build
+        id: cache-kinetics-build
+        uses: actions/cache@v4
+        with:
+          path: ~/.kinetics
+          key: ${{ runner.os }}-kinetics-build
+
       - name: Run kinetics deploy
         env:
           DEPLOY_DIR: PLACEHOLDER_DIR_PATH
