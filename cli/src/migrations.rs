@@ -3,11 +3,12 @@ use eyre::Context;
 use sqlx::{Pool, Postgres, Row};
 use std::path::Path;
 
-pub struct Migration<'a> {
+pub struct Migrations<'a> {
     path: &'a Path,
 }
 
-impl<'a> Migration<'a> {
+/// Methods for managing database migrations
+impl<'a> Migrations<'a> {
     pub async fn new(path: &'a Path) -> eyre::Result<Self> {
         tokio::fs::create_dir_all(path)
             .await
@@ -16,6 +17,12 @@ impl<'a> Migration<'a> {
         Ok(Self { path })
     }
 
+    /// Applies database migrations based on the stored migration files and the current state
+    /// of the database.
+    ///
+    /// This function retrieves the latest applied migration ID, and determines which migrations
+    /// (if any) need to be applied. It then applies the pending migrations sequentially
+    /// and updates the `schema_migrations` table to record each migration.
     pub async fn apply(&self, connection_string: String) -> eyre::Result<()> {
         println!("{}", console::style("Applying migrations...").dimmed());
 
@@ -154,7 +161,7 @@ impl<'a> Migration<'a> {
         Ok(entries)
     }
 
-    /// Ensures that the migrations table exists in the database.
+    /// Ensures that the migrations table exists in the database and creates it if it doesn't
     async fn ensure_migrations_table(&self, connection: &Pool<Postgres>) -> eyre::Result<()> {
         sqlx::query(
             r#"

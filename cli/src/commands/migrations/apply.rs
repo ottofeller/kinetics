@@ -1,7 +1,7 @@
 // FIXME Move from the commands namespace
 use crate::commands::invoke::{docker::Docker, service::LocalSqlDB};
 use crate::config::build_config;
-use crate::migration::Migration;
+use crate::migrations::Migrations;
 use eyre::Context;
 use std::path::PathBuf;
 
@@ -21,7 +21,7 @@ pub async fn apply(path: Option<&str>) -> eyre::Result<()> {
     // After provisioning is up and running, we can apply migrations
     docker.provision().await?;
 
-    Migration::new(current_dir.join(path.unwrap_or("migrations")).as_path())
+    Migrations::new(current_dir.join(path.unwrap_or("migrations")).as_path())
         .await
         .wrap_err("Failed to initialize migrations")?
         .apply(db_connection_string)
