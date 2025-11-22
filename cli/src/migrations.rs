@@ -87,8 +87,6 @@ impl<'a> Migrations<'a> {
         }
 
         println!("{}", console::style("All migrations were applied").green());
-
-        // Commit transaction
         tx.commit().await?;
         Ok(())
     }
