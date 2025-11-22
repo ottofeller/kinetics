@@ -6,6 +6,7 @@ mod credentials;
 mod error;
 mod function;
 mod logger;
+mod migration;
 mod process;
 pub mod project;
 mod secret;

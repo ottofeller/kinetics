@@ -1,3 +1,5 @@
+use sqlx::PgPool;
+
 const DOCKER_COMPOSE_SNIPPET: &str = r#"
 local-postgres:
     image: "postgres:16.10"
@@ -24,5 +26,24 @@ impl LocalSqlDB {
     pub fn connection_string(&self) -> String {
         // Be careful with password, change it in `DOCKER_COMPOSE_SNIPPET` accordingly
         "postgres://postgres:localdbpassword@localhost:5432/postgres?sslmode=disable".to_string()
+    }
+
+    /// Attempts to provision a PostgreSQL connection, retrying on failure.
+    pub async fn provision(&self) -> eyre::Result<()> {
+        let max_retries = 5;
+        let retry_delay_ms = 1000;
+
+        for attempt in 1..=max_retries {
+            let result = PgPool::connect(&self.connection_string()).await;
+
+            match result {
+                Ok(_) => return Ok(()),
+                Err(_) if attempt < max_retries => {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(retry_delay_ms)).await;
+                }
+                Err(e) => return Err(e.into()),
+            }
+        }
+        Ok(())
     }
 }
