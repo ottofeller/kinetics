@@ -65,7 +65,7 @@ impl<'a> Migrations<'a> {
                 continue;
             }
 
-            let sql = tokio::fs::read_to_string(&self.path.join(&migration))
+            let sql = tokio::fs::read_to_string(self.path.join(&migration))
                 .await
                 .wrap_err("Failed to read migration file")?;
 
