@@ -33,8 +33,9 @@ impl LocalSqlDB {
         "postgres://postgres:localdbpassword@localhost:5432/postgres?sslmode=disable".to_string()
     }
 
-    pub fn with_migrations(&mut self, with_migrations: Option<PathBuf>) {
+    pub fn with_migrations(&mut self, with_migrations: Option<PathBuf>) -> &mut Self {
         self.with_migrations = with_migrations;
+        self
     }
 
     /// Attempts to provision a PostgreSQL connection, retrying on failure.
