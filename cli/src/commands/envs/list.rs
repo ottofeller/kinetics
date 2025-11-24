@@ -82,7 +82,7 @@ pub async fn list(project: &Project, is_remote: bool) -> eyre::Result<()> {
 /// Gets environment variables from the backend
 async fn remote(
     project: &Project,
-    functions: &Vec<ParsedFunction>,
+    functions: &[ParsedFunction],
 ) -> eyre::Result<HashMap<String, HashMap<String, String>>> {
     let response = Client::new(false)
         .await?
