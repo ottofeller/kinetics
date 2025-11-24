@@ -45,12 +45,13 @@ pub async fn list(project: &Project, is_remote: bool) -> eyre::Result<()> {
             .iter()
             .find(|f| {
                 f.func_name(false)
-                    .inspect_err(|e| log::error!("Failed to get function name: {e:?}"))
+                    .inspect_err(|e| log::error!("Error: {e:?}"))
+                    .wrap_err("Failed to process functions")
                     .unwrap()
                     == function_name
             })
             .ok_or(eyre!("Parsed artifact has no function name"))
-            .inspect_err(|e| log::error!("{e:?}"))?
+            .inspect_err(|e| log::error!("Error: {e:?}"))?
             .relative_path
             .to_owned();
 
@@ -84,7 +85,7 @@ async fn remote(project: &Project) -> eyre::Result<HashMap<String, HashMap<Strin
 
     if !response.status().is_success() {
         log::error!(
-            "Failed to fetch envs from API ({}): {}",
+            "Error for status {}: {}",
             response.status(),
             response.text().await.unwrap_or("Unknown error".to_string())
         );
@@ -95,7 +96,8 @@ async fn remote(project: &Project) -> eyre::Result<HashMap<String, HashMap<Strin
     let response: EnvsListResponse = response
         .json()
         .await
-        .wrap_err("Failed to parse response from the backend as JSON")?;
+        .inspect_err(|e| log::error!("JSON parse error: {e:?}"))
+        .wrap_err("Request failed")?;
 
     Ok(response)
 }
