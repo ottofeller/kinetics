@@ -4,8 +4,8 @@ use crate::config::build_config;
 use crate::project::Project;
 use crossterm::style::Stylize;
 use eyre::{eyre, WrapErr};
-use kinetics_parser::Parser;
-use serde::{Deserialize, Serialize};
+use kinetics_parser::{ParsedFunction, Parser};
+use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -16,10 +16,7 @@ struct EnvsListRequest {
 }
 
 /// Response from /envs/list
-#[derive(Deserialize)]
-struct EnvsListResponse {
-    functions: HashMap<String, HashMap<String, String>>,
-}
+type EnvsListResponse = HashMap<String, HashMap<String, String>>;
 
 /// Lists all environment variables for all functions in the current crate
 pub async fn list(project: &Project, is_remote: bool) -> eyre::Result<()> {
@@ -100,7 +97,7 @@ async fn remote(project: &Project) -> eyre::Result<HashMap<String, HashMap<Strin
         .await
         .wrap_err("Failed to parse response from the backend as JSON")?;
 
-    Ok(response.functions)
+    Ok(response)
 }
 
 /// Gets environment variables from local configuration
