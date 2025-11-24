@@ -66,6 +66,7 @@ enum ProjCommands {
 enum EnvsCommands {
     /// List all environment variables for all functions
     List {
+        /// When passed shows env vars used by deployed functions
         #[arg(short, long, action = ArgAction::SetTrue)]
         remote: bool,
     },

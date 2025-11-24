@@ -134,21 +134,6 @@ We automatically provision one SQL DB for each project. Also `kinetics invoke --
 
 You can then interact with it like you normally interact with DynamoDB, [example](https://github.com/ottofeller/kinetics/blob/main/examples/src/database.rs).
 
-## Commands
-
-- `kinetics init` - Init new project from template
-- `kinetics login` - Log in with email
-- `kinetics logout` – Log out the current user
-- `kinetics invoke` - Invoke function locally
-- `kinetics deploy` - Deploy your application
-- `kinetics proj destroy` - Destroy application
-- `kinetics proj rollback` - Rollback project to previous version
-- `kinetics proj versions` - Show all versions of the project
-- `kinetics proj list` - Show all user's projects
-- `kinetics func list` - List available resources
-- `kinetics func stats` - View run statistics for a function
-- `kinetics func logs` - View application logs
-
 ### Examples
 
 Try in `examples/` dir. These are the most frequently used commands with examples of input params.
