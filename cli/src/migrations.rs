@@ -66,7 +66,7 @@ impl<'a> Migrations<'a> {
                 .await
                 .wrap_err("Failed to read migration file")?;
 
-            sqlx::query(&sql)
+            sqlx::raw_sql(&sql)
                 .execute(&mut *tx)
                 .await
                 .wrap_err("Failed to apply migration")?;
