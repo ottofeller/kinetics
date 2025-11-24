@@ -5,19 +5,19 @@ use crate::project::Project;
 use crossterm::style::Stylize;
 use eyre::{eyre, WrapErr};
 use kinetics_parser::{ParsedFunction, Parser};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Request body for /envs/list
-#[derive(Serialize)]
-struct EnvsListRequest {
-    project_name: String,
-    functions_names: Vec<String>,
+#[derive(Deserialize, Serialize)]
+pub struct EnvsListRequest {
+    pub project_name: String,
+    pub functions_names: Vec<String>,
 }
 
 /// Response from /envs/list
-type EnvsListResponse = HashMap<String, HashMap<String, String>>;
+pub type EnvsListResponse = HashMap<String, HashMap<String, String>>;
 
 /// Lists all environment variables for all functions in the current crate
 pub async fn list(project: &Project, is_remote: bool) -> eyre::Result<()> {
