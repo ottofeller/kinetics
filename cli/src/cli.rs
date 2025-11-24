@@ -65,7 +65,11 @@ enum ProjCommands {
 #[derive(Subcommand)]
 enum EnvsCommands {
     /// List all environment variables for all functions
-    List {},
+    List {
+        /// When passed shows env vars used by deployed functions
+        #[arg(short, long, action = ArgAction::SetTrue)]
+        remote: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -348,9 +352,9 @@ pub async fn run(
     // Envs commands
     match &cli.command {
         Some(Commands::Envs {
-            command: Some(EnvsCommands::List {}),
+            command: Some(EnvsCommands::List { remote }),
         }) => {
-            return commands::envs::list(&project)
+            return commands::envs::list::list(&project, *remote)
                 .await
                 .wrap_err("Failed to list environment variables")
                 .inspect_err(|e| log::error!("{e:?}"))

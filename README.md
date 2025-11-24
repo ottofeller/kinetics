@@ -75,6 +75,9 @@ kinetics deploy
 
 # 6. Alternatively you can deploy only selected functions
 kinetics deploy BasicCronCron,BasicWorkerWorker
+
+# 7. Faster way, but you lose rollbacks
+kinetics deploy --hotswap BasicCronCron
 ```
 
 > Kinetics is currently in ⚠️ **active development** and may contain bugs or result in unexpected behavior. The service is free for the first **100,000 invocations** of your functions, regardless of the type of workload.
@@ -83,9 +86,11 @@ kinetics deploy BasicCronCron,BasicWorkerWorker
 
 ## Documentation
 
+Kinetics supports several types of workloads(functions): endpoint, worker, and cron.
+
 #### Endpoint
 
-The following attribute macro parameters are available:
+A REST API endpoint. The following attribute macro parameters are available:
 
 - `url_path`: The URL path of the endpoint.
 - `environment`: Environment variables.
@@ -94,6 +99,8 @@ The following attribute macro parameters are available:
 
 #### Worker
 
+A queue worker. When deployed, a corresponding queue gets provisioned automatically.
+
 - `concurrency`: Max number of concurrent workers.
 - `fifo`: Set to true to enable FIFO processing.
 - `environment`: Environment variables.
@@ -101,6 +108,8 @@ The following attribute macro parameters are available:
 [Example](https://github.com/ottofeller/kinetics/blob/main/examples/src/basic/worker.rs).
 
 #### Cron
+
+A regular job.
 
 - `schedule`: We support [these](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scheduler-schedule.html#cfn-scheduler-schedule-scheduleexpression) types of expressions.
 - `environment`: Environment variables.
@@ -124,21 +133,6 @@ Store secrets in `.env.secrets` file in the root directory of your crate. Kineti
 We automatically provision one SQL DB for each project. Also `kinetics invoke --with-db [Function name]` will automatically provision DB locally and replace the connection string with local endpoint.
 
 You can then interact with it like you normally interact with DynamoDB, [example](https://github.com/ottofeller/kinetics/blob/main/examples/src/database.rs).
-
-## Commands
-
-- `kinetics init` - Init new project from template
-- `kinetics login` - Log in with email
-- `kinetics logout` – Log out the current user
-- `kinetics invoke` - Invoke function locally
-- `kinetics deploy` - Deploy your application
-- `kinetics proj destroy` - Destroy application
-- `kinetics proj rollback` - Rollback project to previous version
-- `kinetics proj versions` - Show all versions of the project
-- `kinetics proj list` - Show all user's projects
-- `kinetics func list` - List available resources
-- `kinetics func stats` - View run statistics for a function
-- `kinetics func logs` - View application logs
 
 ### Examples
 
@@ -172,6 +166,12 @@ Deploy individual functions:
 
 ```sh
 kinetics deploy DatabaseDatabase,BasicWorkerWorker
+```
+
+Deploy faster, but without the ability to roll back.
+
+```sh
+kinetics deploy --hotswap DatabaseDatabase
 ```
 
 Invoke a function remotely by automatically resolving function's name into the URL:
