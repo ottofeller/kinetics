@@ -353,7 +353,7 @@ pub async fn run(
         Some(Commands::Envs {
             command: Some(EnvsCommands::List { remote }),
         }) => {
-            return commands::envs::list(&project, *remote)
+            return commands::envs::list::list(&project, *remote)
                 .await
                 .wrap_err("Failed to list environment variables")
                 .inspect_err(|e| log::error!("{e:?}"))
