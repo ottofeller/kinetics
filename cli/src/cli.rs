@@ -22,12 +22,6 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum MigrationsCommands {
-    Apply {
-        /// Relative path to migrations directory
-        #[arg(short, long, value_name = "PATH", default_value = "migrations")]
-        path: Option<String>,
-    },
-
     /// Create a new migration file
     Create {
         /// User-defined name for the migration
@@ -340,15 +334,6 @@ pub async fn run(
     }?;
 
     match &cli.command {
-        Some(Commands::Migrations {
-            command: Some(MigrationsCommands::Apply { path }),
-        }) => {
-            return commands::migrations::apply(path.as_deref())
-                .await
-                .wrap_err("Failed to apply migrations")
-                .map_err(Error::from)
-        }
-
         Some(Commands::Migrations {
             command: Some(MigrationsCommands::Create { name, path }),
         }) => {
