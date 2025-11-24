@@ -13,6 +13,7 @@ use std::path::PathBuf;
 #[derive(Serialize)]
 struct EnvsListRequest {
     project_name: String,
+    functions_names: Vec<String>,
 }
 
 /// Response from /envs/list
@@ -24,8 +25,12 @@ pub async fn list(project: &Project, is_remote: bool) -> eyre::Result<()> {
     println!();
 
     let envs = if is_remote {
-        println!("{}\n", "Fetching deployed env vars".bold().green());
-        remote(project).await?
+        println!("{}\n", "Fetching env vars...".bold().green());
+
+        remote(project, &parsed_functions)
+            .await
+            .inspect_err(|e| log::error!("Error: {e:?}"))
+            .wrap_err("Failed to fetch the list of env vars")?
     } else {
         println!("{}\n", "Showing local env vars".bold().green());
         local(project).await?
@@ -72,12 +77,19 @@ pub async fn list(project: &Project, is_remote: bool) -> eyre::Result<()> {
 }
 
 /// Gets environment variables from the backend
-async fn remote(project: &Project) -> eyre::Result<HashMap<String, HashMap<String, String>>> {
+async fn remote(
+    project: &Project,
+    functions: &Vec<ParsedFunction>,
+) -> eyre::Result<HashMap<String, HashMap<String, String>>> {
     let response = Client::new(false)
         .await?
         .post("/envs/list")
         .json(&EnvsListRequest {
             project_name: project.name.to_owned(),
+            functions_names: functions
+                .iter()
+                .map(|f| f.func_name(false).unwrap())
+                .collect::<Vec<String>>(),
         })
         .send()
         .await
