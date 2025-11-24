@@ -91,8 +91,8 @@ async fn remote(
             project_name: project.name.to_owned(),
             functions_names: functions
                 .iter()
-                .map(|f| f.func_name(false).unwrap())
-                .collect::<Vec<String>>(),
+                .map(|f| f.func_name(false))
+                .collect::<eyre::Result<Vec<String>>>()?,
         })
         .send()
         .await
