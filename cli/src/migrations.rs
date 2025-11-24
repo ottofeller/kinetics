@@ -51,10 +51,7 @@ impl<'a> Migrations<'a> {
 
         // Check if there are migrations to apply
         if last_db_id >= last_file_id || all_migrations.is_empty() {
-            println!(
-                "{}",
-                console::style("No migrations to apply...").red().bold()
-            );
+            println!("{}", console::style("No migrations to apply...").dimmed());
             return Ok(());
         }
 
@@ -86,7 +83,11 @@ impl<'a> Migrations<'a> {
                 .await?;
         }
 
-        println!("{}", console::style("All migrations were applied").green());
+        println!(
+            "{}",
+            console::style("All migrations were applied").green().bold()
+        );
+
         tx.commit().await?;
         Ok(())
     }

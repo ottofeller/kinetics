@@ -247,6 +247,9 @@ enum Commands {
         #[arg(long="with-database", visible_aliases=["with-db", "db"])]
         with_database: bool,
 
+        #[arg(short, long = "with-migrations", num_args = 0..=1, default_missing_value = "migrations")]
+        with_migrations: Option<String>,
+
         #[arg(long="with-queue", visible_aliases=["queue"])]
         with_queue: bool,
     },
@@ -405,6 +408,7 @@ pub async fn run(
             remote,
             with_database: sqldb,
             with_queue,
+            with_migrations,
         }) => {
             commands::invoke::invoke(
                 name,
@@ -416,6 +420,7 @@ pub async fn run(
                 remote.to_owned(),
                 sqldb.to_owned(),
                 with_queue.to_owned(),
+                with_migrations.as_deref(),
             )
             .await
         }
