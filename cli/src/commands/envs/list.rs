@@ -25,7 +25,10 @@ pub async fn list(project: &Project, is_remote: bool) -> eyre::Result<()> {
     println!();
 
     let envs = if is_remote {
-        println!("{}\n", "Fetching env vars...".bold().green());
+        println!(
+            "{}...\n",
+            console::style("Fetching env vars").green().bold()
+        );
 
         remote(project, &parsed_functions)
             .await
