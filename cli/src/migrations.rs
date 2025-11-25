@@ -3,7 +3,12 @@ use eyre::Context;
 use sqlx::Row;
 use std::path::Path;
 
+/// A struct representing a set of database migration files.
+///
+/// The `Migrations` struct is used to manage and refer to a collection of database
+/// migration files stored in a specific directory.
 pub struct Migrations<'a> {
+    /// Directory where migration files are stored
     path: &'a Path,
 }
 
