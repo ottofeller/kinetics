@@ -14,8 +14,7 @@ pub async fn create(
     migrations_dir: Option<&str>,
     name: Option<&str>,
 ) -> eyre::Result<()> {
-    let dir_name = migrations_dir.unwrap_or("migrations");
-    let migrations_path = project.path.join(dir_name);
+    let migrations_path = project.path.join(migrations_dir.unwrap_or("migrations"));
 
     // Create migrations directory if it doesn't exist
     tokio::fs::create_dir_all(&migrations_path).await?;
