@@ -137,7 +137,7 @@ impl<'a> Migrations<'a> {
     /// Retrieves the list of migration files from the specified directory.
     ///
     /// It returns only file names that end with `.up.sql`.
-    /// Files ordered by names in ASC (oldest first) order
+    /// Files are ordered by names in ASC (oldest first) order
     async fn migrations(&self) -> eyre::Result<Vec<String>> {
         let mut read_dir = tokio::fs::read_dir(self.path).await?;
         let mut entries = Vec::new();
