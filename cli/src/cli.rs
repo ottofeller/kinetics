@@ -336,11 +336,15 @@ pub async fn run(
         _ => Ok(()),
     }?;
 
+    // Since this point all commands need the project to be presented
+    let project = project?;
+
+    // Migrations commands
     match &cli.command {
         Some(Commands::Migrations {
             command: Some(MigrationsCommands::Create { name, path }),
         }) => {
-            return commands::migrations::create(path.as_deref(), name)
+            return commands::migrations::create(&project, path.as_deref(), name)
                 .await
                 .wrap_err("Failed to create migration")
                 .map_err(Error::from);
@@ -348,9 +352,6 @@ pub async fn run(
 
         _ => Ok(()),
     }?;
-
-    // Since this point all commands need the project to be presented
-    let project = project?;
 
     // Functions commands
     match &cli.command {
