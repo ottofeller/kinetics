@@ -1,5 +1,7 @@
+use crate::commands::cicd::github::github_workflow;
 use crate::error::Error;
 use crate::function::Type as FunctionType;
+use crate::project::Project;
 use eyre::eyre;
 use eyre::WrapErr;
 use reqwest::Response;
@@ -19,8 +21,6 @@ const ENDPOINT_TEMPLATE_URL: &str =
 
 const WORKER_TEMPLATE_URL: &str =
     "https://github.com/ottofeller/kinetics-worker-template/archive/refs/heads/main.zip";
-
-const GITHUB_WORKFLOW_TEMPLATE: &str = include_str!("github-workflow-template.yaml");
 
 /// Initialize a new Kinetics project by downloading and unpacking a template archive
 ///
@@ -77,7 +77,7 @@ pub async fn init(
     let response = match client.get(template_url).send().await {
         Ok(resp) => {
             if !resp.status().is_success() {
-                log::error!("Server returned errors: {:?}", resp);
+                log::error!("Server returned errors: {resp:?}");
 
                 return halt(
                     "Failed to download template archive",
@@ -89,7 +89,7 @@ pub async fn init(
             resp
         }
         Err(e) => {
-            log::error!("Failed to download archive: {:?}", e);
+            log::error!("Failed to download archive: {e:?}");
 
             return halt(
                 "Failed to download template archive",
@@ -101,7 +101,7 @@ pub async fn init(
 
     print!("\r\x1B[K{}", console::style("Extracting template").dim());
 
-    if let Err(_) = unpack(response, &project_dir).await {
+    if unpack(response, &project_dir).await.is_err() {
         return halt(
             "Failed to unpack template archive",
             "Check if tar is installed and you have enough FS permissions, and try again.",
@@ -130,14 +130,14 @@ pub async fn init(
             ),
         ])
         .status()
-        .inspect_err(|e| log::error!("Can't move files: {:?}", e))
+        .inspect_err(|e| log::error!("Can't move files: {e:?}"))
         .wrap_err(Error::new(
             "Failed to move template files",
             Some("Make sure you have proper permissions to execute bash commands."),
         ))?;
 
     if !status.success() {
-        log::error!("Can't move files: {:?}", status);
+        log::error!("Can't move files: {status:?}");
 
         return halt(
             "Failed to move template files",
@@ -210,7 +210,7 @@ async fn unpack(response: Response, project_dir: &Path) -> eyre::Result<()> {
     let archive_bytes = response
         .bytes()
         .await
-        .inspect_err(|e| log::error!("Failed to read archive data: {:?}", e))?;
+        .inspect_err(|e| log::error!("Failed to read archive data: {e:?}"))?;
 
     log::info!("Extracting template files...");
 
@@ -234,13 +234,13 @@ async fn unpack(response: Response, project_dir: &Path) -> eyre::Result<()> {
             &project_dir.to_string_lossy(),
         ])
         .status()
-        .inspect_err(|e| log::error!("Can't run tar command: {:?}", e))?;
+        .inspect_err(|e| log::error!("Can't run tar command: {e:?}"))?;
 
     // Clean up the temporary file
     fs::remove_file(&temp_file_path).unwrap_or(());
 
     if !status.success() {
-        log::error!("Can't unpack: {:?}", status);
+        log::error!("Can't unpack: {status:?}");
         return Err(eyre!("Failed to extract template archive"));
     }
 
@@ -267,21 +267,21 @@ fn init_git(project_dir: &Path) -> eyre::Result<()> {
 
     let status = Command::new("git")
         .args(["init", "--quiet"])
-        .current_dir(&project_dir)
+        .current_dir(project_dir)
         .status()
-        .inspect_err(|e| log::error!("Can't init git: {:?}", e))
+        .inspect_err(|e| log::error!("Can't init git: {e:?}"))
         .wrap_err(Error::new(
             "Failed to init git",
             Some("Make sure you have proper permissions."),
         ))?;
 
     if !status.success() {
-        log::error!("Can't init git: {:?}", status);
+        log::error!("Can't init git: {status:?}");
 
         return halt(
             "Failed to init git",
             "Failed to init git . Check file permissions.",
-            &project_dir,
+            project_dir,
         );
     }
 
@@ -293,34 +293,7 @@ fn init_git(project_dir: &Path) -> eyre::Result<()> {
         ))?;
 
     // Add a github CD workflow
-    let github_workflow = GITHUB_WORKFLOW_TEMPLATE
-        .replace("PLACEHOLDER_DIR_PATH", ".")
-        .replace(
-            "tool: kinetics",
-            &format!("tool: kinetics@{}", env!("CARGO_PKG_VERSION")),
-        );
-    let workflow_dir = project_dir.join(".github/workflows");
-    fs::create_dir_all(&workflow_dir)
-        .inspect_err(|e| log::error!("{e:?}"))
-        .wrap_err(Error::new(
-            "Failed to create github workflows directory",
-            Some("Check file system permissions."),
-        ))?;
-    let deploy_workflow_path = workflow_dir.join("kinetics.yaml");
-    fs::write(deploy_workflow_path, github_workflow).wrap_err(Error::new(
-        "Failed to write deploy workflow file",
-        Some("Check file system permissions."),
-    ))?;
-
-    println!(
-        "\n{}\n{}\n",
-        console::style("A github workflow was added to the project, requires configuration").dim(),
-        console::style(
-            "https://github.com/ottofeller/kinetics/blob/main/README.md#deploy-from-github-actions"
-        )
-        .cyan()
-    );
-    Ok(())
+    github_workflow(&Project::from_path(project_dir.into())?)
 }
 
 /// Clean up, and throw an error

@@ -116,6 +116,21 @@ enum FuncCommands {
 }
 
 #[derive(Subcommand)]
+enum CicdCommands {
+    /// Initialize a CI/CD pipeline
+    Init {
+        /// Create a GitHub workflow file.
+        #[arg(
+            short,
+            long,
+            action = ArgAction::SetTrue,
+            required = false
+        )]
+        github: bool,
+    },
+}
+
+#[derive(Subcommand)]
 enum Commands {
     /// Auth and access tokens
     Auth {
@@ -239,6 +254,11 @@ enum Commands {
         #[arg(long="with-queue", visible_aliases=["queue"])]
         with_queue: bool,
     },
+
+    Cicd {
+        #[command(subcommand)]
+        command: Option<CicdCommands>,
+    },
 }
 
 pub async fn run(
@@ -346,6 +366,9 @@ pub async fn run(
         Some(Commands::Func {
             command: Some(FuncCommands::Logs { name, period }),
         }) => commands::func::logs::logs(name, &project, period).await,
+        Some(Commands::Cicd {
+            command: Some(CicdCommands::Init { github }),
+        }) => commands::cicd::init::init(&project, *github).await,
         _ => Ok(()),
     }?;
 

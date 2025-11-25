@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod build;
+pub mod cicd;
 pub mod deploy;
 pub mod envs;
 pub mod func;
