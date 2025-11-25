@@ -93,23 +93,31 @@ impl<'a> Migrations<'a> {
         Ok(())
     }
 
-    pub async fn create(&self, name: &str) -> eyre::Result<()> {
+    pub async fn create(&self, name: Option<&str>) -> eyre::Result<()> {
         let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S");
 
         // Allow only alphanumeric characters and underscores
         let name = name
+            .unwrap_or_default()
             .replace(" ", "_")
             .chars()
             .filter(|c| c.is_alphanumeric() || *c == '_')
             .take(100)
             .collect::<String>();
 
-        let filepath = self.path.join(format!("{}_{}.up.sql", timestamp, name));
+        // Generate a unique filename based on the current timestamp and optional migration name
+        let filename = [timestamp.to_string(), name]
+            .into_iter()
+            .filter(|c| !c.is_empty())
+            .collect::<Vec<_>>()
+            .join("_");
+
+        let filepath = self.path.join(format!("{}.up.sql", filename));
 
         // TODO Add some helpful comments to the migration file
         tokio::fs::write(&filepath, "")
             .await
-            .wrap_err("Failed to create migration file")?;
+            .wrap_err("Failed to create a migration file")?;
 
         println!(
             "{}: {}",
