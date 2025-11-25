@@ -2,9 +2,27 @@ use crate::migrations::Migrations;
 use crate::project::Project;
 use eyre::Context;
 
-pub async fn create(project: &Project, path: Option<&str>, name: Option<&str>) -> eyre::Result<()> {
-    Migrations::new(project.path.join(path.unwrap_or("migrations")).as_path())
-        .await
+/// Creates a new database migration file
+///
+/// `project` – current project
+/// `migrations_dir` – relative to project.path directory name
+///     - Defaults to `migrations` – it will be created if it doesn't exist
+///     - If set to Some(...), it must be a relative to `project.path` and must exist
+/// `name` – optional migration name
+pub async fn create(
+    project: &Project,
+    migrations_dir: Option<&str>,
+    name: Option<&str>,
+) -> eyre::Result<()> {
+    let dir_name = migrations_dir.unwrap_or("migrations");
+    let migrations_path = project.path.join(dir_name);
+
+    // Ensure default migrations directory exists
+    if migrations_dir.is_none() {
+        tokio::fs::create_dir_all(&migrations_path).await?;
+    }
+
+    Migrations::new(&migrations_path)
         .wrap_err("Failed to initialize migrations")?
         .create(name)
         .await
