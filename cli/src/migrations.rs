@@ -1,6 +1,6 @@
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
-use sqlx::{Pool, Postgres, Row};
+use sqlx::Row;
 use std::path::Path;
 
 pub struct Migrations<'a> {
@@ -31,10 +31,6 @@ impl<'a> Migrations<'a> {
         let connection = sqlx::PgPool::connect(&connection_string)
             .await
             .wrap_err("Failed to connect to database")?;
-
-        self.ensure_migrations_table(&connection)
-            .await
-            .wrap_err("Failed to fetch migrations table")?;
 
         // Get latest applied migration
         let result = sqlx::query("SELECT MAX(id) FROM schema_migrations")
@@ -71,16 +67,16 @@ impl<'a> Migrations<'a> {
                 .await
                 .wrap_err("Failed to apply migration")?;
 
+            sqlx::query(r#"INSERT INTO "schema_migrations" (id) VALUES ($1)"#)
+                .bind(&migration)
+                .execute(&mut *tx)
+                .await?;
+
             println!(
                 "{}: {}",
                 console::style("Done").green(),
                 console::style(&migration).dimmed()
             );
-
-            sqlx::query("INSERT INTO schema_migrations (id) VALUES ($1)")
-                .bind(&migration)
-                .execute(&mut *tx)
-                .await?;
         }
 
         println!(
@@ -158,22 +154,5 @@ impl<'a> Migrations<'a> {
         // Sort files by name (oldest first)
         entries.sort();
         Ok(entries)
-    }
-
-    /// Ensures that the migrations table exists in the database and creates it if it doesn't
-    async fn ensure_migrations_table(&self, connection: &Pool<Postgres>) -> eyre::Result<()> {
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS schema_migrations (
-                id VARCHAR(255) PRIMARY KEY,
-                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            "#,
-        )
-        .execute(connection)
-        .await
-        .wrap_err("Failed to create migrations table")?;
-
-        Ok(())
     }
 }

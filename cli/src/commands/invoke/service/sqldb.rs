@@ -1,5 +1,6 @@
 use crate::migrations::Migrations;
-use sqlx::PgPool;
+use eyre::Context;
+use sqlx::{PgPool, Pool, Postgres};
 use std::path::PathBuf;
 
 const DOCKER_COMPOSE_SNIPPET: &str = r#"
@@ -47,7 +48,10 @@ impl LocalSqlDB {
             let result = PgPool::connect(&self.connection_string()).await;
 
             match result {
-                Ok(_) => break, // Connection successful, exit the loop
+                Ok(connection) => {
+                    self.create_migrations_table(&connection).await?;
+                    break; // Connection successful, exit the loop
+                }
                 Err(_) if attempt < max_retries => {
                     tokio::time::sleep(tokio::time::Duration::from_millis(retry_delay_ms)).await;
                 }
@@ -61,6 +65,26 @@ impl LocalSqlDB {
                 .apply(self.connection_string())
                 .await?;
         }
+
+        Ok(())
+    }
+
+    /// Creates the `schema_migrations` table if it doesn't exist.
+    ///
+    /// This table is used to track database schema migrations.
+    /// See [Migrations](crate::migrations::Migrations) for more details.
+    async fn create_migrations_table(&self, connection: &Pool<Postgres>) -> eyre::Result<()> {
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                id VARCHAR(255) PRIMARY KEY,
+                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            "#,
+        )
+        .execute(connection)
+        .await
+        .wrap_err("Failed to create migrations table")?;
 
         Ok(())
     }
