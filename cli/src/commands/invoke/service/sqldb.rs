@@ -40,7 +40,7 @@ impl LocalSqlDB {
 
     /// Attempts to provision a PostgreSQL connection, retrying on failure.
     pub async fn provision(&self) -> eyre::Result<()> {
-        let max_retries = 5;
+        let max_retries = 10;
         let retry_delay_ms = 1000;
 
         for attempt in 1..=max_retries {
