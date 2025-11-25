@@ -25,7 +25,7 @@ pub async fn invoke(
 
     is_sqldb_enabled: bool,
     is_queue_enabled: bool,
-    with_migrations: Option<&str>,
+    migrations_path: Option<&str>,
 ) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
 
@@ -58,10 +58,8 @@ pub async fn invoke(
     ]);
 
     if is_sqldb_enabled {
-        let mut sqldb = LocalSqlDB::new();
-
-        // Apply a migration path if specified
-        sqldb.with_migrations(with_migrations.map(|path| Path::new(&project.path).join(path)));
+        let mut sqldb = LocalSqlDB::new(project);
+        sqldb.with_migrations(migrations_path);
 
         local_environment.insert(
             "KINETICS_SQLDB_LOCAL_CONNECTION_STRING",

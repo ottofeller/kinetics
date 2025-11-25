@@ -1,4 +1,5 @@
 use crate::migrations::Migrations;
+use crate::project::Project;
 use eyre::Context;
 use sqlx::{PgPool, Pool, Postgres};
 use std::path::PathBuf;
@@ -13,15 +14,27 @@ local-postgres:
       POSTGRES_PASSWORD: localdbpassword
 "#;
 
+/// A structure representing a local SQL database configuration.
+///
+/// This struct is used to configure properties for setting up a local SQL database.
 pub struct LocalSqlDB {
-    /// Path to the migrations directory, if specified migrations will be applied on startup
-    with_migrations: Option<PathBuf>,
+    /// Full path to the project root directory
+    project_path: PathBuf,
+
+    /// Whether to apply database migrations on startup
+    with_migrations: bool,
+
+    /// Full path to the migrations directory
+    migrations_path: PathBuf,
 }
 
 impl LocalSqlDB {
-    pub fn new() -> Self {
+    pub fn new(project: &Project) -> Self {
         Self {
-            with_migrations: None,
+            // The default migrations path is `migrations` relative to the project root directory
+            migrations_path: project.path.join("migrations"),
+            with_migrations: false,
+            project_path: project.path.clone(),
         }
     }
 
@@ -34,8 +47,16 @@ impl LocalSqlDB {
         "postgres://postgres:localdbpassword@localhost:5432/postgres?sslmode=disable".to_string()
     }
 
-    pub fn with_migrations(&mut self, with_migrations: Option<PathBuf>) -> &mut Self {
-        self.with_migrations = with_migrations;
+    /// Sets whether to apply database migrations on startup
+    ///
+    /// `migrations_path` is relative to the project root directory
+    pub fn with_migrations(&mut self, migrations_path: Option<&str>) -> &mut Self {
+        // Use a migrations path is specified; otherwise, the default migrations path will be used
+        if let Some(migrations_path) = migrations_path {
+            self.with_migrations = true;
+            self.migrations_path = self.project_path.join(migrations_path);
+        }
+
         self
     }
 
@@ -59,9 +80,8 @@ impl LocalSqlDB {
             }
         }
 
-        if let Some(with_migrations) = &self.with_migrations {
-            Migrations::new(with_migrations.as_path())
-                .await?
+        if self.with_migrations {
+            Migrations::new(self.migrations_path.as_path())?
                 .apply(self.connection_string())
                 .await?;
         }
