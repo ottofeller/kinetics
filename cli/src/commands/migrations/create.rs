@@ -17,10 +17,8 @@ pub async fn create(
     let dir_name = migrations_dir.unwrap_or("migrations");
     let migrations_path = project.path.join(dir_name);
 
-    // Ensure default migrations directory exists
-    if migrations_dir.is_none() {
-        tokio::fs::create_dir_all(&migrations_path).await?;
-    }
+    // Create migrations directory if it doesn't exist
+    tokio::fs::create_dir_all(&migrations_path).await?;
 
     Migrations::new(&migrations_path)
         .wrap_err("Failed to initialize migrations")?
