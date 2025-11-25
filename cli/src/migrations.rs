@@ -14,10 +14,13 @@ pub struct Migrations<'a> {
 
 /// Methods for managing database migrations
 impl<'a> Migrations<'a> {
-    pub async fn new(path: &'a Path) -> eyre::Result<Self> {
-        tokio::fs::create_dir_all(path)
-            .await
-            .wrap_err("Failed to create migrations dir")?;
+    pub fn new(path: &'a Path) -> eyre::Result<Self> {
+        if !path.try_exists()? {
+            return Err(eyre::eyre!(
+                "Migrations directory does not exist: {}",
+                path.display()
+            ));
+        }
 
         Ok(Self { path })
     }
@@ -30,8 +33,6 @@ impl<'a> Migrations<'a> {
     /// and updates the `schema_migrations` table to record each migration.
     pub async fn apply(&self, connection_string: String) -> eyre::Result<()> {
         println!("{}", console::style("Applying migrations...").dimmed());
-
-        let all_migrations = self.migrations().await?;
 
         let connection = sqlx::PgPool::connect(&connection_string)
             .await
@@ -47,40 +48,30 @@ impl<'a> Migrations<'a> {
             .unwrap_or_default()
             .unwrap_or("0".to_string());
 
-        // Get latest migration file name
-        let last_file_id = all_migrations.last().cloned().unwrap_or("0".to_string());
+        let migrations = self.migrations(&last_db_id).await?;
 
-        // Check if there are migrations to apply
-        if last_db_id >= last_file_id || all_migrations.is_empty() {
+        if migrations.is_empty() {
             println!("{}", console::style("No migrations to apply...").dimmed());
             return Ok(());
         }
 
         let mut tx = connection.begin().await?;
 
-        for migration in all_migrations {
-            if migration <= last_db_id {
-                continue;
-            }
-
-            let sql = tokio::fs::read_to_string(self.path.join(&migration))
-                .await
-                .wrap_err("Failed to read migration file")?;
-
-            sqlx::raw_sql(&sql)
+        for (filename, content) in migrations {
+            sqlx::raw_sql(&content)
                 .execute(&mut *tx)
                 .await
                 .wrap_err("Failed to apply migration")?;
 
             sqlx::query(r#"INSERT INTO "schema_migrations" (id) VALUES ($1)"#)
-                .bind(&migration)
+                .bind(&filename)
                 .execute(&mut *tx)
                 .await?;
 
             println!(
                 "{}: {}",
-                console::style("Done").green(),
-                console::style(&migration).dimmed()
+                console::style("Successfully applied").green(),
+                console::style(&filename).dimmed()
             );
         }
 
@@ -142,14 +133,23 @@ impl<'a> Migrations<'a> {
         Ok(())
     }
 
-    /// Retrieves the list of migration files from the specified directory.
+    /// Retrieves a sorted (ASC) list of database migration files and their contents to be applied.
     ///
-    /// It returns only file names that end with `.up.sql`.
-    /// Files are ordered by names in ASC (oldest first) order
-    async fn migrations(&self) -> eyre::Result<Vec<String>> {
-        let mut read_dir = tokio::fs::read_dir(self.path).await?;
-        let mut entries = Vec::new();
+    /// `last_applied_id`: representing the identifier of the last applied migration.
+    /// Only migration files with names greater than this identifier (in lexicographical order)
+    /// will be included.
+    ///
+    /// Returns a vector of tuples. Each tuple contains:
+    ///   - `String`: The name of the migration file
+    ///   - `String`: The content of the migration file
+    async fn migrations(&self, last_applied_id: &str) -> eyre::Result<Vec<(String, String)>> {
+        let mut read_dir = tokio::fs::read_dir(self.path)
+            .await
+            .wrap_err("Failed to read migrations dir")?;
 
+        let mut paths = Vec::new();
+
+        // Collect all valid migration files
         while let Some(entry) = read_dir.next_entry().await? {
             let path = entry.path();
 
@@ -157,15 +157,35 @@ impl<'a> Migrations<'a> {
                 continue;
             }
 
-            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                if name.ends_with(".up.sql") {
-                    entries.push(name.to_string());
+            let filename = match path.file_name().and_then(|n| n.to_str()) {
+                Some(name) => name.to_owned(),
+                None => {
+                    log::warn!("Invalid filename: {:?}. Skipping...", path);
+                    continue;
                 }
+            };
+
+            if filename.ends_with(".up.sql") {
+                paths.push((filename, path));
             }
         }
 
-        // Sort files by name (oldest first)
-        entries.sort();
-        Ok(entries)
+        // Sort migrations by name in ASC (the oldest first) order
+        paths.sort_by(|(name1, _), (name2, _)| name1.cmp(name2));
+
+        let mut result = Vec::new();
+
+        // Filter out migrations that have already been applied and read its content
+        for (filename, path) in paths {
+            if filename.as_str() > last_applied_id {
+                let content = tokio::fs::read_to_string(path)
+                    .await
+                    .wrap_err("Failed to read file")?;
+
+                result.push((filename, content));
+            }
+        }
+
+        Ok(result)
     }
 }
