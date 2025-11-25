@@ -14,6 +14,9 @@ pub struct Migrations<'a> {
 
 /// Methods for managing database migrations
 impl<'a> Migrations<'a> {
+    /// Creates a new `Migrations` instance from a directory path
+    ///
+    /// `path` is a path to the migrations directory; it must exist in the filesystem
     pub fn new(path: &'a Path) -> eyre::Result<Self> {
         if !path.try_exists()? {
             return Err(eyre::eyre!(
@@ -84,6 +87,10 @@ impl<'a> Migrations<'a> {
         Ok(())
     }
 
+    /// Creates a new migration file with a unique filename based on the current
+    /// timestamp and an optional user-provided name.
+    ///
+    /// The migration file is created within a specified directory and is initially empty.
     pub async fn create(&self, name: Option<&str>) -> eyre::Result<()> {
         let timestamp = chrono::Utc::now().format("%Y%m%d%H%M%S");
 
