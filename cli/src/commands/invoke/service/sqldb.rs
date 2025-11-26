@@ -20,7 +20,7 @@ local-postgres:
 ///
 /// This struct is used to configure properties for setting up a local SQL database.
 pub struct LocalSqlDB {
-    /// Full path to the project root directory
+    /// Current project
     project: Project,
 
     /// Whether to apply database migrations on startup
