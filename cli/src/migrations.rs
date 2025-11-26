@@ -1,4 +1,3 @@
-use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
 use sqlx::Row;
 use std::path::Path;
@@ -112,20 +111,9 @@ impl<'a> Migrations<'a> {
             "{} {} {}",
             console::style("Created migration").green().bold(),
             console::style("at").dim(),
-            console::style(format!(
-                "{}/{}",
-                filepath
-                    .parent()
-                    .and_then(|p| p.file_name())
-                    .map(|n| n.to_string_lossy())
-                    .unwrap_or_default(),
-                filepath
-                    .file_name()
-                    .map(|n| n.to_string_lossy())
-                    .unwrap_or_default()
-            ))
-            .underlined()
-            .bold(),
+            console::style(format!("{}", filepath.to_string_lossy()))
+                .underlined()
+                .bold(),
         );
 
         Ok(())
