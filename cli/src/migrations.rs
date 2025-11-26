@@ -109,10 +109,9 @@ impl<'a> Migrations<'a> {
             .wrap_err("Failed to create a migration file")?;
 
         println!(
-            "{}: {}",
-            console::style("Migration created successfully")
-                .green()
-                .bold(),
+            "{} {} {}",
+            console::style("Created migration").green().bold(),
+            console::style("at").dim(),
             console::style(format!(
                 "{}/{}",
                 filepath
@@ -125,7 +124,8 @@ impl<'a> Migrations<'a> {
                     .map(|n| n.to_string_lossy())
                     .unwrap_or_default()
             ))
-            .dimmed(),
+            .underlined()
+            .bold(),
         );
 
         Ok(())
