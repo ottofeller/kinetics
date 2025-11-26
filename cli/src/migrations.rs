@@ -54,7 +54,7 @@ impl<'a> Migrations<'a> {
         let migrations = self.migrations(&last_db_id).await?;
 
         if migrations.is_empty() {
-            println!("{}", console::style("No migrations to apply...").dimmed());
+            println!("{}", console::style("No migrations to apply...").yellow());
             return Ok(());
         }
 
