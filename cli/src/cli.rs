@@ -29,8 +29,8 @@ enum MigrationsCommands {
         name: Option<String>,
 
         /// Relative path to migrations directory
-        #[arg(short, long, value_name = "PATH")]
-        path: Option<String>,
+        #[arg(short, long, value_name = "PATH", default_value = "migrations")]
+        path: String,
     },
 }
 
@@ -344,7 +344,7 @@ pub async fn run(
         Some(Commands::Migrations {
             command: Some(MigrationsCommands::Create { name, path }),
         }) => {
-            return commands::migrations::create(&project, path.as_deref(), name.as_deref())
+            return commands::migrations::create(&project, path, name.as_deref())
                 .await
                 .wrap_err("Failed to create migration")
                 .map_err(Error::from);

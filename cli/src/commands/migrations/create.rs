@@ -11,10 +11,10 @@ use eyre::Context;
 /// `name` – optional migration name
 pub async fn create(
     project: &Project,
-    migrations_dir: Option<&str>,
+    migrations_dir: &str,
     name: Option<&str>,
 ) -> eyre::Result<()> {
-    let migrations_path = project.path.join(migrations_dir.unwrap_or("migrations"));
+    let migrations_path = project.path.join(migrations_dir);
 
     // Create migrations directory if it doesn't exist
     tokio::fs::create_dir_all(&migrations_path).await?;
