@@ -6,4 +6,5 @@ pub mod func;
 pub mod init;
 pub mod invoke;
 pub mod login;
+pub mod migrations;
 pub mod proj;

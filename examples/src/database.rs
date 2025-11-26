@@ -25,18 +25,16 @@ pub async fn database(
         .connect(&config.db.connection_string())
         .await?;
 
-    // Create a table if it doesn't exist
-    sqlx::query(r#"CREATE TABLE IF NOT EXISTS my_table (value SMALLINT NOT NULL)"#)
-        .execute(&pool)
-        .await?;
+    let value = 1;
 
     // Insert a value into the table
-    sqlx::query(r#"INSERT INTO my_table (value) VALUES (1)"#)
+    sqlx::query(r#"INSERT INTO "example" (value) VALUES ($1)"#)
+        .bind(value)
         .execute(&pool)
         .await?;
 
     // Read values from the table
-    let result = sqlx::query_scalar::<_, i16>(r#"SELECT value FROM "my_table" LIMIT 10"#)
+    let result = sqlx::query_scalar::<_, i16>(r#"SELECT value FROM "example" LIMIT 10"#)
         .fetch_all(&pool)
         .await?;
 
