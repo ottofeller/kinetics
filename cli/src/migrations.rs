@@ -64,6 +64,7 @@ impl<'a> Migrations<'a> {
             sqlx::raw_sql(&content)
                 .execute(&mut *tx)
                 .await
+                .inspect_err(|e| log::error!("Error: {e:?}"))
                 .wrap_err("Failed to apply migration")?;
 
             sqlx::query(r#"INSERT INTO "schema_migrations" (id) VALUES ($1)"#)
