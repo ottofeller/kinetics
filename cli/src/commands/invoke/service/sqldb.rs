@@ -100,8 +100,8 @@ impl LocalSqlDB {
         Ok(())
     }
 
-    /// Cleans the database by dropping all tables
-    async fn clean_database(&self, connection: &Pool<Postgres>) -> eyre::Result<()> {
+    /// Cleans the database up by dropping all tables
+    async fn cleanup(&self, connection: &Pool<Postgres>) -> eyre::Result<()> {
         sqlx::raw_sql(
             r#"
             DROP SCHEMA public CASCADE;
