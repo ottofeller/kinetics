@@ -27,6 +27,8 @@ pub struct LocalSqlDB {
     with_migrations: bool,
 
     /// Full path to the migrations directory
+    ///
+    /// Default is <project >/migrations/
     migrations_path: PathBuf,
 }
 
