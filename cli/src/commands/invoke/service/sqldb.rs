@@ -10,6 +10,8 @@ local-postgres:
     shm_size: 128mb
     ports:
         - "5432:5432"
+    volumes:
+        - "{{PATH}}:/var/lib/postgresql/data"
     environment:
       POSTGRES_PASSWORD: localdbpassword
 "#;
@@ -19,7 +21,7 @@ local-postgres:
 /// This struct is used to configure properties for setting up a local SQL database.
 pub struct LocalSqlDB {
     /// Full path to the project root directory
-    project_path: PathBuf,
+    project: Project,
 
     /// Whether to apply database migrations on startup
     with_migrations: bool,
@@ -34,12 +36,17 @@ impl LocalSqlDB {
             // The default migrations path is `migrations` relative to the project root directory
             migrations_path: project.path.join("migrations"),
             with_migrations: false,
-            project_path: project.path.clone(),
+            project: project.clone(),
         }
     }
 
     pub fn docker_compose_snippet(&self) -> String {
-        DOCKER_COMPOSE_SNIPPET.to_string()
+        DOCKER_COMPOSE_SNIPPET
+            .replace(
+                "{{PATH}}",
+                format!("/tmp/kinetics_db_{}", self.project.name).as_str(),
+            )
+            .to_string()
     }
 
     pub fn connection_string(&self) -> String {
@@ -55,7 +62,7 @@ impl LocalSqlDB {
 
         // Use a migrations path is specified; otherwise, the default migrations path will be used
         if let Some(migrations_path) = migrations_path {
-            self.migrations_path = self.project_path.join(migrations_path);
+            self.migrations_path = self.project.path.join(migrations_path);
         }
 
         self
@@ -71,6 +78,7 @@ impl LocalSqlDB {
 
             match result {
                 Ok(connection) => {
+                    self.clean_database(&connection).await?;
                     self.create_migrations_table(&connection).await?;
                     break; // Connection successful, exit the loop
                 }
@@ -86,6 +94,23 @@ impl LocalSqlDB {
                 .apply(self.connection_string())
                 .await?;
         }
+
+        Ok(())
+    }
+
+    /// Cleans the database by dropping all tables
+    async fn clean_database(&self, connection: &Pool<Postgres>) -> eyre::Result<()> {
+        sqlx::raw_sql(
+            r#"
+            DROP SCHEMA public CASCADE;
+            CREATE SCHEMA public;
+            GRANT ALL ON SCHEMA public TO postgres;
+            GRANT ALL ON SCHEMA public TO public;
+        "#,
+        )
+        .execute(connection)
+        .await
+        .wrap_err("Failed to clean database")?;
 
         Ok(())
     }
