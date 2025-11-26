@@ -11,7 +11,7 @@ local-postgres:
     ports:
         - "5432:5432"
     volumes:
-        - "{{PATH}}:/var/lib/postgresql/data"
+        - "{{DB_VOLUME_PATH}}:/var/lib/postgresql/data"
     environment:
       POSTGRES_PASSWORD: localdbpassword
 "#;
@@ -43,7 +43,7 @@ impl LocalSqlDB {
     pub fn docker_compose_snippet(&self) -> String {
         DOCKER_COMPOSE_SNIPPET
             .replace(
-                "{{PATH}}",
+                "{{DB_VOLUME_PATH}}",
                 format!("/tmp/kinetics_db_{}", self.project.name).as_str(),
             )
             .to_string()
