@@ -80,7 +80,7 @@ impl LocalSqlDB {
 
             match result {
                 Ok(connection) => {
-                    self.clean_database(&connection).await?;
+                    self.cleanup(&connection).await?;
                     self.create_migrations_table(&connection).await?;
                     break; // Connection successful, exit the loop
                 }
