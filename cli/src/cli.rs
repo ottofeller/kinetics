@@ -29,7 +29,7 @@ enum MigrationsCommands {
         name: Option<String>,
 
         /// Relative path to migrations directory
-        #[arg(short, long, value_name = "PATH", default_value = "migrations")]
+        #[arg(short, long, value_name = "PATH")]
         path: Option<String>,
     },
 }
@@ -247,7 +247,7 @@ enum Commands {
         #[arg(long="with-database", visible_aliases=["with-db", "db"])]
         with_database: bool,
 
-        #[arg(short, long = "with-migrations", num_args = 0..=1, default_missing_value = "migrations")]
+        #[arg(short, long = "with-migrations", num_args = 0..=1, default_missing_value = "")]
         with_migrations: Option<String>,
 
         #[arg(long="with-queue", visible_aliases=["queue"])]

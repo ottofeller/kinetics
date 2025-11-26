@@ -51,9 +51,10 @@ impl LocalSqlDB {
     ///
     /// `migrations_path` is relative to the project root directory
     pub fn with_migrations(&mut self, migrations_path: Option<&str>) -> &mut Self {
+        self.with_migrations = true;
+
         // Use a migrations path is specified; otherwise, the default migrations path will be used
         if let Some(migrations_path) = migrations_path {
-            self.with_migrations = true;
             self.migrations_path = self.project_path.join(migrations_path);
         }
 

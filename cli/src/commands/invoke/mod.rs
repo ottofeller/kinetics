@@ -23,7 +23,7 @@ pub async fn invoke(
     is_local: bool,
     is_sqldb_enabled: bool,
     is_queue_enabled: bool,
-    migrations_path: Option<&str>,
+    with_migrations: Option<&str>,
 ) -> eyre::Result<()> {
     // Get function names as well as pull all updates from the code.
     let all_functions = prepare_functions(
@@ -31,7 +31,16 @@ pub async fn invoke(
         project,
         &[function_name.into()],
     )?;
+
     let function = Function::find_by_name(&all_functions, function_name)?;
+
+    // If --with_migrations was not passed, or comes with default "" value, then
+    // do not set the migrations path. There is a default value set down the flow.
+    let migrations_path = if with_migrations.unwrap_or_default().is_empty() {
+        None
+    } else {
+        with_migrations
+    };
 
     if is_local {
         local::invoke(
@@ -43,6 +52,7 @@ pub async fn invoke(
             table,
             is_sqldb_enabled,
             is_queue_enabled,
+            with_migrations.is_some(),
             migrations_path,
         )
         .await
