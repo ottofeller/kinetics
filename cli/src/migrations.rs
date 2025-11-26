@@ -35,8 +35,6 @@ impl<'a> Migrations<'a> {
     /// (if any) need to be applied. It then applies the pending migrations sequentially
     /// and updates the `schema_migrations` table to record each migration.
     pub async fn apply(&self, connection_string: String) -> eyre::Result<()> {
-        println!("{}", console::style("Applying migrations...").dimmed());
-
         let connection = sqlx::PgPool::connect(&connection_string)
             .await
             .wrap_err("Failed to connect to database")?;
@@ -61,6 +59,9 @@ impl<'a> Migrations<'a> {
         let mut tx = connection.begin().await?;
 
         for (filename, content) in migrations {
+            print!("\r\x1B[K");
+            print!("{}", console::style(format!("Applying {filename}")).dim(),);
+
             sqlx::raw_sql(&content)
                 .execute(&mut *tx)
                 .await
@@ -71,18 +72,7 @@ impl<'a> Migrations<'a> {
                 .bind(&filename)
                 .execute(&mut *tx)
                 .await?;
-
-            println!(
-                "{}: {}",
-                console::style("Successfully applied").green(),
-                console::style(&filename).dimmed()
-            );
         }
-
-        println!(
-            "{}",
-            console::style("All migrations were applied").green().bold()
-        );
 
         tx.commit().await?;
         Ok(())
