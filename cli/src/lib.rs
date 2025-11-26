@@ -7,6 +7,7 @@ pub mod error;
 pub mod function;
 pub mod logger;
 pub mod macros;
+pub mod migrations;
 pub mod process;
 pub mod project;
 pub mod secret;

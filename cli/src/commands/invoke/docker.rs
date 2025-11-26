@@ -111,17 +111,20 @@ impl Docker {
             .iter()
             .map(|service| async move {
                 match service {
-                    Service::DynamoDB(svc) => svc
+                    Service::DynamoDB(db) => db
                         .provision()
                         .await
                         .wrap_err("Failed to provision local DynamoDB"),
 
-                    Service::Queue(svc) => svc
+                    Service::Queue(queue) => queue
                         .provision()
                         .await
                         .wrap_err("Failed to provision local SQS queue"),
 
-                    Service::SqlDB(_) => Ok(()), // no-op
+                    Service::SqlDB(db) => db
+                        .provision()
+                        .await
+                        .wrap_err("Failed to provision local SQL DB"),
                 }
             })
             .collect::<Vec<_>>();

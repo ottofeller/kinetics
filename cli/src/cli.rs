@@ -21,6 +21,20 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
+enum MigrationsCommands {
+    /// Create a new migration file
+    Create {
+        /// User-defined name for the migration
+        #[arg(value_name = "NAME")]
+        name: Option<String>,
+
+        /// Relative path to migrations directory
+        #[arg(short, long, value_name = "PATH", default_value = "migrations")]
+        path: String,
+    },
+}
+
+#[derive(Subcommand)]
 enum AuthCommands {
     /// Delete local access token locally and remotely
     Logout {},
@@ -166,6 +180,11 @@ enum Commands {
         functions: Vec<String>,
     },
 
+    Migrations {
+        #[command(subcommand)]
+        command: Option<MigrationsCommands>,
+    },
+
     /// Start new project from template
     Init {
         /// Name of the project to create
@@ -235,6 +254,9 @@ enum Commands {
         /// Provision local SQL database for invoked function
         #[arg(long="with-database", visible_aliases=["with-db", "db"])]
         with_database: bool,
+
+        #[arg(short, long = "with-migrations", num_args = 0..=1, default_missing_value = "")]
+        with_migrations: Option<String>,
 
         #[arg(long="with-queue", visible_aliases=["queue"])]
         with_queue: bool,
@@ -325,6 +347,20 @@ pub async fn run(
     // Since this point all commands need the project to be presented
     let project = project?;
 
+    // Migrations commands
+    match &cli.command {
+        Some(Commands::Migrations {
+            command: Some(MigrationsCommands::Create { name, path }),
+        }) => {
+            return commands::migrations::create(&project, path, name.as_deref())
+                .await
+                .wrap_err("Failed to create migration")
+                .map_err(Error::from);
+        }
+
+        _ => Ok(()),
+    }?;
+
     // Functions commands
     match &cli.command {
         Some(Commands::Func {
@@ -384,6 +420,7 @@ pub async fn run(
             remote,
             with_database: sqldb,
             with_queue,
+            with_migrations,
         }) => {
             commands::invoke::invoke(
                 name,
@@ -395,6 +432,7 @@ pub async fn run(
                 remote.to_owned(),
                 sqldb.to_owned(),
                 with_queue.to_owned(),
+                with_migrations.as_deref(),
             )
             .await
         }
