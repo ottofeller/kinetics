@@ -1,4 +1,4 @@
-use crate::commands::cicd::github::github_workflow;
+use crate::commands::cicd::github;
 use crate::error::Error;
 use crate::function::Type as FunctionType;
 use crate::project::Project;
@@ -293,7 +293,7 @@ fn init_git(project_dir: &Path) -> eyre::Result<()> {
         ))?;
 
     // Add a github CD workflow
-    github_workflow(&Project::from_path(project_dir.into())?)
+    github::workflow(&Project::from_path(project_dir.into())?)
 }
 
 /// Clean up, and throw an error

@@ -7,7 +7,7 @@ use std::process::Command;
 const GITHUB_WORKFLOW_TEMPLATE: &str = include_str!("github-workflow-template.yaml");
 
 /// Add a GitHub CD workflow
-pub fn github_workflow(project: &Project) -> eyre::Result<()> {
+pub fn workflow(project: &Project) -> eyre::Result<()> {
     // Resolve the Git root - GitHub workflow shall be added there.
     let git_root = match Command::new("git")
         .args(["rev-parse", "--show-toplevel"])
@@ -26,20 +26,20 @@ pub fn github_workflow(project: &Project) -> eyre::Result<()> {
         }
     };
 
-    let rel_path = project
-        .path
-        .strip_prefix(&git_root)?
-        .to_str()
-        .ok_or(Error::new(
-            "Failed constructing project path relative to git root",
-            Some("Check the path to contain only UTF-8 symbols."),
-        ))?;
+    let rel_path = match project.path.strip_prefix(&git_root)?.to_str() {
+        Some(rel_path) if rel_path.is_empty() => ".",
+        Some(rel_path) => rel_path,
+        None => {
+            return Err(Error::new(
+                "Failed constructing project path relative to git root",
+                Some("Check the path to contain only UTF-8 symbols."),
+            )
+            .into());
+        }
+    };
 
     let github_workflow = GITHUB_WORKFLOW_TEMPLATE
-        .replace(
-            "PLACEHOLDER_DIR_PATH",
-            if rel_path.is_empty() { "." } else { rel_path },
-        )
+        .replace("PLACEHOLDER_DIR_PATH", rel_path)
         .replace(
             "tool: kinetics",
             &format!("tool: kinetics@{}", env!("CARGO_PKG_VERSION")),
@@ -53,9 +53,13 @@ pub fn github_workflow(project: &Project) -> eyre::Result<()> {
         ))?;
 
     let deploy_workflow_filename = if git_root == project.path {
+        // If the project is at git root, we would have only one workflow file.
         "kinetics.yaml".into()
     } else {
-        format!("kinetics-{}", project.name)
+        // If the project is within a workspace,
+        // there might be multiple kinetics projects and multiple workflows.
+        // Thus add project name to avoid filename clashes.
+        format!("kinetics-{}.yaml", project.name)
     };
     let deploy_workflow_path = workflow_dir.join(deploy_workflow_filename);
     fs::write(&deploy_workflow_path, github_workflow).wrap_err(Error::new(
