@@ -255,6 +255,7 @@ enum Commands {
         with_queue: bool,
     },
 
+    /// Manage GitHub (and pther providers') workflows
     Cicd {
         #[command(subcommand)]
         command: Option<CicdCommands>,
