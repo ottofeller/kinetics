@@ -6,7 +6,7 @@ use crate::{commands::cicd::github, project::Project};
 pub async fn init(project: &Project, _github: bool) -> eyre::Result<()> {
     println!(
         "{}",
-        console::style("Adding GitHub workflow...").yellow()
+        console::style("Creating GitHub workflow...").bold().green()
     );
 
     github::workflow(project)?;

@@ -62,18 +62,24 @@ pub fn workflow(project: &Project) -> eyre::Result<()> {
         format!("kinetics-{}.yaml", project.name)
     };
     let deploy_workflow_path = workflow_dir.join(deploy_workflow_filename);
+
     fs::write(&deploy_workflow_path, github_workflow).wrap_err(Error::new(
         "Failed to write deploy workflow file",
         Some("Check file system permissions."),
     ))?;
 
     println!(
-        "\n{}\n{}\n",
-        console::style("A github workflow was added to the project, requires configuration").dim(),
+        "\n{}\n{}\n\n{}\n{}\n",
+        console::style("Workflow created, finish configuration").dim(),
+        console::style(deploy_workflow_path.to_string_lossy())
+            .bold()
+            .underlined(),
+        console::style("Check the docs").yellow(),
         console::style(
             "https://github.com/ottofeller/kinetics/blob/main/README.md#deploy-from-github-actions"
         )
-        .cyan()
+        .cyan(),
     );
+
     Ok(())
 }
