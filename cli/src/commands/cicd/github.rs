@@ -63,6 +63,19 @@ pub fn workflow(project: &Project) -> eyre::Result<()> {
     };
     let deploy_workflow_path = workflow_dir.join(deploy_workflow_filename);
 
+    if fs::exists(&deploy_workflow_path)? {
+        return Err(Error::new(
+            &format!(
+                "Workflow already exists\n{}",
+                console::style(deploy_workflow_path.to_string_lossy())
+                    .bold()
+                    .underlined(),
+            ),
+            None,
+        )
+        .into());
+    }
+
     fs::write(&deploy_workflow_path, github_workflow).wrap_err(Error::new(
         "Failed to write deploy workflow file",
         Some("Check file system permissions."),
