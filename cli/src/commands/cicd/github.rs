@@ -46,7 +46,7 @@ pub fn workflow(project: &Project) -> eyre::Result<()> {
         );
     let workflow_dir = git_root.join(".github/workflows");
     fs::create_dir_all(&workflow_dir)
-        .inspect_err(|e| log::error!("{e:?}"))
+        .inspect_err(|e| log::error!("Error: {e:?}"))
         .wrap_err(Error::new(
             "Failed to create github workflows directory",
             Some("Check file system permissions."),
@@ -76,10 +76,12 @@ pub fn workflow(project: &Project) -> eyre::Result<()> {
         .into());
     }
 
-    fs::write(&deploy_workflow_path, github_workflow).wrap_err(Error::new(
-        "Failed to write deploy workflow file",
-        Some("Check file system permissions."),
-    ))?;
+    fs::write(&deploy_workflow_path, github_workflow)
+        .inspect_err(|e| log::error!("Error: {e:?}"))
+        .wrap_err(Error::new(
+            "Failed to write deploy workflow file",
+            Some("Check file system permissions."),
+        ))?;
 
     println!(
         "\n{}\n{}\n\n{}\n{}\n",
