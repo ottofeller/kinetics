@@ -2,9 +2,6 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
 
 jobs:
   deploy:
@@ -45,4 +42,4 @@ jobs:
           KINETICS_ACCESS_TOKEN: ${{ secrets.KINETICS_ACCESS_TOKEN }}
         run: |
           cd "${DEPLOY_DIR:-.}"
-          kinetics deploy
+          kinetics deploy --max-concurrency=1
