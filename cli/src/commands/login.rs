@@ -27,6 +27,8 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
         ))?;
 
     if !response.status().is_success() {
+        log::error!("Got error response: {}", response.text().await?);
+
         return Err(Error::new(
             "Failed to request auth code",
             Some("Try again in a few seconds."),
