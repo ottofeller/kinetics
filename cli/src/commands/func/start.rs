@@ -16,11 +16,11 @@ pub struct StartRequest {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct StartResponse {
     /// Datetime when throttling was applied
-    throttled_at: String,
+    pub throttled_at: String,
 
     /// The reason for throttling,
     /// e.g. user request or account limit.
-    reason: String,
+    pub reason: String,
 }
 
 /// Removes throttling from a function.
