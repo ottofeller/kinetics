@@ -46,7 +46,7 @@ When you launch a worker function, we automatically provision its queue. Other f
 
 🔑 **Secrets**
 
-Automatically provision secrets from `.env.secrets` file and make it available in your functions.
+Automatically provision secrets from `.env.secrets` file or `KINETICS_SECRET_*` environment variables and make them available in your functions.
 
 📚 **Logs**
 Monitor your functions with just CLI. Each function gets its own stream of logs.
@@ -116,6 +116,8 @@ A macro for any type of workload accepts JSON array with environment variables.
 #### Secrets
 
 Store secrets in `.env.secrets` file in the root directory of your crate. Kinetics will automatically pick it up and provision to all of your workloads in the second parameter of the function as `HashMap<String, String>`.
+
+Alternatively store the secrets in environment variables starting with `KINETICS_SECRET_`. This way might be more suitable for CI/CD environments.
 
 [Example](https://github.com/ottofeller/kinetics/blob/main/examples/src/secrets.rs).
 
@@ -198,7 +200,9 @@ The newly initialized project contains a github workflow for continious deployme
 - run `kinetics auth token` to get a token
 - and add it as `KINETICS_ACCESS_TOKEN` secret to your repo to enable deploys.
 
-After this setup main branch updaits will be automatically deployed.
+After this setup main branch updates will be automatically deployed.
+
+As the project gets developed, remember to add all secrets residing in `.env.secrets` to `env` section of the `Run kinetics deploy` step unless the file is under source control (which is highly descouraged because of insecurity implications of storing secrets within a repo).
 
 ## Support & Community
 

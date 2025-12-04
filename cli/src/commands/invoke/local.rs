@@ -29,15 +29,9 @@ pub async fn invoke(
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
 
     // Load secrets from .env.secrets if it exists
-    let mut secrets = HashMap::new();
-
-    for secret in Secret::from_dotenv() {
-        secrets.insert(
-            format!("KINETICS_SECRET_{}", secret.name.clone()),
-            secret.value(),
-        );
-    }
-
+    let secrets = HashMap::<String, String>::from_iter(
+        Secret::load().into_iter().map(|s| s.into_tuple(true)),
+    );
     let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", project.name));
     let display_path = format!("{}/src/bin/{}Local.rs", invoke_dir.display(), function.name);
 

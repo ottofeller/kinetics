@@ -96,12 +96,7 @@ impl Project {
         deploy_config: Option<&dyn DeployConfig>,
     ) -> eyre::Result<bool> {
         let client = Client::new(deploy_config.is_some()).await?;
-
-        let secrets = HashMap::from_iter(
-            Secret::from_dotenv()
-                .iter()
-                .map(|s| (s.name.clone(), s.value())),
-        );
+        let secrets = HashMap::from_iter(Secret::load().into_iter().map(|s| s.into_tuple(false)));
 
         if let Some(config) = deploy_config {
             return config.deploy(self, secrets, functions).await;
@@ -134,7 +129,7 @@ impl Project {
             ))?;
 
         let status = result.status();
-        log::info!("got status from /stack/deploy: {}", status);
+        log::info!("got status from /stack/deploy: {status}");
         log::info!("got response from /stack/deploy: {}", result.text().await?);
 
         match status {
