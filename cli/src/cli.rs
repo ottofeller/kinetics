@@ -127,6 +127,21 @@ enum FuncCommands {
         #[arg(short, long)]
         period: Option<String>,
     },
+
+    /// Apply throttling to a function,
+    /// causung it to stop receiving requests.
+    Stop {
+        /// Function name to stop
+        #[arg()]
+        name: String,
+    },
+
+    /// Start previously throttled function.
+    Start {
+        /// Function name to start
+        #[arg()]
+        name: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -403,6 +418,17 @@ pub async fn run(
         Some(Commands::Func {
             command: Some(FuncCommands::Logs { name, period }),
         }) => commands::func::logs::logs(name, &project, period).await,
+        Some(Commands::Func {
+            command: Some(FuncCommands::Stop { name }),
+        }) => commands::func::stop::stop(name, &project).await,
+        Some(Commands::Func {
+            command: Some(FuncCommands::Start { name }),
+        }) => commands::func::start::start(name, &project).await,
+        _ => Ok(()),
+    }?;
+
+    // CI/CD commands
+    match &cli.command {
         Some(Commands::Cicd {
             command: Some(CicdCommands::Init { github }),
         }) => commands::cicd::init::init(&project, *github).await,
