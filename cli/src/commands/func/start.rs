@@ -24,6 +24,7 @@ pub struct StartResponse {
 }
 
 /// Removes throttling from a function.
+///
 /// The function starts receiving requests.
 pub async fn start(function_name: &str, project: &Project) -> Result<()> {
     // Get all function names without any additional manupulations.
@@ -51,6 +52,7 @@ pub async fn start(function_name: &str, project: &Project) -> Result<()> {
         })
         .send()
         .await
+        .inspect_err(|err| log::error!("{err:?}"))
         .wrap_err("Failed to send request to start endpoint")?;
 
     match response.status() {
@@ -58,16 +60,20 @@ pub async fn start(function_name: &str, project: &Project) -> Result<()> {
         StatusCode::NOT_MODIFIED => {
             println!(
                 "{}",
-                console::style(format!("Nothing changed. Function is not throttled.")).yellow(),
+                console::style("Nothing changed. Function is not throttled.".to_string()).yellow(),
             );
 
             Ok(())
         }
         StatusCode::FORBIDDEN => {
-            let start_response: StartResponse = response.json().await.wrap_err(Error::new(
-                "Invalid response from server",
-                Some("Try again later."),
-            ))?;
+            let start_response: StartResponse = response
+                .json()
+                .await
+                .inspect_err(|err| log::error!("{err:?}"))
+                .wrap_err(Error::new(
+                    "Invalid response from server",
+                    Some("Try again later."),
+                ))?;
 
             println!(
                 "{}",
@@ -82,11 +88,7 @@ pub async fn start(function_name: &str, project: &Project) -> Result<()> {
         }
         err_status => {
             let error_text = response.text().await.unwrap_or("Unknown error".to_string());
-            log::error!(
-                "Failed to call start from API ({}): {}",
-                err_status,
-                error_text
-            );
+            log::error!("Failed to call start from API ({err_status}): {error_text}");
             Err(Error::new("Failed to call start", Some("Try again later.")).into())
         }
     }

@@ -24,6 +24,7 @@ pub struct StopResponse {
 }
 
 /// Applies throttling to a function.
+///
 /// The function stop receiving requests.
 /// The endpoint starts responding "Service Unavailable".
 pub async fn stop(function_name: &str, project: &Project) -> Result<()> {
@@ -52,15 +53,20 @@ pub async fn stop(function_name: &str, project: &Project) -> Result<()> {
         })
         .send()
         .await
+        .inspect_err(|err| log::error!("{err:?}"))
         .wrap_err("Failed to send request to stop endpoint")?;
 
     match response.status() {
         status if status.is_success() => Ok(()),
         StatusCode::NOT_MODIFIED => {
-            let stop_response: StopResponse = response.json().await.wrap_err(Error::new(
-                "Invalid response from server",
-                Some("Try again later."),
-            ))?;
+            let stop_response: StopResponse = response
+                .json()
+                .await
+                .inspect_err(|err| log::error!("{err:?}"))
+                .wrap_err(Error::new(
+                    "Invalid response from server",
+                    Some("Try again later."),
+                ))?;
 
             println!(
                 "{}",
@@ -74,12 +80,8 @@ pub async fn stop(function_name: &str, project: &Project) -> Result<()> {
         }
         err_status => {
             let error_text = response.text().await.unwrap_or("Unknown error".to_string());
-            log::error!(
-                "Failed to call stop from API ({}): {}",
-                err_status,
-                error_text
-            );
-            return Err(Error::new("Failed to call stop", Some("Try again later.")).into());
+            log::error!("Failed to call stop from API ({err_status}): {error_text}");
+            Err(Error::new("Failed to call stop", Some("Try again later.")).into())
         }
     }
 }
