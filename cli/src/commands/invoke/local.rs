@@ -4,7 +4,7 @@ use crate::config::build_config;
 use crate::function::Function;
 use crate::process::Process;
 use crate::project::Project;
-use crate::secret::Secrets;
+use crate::secrets::Secrets;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::WrapErr;
 use std::collections::HashMap;

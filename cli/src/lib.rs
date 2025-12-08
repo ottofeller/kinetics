@@ -9,6 +9,6 @@ pub mod logger;
 pub mod macros;
 pub mod process;
 pub mod project;
-pub mod secret;
+pub mod secrets;
 pub mod sqldb;
 pub mod tools;

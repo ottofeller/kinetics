@@ -3,7 +3,7 @@ use crate::commands::deploy::DeployConfig;
 use crate::config::build_config;
 use crate::error::Error;
 use crate::function::Function;
-use crate::secret::Secrets;
+use crate::secrets::Secrets;
 use chrono::{DateTime, Duration, Utc};
 use eyre::{ContextCompat, WrapErr};
 use http::StatusCode;
