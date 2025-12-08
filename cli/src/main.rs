@@ -9,7 +9,7 @@ mod logger;
 mod migrations;
 mod process;
 pub mod project;
-mod secret;
+mod secrets;
 pub mod sqldb;
 pub mod tools;
 use crate::cli::run;

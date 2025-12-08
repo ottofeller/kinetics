@@ -4,7 +4,7 @@ use crate::config::build_config;
 use crate::function::Function;
 use crate::process::Process;
 use crate::project::Project;
-use crate::secret::Secret;
+use crate::secrets::Secrets;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::WrapErr;
 use std::collections::HashMap;
@@ -29,15 +29,11 @@ pub async fn invoke(
     migrations_path: Option<&str>,
 ) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
+    let mut secrets_envs = HashMap::new();
 
-    // Load secrets from .env.secrets if it exists
-    let mut secrets = HashMap::new();
-
-    for secret in Secret::from_dotenv() {
-        secrets.insert(
-            format!("KINETICS_SECRET_{}", secret.name.clone()),
-            secret.value(),
-        );
+    // Envs with the prefix are then processed and provisioned as secrets
+    for (name, value) in Secrets::load() {
+        secrets_envs.insert(format!("KINETICS_SECRET_{}", name.clone()), value);
     }
 
     let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", project.name));
@@ -99,7 +95,7 @@ pub async fn invoke(
     // Start the command with piped stdout and stderr
     let child = Command::new("cargo")
         .args(["run", "--bin", &format!("{}Local", function.name)])
-        .envs(secrets)
+        .envs(secrets_envs)
         .envs(aws_credentials)
         .envs(local_environment)
         .envs(function.environment())
