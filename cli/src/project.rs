@@ -3,7 +3,7 @@ use crate::commands::deploy::DeployConfig;
 use crate::config::build_config;
 use crate::error::Error;
 use crate::function::Function;
-use crate::secret::Secret;
+use crate::secret::Secrets;
 use chrono::{DateTime, Duration, Utc};
 use eyre::{ContextCompat, WrapErr};
 use http::StatusCode;
@@ -96,7 +96,7 @@ impl Project {
         deploy_config: Option<&dyn DeployConfig>,
     ) -> eyre::Result<bool> {
         let client = Client::new(deploy_config.is_some()).await?;
-        let secrets = HashMap::from_iter(Secret::load().into_iter().map(|s| s.into_tuple(false)));
+        let secrets = Secrets::load(false);
 
         if let Some(config) = deploy_config {
             return config.deploy(self, secrets, functions).await;

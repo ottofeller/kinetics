@@ -4,7 +4,7 @@ use crate::config::build_config;
 use crate::function::Function;
 use crate::process::Process;
 use crate::project::Project;
-use crate::secret::Secret;
+use crate::secret::Secrets;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::WrapErr;
 use std::collections::HashMap;
@@ -29,9 +29,7 @@ pub async fn invoke(
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
 
     // Load secrets from .env.secrets if it exists
-    let secrets = HashMap::<String, String>::from_iter(
-        Secret::load().into_iter().map(|s| s.into_tuple(true)),
-    );
+    let secrets = Secrets::load(true);
     let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", project.name));
     let display_path = format!("{}/src/bin/{}Local.rs", invoke_dir.display(), function.name);
 
