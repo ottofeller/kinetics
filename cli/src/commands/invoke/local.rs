@@ -27,9 +27,13 @@ pub async fn invoke(
     is_queue_enabled: bool,
 ) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
+    let mut secrets_envs = HashMap::new();
 
-    // Load secrets from .env.secrets if it exists
-    let secrets = Secrets::load(true);
+    // Envs with the prefix are then processed and provisioned as secrets
+    for (name, value) in Secrets::load() {
+        secrets_envs.insert(format!("KINETICS_SECRET_{}", name.clone()), value);
+    }
+
     let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", project.name));
     let display_path = format!("{}/src/bin/{}Local.rs", invoke_dir.display(), function.name);
 
@@ -84,7 +88,7 @@ pub async fn invoke(
     // Start the command with piped stdout and stderr
     let child = Command::new("cargo")
         .args(["run", "--bin", &format!("{}Local", function.name)])
-        .envs(secrets)
+        .envs(secrets_envs)
         .envs(aws_credentials)
         .envs(local_environment)
         .envs(function.environment())

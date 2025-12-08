@@ -8,39 +8,16 @@ pub struct Secrets;
 
 impl Secrets {
     /// Read secrets from the .env file or env vars if file not found.
-    pub fn load(prefixed: bool) -> HashMap<String, String> {
+    pub fn load() -> HashMap<String, String> {
         if !std::path::Path::new(FILENAME).exists() {
             log::warn!(
                 "No .env.secrets file found. Search for {PREFIX} prefixed environment variables."
             );
             return std::env::vars()
                 .filter(|(name, _)| name.starts_with(PREFIX) && name != PREFIX)
-                .map(|(name, value)| {
-                    (
-                        if prefixed {
-                            name
-                        } else {
-                            name.replacen(PREFIX, "", 1)
-                        },
-                        value,
-                    )
-                })
                 .collect();
         }
 
-        DotEnv::load_env(FILENAME)
-            .unwrap_or_default()
-            .into_iter()
-            .map(|(name, value)| {
-                (
-                    if prefixed {
-                        format!("{PREFIX}{name}")
-                    } else {
-                        name
-                    },
-                    value,
-                )
-            })
-            .collect()
+        DotEnv::load_env(FILENAME).unwrap_or_default()
     }
 }

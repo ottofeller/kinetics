@@ -96,7 +96,7 @@ impl Project {
         deploy_config: Option<&dyn DeployConfig>,
     ) -> eyre::Result<bool> {
         let client = Client::new(deploy_config.is_some()).await?;
-        let secrets = Secrets::load(false);
+        let secrets = Secrets::load();
 
         if let Some(config) = deploy_config {
             return config.deploy(self, secrets, functions).await;
