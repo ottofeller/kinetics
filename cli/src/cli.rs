@@ -1,4 +1,4 @@
-use crate::commands;
+use crate::commands::{self, func::toggle::ToggleOp};
 use crate::error::Error;
 use crate::function::Type as FunctionType;
 use crate::logger::Logger;
@@ -420,10 +420,10 @@ pub async fn run(
         }) => commands::func::logs::logs(name, &project, period).await,
         Some(Commands::Func {
             command: Some(FuncCommands::Stop { name }),
-        }) => commands::func::stop::stop(name, &project).await,
+        }) => commands::func::toggle::toggle(name, &project, ToggleOp::Stop).await,
         Some(Commands::Func {
             command: Some(FuncCommands::Start { name }),
-        }) => commands::func::start::start(name, &project).await,
+        }) => commands::func::toggle::toggle(name, &project, ToggleOp::Start).await,
         _ => Ok(()),
     }?;
 

@@ -8,13 +8,19 @@ use kinetics_parser::Parser;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct StartRequest {
+pub enum ToggleOp {
+    Start,
+    Stop,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ToggleRequest {
     pub project_name: String,
     pub function_name: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct StartResponse {
+pub struct ToggleResponse {
     /// Datetime when throttling was applied
     pub throttled_at: String,
 
@@ -23,10 +29,13 @@ pub struct StartResponse {
     pub reason: String,
 }
 
-/// Removes throttling from a function.
+/// Adds/removes throttling from a function.
 ///
-/// The function starts receiving requests.
-pub async fn start(function_name: &str, project: &Project) -> Result<()> {
+/// The actual operation is provided as the third argument.
+/// - For start operation the function starts receiving requests.
+/// - For stop operation the function stop receiving requests
+/// and the endpoint starts responding "Service Unavailable".
+pub async fn toggle(function_name: &str, project: &Project, op: ToggleOp) -> Result<()> {
     // Get all function names without any additional manupulations.
     let all_functions = Parser::new(Some(&project.path))?
         .functions
@@ -39,14 +48,14 @@ pub async fn start(function_name: &str, project: &Project) -> Result<()> {
 
     println!(
         "\n{} {} {}...\n",
-        console::style("Calling start").bold().green(),
+        console::style(format!("Calling {op:?}")).bold().green(),
         console::style("on").dim(),
         console::style(&function.name).bold()
     );
 
     let response = client
-        .post("/function/start")
-        .json(&StartRequest {
+        .post("/function/toggle")
+        .json(&ToggleRequest {
             project_name: project.name.clone(),
             function_name: function.name,
         })
@@ -60,13 +69,20 @@ pub async fn start(function_name: &str, project: &Project) -> Result<()> {
         StatusCode::NOT_MODIFIED => {
             println!(
                 "{}",
-                console::style("Nothing changed. Function is not throttled.".to_string()).yellow(),
+                console::style(format!(
+                    "Nothing changed. Function is {} throttled.",
+                    match op {
+                        ToggleOp::Start => "not",
+                        ToggleOp::Stop => "already",
+                    }
+                ))
+                .yellow(),
             );
 
             Ok(())
         }
         StatusCode::FORBIDDEN => {
-            let start_response: StartResponse = response
+            let ToggleResponse { reason, .. } = response
                 .json()
                 .await
                 .inspect_err(|err| log::error!("{err:?}"))
@@ -77,19 +93,15 @@ pub async fn start(function_name: &str, project: &Project) -> Result<()> {
 
             println!(
                 "{}",
-                console::style(format!(
-                    "Function is stopped by platform. {}",
-                    start_response.reason
-                ))
-                .yellow(),
+                console::style(format!("Function is stopped by platform. {reason}")).yellow(),
             );
 
             Ok(())
         }
         err_status => {
             let error_text = response.text().await.unwrap_or("Unknown error".to_string());
-            log::error!("Failed to call start from API ({err_status}): {error_text}");
-            Err(Error::new("Failed to call start", Some("Try again later.")).into())
+            log::error!("Failed to call {op:?} from API ({err_status}): {error_text}");
+            Err(Error::new(&format!("Failed to call {op:?}"), Some("Try again later.")).into())
         }
     }
 }
