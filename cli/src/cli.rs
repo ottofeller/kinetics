@@ -253,8 +253,8 @@ enum Commands {
         #[arg(long)]
         headers: Option<String>,
 
-        #[arg(long, default_value = "")]
-        url_path: String,
+        #[arg(long)]
+        url_path: Option<String>,
 
         #[arg(short, long, default_value = "{}")]
         payload: String,
@@ -451,7 +451,7 @@ pub async fn run(
                 &project,
                 payload,
                 headers.as_deref(),
-                url_path,
+                url_path.as_deref(),
                 if !table.is_empty() { Some(table) } else { None },
                 remote.to_owned(),
                 sqldb.to_owned(),

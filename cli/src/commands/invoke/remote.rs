@@ -10,7 +10,7 @@ pub async fn invoke(
     project: &Project,
     payload: &str,
     headers: Option<&str>,
-    url_path: &str,
+    url_path: Option<&str>,
 ) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
     let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", project.name));
@@ -23,17 +23,17 @@ pub async fn invoke(
         console::style(&display_path).underlined().bold()
     );
 
-    // `url_path` arg defaults to empty string,
+    // `url_path` arg is optional,
     // thus fall back to the url_path from macro
     // in order to call correct function.
-    let url = if url_path.is_empty() {
+    let url = if url_path.is_none_or(|p| p.is_empty()) {
         // Replace templating characters as they are not a part of a URL.
         function.url().await?.replace(['{', '}', '+', '*'], "")
     } else {
         format!(
             "{}/{}",
             Project::fetch_one(&function.project.name).await?.url,
-            url_path
+            url_path.unwrap()
         )
     };
 
