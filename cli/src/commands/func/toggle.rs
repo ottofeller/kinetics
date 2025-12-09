@@ -63,8 +63,10 @@ pub async fn toggle(function_name: &str, project: &Project, op: ToggleOp) -> Res
         })
         .send()
         .await
-        .inspect_err(|err| log::error!("{err:?}"))
-        .wrap_err("Failed to send request to start endpoint")?;
+        .wrap_err(Error::new(
+            &format!("Failed to send {op:?} request"),
+            Some("Try again later."),
+        ))?;
 
     match response.status() {
         status if status.is_success() => {
@@ -87,14 +89,10 @@ pub async fn toggle(function_name: &str, project: &Project, op: ToggleOp) -> Res
             Ok(())
         }
         StatusCode::FORBIDDEN => {
-            let ToggleResponse { reason, .. } = response
-                .json()
-                .await
-                .inspect_err(|err| log::error!("{err:?}"))
-                .wrap_err(Error::new(
-                    "Invalid response from server",
-                    Some("Try again later."),
-                ))?;
+            let ToggleResponse { reason, .. } = response.json().await.wrap_err(Error::new(
+                "Invalid response from server",
+                Some("Try again later."),
+            ))?;
 
             println!(
                 "{}",
