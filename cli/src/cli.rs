@@ -250,8 +250,8 @@ enum Commands {
         #[arg()]
         name: String,
 
-        #[arg(long, default_value = "{}")]
-        headers: String,
+        #[arg(long)]
+        headers: Option<String>,
 
         #[arg(long, default_value = "")]
         url_path: String,
@@ -450,7 +450,7 @@ pub async fn run(
                 name,
                 &project,
                 payload,
-                headers,
+                headers.as_deref(),
                 url_path,
                 if !table.is_empty() { Some(table) } else { None },
                 remote.to_owned(),

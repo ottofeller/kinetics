@@ -14,7 +14,7 @@ pub async fn invoke(
     function_name: &str,
     project: &Project,
     payload: &str,
-    headers: &str,
+    headers: Option<&str>,
     url_path: &str,
 
     // DynamoDbB table to provision, only relevant for local invocations

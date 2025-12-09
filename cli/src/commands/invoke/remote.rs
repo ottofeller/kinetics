@@ -9,7 +9,7 @@ pub async fn invoke(
     function: &Function,
     project: &Project,
     payload: &str,
-    headers: &str,
+    headers: Option<&str>,
     url_path: &str,
 ) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
@@ -42,7 +42,7 @@ pub async fn invoke(
     // Parse headers string into HeaderMap
     let mut headers_map = reqwest::header::HeaderMap::new();
 
-    if !headers.is_empty() {
+    if let Some(headers) = headers {
         for header_line in headers.lines() {
             if let Some((key, value)) = header_line.split_once(':') {
                 if let (Ok(header_name), Ok(header_value)) = (

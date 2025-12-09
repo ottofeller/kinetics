@@ -17,7 +17,7 @@ pub async fn invoke(
     function: &Function,
     project: &Project,
     payload: &str,
-    headers: &str,
+    headers: Option<&str>,
     url_path: &str,
 
     // DynamoDbB table to provision
@@ -100,7 +100,7 @@ pub async fn invoke(
         .envs(local_environment)
         .envs(function.environment())
         .env("KINETICS_INVOKE_PAYLOAD", payload)
-        .env("KINETICS_INVOKE_HEADERS", headers)
+        .env("KINETICS_INVOKE_HEADERS", headers.unwrap_or("{}"))
         .env("KINETICS_INVOKE_URL_PATH", url_path)
         .current_dir(&invoke_dir)
         .stdout(Stdio::piped())
