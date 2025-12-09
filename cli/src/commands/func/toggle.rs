@@ -7,7 +7,7 @@ use http::StatusCode;
 use kinetics_parser::Parser;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum ToggleOp {
     Start,
     Stop,
@@ -17,6 +17,7 @@ pub enum ToggleOp {
 pub struct ToggleRequest {
     pub project_name: String,
     pub function_name: String,
+    pub operation: ToggleOp,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -58,6 +59,7 @@ pub async fn toggle(function_name: &str, project: &Project, op: ToggleOp) -> Res
         .json(&ToggleRequest {
             project_name: project.name.clone(),
             function_name: function.name,
+            operation: op.clone(),
         })
         .send()
         .await
@@ -65,7 +67,10 @@ pub async fn toggle(function_name: &str, project: &Project, op: ToggleOp) -> Res
         .wrap_err("Failed to send request to start endpoint")?;
 
     match response.status() {
-        status if status.is_success() => Ok(()),
+        status if status.is_success() => {
+            println!("{}", console::style("Done").bold().green());
+            Ok(())
+        }
         StatusCode::NOT_MODIFIED => {
             println!(
                 "{}",
