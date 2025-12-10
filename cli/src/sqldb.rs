@@ -51,6 +51,16 @@ impl SqlDb {
             ssl_mode: "verify-full".to_string(), // Strictly require TLS for postgres connections
         };
 
+        Ok(database)
+    }
+
+    pub async fn with_password_refresh(
+        cluster_id: &str,
+        username: &str,
+        config: &SdkConfig,
+    ) -> Result<Self, Error> {
+        let database = Self::new(cluster_id, username, config).await?;
+
         // Refresh the auth password in the background
         database.spawn_password_refresh();
 

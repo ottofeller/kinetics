@@ -46,7 +46,7 @@ impl Config {
         // If both cluster_id and user are set, use them to connect to sqldb
         if let (Ok(cluster_id), Ok(user)) = (cluster_id, user) {
             return Ok(Self {
-                db: SqlDb::new(&cluster_id, &user, config).await?,
+                db: SqlDb::with_password_refresh(&cluster_id, &user, config).await?,
                 endpoint,
             });
         }

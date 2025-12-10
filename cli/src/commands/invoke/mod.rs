@@ -57,6 +57,15 @@ pub async fn invoke(
         )
         .await
     } else {
-        remote::invoke(&function, project, payload, headers, url_path).await
+        remote::invoke(
+            &function,
+            project,
+            payload,
+            headers,
+            url_path,
+            with_migrations.is_some(),
+            migrations_path,
+        )
+        .await
     }
 }
