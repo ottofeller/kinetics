@@ -6,11 +6,21 @@ use eyre::{Context, Result};
 use http::StatusCode;
 use kinetics_parser::Parser;
 use serde::{Deserialize, Serialize};
+use std::*;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum ToggleOp {
     Start,
     Stop,
+}
+
+impl fmt::Display for ToggleOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ToggleOp::Start => write!(f, "Starting"),
+            ToggleOp::Stop => write!(f, "Stopping"),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -48,9 +58,8 @@ pub async fn toggle(function_name: &str, project: &Project, op: ToggleOp) -> Res
     let client = Client::new(false).await?;
 
     println!(
-        "\n{} {} {}...\n",
-        console::style(format!("Calling {op:?}")).bold().green(),
-        console::style("on").dim(),
+        "\n{} {}...\n",
+        console::style(format!("{op}")).bold().green(),
         console::style(&function.name).bold()
     );
 
