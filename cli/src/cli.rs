@@ -128,15 +128,14 @@ enum FuncCommands {
         period: Option<String>,
     },
 
-    /// Apply throttling to a function,
-    /// causung it to stop receiving requests.
+    /// Stop function in the cloud
     Stop {
         /// Function name to stop
         #[arg()]
         name: String,
     },
 
-    /// Start previously throttled function.
+    /// Start previously stopped function
     Start {
         /// Function name to start
         #[arg()]
