@@ -8,7 +8,7 @@ use std::path::Path;
 pub async fn invoke(
     function: &Function,
     project: &Project,
-    payload: &str,
+    payload: Option<&str>,
     headers: Option<&str>,
     url_path: Option<&str>,
 ) -> eyre::Result<()> {
@@ -62,7 +62,7 @@ pub async fn invoke(
     let response = client
         .post(url)
         .headers(headers_map)
-        .body(payload.to_string())
+        .body(payload.unwrap_or("{}").to_string())
         .send()
         .await
         .wrap_err("Failed to call function URL")?;

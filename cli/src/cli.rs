@@ -256,8 +256,8 @@ enum Commands {
         #[arg(long)]
         url_path: Option<String>,
 
-        #[arg(short, long, default_value = "{}")]
-        payload: String,
+        #[arg(short, long)]
+        payload: Option<String>,
 
         /// [DEPRECATED]
         #[arg(short, long, default_value = "")]
@@ -449,7 +449,7 @@ pub async fn run(
             commands::invoke::invoke(
                 name,
                 &project,
-                payload,
+                payload.as_deref(),
                 headers.as_deref(),
                 url_path.as_deref(),
                 if !table.is_empty() { Some(table) } else { None },

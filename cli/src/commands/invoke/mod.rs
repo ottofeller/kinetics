@@ -13,7 +13,7 @@ use std::path::PathBuf;
 pub async fn invoke(
     function_name: &str,
     project: &Project,
-    payload: &str,
+    payload: Option<&str>,
     headers: Option<&str>,
     url_path: Option<&str>,
 
