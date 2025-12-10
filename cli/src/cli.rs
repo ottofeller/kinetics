@@ -1,4 +1,4 @@
-use crate::commands;
+use crate::commands::{self, func::toggle::ToggleOp};
 use crate::error::Error;
 use crate::function::Type as FunctionType;
 use crate::logger::Logger;
@@ -126,6 +126,20 @@ enum FuncCommands {
         ///
         #[arg(short, long)]
         period: Option<String>,
+    },
+
+    /// Stop function in the cloud
+    Stop {
+        /// Function name to stop
+        #[arg()]
+        name: String,
+    },
+
+    /// Start previously stopped function
+    Start {
+        /// Function name to start
+        #[arg()]
+        name: String,
     },
 }
 
@@ -403,6 +417,17 @@ pub async fn run(
         Some(Commands::Func {
             command: Some(FuncCommands::Logs { name, period }),
         }) => commands::func::logs::logs(name, &project, period).await,
+        Some(Commands::Func {
+            command: Some(FuncCommands::Stop { name }),
+        }) => commands::func::toggle::toggle(name, &project, ToggleOp::Stop).await,
+        Some(Commands::Func {
+            command: Some(FuncCommands::Start { name }),
+        }) => commands::func::toggle::toggle(name, &project, ToggleOp::Start).await,
+        _ => Ok(()),
+    }?;
+
+    // CI/CD commands
+    match &cli.command {
         Some(Commands::Cicd {
             command: Some(CicdCommands::Init { github }),
         }) => commands::cicd::init::init(&project, *github).await,
