@@ -260,8 +260,8 @@ enum Commands {
         payload: Option<String>,
 
         /// [DEPRECATED]
-        #[arg(short, long, default_value = "")]
-        table: String,
+        #[arg(short, long)]
+        table: Option<String>,
 
         #[arg(short, long, action = ArgAction::SetFalse)]
         remote: bool,
@@ -452,7 +452,7 @@ pub async fn run(
                 payload.as_deref(),
                 headers.as_deref(),
                 url_path.as_deref(),
-                if !table.is_empty() { Some(table) } else { None },
+                table.as_deref(),
                 remote.to_owned(),
                 sqldb.to_owned(),
                 with_queue.to_owned(),
