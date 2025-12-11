@@ -20,7 +20,7 @@ pub async fn invoke(
     headers: Option<&str>,
     url_path: Option<&str>,
 
-    // DynamoDbB table to provision
+    // DynamoDB table to provision
     table: Option<&str>,
 
     is_sqldb_enabled: bool,
