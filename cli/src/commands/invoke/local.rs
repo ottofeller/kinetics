@@ -16,11 +16,11 @@ use std::process::{Command, Stdio};
 pub async fn invoke(
     function: &Function,
     project: &Project,
-    payload: &str,
-    headers: &str,
-    url_path: &str,
+    payload: Option<&str>,
+    headers: Option<&str>,
+    url_path: Option<&str>,
 
-    // DynamoDbB table to provision
+    // DynamoDB table to provision
     table: Option<&str>,
 
     is_sqldb_enabled: bool,
@@ -99,9 +99,9 @@ pub async fn invoke(
         .envs(aws_credentials)
         .envs(local_environment)
         .envs(function.environment())
-        .env("KINETICS_INVOKE_PAYLOAD", payload)
-        .env("KINETICS_INVOKE_HEADERS", headers)
-        .env("KINETICS_INVOKE_URL_PATH", url_path)
+        .env("KINETICS_INVOKE_PAYLOAD", payload.unwrap_or("{}"))
+        .env("KINETICS_INVOKE_HEADERS", headers.unwrap_or("{}"))
+        .env("KINETICS_INVOKE_URL_PATH", url_path.unwrap_or_default())
         .current_dir(&invoke_dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

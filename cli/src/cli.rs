@@ -261,32 +261,50 @@ enum Commands {
 
     /// Invoke a function
     Invoke {
+        /// Name of a function, use "kinetics func list" to see all names
         #[arg()]
         name: String,
 
-        #[arg(long, default_value = "{}")]
-        headers: String,
+        /// Headers to be sent to endpoint function, in JSON.
+        ///
+        /// Example: --headers '{"auth": "Bearer 111"}'.
+        #[arg(long)]
+        headers: Option<String>,
 
-        #[arg(long, default_value = "")]
-        url_path: String,
+        /// Set URL path while calling endpoint function.
+        /// Required for endpoints with parametrized URLs, e.g. /user/*/profile.
+        ///
+        /// Example: --url-path /user/1/profile
+        #[arg(long)]
+        url_path: Option<String>,
 
-        #[arg(short, long, default_value = "{}")]
-        payload: String,
+        /// Must be a valid JSON.
+        /// In case of endpoint functions payload is a body.
+        /// In case of workers payload is queue event payload.
+        ///
+        /// Example: --payload '{"name": "John Smith"}'
+        #[arg(short, long)]
+        payload: Option<String>,
 
         /// [DEPRECATED]
-        #[arg(short, long, default_value = "")]
-        table: String,
+        #[arg(short, long)]
+        table: Option<String>,
 
+        /// Invoke function remotely. Only works if function was deployed before.
         #[arg(short, long, action = ArgAction::SetFalse)]
         remote: bool,
 
-        /// Provision local SQL database for invoked function
+        /// Provision local SQL database for invoked function to use. Not available when called with --remote flag.
         #[arg(long="with-database", visible_aliases=["with-db", "db"])]
         with_database: bool,
 
+        /// Apply migrations to locally provisioned database. Not available when called with --remote flag.
+        ///
+        /// Accepts a path to dir with SQL-files relative to crate's root, defaults to <crate>/migrations/
         #[arg(short, long = "with-migrations", num_args = 0..=1, default_missing_value = "")]
         with_migrations: Option<String>,
 
+        /// Provision a queue. Helpful when you test a function which sends something to queue. Not available when called with --remote flag.
         #[arg(long="with-queue", visible_aliases=["queue"])]
         with_queue: bool,
     },
@@ -474,10 +492,10 @@ pub async fn run(
             commands::invoke::invoke(
                 name,
                 &project,
-                payload,
-                headers,
-                url_path,
-                if !table.is_empty() { Some(table) } else { None },
+                payload.as_deref(),
+                headers.as_deref(),
+                url_path.as_deref(),
+                table.as_deref(),
                 remote.to_owned(),
                 sqldb.to_owned(),
                 with_queue.to_owned(),

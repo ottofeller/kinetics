@@ -8,9 +8,9 @@ use std::path::Path;
 pub async fn invoke(
     function: &Function,
     project: &Project,
-    payload: &str,
-    headers: &str,
-    url_path: &str,
+    payload: Option<&str>,
+    headers: Option<&str>,
+    url_path: Option<&str>,
 ) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
     let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", project.name));
@@ -23,17 +23,17 @@ pub async fn invoke(
         console::style(&display_path).underlined().bold()
     );
 
-    // `url_path` arg defaults to empty string,
+    // `url_path` arg is optional,
     // thus fall back to the url_path from macro
     // in order to call correct function.
-    let url = if url_path.is_empty() {
+    let url = if url_path.is_none_or(|p| p.is_empty()) {
         // Replace templating characters as they are not a part of a URL.
         function.url().await?.replace(['{', '}', '+', '*'], "")
     } else {
         format!(
             "{}/{}",
             Project::fetch_one(&function.project.name).await?.url,
-            url_path
+            url_path.unwrap()
         )
     };
 
@@ -42,7 +42,7 @@ pub async fn invoke(
     // Parse headers string into HeaderMap
     let mut headers_map = reqwest::header::HeaderMap::new();
 
-    if !headers.is_empty() {
+    if let Some(headers) = headers {
         for header_line in headers.lines() {
             if let Some((key, value)) = header_line.split_once(':') {
                 if let (Ok(header_name), Ok(header_value)) = (
@@ -62,7 +62,7 @@ pub async fn invoke(
     let response = client
         .post(url)
         .headers(headers_map)
-        .body(payload.to_string())
+        .body(payload.unwrap_or("{}").to_string())
         .send()
         .await
         .wrap_err("Failed to call function URL")?;
