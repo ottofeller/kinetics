@@ -17,7 +17,7 @@ pub async fn invoke(
     headers: Option<&str>,
     url_path: Option<&str>,
 
-    // DynamoDbB table to provision, only relevant for local invocations
+    // DynamoDB table to provision, only relevant for local invocations
     table: Option<&str>,
 
     is_local: bool,
