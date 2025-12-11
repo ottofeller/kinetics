@@ -266,7 +266,7 @@ enum Commands {
 
         /// Must be a valid JSON.
         /// In case of endpoint functions payload is a body.
-        /// In case of workers  payload is queue event payload.
+        /// In case of workers payload is queue event payload.
         ///
         /// Example: --payload '{"name": "John Smith"}'
         #[arg(short, long)]
