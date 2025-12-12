@@ -1,4 +1,5 @@
 use crate::commands::{self, func::toggle::ToggleOp};
+use crate::config::deploy::DeployConfig;
 use crate::error::Error;
 use crate::function::Type as FunctionType;
 use crate::logger::Logger;
@@ -316,9 +317,7 @@ enum Commands {
     },
 }
 
-pub async fn run(
-    deploy_config: Option<Arc<dyn commands::deploy::DeployConfig>>,
-) -> Result<(), Error> {
+pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Error> {
     Logger::init();
     let cli = Cli::parse();
 

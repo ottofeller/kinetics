@@ -76,7 +76,7 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
 /// created or not (the old one not expired).
 ///
 /// The procedure is rather simple and should be improved as the CLI develops. It sends a one-time code to email
-/// and after user enters it in stdin exhcbages it for short lived access token.
+/// and after user enters it in stdin exchanges it for short lived access token.
 pub async fn login(email: &str) -> eyre::Result<()> {
     // Validate email
     if !Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")?.is_match(email) {
@@ -110,7 +110,7 @@ pub async fn login(email: &str) -> eyre::Result<()> {
 
 fn read_masked_password() -> eyre::Result<String> {
     let mut password = String::new();
-    enable_raw_mode().wrap_err(Error::new("Failed to chaneg terminal mode", None))?;
+    enable_raw_mode().wrap_err(Error::new("Failed to change terminal mode", None))?;
 
     loop {
         // Read a key event
@@ -128,7 +128,7 @@ fn read_masked_password() -> eyre::Result<String> {
                         print!("\x08 \x08");
                         io::stdout()
                             .flush()
-                            .wrap_err(Error::new("Could not modofy stdout", None))?;
+                            .wrap_err(Error::new("Could not modify stdout", None))?;
                     }
                 }
                 // Handle Ctrl+C to exit
@@ -141,7 +141,7 @@ fn read_masked_password() -> eyre::Result<String> {
                     print!("*");
                     io::stdout()
                         .flush()
-                        .wrap_err(Error::new("Could not modofy stdout", None))?;
+                        .wrap_err(Error::new("Could not modify stdout", None))?;
                 }
                 _ => {}
             }

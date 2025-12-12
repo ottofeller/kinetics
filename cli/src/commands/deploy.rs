@@ -1,9 +1,9 @@
 use super::build::{pipeline::Pipeline, prepare_functions};
 use crate::client::Client;
 use crate::config::build_config;
+use crate::config::deploy::DeployConfig;
 use crate::function::Function;
 use crate::project::Project;
-use async_trait::async_trait;
 use eyre::WrapErr;
 use reqwest::StatusCode;
 use serde_json::json;
@@ -22,7 +22,13 @@ pub async fn run(
     if is_only_envs {
         envs(deploy_functions).await?;
     } else {
-        full(deploy_functions, *max_concurrency, is_hotswap, deploy_config).await?;
+        full(
+            deploy_functions,
+            *max_concurrency,
+            is_hotswap,
+            deploy_config,
+        )
+        .await?;
     }
 
     Ok(())
@@ -138,15 +144,4 @@ async fn full(
         .wrap_err("Failed to build pipeline")?
         .run(deploy_functions)
         .await
-}
-
-#[async_trait]
-pub trait DeployConfig: Send + Sync {
-    async fn deploy(
-        &self,
-        project: &Project,
-        secrets: HashMap<String, String>,
-        functions: &[Function],
-    ) -> eyre::Result<bool>;
-    async fn upload(&self, function: &mut Function) -> eyre::Result<bool>;
 }

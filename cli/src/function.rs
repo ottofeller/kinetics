@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::commands::deploy::DeployConfig;
+use crate::config::deploy::DeployConfig;
 use crate::error::Error;
 use crate::project::Project;
 use base64::Engine as _;
@@ -15,7 +15,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 // Re-export types from kinetics-parser
 pub use kinetics_parser::{ParsedFunction, Role};
 
-pub enum Type {
+pub(crate) enum Type {
     Cron,
     Endpoint,
     Worker,
@@ -200,7 +200,7 @@ impl Function {
     }
 }
 
-pub async fn build(
+pub(crate) async fn build(
     functions: &[Function],
     total_progress: &indicatif::ProgressBar,
 ) -> eyre::Result<()> {

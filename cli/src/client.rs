@@ -1,4 +1,4 @@
-use crate::config::build_config;
+use crate::config::api_url;
 use crate::credentials::Credentials;
 use crate::error::Error;
 use chrono::Utc;
@@ -34,18 +34,14 @@ impl Client {
         })
     }
 
-    fn url(path: &str) -> String {
-        format!("{}{}", build_config().unwrap().api_base, path)
-    }
-
     /// A POST request with the Authorization header
     pub fn post(&self, path: &str) -> reqwest::RequestBuilder {
         self.client
-            .post(Self::url(path))
+            .post(api_url(path))
             .header("Authorization", &self.access_token)
     }
 
-    /// Incapsulate a typical POST request
+    /// Encapsulate a typical POST request
     pub async fn request<B, R>(&self, path: &str, body: B) -> eyre::Result<R>
     where
         B: Serialize + for<'de> Deserialize<'de>,
