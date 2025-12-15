@@ -1,7 +1,7 @@
 use super::prepare_functions;
 use crate::client::Client;
-use crate::commands::deploy::DeployConfig;
 use crate::config::build_config;
+use crate::config::deploy::DeployConfig;
 use crate::function::{build, Function};
 use crate::project::Project;
 use eyre::{eyre, OptionExt, Report};
@@ -191,7 +191,11 @@ impl Pipeline {
 
         match self
             .project
-            .deploy(&all_functions, self.is_hotswap, self.deploy_config.as_deref())
+            .deploy(
+                &all_functions,
+                self.is_hotswap,
+                self.deploy_config.as_deref(),
+            )
             .await
         {
             Ok(updated) if !updated => {
