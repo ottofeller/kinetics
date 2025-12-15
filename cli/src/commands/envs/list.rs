@@ -1,3 +1,4 @@
+use crate::api::envs;
 use crate::client::Client;
 use crate::commands::build::prepare_functions;
 use crate::config::build_config;
@@ -5,19 +6,8 @@ use crate::project::Project;
 use crossterm::style::Stylize;
 use eyre::{eyre, WrapErr};
 use kinetics_parser::{ParsedFunction, Parser};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-
-/// Request body for /envs/list
-#[derive(Deserialize, Serialize)]
-pub struct EnvsListRequest {
-    pub project_name: String,
-    pub functions_names: Vec<String>,
-}
-
-/// Response from /envs/list
-pub type EnvsListResponse = HashMap<String, HashMap<String, String>>;
 
 /// Lists all environment variables for all functions in the current crate
 pub async fn list(project: &Project, is_remote: bool) -> eyre::Result<()> {
@@ -87,7 +77,7 @@ async fn remote(
     let response = Client::new(false)
         .await?
         .post("/envs/list")
-        .json(&EnvsListRequest {
+        .json(&envs::list::Request {
             project_name: project.name.to_owned(),
             functions_names: functions
                 .iter()
@@ -108,7 +98,7 @@ async fn remote(
         return Err(eyre::eyre!("Failed to fetch envs from backend"));
     }
 
-    let response: EnvsListResponse = response
+    let response: envs::list::Response = response
         .json()
         .await
         .inspect_err(|e| log::error!("JSON parse error: {e:?}"))

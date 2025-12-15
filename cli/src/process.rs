@@ -1,10 +1,9 @@
+use eyre::{Context, ContextCompat};
 use std::process::{Child, ExitStatus};
 use std::{
     io::{BufRead, BufReader, Read, Write},
     sync::{Arc, Mutex},
 };
-
-use eyre::{Context, ContextCompat};
 
 /// A wrapper over system process
 ///
