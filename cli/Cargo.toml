@@ -25,7 +25,7 @@ clap = { version = "4.5.49", features = ["derive"] }
 eyre = "0.6.12"
 regex = "1.12.2"
 walkdir = "2.5.0"
-kinetics-macro = { path = "../macro", version = "0.10.7" }
+kinetics-macro = { path = "../macro", version = "0.10.8" }
 
 zip = "6.0.0"
 tokio = { workspace = true, features = ["full"] }
