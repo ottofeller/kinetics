@@ -1,4 +1,5 @@
-use crate::commands::{self, func::toggle::ToggleOp};
+use crate::commands::{self};
+use crate::api::func::toggle;
 use crate::config::deploy::DeployConfig;
 use crate::error::Error;
 use crate::function::Type as FunctionType;
@@ -436,10 +437,10 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         }) => commands::func::logs::logs(name, &project, period).await,
         Some(Commands::Func {
             command: Some(FuncCommands::Stop { name }),
-        }) => commands::func::toggle::toggle(name, &project, ToggleOp::Stop).await,
+        }) => commands::func::toggle::toggle(name, &project, toggle::Op::Stop).await,
         Some(Commands::Func {
             command: Some(FuncCommands::Start { name }),
-        }) => commands::func::toggle::toggle(name, &project, ToggleOp::Start).await,
+        }) => commands::func::toggle::toggle(name, &project, toggle::Op::Start).await,
         _ => Ok(()),
     }?;
 

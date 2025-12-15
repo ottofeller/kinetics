@@ -5,40 +5,8 @@ use crate::project::Project;
 use eyre::{Context, Result};
 use http::StatusCode;
 use kinetics_parser::Parser;
-use serde::{Deserialize, Serialize};
 use std::*;
-
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub enum ToggleOp {
-    Start,
-    Stop,
-}
-
-impl fmt::Display for ToggleOp {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ToggleOp::Start => write!(f, "Starting"),
-            ToggleOp::Stop => write!(f, "Stopping"),
-        }
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ToggleRequest {
-    pub project_name: String,
-    pub function_name: String,
-    pub operation: ToggleOp,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ToggleResponse {
-    /// Datetime when throttling was applied
-    pub throttled_at: String,
-
-    /// The reason for throttling,
-    /// e.g. user request or account limit.
-    pub reason: String,
-}
+use crate::api::func::toggle;
 
 /// Adds/removes throttling from a function.
 ///
@@ -46,7 +14,7 @@ pub struct ToggleResponse {
 /// - For start operation the function starts receiving requests.
 /// - For stop operation the function stop receiving requests
 /// and the endpoint starts responding "Service Unavailable".
-pub async fn toggle(function_name: &str, project: &Project, op: ToggleOp) -> Result<()> {
+pub async fn toggle(function_name: &str, project: &Project, op: toggle::Op) -> Result<()> {
     // Get all function names without any additional manupulations.
     let all_functions = Parser::new(Some(&project.path))?
         .functions
@@ -65,7 +33,7 @@ pub async fn toggle(function_name: &str, project: &Project, op: ToggleOp) -> Res
 
     let response = client
         .post("/function/toggle")
-        .json(&ToggleRequest {
+        .json(&toggle::Request {
             project_name: project.name.clone(),
             function_name: function.name,
             operation: op.clone(),
@@ -88,8 +56,8 @@ pub async fn toggle(function_name: &str, project: &Project, op: ToggleOp) -> Res
                 console::style(format!(
                     "Nothing changed. Function is {} throttled.",
                     match op {
-                        ToggleOp::Start => "not",
-                        ToggleOp::Stop => "already",
+                        toggle::Op::Start => "not",
+                        toggle::Op::Stop => "already",
                     }
                 ))
                 .yellow(),
@@ -98,7 +66,7 @@ pub async fn toggle(function_name: &str, project: &Project, op: ToggleOp) -> Res
             Ok(())
         }
         StatusCode::FORBIDDEN => {
-            let ToggleResponse { reason, .. } = response.json().await.wrap_err(Error::new(
+            let toggle::Response { reason, .. } = response.json().await.wrap_err(Error::new(
                 "Invalid response from server",
                 Some("Try again later."),
             ))?;
