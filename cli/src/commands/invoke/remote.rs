@@ -1,4 +1,4 @@
-use crate::api::db::connect;
+use crate::api::db::connect::{Request as ConnectRequest, Response as ConnectResponse};
 use crate::client::Client;
 use crate::function::Function;
 use crate::migrations::Migrations;
@@ -29,9 +29,9 @@ pub async fn invoke(
 
         let response = Client::new(false)
             .await?
-            .request::<_, connect::Response>(
+            .request::<_, ConnectResponse>(
                 "/stack/sqldb/connect",
-                connect::Request {
+                ConnectRequest {
                     project: project.name.clone(),
                 },
             )
