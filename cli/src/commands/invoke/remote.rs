@@ -1,3 +1,4 @@
+use crate::api::db::connect;
 use crate::client::Client;
 use crate::function::Function;
 use crate::migrations::Migrations;
@@ -26,21 +27,11 @@ pub async fn invoke(
             console::style("Applying migrations...").green().bold()
         );
 
-        #[derive(serde::Deserialize, serde::Serialize)]
-        struct Response {
-            connection_string: String,
-        }
-
-        #[derive(serde::Serialize, serde::Deserialize)]
-        struct Request {
-            project: String,
-        }
-
         let response = Client::new(false)
             .await?
-            .request::<_, Response>(
-                "/stack/sqldb/connection",
-                Request {
+            .request::<_, connect::Response>(
+                "/stack/sqldb/connect",
+                connect::Request {
                     project: project.name.clone(),
                 },
             )
