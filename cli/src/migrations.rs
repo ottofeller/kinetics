@@ -80,8 +80,8 @@ impl<'a> Migrations<'a> {
             });
         }
 
-        // Apply DDL statements outside a transaction because DSQL does not support mixing
-        // DDL and DML statements within a transaction.
+        // Apply DDL statements separately because DSQL does not support mixing DDL and DML
+        // statements within a transaction.
         for migration in parsed_ddl {
             sqlx::raw_sql(&migration.content.join(";"))
                 .execute(&connection)
