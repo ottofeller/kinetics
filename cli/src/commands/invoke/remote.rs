@@ -61,16 +61,16 @@ pub async fn invoke(
         .execute(&connection)
         .await?;
 
+        let path = project.path.join(migrations_path.unwrap_or("migrations"));
+        let migrations = Migrations::new(path.as_path())?;
+        migrations.apply(response.connection_string).await?;
+
         println!(
             "{}\n",
             console::style("Migrations applied successfully")
                 .green()
                 .bold()
         );
-
-        let path = project.path.join(migrations_path.unwrap_or("migrations"));
-        let migrations = Migrations::new(path.as_path())?;
-        migrations.apply(response.connection_string).await?;
     }
 
     println!(
