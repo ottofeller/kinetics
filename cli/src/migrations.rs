@@ -231,16 +231,14 @@ impl<'a> Migrations<'a> {
         let mut others = Vec::new();
 
         for stmt in statements {
-            let is_ddl = matches!(
+            if matches!(
                 stmt,
                 Statement::CreateTable { .. }
                     | Statement::AlterTable { .. }
                     | Statement::Drop { .. }
                     | Statement::CreateIndex { .. }
                     | Statement::CreateView { .. }
-            );
-
-            if is_ddl {
+            ) {
                 ddl.push(stmt.to_string());
             } else {
                 others.push(stmt.to_string());
