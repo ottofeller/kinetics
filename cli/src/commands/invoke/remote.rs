@@ -1,4 +1,4 @@
-use crate::api::db::connect::{Request as ConnectRequest, Response as ConnectResponse};
+use crate::api::project::sqldb::{Request as ConnectRequest, Response as ConnectResponse};
 use crate::client::Client;
 use crate::function::Function;
 use crate::migrations::Migrations;
