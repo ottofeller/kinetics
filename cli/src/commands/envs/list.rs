@@ -1,4 +1,4 @@
-use crate::api::envs::list::{EnvsListRequest, EnvsListResponse};
+use crate::api::envs;
 use crate::client::Client;
 use crate::commands::build::prepare_functions;
 use crate::config::build_config;
@@ -77,7 +77,7 @@ async fn remote(
     let response = Client::new(false)
         .await?
         .post("/envs/list")
-        .json(&EnvsListRequest {
+        .json(&envs::list::Request {
             project_name: project.name.to_owned(),
             functions_names: functions
                 .iter()
@@ -98,7 +98,7 @@ async fn remote(
         return Err(eyre::eyre!("Failed to fetch envs from backend"));
     }
 
-    let response: EnvsListResponse = response
+    let response: envs::list::Response = response
         .json()
         .await
         .inspect_err(|e| log::error!("JSON parse error: {e:?}"))
