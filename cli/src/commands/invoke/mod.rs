@@ -13,11 +13,11 @@ use std::path::PathBuf;
 pub async fn invoke(
     function_name: &str,
     project: &Project,
-    payload: &str,
-    headers: &str,
-    url_path: &str,
+    payload: Option<&str>,
+    headers: Option<&str>,
+    url_path: Option<&str>,
 
-    // DynamoDbB table to provision, only relevant for local invocations
+    // DynamoDB table to provision, only relevant for local invocations
     table: Option<&str>,
 
     is_local: bool,

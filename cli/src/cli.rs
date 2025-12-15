@@ -1,4 +1,4 @@
-use crate::commands;
+use crate::commands::{self, func::toggle::ToggleOp};
 use crate::error::Error;
 use crate::function::Type as FunctionType;
 use crate::logger::Logger;
@@ -127,6 +127,20 @@ enum FuncCommands {
         #[arg(short, long)]
         period: Option<String>,
     },
+
+    /// Stop function in the cloud
+    Stop {
+        /// Function name to stop
+        #[arg()]
+        name: String,
+    },
+
+    /// Start previously stopped function
+    Start {
+        /// Function name to start
+        #[arg()]
+        name: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -247,32 +261,50 @@ enum Commands {
 
     /// Invoke a function
     Invoke {
+        /// Name of a function, use "kinetics func list" to see all names
         #[arg()]
         name: String,
 
-        #[arg(long, default_value = "{}")]
-        headers: String,
+        /// Headers to be sent to endpoint function, in JSON.
+        ///
+        /// Example: --headers '{"auth": "Bearer 111"}'.
+        #[arg(long)]
+        headers: Option<String>,
 
-        #[arg(long, default_value = "")]
-        url_path: String,
+        /// Set URL path while calling endpoint function.
+        /// Required for endpoints with parametrized URLs, e.g. /user/*/profile.
+        ///
+        /// Example: --url-path /user/1/profile
+        #[arg(long)]
+        url_path: Option<String>,
 
-        #[arg(short, long, default_value = "{}")]
-        payload: String,
+        /// Must be a valid JSON.
+        /// In case of endpoint functions payload is a body.
+        /// In case of workers payload is queue event payload.
+        ///
+        /// Example: --payload '{"name": "John Smith"}'
+        #[arg(short, long)]
+        payload: Option<String>,
 
         /// [DEPRECATED]
-        #[arg(short, long, default_value = "")]
-        table: String,
+        #[arg(short, long)]
+        table: Option<String>,
 
+        /// Invoke function remotely. Only works if function was deployed before.
         #[arg(short, long, action = ArgAction::SetFalse)]
         remote: bool,
 
-        /// Provision local SQL database for invoked function
+        /// Provision local SQL database for invoked function to use. Not available when called with --remote flag.
         #[arg(long="with-database", visible_aliases=["with-db", "db"])]
         with_database: bool,
 
+        /// Apply migrations to locally provisioned database. Not available when called with --remote flag.
+        ///
+        /// Accepts a path to dir with SQL-files relative to crate's root, defaults to <crate>/migrations/
         #[arg(short, long = "with-migrations", num_args = 0..=1, default_missing_value = "")]
         with_migrations: Option<String>,
 
+        /// Provision a queue. Helpful when you test a function which sends something to queue. Not available when called with --remote flag.
         #[arg(long="with-queue", visible_aliases=["queue"])]
         with_queue: bool,
     },
@@ -403,6 +435,17 @@ pub async fn run(
         Some(Commands::Func {
             command: Some(FuncCommands::Logs { name, period }),
         }) => commands::func::logs::logs(name, &project, period).await,
+        Some(Commands::Func {
+            command: Some(FuncCommands::Stop { name }),
+        }) => commands::func::toggle::toggle(name, &project, ToggleOp::Stop).await,
+        Some(Commands::Func {
+            command: Some(FuncCommands::Start { name }),
+        }) => commands::func::toggle::toggle(name, &project, ToggleOp::Start).await,
+        _ => Ok(()),
+    }?;
+
+    // CI/CD commands
+    match &cli.command {
         Some(Commands::Cicd {
             command: Some(CicdCommands::Init { github }),
         }) => commands::cicd::init::init(&project, *github).await,
@@ -449,10 +492,10 @@ pub async fn run(
             commands::invoke::invoke(
                 name,
                 &project,
-                payload,
-                headers,
-                url_path,
-                if !table.is_empty() { Some(table) } else { None },
+                payload.as_deref(),
+                headers.as_deref(),
+                url_path.as_deref(),
+                table.as_deref(),
                 remote.to_owned(),
                 sqldb.to_owned(),
                 with_queue.to_owned(),
