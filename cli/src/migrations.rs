@@ -224,10 +224,8 @@ impl<'a> Migrations<'a> {
     /// Keep in mind that it returns only DDL supported by Aurora DSQL
     /// https://docs.aws.amazon.com/aurora-dsql/latest/userguide/working-with-postgresql-compatibility-unsupported-features.html
     fn parse_sql(&self, sql: &str) -> eyre::Result<(Vec<String>, Vec<String>)> {
-        let dialect = PostgreSqlDialect {};
-
-        let statements =
-            Parser::parse_sql(&dialect, sql).wrap_err("Failed to parse migration SQL")?;
+        let statements = Parser::parse_sql(&PostgreSqlDialect {}, sql)
+            .wrap_err("Failed to parse migration SQL")?;
 
         let mut ddl = Vec::new();
         let mut others = Vec::new();
