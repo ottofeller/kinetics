@@ -1,4 +1,5 @@
 use eyre::Context;
+use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 use sqlx::Row;
 use std::path::Path;
 
@@ -55,20 +56,59 @@ impl<'a> Migrations<'a> {
             return Ok(());
         }
 
-        let mut tx = connection.begin().await?;
+        struct ParsedMigration {
+            filename: String,
+            content: Vec<String>,
+        }
+
+        let mut parsed_ddl = Vec::new();
+        let mut parsed_others = Vec::new();
 
         for (filename, content) in migrations {
-            print!("\r\x1B[K");
-            print!("{}", console::style(format!("Applying {filename}")).dim(),);
+            let (ddl, others) = self
+                .parse_sql(&content)
+                .wrap_err("Failed to parse migration SQL")?;
 
-            sqlx::raw_sql(&content)
+            parsed_ddl.push(ParsedMigration {
+                filename: filename.clone(),
+                content: ddl,
+            });
+
+            parsed_others.push(ParsedMigration {
+                filename: filename.clone(),
+                content: others,
+            });
+        }
+
+        // Apply DDL statements outside a transaction because DSQL does not support mixing
+        // DDL and DML statements within a transaction.
+        for migration in parsed_ddl {
+            sqlx::raw_sql(&migration.content.join(";"))
+                .execute(&connection)
+                .await
+                .inspect_err(|e| log::error!("Error: {e:?}"))
+                .wrap_err("Failed to apply migration")?;
+        }
+
+        // Start a transaction for DML statements
+        let mut tx = connection.begin().await?;
+
+        for migration in parsed_others {
+            print!("\r\x1B[K");
+
+            print!(
+                "{}",
+                console::style(format!("Applying {}", migration.filename)).dim(),
+            );
+
+            sqlx::raw_sql(&migration.content.join(";"))
                 .execute(&mut *tx)
                 .await
                 .inspect_err(|e| log::error!("Error: {e:?}"))
                 .wrap_err("Failed to apply migration")?;
 
             sqlx::query(r#"INSERT INTO "schema_migrations" (id) VALUES ($1)"#)
-                .bind(&filename)
+                .bind(&migration.filename)
                 .execute(&mut *tx)
                 .await?;
         }
@@ -173,5 +213,42 @@ impl<'a> Migrations<'a> {
         }
 
         Ok(result)
+    }
+
+    /// Parses SQL statements from a string and returns DDL and other statements separately
+    ///
+    /// Returns a tuple of two vectors:
+    ///   - `Vec<String>`: A list of DDL (Data Definition Language) statements
+    ///   - `Vec<String>`: A list of other (DML Data Manipulation Language) statements (e.g., INSERT, UPDATE, DELETE, etc.)
+    ///
+    /// Keep in mind that it returns only DDL supported by Aurora DSQL
+    /// https://docs.aws.amazon.com/aurora-dsql/latest/userguide/working-with-postgresql-compatibility-unsupported-features.html
+    fn parse_sql(&self, sql: &str) -> eyre::Result<(Vec<String>, Vec<String>)> {
+        let dialect = PostgreSqlDialect {};
+
+        let statements =
+            Parser::parse_sql(&dialect, sql).wrap_err("Failed to parse migration SQL")?;
+
+        let mut ddl = Vec::new();
+        let mut others = Vec::new();
+
+        for stmt in statements {
+            let is_ddl = matches!(
+                stmt,
+                Statement::CreateTable { .. }
+                    | Statement::AlterTable { .. }
+                    | Statement::Drop { .. }
+                    | Statement::CreateIndex { .. }
+                    | Statement::CreateView { .. }
+            );
+
+            if is_ddl {
+                ddl.push(stmt.to_string());
+            } else {
+                others.push(stmt.to_string());
+            }
+        }
+
+        Ok((ddl, others))
     }
 }

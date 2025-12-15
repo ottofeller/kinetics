@@ -66,3 +66,4 @@ tower = "^0"
 percent-encoding = "2.3.2"
 url = "2.5.7"
 sqlx = { version = "0.8.6", features = ["postgres", "chrono", "runtime-tokio-rustls"] }
+sqlparser = "0.60.0"
