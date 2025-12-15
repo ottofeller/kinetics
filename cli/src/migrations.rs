@@ -34,6 +34,9 @@ impl<'a> Migrations<'a> {
     /// This function retrieves the latest applied migration ID, and determines which migrations
     /// (if any) need to be applied. It then applies the pending migrations sequentially
     /// and updates the `schema_migrations` table to record each migration.
+    ///
+    /// Apply DDL statements separately because DSQL does not support mixing DDL and DML
+    /// statements within a transaction.
     pub async fn apply(&self, connection_string: String) -> eyre::Result<()> {
         let connection = sqlx::PgPool::connect(&connection_string)
             .await
@@ -80,8 +83,6 @@ impl<'a> Migrations<'a> {
             });
         }
 
-        // Apply DDL statements separately because DSQL does not support mixing DDL and DML
-        // statements within a transaction.
         for migration in parsed_ddl {
             sqlx::raw_sql(&migration.content.join(";"))
                 .execute(&connection)
