@@ -35,6 +35,7 @@ enum MigrationsCommands {
         path: String,
     },
 
+    /// Apply migrations to remote DB
     Apply {
         /// Relative path to migrations directory
         #[arg(short, long, value_name = "PATH", default_value = "migrations")]
