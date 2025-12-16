@@ -2,6 +2,7 @@ use crate::api::project::sqldb::{Request as ConnectRequest, Response as ConnectR
 use crate::client::Client;
 use crate::migrations::Migrations;
 use crate::project::Project;
+use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
 
 /// Applies migrations to the database
@@ -12,8 +13,12 @@ pub async fn apply(project: &Project, migrations_dir: &str) -> eyre::Result<()> 
     let migrations_path = project.path.join(migrations_dir);
 
     println!(
-        "{}",
-        console::style("Applying migrations...").green().bold()
+        "{} {} {}...",
+        console::style("Applying migrations").green().bold(),
+        console::style("from").dimmed(),
+        console::style(format!("{}", migrations_path.to_string_lossy()))
+            .underlined()
+            .bold(),
     );
 
     let response = Client::new(false)
@@ -43,13 +48,6 @@ pub async fn apply(project: &Project, migrations_dir: &str) -> eyre::Result<()> 
 
     let migrations = Migrations::new(migrations_path.as_path())?;
     migrations.apply(response.connection_string).await?;
-
-    println!(
-        "{}\n",
-        console::style("Migrations applied successfully")
-            .green()
-            .bold()
-    );
-
+    println!("\n{}\n", console::style("Done").green().bold());
     Ok(())
 }
