@@ -1,31 +1,6 @@
 use crate::project::Project;
-use crate::{client::Client, error::Error};
-use chrono::{DateTime, Utc};
+use crate::{api::stack, client::Client, error::Error};
 use eyre::{Context, Result};
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct VersionsRequest {
-    name: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct RollbackRequest {
-    name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    version: Option<u32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct VersionsResponse {
-    versions: Vec<Version>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Version {
-    version: u32,
-    updated_at: DateTime<Utc>,
-}
 
 /// Rollback a project by one version or to a specific version
 ///
@@ -36,10 +11,10 @@ pub async fn rollback(project: &Project, version: Option<u32>) -> Result<()> {
         .await
         .wrap_err("Failed to create client")?;
 
-    let versions: VersionsResponse = client
+    let versions: stack::versions::Response = client
         .request(
             "/stack/versions",
-            VersionsRequest {
+            stack::versions::Request {
                 name: project.name.to_string(),
             },
         )
@@ -86,7 +61,7 @@ pub async fn rollback(project: &Project, version: Option<u32>) -> Result<()> {
 
     client
         .post("/stack/rollback")
-        .json(&RollbackRequest {
+        .json(&stack::rollback::Request {
             name: project.name.to_string(),
             version,
         })

@@ -1,8 +1,8 @@
+use crate::api::auth;
 use crate::client::Client;
 use crate::config::build_config;
 use crate::credentials::Credentials;
 use eyre::Context;
-use serde_json::json;
 use std::path::Path;
 
 async fn remove(email: &str) -> eyre::Result<()> {
@@ -10,7 +10,9 @@ async fn remove(email: &str) -> eyre::Result<()> {
 
     let response = client
         .post("/auth/code/logout")
-        .json(&json!({ "email": email }))
+        .json(&auth::code::logout::Request {
+            email: email.to_owned(),
+        })
         .send()
         .await?;
 

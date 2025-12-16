@@ -1,12 +1,12 @@
-use crate::client::Client;
+use crate::api::upload;
 use crate::config::deploy::DeployConfig;
 use crate::error::Error;
 use crate::project::Project;
+use crate::{api::func, client::Client};
 use base64::Engine as _;
 use crc_fast::{CrcAlgorithm::Crc64Nvme, Digest};
 use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
 use reqwest::StatusCode;
-use serde_json::json;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -82,18 +82,15 @@ impl Function {
             return config.upload(self).await;
         }
 
-        #[derive(serde::Deserialize, Debug)]
-        struct PreSignedUrl {
-            url: String,
-        }
-
         let path = self.bundle_path();
         let data = tokio::fs::read(&path).await?;
 
         let mut digest = Digest::new(Crc64Nvme);
         digest.update(&data);
-        let checksum = base64::prelude::BASE64_STANDARD.encode(digest.finalize().to_be_bytes());
-        let body = json!({"name": self.name, "checksum": checksum});
+        let body = upload::Request {
+            name: self.name.clone(),
+            checksum: base64::prelude::BASE64_STANDARD.encode(digest.finalize().to_be_bytes()),
+        };
 
         log::debug!(
             "Calling /upload with body:\n{}",
@@ -115,7 +112,7 @@ impl Function {
         let text = response.text().await?;
         log::debug!("Got response for {}: {}", self.name, text);
 
-        let presigned = serde_json::from_str::<PreSignedUrl>(&text).inspect_err(|e| {
+        let presigned = serde_json::from_str::<upload::Response>(&text).inspect_err(|e| {
             log::error!("Failed to parse the response: {e:?}");
         })?;
 
@@ -155,22 +152,9 @@ impl Function {
 
     /// Get the function deployment status from the backend
     pub async fn status(&self, client: &Client) -> eyre::Result<Option<String>> {
-        #[derive(serde::Serialize)]
-        struct JsonBody {
-            project_name: String,
-            function_name: String,
-        }
-
-        #[derive(serde::Deserialize)]
-        struct JsonResponse {
-            /// The date and time that the function was last updated
-            /// in ISO-8601 format (YYYY-MM-DDThh:mm:ss.sTZD).
-            last_modified: Option<String>,
-        }
-
         let result = client
             .post("/function/status")
-            .json(&JsonBody {
+            .json(&func::status::Request {
                 project_name: self.project.name.clone(),
                 function_name: self.name.clone(),
             })
@@ -194,7 +178,8 @@ impl Function {
             .into());
         }
 
-        let status: JsonResponse = result.json().await.wrap_err("Failed to parse response")?;
+        let status: func::status::Response =
+            result.json().await.wrap_err("Failed to parse response")?;
 
         Ok(status.last_modified)
     }

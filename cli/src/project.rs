@@ -1,3 +1,5 @@
+use crate::api::projects::Kvdb;
+use crate::api::{projects, stack};
 use crate::client::Client;
 use crate::config::{build_config, deploy::DeployConfig};
 use crate::error::Error;
@@ -6,9 +8,7 @@ use crate::secrets::Secrets;
 use chrono::{DateTime, Duration, Utc};
 use eyre::{ContextCompat, WrapErr};
 use http::StatusCode;
-use kinetics_parser::Role;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -79,7 +79,9 @@ impl Project {
             .await
             .wrap_err("Failed to create client")?
             .post("/stack/destroy")
-            .json(&json!({"project_name": self.name}))
+            .json(&stack::destroy::Request {
+                project_name: self.name.to_owned(),
+            })
             .send()
             .await?;
 
@@ -101,13 +103,13 @@ impl Project {
             return config.deploy(self, secrets, functions).await;
         }
 
-        let body = DeployRequest {
+        let body = stack::deploy::Request {
             is_hotswap,
             secrets,
             functions: functions
                 .iter()
                 .map(|f| f.into())
-                .collect::<Vec<FunctionRequest>>(),
+                .collect::<Vec<stack::deploy::FunctionRequest>>(),
             project: self.clone(),
         };
 
@@ -142,21 +144,16 @@ impl Project {
         }
     }
 
-    pub async fn status(&self) -> eyre::Result<StatusResponseBody> {
+    pub async fn status(&self) -> eyre::Result<stack::status::Response> {
         Self::status_by_name(&self.name).await
     }
 
-    pub async fn status_by_name(name: &str) -> eyre::Result<StatusResponseBody> {
+    pub async fn status_by_name(name: &str) -> eyre::Result<stack::status::Response> {
         let client = Client::new(false).await?;
-
-        #[derive(serde::Serialize, Debug)]
-        pub struct JsonBody {
-            pub name: String,
-        }
 
         let result = client
             .post("/stack/status")
-            .json(&JsonBody {
+            .json(&stack::status::Request {
                 name: name.to_owned(),
             })
             .send()
@@ -176,16 +173,8 @@ impl Project {
             );
         }
 
-        let status: StatusResponseBody =
-            serde_json::from_str(&text).wrap_err("Failed to parse response")?;
-
-        eyre::Ok(status)
+        serde_json::from_str(&text).wrap_err("Failed to parse response")
     }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct ProjectsResponse {
-    projects: Vec<Project>,
 }
 
 /// The structure of entire cache file
@@ -276,7 +265,7 @@ impl Cache {
     async fn load() -> eyre::Result<Self> {
         let response = Client::new(false)
             .await?
-            .request::<(), ProjectsResponse>("/projects", ())
+            .request::<(), projects::Response>("/projects", ())
             .await
             .wrap_err(Error::new(
                 "Failed to fetch project information",
@@ -287,7 +276,7 @@ impl Cache {
             response
                 .projects
                 .into_iter()
-                .map(|project| (project.name.clone(), project)),
+                .map(|project| (project.name.clone(), project.into())),
         );
 
         Ok(Self {
@@ -295,11 +284,6 @@ impl Cache {
             last_updated: Utc::now(),
         })
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Kvdb {
-    pub name: String,
 }
 
 /// FileConfig is the structure of kinetics.toml
@@ -390,38 +374,6 @@ impl FileConfig {
             .to_string();
 
         Ok(name)
-    }
-}
-
-#[derive(serde::Deserialize, Debug)]
-pub struct StatusResponseBody {
-    pub status: String,
-    pub errors: Option<Vec<String>>,
-}
-
-/// A structure representing a deployment request which contains configuration, secrets, and functions to be deployed.
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct DeployRequest {
-    pub is_hotswap: bool,
-    pub project: Project,
-    pub secrets: HashMap<String, String>,
-    pub functions: Vec<FunctionRequest>,
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct FunctionRequest {
-    pub is_deploying: bool,
-    pub name: String,
-    pub role: Role,
-}
-
-impl From<&Function> for FunctionRequest {
-    fn from(f: &Function) -> Self {
-        Self {
-            name: f.name.clone(),
-            is_deploying: f.is_deploying,
-            role: f.role.clone(),
-        }
     }
 }
 

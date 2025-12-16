@@ -1,4 +1,5 @@
 use super::build::{pipeline::Pipeline, prepare_functions};
+use crate::api::stack;
 use crate::client::Client;
 use crate::config::build_config;
 use crate::config::deploy::DeployConfig;
@@ -6,7 +7,6 @@ use crate::function::Function;
 use crate::project::Project;
 use eyre::WrapErr;
 use reqwest::StatusCode;
-use serde_json::json;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -77,17 +77,17 @@ async fn envs(deploy_functions: &[String]) -> eyre::Result<()> {
             }
         );
 
-        envs.insert(function.name.clone(), function_envs);
+        envs.insert(function.name.clone(), function_envs.clone());
     }
 
     let client = Client::new(false).await?;
 
     let result = client
         .post("/stack/deploy/envs")
-        .json(&json!({
-            "project_name": project.name.clone(),
-            "functions": envs,
-        }))
+        .json(&stack::deploy::envs::Request {
+            project_name: project.name.clone(),
+            functions: envs,
+        })
         .send()
         .await
         .wrap_err("Request to update envs failed")?;
@@ -97,7 +97,7 @@ async fn envs(deploy_functions: &[String]) -> eyre::Result<()> {
     log::debug!("Got status from /stack/deploy/envs: {}", status);
     log::debug!("Got response from /stack/deploy/envs: {}", response_text);
 
-    let response_json: serde_json::Value = serde_json::from_str(&response_text)
+    let response_json: stack::deploy::envs::Response = serde_json::from_str(&response_text)
         .wrap_err("Failed to parse response from the backend as JSON")?;
 
     if StatusCode::OK != status {
@@ -105,19 +105,14 @@ async fn envs(deploy_functions: &[String]) -> eyre::Result<()> {
         return Err(eyre::eyre!("Failed to deploy envs"));
     }
 
-    let default = &vec![];
-
-    let fails = response_json
-        .get("fails")
-        .and_then(|v| v.as_array())
-        .unwrap_or(default);
+    let fails = response_json.fails;
 
     if !fails.is_empty() {
         return Err(eyre::eyre!(
             "Failed to provision envs for: {}",
             fails
                 .iter()
-                .map(|v| v.as_str().unwrap_or("unknown"))
+                .map(|v| v.as_str())
                 .collect::<Vec<&str>>()
                 .join(", "),
         ));
