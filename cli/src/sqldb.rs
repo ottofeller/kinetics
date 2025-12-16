@@ -51,9 +51,6 @@ impl SqlDb {
             ssl_mode: "verify-full".to_string(), // Strictly require TLS for postgres connections
         };
 
-        // Refresh the auth password in the background
-        database.spawn_password_refresh();
-
         Ok(database)
     }
 
@@ -116,7 +113,7 @@ impl SqlDb {
     /// The token is fetched every 10 minutes, but the function implements an exponential
     /// backoff mechanism to retry the fetch operation in case of failure.
     /// Note: The first token refresh happens after a 10-minute delay.
-    fn spawn_password_refresh(&self) {
+    pub fn spawn_password_refresh(self) -> Self {
         let config = self.config.clone();
         let cluster_endpoint = self.endpoint.clone();
         let password = self.password.clone();
@@ -150,6 +147,8 @@ impl SqlDb {
                 }
             }
         });
+
+        self
     }
 }
 

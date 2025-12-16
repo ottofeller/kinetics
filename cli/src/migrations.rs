@@ -1,4 +1,6 @@
+use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
+use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 use sqlx::Row;
 use std::path::Path;
 
@@ -33,6 +35,9 @@ impl<'a> Migrations<'a> {
     /// This function retrieves the latest applied migration ID, and determines which migrations
     /// (if any) need to be applied. It then applies the pending migrations sequentially
     /// and updates the `schema_migrations` table to record each migration.
+    ///
+    /// Apply DDL statements separately because DSQL does not support mixing DDL and DML
+    /// statements within a transaction.
     pub async fn apply(&self, connection_string: String) -> eyre::Result<()> {
         let connection = sqlx::PgPool::connect(&connection_string)
             .await
@@ -55,20 +60,57 @@ impl<'a> Migrations<'a> {
             return Ok(());
         }
 
-        let mut tx = connection.begin().await?;
+        struct ParsedMigration {
+            filename: String,
+            content: Vec<String>,
+        }
+
+        let mut parsed_ddl = Vec::new();
+        let mut parsed_others = Vec::new();
 
         for (filename, content) in migrations {
-            print!("\r\x1B[K");
-            print!("{}", console::style(format!("Applying {filename}")).dim(),);
+            let (ddl, others) = self
+                .parse_sql(&content)
+                .wrap_err("Failed to parse migration SQL")?;
 
-            sqlx::raw_sql(&content)
+            parsed_ddl.push(ParsedMigration {
+                filename: filename.clone(),
+                content: ddl,
+            });
+
+            parsed_others.push(ParsedMigration {
+                filename: filename.clone(),
+                content: others,
+            });
+        }
+
+        for migration in parsed_ddl {
+            sqlx::raw_sql(&migration.content.join(";"))
+                .execute(&connection)
+                .await
+                .inspect_err(|e| log::error!("Error: {e:?}"))
+                .wrap_err("Failed to apply migration")?;
+        }
+
+        // Start a transaction for DML statements
+        let mut tx = connection.begin().await?;
+        println!("");
+
+        for migration in parsed_others {
+            println!(
+                "{} {}",
+                console::style("✓").green(),
+                console::style(&migration.filename).dimmed()
+            );
+
+            sqlx::raw_sql(&migration.content.join(";"))
                 .execute(&mut *tx)
                 .await
                 .inspect_err(|e| log::error!("Error: {e:?}"))
                 .wrap_err("Failed to apply migration")?;
 
             sqlx::query(r#"INSERT INTO "schema_migrations" (id) VALUES ($1)"#)
-                .bind(&filename)
+                .bind(&migration.filename)
                 .execute(&mut *tx)
                 .await?;
         }
@@ -173,5 +215,38 @@ impl<'a> Migrations<'a> {
         }
 
         Ok(result)
+    }
+
+    /// Parses SQL statements from a string and returns DDL and other statements separately
+    ///
+    /// Returns a tuple of two vectors:
+    ///   - `Vec<String>`: A list of DDL (Data Definition Language) statements
+    ///   - `Vec<String>`: A list of other (DML Data Manipulation Language) statements (e.g., INSERT, UPDATE, DELETE, etc.)
+    ///
+    /// Keep in mind that it returns only DDL supported by Aurora DSQL
+    /// https://docs.aws.amazon.com/aurora-dsql/latest/userguide/working-with-postgresql-compatibility-unsupported-features.html
+    fn parse_sql(&self, sql: &str) -> eyre::Result<(Vec<String>, Vec<String>)> {
+        let statements = Parser::parse_sql(&PostgreSqlDialect {}, sql)
+            .wrap_err("Failed to parse migration SQL")?;
+
+        let mut ddl = Vec::new();
+        let mut others = Vec::new();
+
+        for stmt in statements {
+            if matches!(
+                stmt,
+                Statement::CreateTable { .. }
+                    | Statement::AlterTable { .. }
+                    | Statement::Drop { .. }
+                    | Statement::CreateIndex { .. }
+                    | Statement::CreateView { .. }
+            ) {
+                ddl.push(stmt.to_string());
+            } else {
+                others.push(stmt.to_string());
+            }
+        }
+
+        Ok((ddl, others))
     }
 }
