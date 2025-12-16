@@ -1,26 +1,40 @@
 // Public structs for kinetics API.
 pub mod api;
-// Export of cli:run for calls with custom config.
+
+// Backend dev tools rely on cli:run in some functionalities.
 pub mod cli;
+
 // Export Client type for use with other public interfaces.
 pub mod client;
+
 mod commands;
-// Export deploy config for use as custom config along with cli::run.
+
+// Backend dev tools need DeployConfig.
 pub mod config;
+
 mod credentials;
+
 // Export cli error type for use cli::run.
 pub mod error;
+
 // Export Function type for use with cli::run struct.
 pub mod function;
+
 mod logger;
-// Reexport macros from this crate.
+
+// Reexport macros, so that users only import things from kinetics crate.
 pub mod macros;
+
 mod migrations;
 mod process;
-// Export Project type for use with cli::run struct.
+
+// Used with cli::run struct.
 pub mod project;
+
 mod secrets;
-// Export SqlDb type for use with tools::config.
+
+// Used with tools::config.
 pub mod sqldb;
-// Export public tools.
+
+// Mostly abstractions over such things like queue, config, http
 pub mod tools;
