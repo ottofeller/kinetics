@@ -1,7 +1,4 @@
-use crate::api::project::sqldb::{Request as ConnectRequest, Response as ConnectResponse};
-use crate::client::Client;
 use crate::function::Function;
-use crate::migrations::Migrations;
 use crate::project::Project;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
@@ -14,55 +11,10 @@ pub async fn invoke(
     payload: Option<&str>,
     headers: Option<&str>,
     url_path: Option<&str>,
-    is_migrations_enabled: bool,
-    migrations_path: Option<&str>,
 ) -> eyre::Result<()> {
     let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
     let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", project.name));
     let display_path = format!("{}/src/bin/{}.rs", invoke_dir.display(), function.name);
-
-    if is_migrations_enabled {
-        println!(
-            "{}",
-            console::style("Applying migrations...").green().bold()
-        );
-
-        let response = Client::new(false)
-            .await?
-            .request::<_, ConnectResponse>(
-                "/stack/sqldb/connect",
-                ConnectRequest {
-                    project: project.name.clone(),
-                },
-            )
-            .await
-            .wrap_err("Failed to get SQL DB connection string")?;
-
-        // FIXME Move create migrations table routine
-        let connection = sqlx::PgPool::connect(&response.connection_string).await?;
-
-        sqlx::query(
-            r#"
-             CREATE TABLE IF NOT EXISTS schema_migrations (
-                id VARCHAR(255) PRIMARY KEY,
-                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        "#,
-        )
-        .execute(&connection)
-        .await?;
-
-        let path = project.path.join(migrations_path.unwrap_or("migrations"));
-        let migrations = Migrations::new(path.as_path())?;
-        migrations.apply(response.connection_string).await?;
-
-        println!(
-            "{}\n",
-            console::style("Migrations applied successfully")
-                .green()
-                .bold()
-        );
-    }
 
     println!(
         "\n{} {} {}...",

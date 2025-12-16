@@ -1,5 +1,5 @@
-use crate::commands::{self};
 use crate::api::func::toggle;
+use crate::commands::{self};
 use crate::config::deploy::DeployConfig;
 use crate::error::Error;
 use crate::function::Type as FunctionType;
@@ -30,6 +30,12 @@ enum MigrationsCommands {
         #[arg(value_name = "NAME")]
         name: Option<String>,
 
+        /// Relative path to migrations directory
+        #[arg(short, long, value_name = "PATH", default_value = "migrations")]
+        path: String,
+    },
+
+    Apply {
         /// Relative path to migrations directory
         #[arg(short, long, value_name = "PATH", default_value = "migrations")]
         path: String,
@@ -408,6 +414,15 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             return commands::migrations::create(&project, path, name.as_deref())
                 .await
                 .wrap_err("Failed to create migration")
+                .map_err(Error::from);
+        }
+
+        Some(Commands::Migrations {
+            command: Some(MigrationsCommands::Apply { path }),
+        }) => {
+            return commands::migrations::apply(&project, path)
+                .await
+                .wrap_err("Failed to apply migrations")
                 .map_err(Error::from);
         }
 
