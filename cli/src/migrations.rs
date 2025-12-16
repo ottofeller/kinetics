@@ -1,3 +1,4 @@
+use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 use sqlx::Row;
@@ -93,13 +94,13 @@ impl<'a> Migrations<'a> {
 
         // Start a transaction for DML statements
         let mut tx = connection.begin().await?;
+        println!("");
 
         for migration in parsed_others {
-            print!("\r\x1B[K");
-
-            print!(
-                "{}",
-                console::style(format!("Applying {}", migration.filename)).dim(),
+            println!(
+                "{} {}",
+                console::style("✓").green(),
+                console::style(&migration.filename).dimmed()
             );
 
             sqlx::raw_sql(&migration.content.join(";"))
