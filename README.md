@@ -3,13 +3,11 @@
 Kinetics is a hosting platform for Rust applications that allows deploying all types of workloads by writing **only Rust code**.
 
 ```rust
-#[endpoint(
-    url_path = "/path",
-    environment = {"SOME_VAR": "SomeVal"},
-)]
+#[endpoint(url_path = "/my-rest-endpoint", environment = {"SOME_VAR": "SomeVal"})]
 pub async fn endpoint(
     _event: Request<()>,
     _secrets: &HashMap<String, String>,
+    _config: &KineticsConfig,
 ) -> Result<Response<Body>, BoxError> {
     let resp = Response::builder()
         .status(200)
@@ -17,6 +15,26 @@ pub async fn endpoint(
         .body("Hello!".into())?;
 
     Ok(resp)
+}
+
+#[cron(schedule = "rate(1 hour)")]
+pub async fn cron(
+    _secrets: &HashMap<String, String>,
+    _config: &KineticsConfig,
+) -> Result<(), BoxError> {
+    println!("Started cron job");
+    Ok(())
+}
+
+#[worker(fifo = true)]
+pub async fn worker(
+    records: Vec<QueueRecord>,
+    _secrets: &HashMap<String, String>,
+    _config: &KineticsConfig,
+) -> Result<QueueRetries, BoxError> {
+    let mut retries = QueueRetries::new();
+    println!("Got records: {records:?}");
+    Ok(retries)
 }
 ```
 
