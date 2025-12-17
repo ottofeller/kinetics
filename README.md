@@ -152,6 +152,12 @@ Invoke a function locally with parameters. `--payload` sets the JSON body payloa
 kinetics invoke BasicWorkerWorker --payload '{"name": "John"}'
 ```
 
+Invoke endpoint with http headers:
+
+```sh
+kinetics invoke BasicWorkerWorker --headers '{"Authorization": "Bearer 123"}'
+```
+
 Invoke a function which needs a DB. DB gets provisioned locally and is fully operational, not just a mock for requests.
 
 ```sh
