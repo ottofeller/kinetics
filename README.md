@@ -146,7 +146,7 @@ Print out all available functions before deployment. Their names and URLs of RES
 kinetics func list
 ```
 
-Invoke a function locally with parameters. `--payload` sets the JSON body payload:
+Invoke a function locally with parameters. `--payload` sets the JSON body payload for endpoint and worker functions:
 
 ```sh
 kinetics invoke BasicWorkerWorker --payload '{"name": "John"}'
