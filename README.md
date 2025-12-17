@@ -33,13 +33,7 @@ pub async fn worker(
     _config: &KineticsConfig,
 ) -> Result<QueueRetries, BoxError> {
     let mut retries = QueueRetries::new();
-
-    let record = match records.first() {
-        Some(record) => record,
-        None => return Ok(retries),
-    };
-
-    retries.add(&record.message_id.clone().unwrap_or_default());
+    println!("Got records: {records:?}");
     Ok(retries)
 }
 ```
