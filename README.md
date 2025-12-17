@@ -67,6 +67,7 @@ When you launch a worker function, we automatically provision its queue. Other f
 Automatically provision secrets from `.env.secrets` file or `KINETICS_SECRET_*` environment variables and make them available in your functions.
 
 📚 **Logs**
+
 Monitor your functions with just CLI. Each function gets its own stream of logs.
 
 🤖 **No infrastructure management**
