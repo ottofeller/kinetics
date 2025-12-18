@@ -26,7 +26,7 @@ eyre = "0.6.12"
 regex = "1.12.2"
 walkdir = "2.5.0"
 kinetics-macro = { path = "../macro", version = "0.11.0" }
-
+humantime = "2.1.0"
 zip = "6.0.0"
 tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }

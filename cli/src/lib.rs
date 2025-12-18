@@ -38,3 +38,5 @@ pub mod sqldb;
 
 // Mostly abstractions over such things like queue, config, http
 pub mod tools;
+
+mod request;
