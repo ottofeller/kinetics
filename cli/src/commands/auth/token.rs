@@ -5,7 +5,7 @@ use crossterm::style::Stylize;
 use eyre::{Context, Result};
 
 /// Creates a new authentication token
-pub async fn token(period: &Option<String>) -> Result<()> {
+pub async fn create(period: &Option<String>) -> Result<()> {
     let client = Client::new(false).await?;
     println!("\n{}...", "Requesting new access token".bold().green());
 

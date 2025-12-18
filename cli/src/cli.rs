@@ -371,7 +371,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         Some(Commands::Auth {
             command: Some(AuthCommands::Token { period }),
         }) => {
-            return commands::auth::token::token(period)
+            return commands::auth::token::create(period)
                 .await
                 .map_err(Error::from);
         }
