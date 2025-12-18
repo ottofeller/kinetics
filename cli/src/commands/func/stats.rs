@@ -1,37 +1,14 @@
-use crate::client::Client;
 use crate::error::Error;
 use crate::function::Function;
 use crate::project::Project;
+use crate::{api::func, client::Client};
 use color_eyre::owo_colors::OwoColorize as _;
 use eyre::{Context, Result};
 use kinetics_parser::Parser;
-use serde::{Deserialize, Serialize};
-
-/// Request
-#[derive(Serialize)]
-struct RequestBody {
-    project_name: String,
-    function_name: String,
-    /// The period (measured in days) to get statistics for
-    period: u32,
-}
-
-/// Response
-#[derive(Deserialize)]
-struct JsonResponse {
-    runs: Runs,
-}
-
-#[derive(Deserialize)]
-struct Runs {
-    success: u64,
-    error: u64,
-    total: u64,
-}
 
 /// Retrieves and displays run statistics for a specific function
 pub async fn stats(function_name: &str, project: &Project, period: u32) -> Result<()> {
-    // Get all function names without any additional manupulations.
+    // Get all function names without any additional manipulations.
     let all_functions = Parser::new(Some(&project.path))?
         .functions
         .into_iter()
@@ -50,7 +27,7 @@ pub async fn stats(function_name: &str, project: &Project, period: u32) -> Resul
 
     let response = client
         .post("/function/stats")
-        .json(&RequestBody {
+        .json(&func::stats::Request {
             project_name: project.name.to_owned(),
             function_name: function.name,
             period,
@@ -70,7 +47,7 @@ pub async fn stats(function_name: &str, project: &Project, period: u32) -> Resul
         return Err(Error::new("Failed to fetch statistics", Some("Try again later.")).into());
     }
 
-    let logs_response: JsonResponse = response.json().await.wrap_err(Error::new(
+    let logs_response: func::stats::Response = response.json().await.wrap_err(Error::new(
         "Invalid response from server",
         Some("Try again later."),
     ))?;

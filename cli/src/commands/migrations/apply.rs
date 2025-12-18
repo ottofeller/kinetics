@@ -1,4 +1,4 @@
-use crate::api::project::sqldb::{Request as ConnectRequest, Response as ConnectResponse};
+use crate::api::project;
 use crate::client::Client;
 use crate::migrations::Migrations;
 use crate::project::Project;
@@ -23,9 +23,9 @@ pub async fn apply(project: &Project, migrations_dir: &str) -> eyre::Result<()> 
 
     let response = Client::new(false)
         .await?
-        .request::<_, ConnectResponse>(
+        .request::<_, project::sqldb::connect::Response>(
             "/stack/sqldb/connect",
-            ConnectRequest {
+            project::sqldb::connect::Request {
                 project: project.name.clone(),
             },
         )

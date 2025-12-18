@@ -1,9 +1,9 @@
+use crate::api::auth;
 use crate::config::{api_url, build_config};
 use crate::error::Error;
 use chrono::{DateTime, Utc};
 use eyre::Context;
 use reqwest::StatusCode;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
@@ -11,23 +11,17 @@ use std::path::{Path, PathBuf};
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub(crate) struct Credentials {
     #[serde(skip)]
-    path: PathBuf,
+    pub(crate) path: PathBuf,
 
     pub(crate) email: String,
     pub(crate) token: String,
     pub(crate) expires_at: DateTime<Utc>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
-struct AuthInfoResponse {
-    email: String,
-    expires_at: DateTime<Utc>,
-}
-
 /// Managing credentials file
 impl Credentials {
     /// Fetch email and expires_at associated with the token
-    async fn fetch_info(token: &str) -> eyre::Result<AuthInfoResponse> {
+    async fn fetch_info(token: &str) -> eyre::Result<auth::info::Response> {
         let url = "/auth/info";
 
         // Can't use internal client here, as it will create recursion

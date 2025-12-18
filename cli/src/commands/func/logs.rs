@@ -1,26 +1,14 @@
-use crate::client::Client;
 use crate::error::Error;
 use crate::function::Function;
 use crate::project::Project;
+use crate::{api::func, client::Client};
 use chrono::{DateTime, Utc};
 use eyre::{Context, Result};
 use kinetics_parser::Parser;
-use serde::Deserialize;
-
-#[derive(Debug, Deserialize)]
-struct LogEvent {
-    timestamp: i64,
-    message: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct LogsResponse {
-    events: Vec<LogEvent>,
-}
 
 /// Retrieves and displays logs for a specific function
 pub async fn logs(function_name: &str, project: &Project, period: &Option<String>) -> Result<()> {
-    // Get all function names without any additional manupulations.
+    // Get all function names without any additional manipulations.
     let all_functions = Parser::new(Some(&project.path))?
         .functions
         .into_iter()
@@ -39,11 +27,11 @@ pub async fn logs(function_name: &str, project: &Project, period: &Option<String
 
     let response = client
         .post("/function/logs")
-        .json(&serde_json::json!({
-            "project_name": project.name,
-            "function_name": function.name,
-            "period": period,
-        }))
+        .json(&func::logs::Request {
+            project_name: project.name.clone(),
+            function_name: function.name.clone(),
+            period: period.to_owned(),
+        })
         .send()
         .await
         .wrap_err("Failed to send request to logs endpoint")?;
@@ -55,7 +43,7 @@ pub async fn logs(function_name: &str, project: &Project, period: &Option<String
         return Err(Error::new("Failed to fetch logs", Some("Try again later.")).into());
     }
 
-    let logs_response: LogsResponse = response.json().await.wrap_err(Error::new(
+    let logs_response: func::logs::Response = response.json().await.wrap_err(Error::new(
         "Invalid response from server",
         Some("Try again later."),
     ))?;

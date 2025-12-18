@@ -1,3 +1,4 @@
+use crate::api::func;
 use crate::client::Client;
 use crate::error::Error;
 use crate::function::Function;
@@ -6,7 +7,6 @@ use eyre::{Context, Result};
 use http::StatusCode;
 use kinetics_parser::Parser;
 use std::*;
-use crate::api::func::toggle;
 
 /// Adds/removes throttling from a function.
 ///
@@ -14,7 +14,7 @@ use crate::api::func::toggle;
 /// - For start operation the function starts receiving requests.
 /// - For stop operation the function stop receiving requests
 /// and the endpoint starts responding "Service Unavailable".
-pub async fn toggle(function_name: &str, project: &Project, op: toggle::Op) -> Result<()> {
+pub async fn toggle(function_name: &str, project: &Project, op: func::toggle::Op) -> Result<()> {
     // Get all function names without any additional manupulations.
     let all_functions = Parser::new(Some(&project.path))?
         .functions
@@ -33,7 +33,7 @@ pub async fn toggle(function_name: &str, project: &Project, op: toggle::Op) -> R
 
     let response = client
         .post("/function/toggle")
-        .json(&toggle::Request {
+        .json(&func::toggle::Request {
             project_name: project.name.clone(),
             function_name: function.name,
             operation: op.clone(),
@@ -56,8 +56,8 @@ pub async fn toggle(function_name: &str, project: &Project, op: toggle::Op) -> R
                 console::style(format!(
                     "Nothing changed. Function is {} throttled.",
                     match op {
-                        toggle::Op::Start => "not",
-                        toggle::Op::Stop => "already",
+                        func::toggle::Op::Start => "not",
+                        func::toggle::Op::Stop => "already",
                     }
                 ))
                 .yellow(),
@@ -66,10 +66,9 @@ pub async fn toggle(function_name: &str, project: &Project, op: toggle::Op) -> R
             Ok(())
         }
         StatusCode::FORBIDDEN => {
-            let toggle::Response { reason, .. } = response.json().await.wrap_err(Error::new(
-                "Invalid response from server",
-                Some("Try again later."),
-            ))?;
+            let func::toggle::Response { reason, .. } = response.json().await.wrap_err(
+                Error::new("Invalid response from server", Some("Try again later.")),
+            )?;
 
             println!(
                 "{}",

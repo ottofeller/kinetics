@@ -1,13 +1,7 @@
-use crate::client::Client;
 use crate::error::Error;
+use crate::{api::auth, client::Client};
 use crossterm::style::Stylize;
 use eyre::{Context, Result};
-use serde::Deserialize;
-
-#[derive(Debug, Deserialize)]
-struct TokenResponse {
-    token: String,
-}
 
 /// Creates a new authentication token
 pub async fn token(period: &Option<String>) -> Result<()> {
@@ -16,7 +10,9 @@ pub async fn token(period: &Option<String>) -> Result<()> {
 
     let response = client
         .post("/auth/token/create")
-        .json(&serde_json::json!({"period": period}))
+        .json(&auth::token::create::Request {
+            period: period.to_owned(),
+        })
         .send()
         .await
         .wrap_err("Failed to call token creation endpoint")?;
@@ -35,7 +31,7 @@ pub async fn token(period: &Option<String>) -> Result<()> {
     }
 
     let token = response
-        .json::<TokenResponse>()
+        .json::<auth::token::create::Response>()
         .await
         .inspect_err(|e| log::error!("Failed to parse token response: {}", e))
         .wrap_err(Error::new(

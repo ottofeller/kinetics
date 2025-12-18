@@ -1,14 +1,13 @@
-use crate::config::api_url;
 use crate::credentials::Credentials;
 use crate::error::Error;
 use crate::project::Project;
+use crate::{api::auth, config::api_url};
 use crossterm::{
     event::{self, Event, KeyCode},
     terminal::{disable_raw_mode, enable_raw_mode},
 };
 use eyre::Context;
 use regex::Regex;
-use serde_json::json;
 use std::io::{self, Write};
 
 /// Request auth code and exchange it for access token
@@ -18,7 +17,9 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
 
     let response = client
         .post(api_url("/auth/code/request"))
-        .json(&json!({ "email": email }))
+        .json(&auth::code::request::Request {
+            email: email.to_owned(),
+        })
         .send()
         .await
         .wrap_err(Error::new(
@@ -43,7 +44,10 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
 
     let response = client
         .post(api_url("/auth/code/exchange"))
-        .json(&json!({ "email": email, "code": code }))
+        .json(&auth::code::exchange::Request {
+            email: email.to_owned(),
+            code: code.to_owned(),
+        })
         .send()
         .await
         .wrap_err(Error::new(
@@ -67,7 +71,7 @@ async fn request(email: &str) -> eyre::Result<Credentials> {
     // overlapping settings.
     Project::clear_cache()?;
 
-    Ok(response.json::<Credentials>().await?)
+    Ok(response.json().await?)
 }
 
 /// Obtains the access token
