@@ -218,6 +218,7 @@ enum Commands {
         functions: Vec<String>,
     },
 
+    /// Database migrations
     Migrations {
         #[command(subcommand)]
         command: Option<MigrationsCommands>,
