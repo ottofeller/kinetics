@@ -36,9 +36,13 @@ Deploy REST API endpoints, queue workers, and cron jobs.
 
 Run your functions locally, with no connection to the internet. Requests to DB and queues are served locally as well.
 
-💿 **Comes with DB**
+💿 **Comes with SQL database**
 
-For every project we provision a DB, with connection string being added to function config automatically.
+For every project we provision a SQL DB, with connection string being added to function config automatically.
+
+🗃️ **Database migrations**
+
+SQL migrations are built-in and require no additional configuration. They are applied automatically when a function is invoked locally.
 
 📥 **Comes with queues**
 
@@ -49,6 +53,7 @@ When you launch a worker function, we automatically provision its queue. Other f
 Automatically provision secrets from `.env.secrets` file and make it available in your functions.
 
 📚 **Logs**
+
 Monitor your functions with just CLI. Each function gets its own stream of logs.
 
 🤖 **No infrastructure management**
