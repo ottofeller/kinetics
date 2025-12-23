@@ -48,7 +48,7 @@ enum TokensCommands {
     /// Create a new authentication token
     Create {
         /// Time period for which the token is active (e.g. `1day`, or `3hours`, or `5d`).
-        /// 
+        ///
         /// Defaults to 30days.
         ///
         #[arg(short, long)]
