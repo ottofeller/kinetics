@@ -53,6 +53,9 @@ enum TokensCommands {
         ///
         #[arg(short, long)]
         period: Option<String>,
+
+        /// Unique name for the token, across project.
+        name: String,
     },
 }
 
@@ -377,10 +380,10 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         Some(Commands::Auth {
             command:
                 Some(AuthCommands::Tokens {
-                    command: Some(TokensCommands::Create { period }),
+                    command: Some(TokensCommands::Create { name, period }),
                 }),
         }) => {
-            return commands::auth::token::create(period)
+            return commands::auth::token::create(&name, period)
                 .await
                 .map_err(Error::from);
         }
