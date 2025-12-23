@@ -44,13 +44,10 @@ enum MigrationsCommands {
 }
 
 #[derive(Subcommand)]
-enum AuthCommands {
-    /// Delete local access token locally and remotely
-    Logout {},
-
+enum TokensCommands {
     /// Create a new authentication token
-    Token {
-        /// Time period for which the token is active.
+    Create {
+        /// Time period for which the token is active (e.g. `1day`, or `3hours`, or `5d`).
         ///
         /// The period object (e.g. `1day 3hours`) is a concatenation of time spans.
         /// Where each time span is an integer number and a suffix representing time units.
@@ -59,6 +56,18 @@ enum AuthCommands {
         ///
         #[arg(short, long)]
         period: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum AuthCommands {
+    /// Delete local access token locally and remotely
+    Logout {},
+
+    /// Authentication token management
+    Tokens {
+        #[command(subcommand)]
+        command: Option<TokensCommands>,
     },
 }
 
@@ -369,7 +378,10 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             return commands::auth::logout::logout().await.map_err(Error::from);
         }
         Some(Commands::Auth {
-            command: Some(AuthCommands::Token { period }),
+            command:
+                Some(AuthCommands::Tokens {
+                    command: Some(TokensCommands::Create { period }),
+                }),
         }) => {
             return commands::auth::token::create(period)
                 .await
