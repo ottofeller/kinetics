@@ -48,10 +48,7 @@ enum TokensCommands {
     /// Create a new authentication token
     Create {
         /// Time period for which the token is active (e.g. `1day`, or `3hours`, or `5d`).
-        ///
-        /// The period object (e.g. `1day 3hours`) is a concatenation of time spans.
-        /// Where each time span is an integer number and a suffix representing time units.
-        ///
+        /// 
         /// Defaults to 30days.
         ///
         #[arg(short, long)]
