@@ -23,7 +23,7 @@ impl ValidateRequest for Request {
         }
 
         // Name
-        if !Regex::new(r"^[a-zA-Z\-]+$")
+        if !Regex::new(r"^[a-zA-Z\-]{2,32}$")
             .expect("Failed to init regexp")
             .is_match(&self.name)
         {
