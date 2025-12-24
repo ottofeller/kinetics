@@ -1,5 +1,5 @@
 use crate::credentials::Credentials;
-use chrono::DateTime;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -13,7 +13,7 @@ pub struct Request {
 pub struct Response {
     pub email: String,
     pub token: String,
-    pub expires_at: String,
+    pub expires_at: DateTime<Utc>,
 }
 
 impl TryFrom<Response> for Credentials {
@@ -24,7 +24,7 @@ impl TryFrom<Response> for Credentials {
             path: PathBuf::new(),
             email: value.email,
             token: value.token,
-            expires_at: DateTime::parse_from_rfc3339(&value.expires_at)?.to_utc(),
+            expires_at: value.expires_at,
         })
     }
 }

@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::*;
 
@@ -26,7 +27,7 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Response {
     /// Datetime when throttling was applied
-    pub throttled_at: String,
+    pub throttled_at: DateTime<Utc>,
 
     /// The reason for throttling,
     /// e.g. user request or account limit.
