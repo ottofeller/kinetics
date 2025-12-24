@@ -32,7 +32,7 @@ pub async fn invoke(
     } else {
         format!(
             "{}/{}",
-            Project::fetch_one(&function.project.name).await?.url,
+            Project::fetch_one(&function.project.name).await?.url(),
             url_path.unwrap()
         )
     };
