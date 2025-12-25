@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::api::request::ValidateRequest;
+use crate::api::request::Validate;
 use crate::{api::auth, client::Client};
 use crossterm::style::Stylize;
 use eyre::{Context, Result};

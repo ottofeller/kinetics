@@ -1,7 +1,5 @@
 /// Validate fields of a http request struct
-pub(crate) trait ValidateRequest {
-    /// Validate Request fields
-    ///
+pub(crate) trait Validate {
     /// Returns vector of errors or None if all valid
     fn validate(&self) -> Option<Vec<String>>;
 }

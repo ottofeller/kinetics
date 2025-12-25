@@ -1,4 +1,4 @@
-use crate::api::request::ValidateRequest;
+use crate::api::request::Validate;
 use chrono::{DateTime, Utc};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -9,7 +9,7 @@ pub struct Request {
     pub name: String,
 }
 
-impl ValidateRequest for Request {
+impl Validate for Request {
     fn validate(&self) -> Option<Vec<String>> {
         let mut errors = Vec::new();
 
