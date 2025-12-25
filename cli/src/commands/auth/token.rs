@@ -1,18 +1,26 @@
+use crate::api::request::Validate;
 use crate::error::Error;
 use crate::{api::auth, client::Client};
 use crossterm::style::Stylize;
 use eyre::{Context, Result};
 
 /// Creates a new authentication token
-pub async fn token(period: &Option<String>) -> Result<()> {
+pub async fn create(name: &str, period: &Option<String>) -> Result<()> {
     let client = Client::new(false).await?;
     println!("\n{}...", "Requesting new access token".bold().green());
 
+    let request = auth::token::create::Request {
+        name: name.into(),
+        period: period.to_owned(),
+    };
+
+    if let Some(errors) = request.validate() {
+        return Err(Error::new("Validation failed", Some(&errors.join("\n"))).into());
+    }
+
     let response = client
         .post("/auth/token/create")
-        .json(&auth::token::create::Request {
-            period: period.to_owned(),
-        })
+        .json(&request)
         .send()
         .await
         .wrap_err("Failed to call token creation endpoint")?;
