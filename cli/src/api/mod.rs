@@ -3,5 +3,6 @@ pub mod envs;
 pub mod func;
 pub mod project;
 pub mod projects;
+pub(crate) mod request;
 pub mod stack;
 pub mod upload;
