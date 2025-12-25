@@ -1,4 +1,4 @@
-use crate::request::ValidateRequest;
+use crate::api::request::ValidateRequest;
 use chrono::{DateTime, Utc};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
