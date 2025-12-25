@@ -28,7 +28,7 @@ impl Validate for Request {
             .is_match(&self.name)
         {
             errors.push(format!(
-                "Invalid \"name\". Must be (a-z, A-Z) and hyphens (-)",
+                "Invalid \"name\". Must be 2-32 characters long and contain only letters (a-z, A-Z) and hyphens (-).",
             ));
         }
 
