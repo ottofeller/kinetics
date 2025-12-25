@@ -103,7 +103,7 @@ pub async fn list() -> Result<()> {
             console::style(&token.name).bold(),
             console::style(format!(
                 "Expires at {}",
-                expires_at_local.format("%d %b %Y %H:%M:%S").to_string()
+                expires_at_local.format("%d %b %Y %H:%M:%S")
             ))
             .dim(),
         );
