@@ -54,7 +54,7 @@ enum TokensCommands {
         #[arg(short, long)]
         period: Option<String>,
 
-        /// Unique name for the token, across project.
+        /// Unique name for the token, across the project.
         name: String,
     },
 }
