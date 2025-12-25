@@ -1,3 +1,4 @@
+/// Validate fields of a http request struct
 pub(crate) trait ValidateRequest {
     /// Validate Request fields
     ///
