@@ -203,7 +203,7 @@ enum Commands {
     /// Deploy your functions
     Deploy {
         /// Maximum number of parallel concurrent builds
-        #[arg(short, long, default_value_t = 10)]
+        #[arg(short, long, default_value_t = 3)]
         max_concurrency: usize,
 
         /// Deploy only environment variables instead of full deployment
