@@ -14,10 +14,8 @@ pub async fn create(name: &str, period: &Option<String>) -> Result<()> {
         period: period.to_owned(),
     };
 
-    let errors = request.validate();
-
-    if errors.is_some() {
-        return Err(Error::new("Validation failed", Some(&errors.unwrap().join("\n"))).into());
+    if let Some(errors) = request.validate() {
+        return Err(Error::new("Validation failed", Some(&errors.join("\n"))).into());
     }
 
     let response = client
