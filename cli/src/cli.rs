@@ -57,6 +57,9 @@ enum TokensCommands {
         /// Unique name for the token, across the project.
         name: String,
     },
+
+    /// List all authentication tokens
+    List {},
 }
 
 #[derive(Subcommand)]
@@ -386,6 +389,14 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
             return commands::auth::token::create(&name, period)
                 .await
                 .map_err(Error::from);
+        }
+        Some(Commands::Auth {
+            command:
+                Some(AuthCommands::Tokens {
+                    command: Some(TokensCommands::List {}),
+                }),
+        }) => {
+            return commands::auth::token::list().await.map_err(Error::from);
         }
         _ => Ok(()),
     }?;
