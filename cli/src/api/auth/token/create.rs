@@ -16,9 +16,9 @@ impl Validate for Request {
         // Period
         if let Some(period) = &self.period {
             if humantime::parse_duration(period).is_err() {
-                errors.push(format!(
-                    "Invalid \"period\". Expected a duration like '1h', '30m', '7d', etc.",
-                ));
+                errors.push(
+                    "Invalid \"period\". Expected a duration like '1h', '30m', '7d', etc.".into(),
+                );
             }
         }
 
