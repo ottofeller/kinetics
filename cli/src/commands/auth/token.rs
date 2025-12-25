@@ -56,6 +56,7 @@ pub async fn create(name: &str, period: &Option<String>) -> Result<()> {
 /// Fetch and list all access tokens
 pub async fn list() -> Result<()> {
     let client = Client::new(false).await?;
+
     println!(
         "\n{}...\n",
         console::style("Fetching access tokens").bold().green()
