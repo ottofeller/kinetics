@@ -10,7 +10,7 @@ pub async fn create(name: &str, period: &Option<String>) -> Result<()> {
     let client = Client::new(false).await?;
     println!("\n{}...", "Requesting new access token".bold().green());
 
-    let request = auth::token::create::Request {
+    let request = auth::tokens::create::Request {
         name: name.into(),
         period: period.to_owned(),
     };
@@ -20,7 +20,7 @@ pub async fn create(name: &str, period: &Option<String>) -> Result<()> {
     }
 
     let response = client
-        .post("/auth/token/create")
+        .post("/auth/tokens/create")
         .json(&request)
         .send()
         .await
@@ -40,7 +40,7 @@ pub async fn create(name: &str, period: &Option<String>) -> Result<()> {
     }
 
     let token = response
-        .json::<auth::token::create::Response>()
+        .json::<auth::tokens::create::Response>()
         .await
         .inspect_err(|e| log::error!("Failed to parse token response: {}", e))
         .wrap_err(Error::new(
@@ -82,7 +82,7 @@ pub async fn list() -> Result<()> {
     }
 
     let tokens = response
-        .json::<auth::token::list::Response>()
+        .json::<auth::tokens::list::Response>()
         .await
         .inspect_err(|e| log::error!("Failed to parse tokens response: {}", e))
         .wrap_err(Error::new(

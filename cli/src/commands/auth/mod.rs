@@ -1,2 +1,2 @@
 pub(crate) mod logout;
-pub(crate) mod token;
+pub(crate) mod tokens;
