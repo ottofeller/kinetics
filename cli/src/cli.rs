@@ -45,7 +45,7 @@ enum MigrationsCommands {
 
 #[derive(Subcommand)]
 enum TokensCommands {
-    /// Create a new authentication token
+    /// Create a new access token
     Create {
         /// Time period for which the token is active (e.g. `1day`, or `3hours`, or `5d`).
         ///
@@ -54,11 +54,11 @@ enum TokensCommands {
         #[arg(short, long)]
         period: Option<String>,
 
-        /// Unique name for the token, across the project.
+        /// Unique name for the access token, across the project.
         name: String,
     },
 
-    /// List all authentication tokens
+    /// List all access tokens
     List {},
 }
 
@@ -67,7 +67,7 @@ enum AuthCommands {
     /// Delete local access token locally and remotely
     Logout {},
 
-    /// Authentication token management
+    /// Access tokens management
     Tokens {
         #[command(subcommand)]
         command: Option<TokensCommands>,
