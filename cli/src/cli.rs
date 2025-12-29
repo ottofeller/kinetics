@@ -301,8 +301,9 @@ enum Commands {
         url_path: Option<String>,
 
         /// Must be a valid JSON.
+        /// 
         /// In case of endpoint functions payload is a body.
-        /// In case of workers payload is queue event payload.
+        /// In case of workers, payload is a single event of a queue, which will be wrapped in array and passed to worker function.
         ///
         /// Example: --payload '{"name": "John Smith"}'
         #[arg(short, long)]
