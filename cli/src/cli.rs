@@ -6,7 +6,9 @@ use crate::function::Type as FunctionType;
 use crate::logger::Logger;
 use crate::project::Project;
 use clap::{ArgAction, Parser, Subcommand};
-use eyre::{Ok, WrapErr};
+use crossterm::style::Stylize;
+use eyre::{eyre, Ok, WrapErr};
+use std::io::{stdin, stdout, Write};
 use std::sync::Arc;
 
 #[derive(Parser)]
@@ -60,6 +62,12 @@ enum TokensCommands {
 
     /// List all access tokens
     List {},
+
+    /// Delete an access token
+    Delete {
+        /// Name of the access token to delete
+        name: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -301,7 +309,7 @@ enum Commands {
         url_path: Option<String>,
 
         /// Must be a valid JSON.
-        /// 
+        ///
         /// In case of endpoint functions payload is a body.
         /// In case of workers, payload is a single event of a queue, which will be wrapped in array and passed to worker function.
         ///
@@ -398,6 +406,35 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 }),
         }) => {
             return commands::auth::tokens::list().await.map_err(Error::from);
+        }
+        Some(Commands::Auth {
+            command:
+                Some(AuthCommands::Tokens {
+                    command: Some(TokensCommands::Delete { name }),
+                }),
+        }) => {
+            // Ask for confirmation
+            print!(
+                "\nDelete access token {}? {} ",
+                name.clone().bold(),
+                "[y/N]".dim()
+            );
+
+            stdout().flush().map_err(|e| Error::from(eyre!(e)))?;
+            let mut input = String::new();
+
+            stdin()
+                .read_line(&mut input)
+                .map_err(|e| Error::from(eyre!(e)))?;
+
+            if !matches!(input.trim().to_lowercase().as_ref(), "y" | "yes") {
+                println!("{}", "Canceled".yellow());
+                return std::result::Result::Ok(());
+            }
+
+            return commands::auth::tokens::delete(&name)
+                .await
+                .map_err(Error::from);
         }
         _ => Ok(()),
     }?;

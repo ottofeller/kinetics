@@ -112,3 +112,37 @@ pub async fn list() -> Result<()> {
 
     Ok(())
 }
+
+/// Deletes an access token
+pub async fn delete(name: &str) -> Result<()> {
+    let client = Client::new(false).await?;
+    println!("\n{}...", "Deleting access token".bold().green());
+    let request = auth::tokens::delete::Request { name: name.into() };
+
+    if let Some(errors) = request.validate() {
+        return Err(Error::new("Validation failed", Some(&errors.join("\n"))).into());
+    }
+
+    let response = client
+        .post("/auth/tokens/delete")
+        .json(&request)
+        .send()
+        .await
+        .wrap_err("Failed to call token deletion endpoint")?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let error_text = response.text().await.unwrap_or("Unknown error".to_string());
+
+        log::error!(
+            "Failed to delete token from API ({}): {}",
+            status,
+            error_text
+        );
+
+        return Err(Error::new("Failed to delete token", Some("Try again later.")).into());
+    }
+
+    println!("{}", console::style("Deleted successfully").green());
+    Ok(())
+}
