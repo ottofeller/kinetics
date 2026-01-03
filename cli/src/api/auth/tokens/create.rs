@@ -1,6 +1,6 @@
+use crate::api::auth::tokens::validators;
 use crate::api::request::Validate;
 use chrono::{DateTime, Utc};
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -23,13 +23,8 @@ impl Validate for Request {
         }
 
         // Name
-        if !Regex::new(r"^[a-zA-Z\-]{2,32}$")
-            .expect("Failed to init regexp")
-            .is_match(&self.name)
-        {
-            errors.push(
-                "Invalid \"name\". Must be 2-32 characters long and contain only letters (a-z, A-Z) and hyphens (-).".into(),
-            );
+        if !validators::Name::validate(&self.name) {
+            errors.push(validators::Name::message());
         }
 
         if !errors.is_empty() {
