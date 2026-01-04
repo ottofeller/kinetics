@@ -1,11 +1,15 @@
 use regex::Regex;
+use once_cell::sync::Lazy;
+
+static NAME_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^[a-zA-Z\-]{2,32}$").expect("Failed to init regexp")
+});
+
 pub(crate) struct Name;
 
 impl Name {
     pub fn validate(name: &str) -> bool {
-        Regex::new(r"^[a-zA-Z\-]{2,32}$")
-            .expect("Failed to init regexp")
-            .is_match(name)
+        NAME_REGEX.is_match(name)
     }
 
     pub fn message() -> String {
