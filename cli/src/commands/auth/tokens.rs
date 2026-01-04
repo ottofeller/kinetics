@@ -131,16 +131,22 @@ pub async fn delete(name: &str) -> Result<()> {
         .wrap_err("Failed to call token deletion endpoint")?;
 
     if !response.status().is_success() {
-        let status = response.status();
-        let error_text = response.text().await.unwrap_or("Unknown error".to_string());
+        let response: serde_json::Value = response.json().await.wrap_err(Error::new(
+            "Invalid response from server",
+            Some("Try again later."),
+        ))?;
 
-        log::error!(
-            "Failed to delete token from API ({}): {}",
-            status,
-            error_text
-        );
-
-        return Err(Error::new("Failed to delete token", Some("Try again later.")).into());
+        return Err(Error::new(
+            "Failed to delete token",
+            Some(
+                response
+                    .get("error")
+                    .unwrap_or(&serde_json::Value::Null)
+                    .as_str()
+                    .unwrap_or("Unknown error"),
+            ),
+        )
+        .into());
     }
 
     println!("{}", console::style("Deleted successfully").green());
