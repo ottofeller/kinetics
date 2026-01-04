@@ -115,8 +115,12 @@ pub async fn list() -> Result<()> {
 
 /// Deletes an access token
 pub async fn delete(name: &str) -> Result<()> {
+    println!(
+        "\n{}...",
+        console::style("Deleting access token").bold().green()
+    );
+
     let client = Client::new(false).await?;
-    println!("\n{}...", "Deleting access token".bold().green());
     let request = auth::tokens::delete::Request { name: name.into() };
 
     if let Some(errors) = request.validate() {
@@ -149,6 +153,6 @@ pub async fn delete(name: &str) -> Result<()> {
         .into());
     }
 
-    println!("{}", console::style("Deleted successfully").green());
+    println!("\n{}", console::style("Deleted").green().bold());
     Ok(())
 }
