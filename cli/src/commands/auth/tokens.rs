@@ -2,13 +2,16 @@ use crate::api::request::Validate;
 use crate::error::Error;
 use crate::{api::auth, client::Client};
 use chrono::{DateTime, Local};
-use crossterm::style::Stylize;
 use eyre::{Context, Result};
 
 /// Creates a new authentication token
 pub async fn create(name: &str, period: &Option<String>) -> Result<()> {
+    println!(
+        "\n{}...",
+        console::style("Requesting new access token").bold().green()
+    );
+
     let client = Client::new(false).await?;
-    println!("\n{}...", "Requesting new access token".bold().green());
 
     let request = auth::tokens::create::Request {
         name: name.into(),
