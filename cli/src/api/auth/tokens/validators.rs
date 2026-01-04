@@ -1,9 +1,8 @@
-use regex::Regex;
 use once_cell::sync::Lazy;
+use regex::Regex;
 
-static NAME_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^[a-zA-Z\-]{2,32}$").expect("Failed to init regexp")
-});
+static NAME_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^[a-zA-Z\-]{2,32}$").expect("Failed to init regexp"));
 
 pub(crate) struct Name;
 
