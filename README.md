@@ -153,7 +153,7 @@ Alternatively store the secrets in environment variables starting with `KINETICS
 
 We automatically provision one SQL DB for each project. Also `kinetics invoke --with-db [Function name]` will automatically provision DB locally and replace the connection string with local endpoint.
 
-You can then interact with it like you normally interact with DynamoDB, [example](https://github.com/ottofeller/kinetics/blob/main/examples/src/database.rs).
+You can then interact with it like you normally interact with a SQL DB, [example](https://github.com/ottofeller/kinetics/blob/main/examples/src/database.rs).
 
 ### Examples
 
@@ -183,6 +183,12 @@ Invoke a function which needs a DB. DB gets provisioned locally and is fully ope
 kinetics invoke DatabaseDatabase --with-db
 ```
 
+Invoke a function with a DB and applied migrations. The migrations are pulled from `migrations` folder within the project by default, or one can provide a custom path.
+
+```sh
+kinetics invoke DatabaseDatabase --with-db --with-migrations my-migrations
+```
+
 Deploy entire project:
 
 ```sh
@@ -205,6 +211,19 @@ Invoke a function remotely by automatically resolving function's name into the U
 
 ```sh
 kinetics invoke DatabaseDatabase --remote
+```
+
+Create a DB migration file:
+
+```sh
+kinetics migrations create init
+# Creates ./migrations/20251124125730_init.up.sql
+```
+
+Apply DB migrations from a local folder to the production DB:
+
+```sh
+kinetics migrations apply
 ```
 
 Output logs for a function:
