@@ -94,7 +94,7 @@ impl<'a> Migrations<'a> {
 
         // Start a transaction for DML statements
         let mut tx = connection.begin().await?;
-        println!("");
+        println!();
 
         for migration in parsed_others {
             println!(

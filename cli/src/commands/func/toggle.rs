@@ -13,7 +13,7 @@ use std::*;
 /// The actual operation is provided as the third argument.
 /// - For start operation the function starts receiving requests.
 /// - For stop operation the function stop receiving requests
-/// and the endpoint starts responding "Service Unavailable".
+///   and the endpoint starts responding "Service Unavailable".
 pub async fn toggle(function_name: &str, project: &Project, op: func::toggle::Op) -> Result<()> {
     // Get all function names without any additional manupulations.
     let all_functions = Parser::new(Some(&project.path))?

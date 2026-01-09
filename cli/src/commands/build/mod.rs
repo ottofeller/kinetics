@@ -106,7 +106,7 @@ pub fn prepare_functions(
 fn clone(src: &Path, dst: &Path, checksum: &mut FileHash) -> eyre::Result<()> {
     fs::create_dir_all(dst).wrap_err("Failed to create dir to clone the project to")?;
 
-    let skip_paths = vec![
+    let skip_paths = [
         // Skip the target dir, cargo lambda use it (if exist) for incremental builds.
         src.join("target"),
         src.join(".git"),
