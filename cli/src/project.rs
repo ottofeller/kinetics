@@ -66,7 +66,7 @@ impl Project {
     pub async fn fetch_all() -> eyre::Result<Vec<Self>> {
         Cache::new()
             .await
-            .map(|cache| cache.projects.values().cloned().collect())
+            .map(|cache| cache.projects.into_values().collect())
     }
 
     pub fn clear_cache() -> eyre::Result<()> {
@@ -180,7 +180,7 @@ impl Project {
     ///
     /// For example API Gateway are case sensitive.
     pub fn url(&self) -> String {
-        self.url.clone().to_lowercase()
+        self.url.to_lowercase()
     }
 }
 
