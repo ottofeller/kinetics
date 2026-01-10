@@ -2,7 +2,7 @@ use crate::client::Client;
 use crate::function::Function;
 use crate::project::Project;
 use color_eyre::owo_colors::OwoColorize;
-use kinetics_parser::{ParsedFunction, Parser, Role};
+use kinetics_parser::{Endpoint, ParsedFunction, Parser, Role};
 use serde_json::Value;
 use std::collections::HashMap;
 use tabled::settings::{peaker::Priority, style::Style, Settings, Width};
@@ -110,12 +110,9 @@ pub fn display_simple(function: &ParsedFunction, project_base_url: &str) -> eyre
     );
 
     match function.role.clone() {
-        Role::Endpoint(params) => {
-            if let Some(url_path) = params.url_path {
-                println!("{}", format!("{}{}", project_base_url, url_path).cyan());
-            }
+        Role::Endpoint(Endpoint { url_path, .. }) => {
+            println!("{}", format!("{project_base_url}{url_path}").cyan());
         }
-
         Role::Cron(params) => println!("{} {}", "Scheduled".dimmed(), params.schedule.cyan()),
         Role::Worker(_) => {}
     }
@@ -203,11 +200,7 @@ pub async fn list(project: &Project, is_verbose: bool) -> eyre::Result<()> {
                 endpoint_rows.push(EndpointRow {
                     function: format_function_and_path(&function.name, &func_path),
                     environment: format_environment(&format!("{:?}", params.environment)),
-                    url_path: format!(
-                        "{}{}",
-                        project_base_url,
-                        params.url_path.unwrap_or("".to_string())
-                    ),
+                    url_path: format!("{}{}", project_base_url, params.url_path),
                     last_modified,
                 });
             }

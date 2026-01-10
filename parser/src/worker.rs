@@ -13,38 +13,49 @@ pub struct Worker {
     pub environment: Environment,
 }
 
-impl Default for Worker {
-    fn default() -> Self {
-        Worker {
-            name: None,
-            concurrency: 1,
-            fifo: false,
-            environment: Environment::new(),
-        }
-    }
-}
-
 impl Parse for Worker {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut worker = Worker::default();
+        let mut name = None;
+        let mut concurrency = None;
+        let mut fifo = None;
+        let mut environment = None;
 
         while !input.is_empty() {
+            let ident_span = input.span();
             let ident: Ident = input.parse()?;
             input.parse::<token::Eq>()?;
 
             match ident.to_string().as_str() {
                 "name" => {
-                    worker.name = Some(input.parse::<LitStr>()?.value());
+                    if name.is_some() {
+                        return Err(syn::Error::new(ident_span, "Duplicate attribute `name`"));
+                    }
+                    name = Some(input.parse::<LitStr>()?.value());
                 }
                 "environment" => {
-                    worker.environment = parse_environment(input)?;
+                    if environment.is_some() {
+                        return Err(syn::Error::new(
+                            ident_span,
+                            "Duplicate attribute `environment`",
+                        ));
+                    }
+                    environment = Some(parse_environment(input)?);
                 }
                 "concurrency" => {
-                    worker.concurrency = input.parse::<LitInt>()?.base10_parse::<u32>()?;
+                    if concurrency.is_some() {
+                        return Err(syn::Error::new(
+                            ident_span,
+                            "Duplicate attribute `concurrency`",
+                        ));
+                    }
+                    concurrency = Some(input.parse::<LitInt>()?.base10_parse::<u32>()?);
                 }
                 "fifo" => {
-                    worker.fifo = match input.parse::<LitBool>() {
-                        Ok(bool) => bool.value,
+                    if fifo.is_some() {
+                        return Err(syn::Error::new(ident_span, "Duplicate attribute `fifo`"));
+                    }
+                    fifo = match input.parse::<LitBool>() {
+                        Ok(bool) => Some(bool.value),
                         Err(_) => {
                             return Err(input.error("expected boolean value for 'fifo'"));
                         }
@@ -59,6 +70,11 @@ impl Parse for Worker {
             }
         }
 
-        Ok(worker)
+        Ok(Self {
+            name,
+            concurrency: concurrency.unwrap_or(1),
+            fifo: fifo.unwrap_or_default(),
+            environment: environment.unwrap_or_default(),
+        })
     }
 }

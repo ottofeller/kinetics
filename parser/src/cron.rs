@@ -15,21 +15,37 @@ pub struct Cron {
 impl Parse for Cron {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut name = None;
-        let mut environment = Environment::default();
+        let mut environment = None;
         let mut schedule = None;
 
         while !input.is_empty() {
+            let ident_span = input.span();
             let ident: Ident = input.parse()?;
             input.parse::<token::Eq>()?;
 
             match ident.to_string().as_str() {
                 "name" => {
+                    if name.is_some() {
+                        return Err(syn::Error::new(ident_span, "Duplicate attribute `name`"));
+                    }
                     name = Some(input.parse::<LitStr>()?.value());
                 }
                 "environment" => {
-                    environment = parse_environment(input)?;
+                    if environment.is_some() {
+                        return Err(syn::Error::new(
+                            ident_span,
+                            "Duplicate attribute `environment`",
+                        ));
+                    }
+                    environment = Some(parse_environment(input)?);
                 }
                 "schedule" => {
+                    if schedule.is_some() {
+                        return Err(syn::Error::new(
+                            ident_span,
+                            "Duplicate attribute `schedule`",
+                        ));
+                    }
                     schedule = Some(input.parse::<LitStr>()?.value());
                 }
                 // Ignore unknown attributes
@@ -41,14 +57,11 @@ impl Parse for Cron {
             }
         }
 
-        let Some(schedule) = schedule else {
-            return Err(input.error("Cron validation failed: no schedule provided"));
-        };
-
         Ok(Cron {
             name,
-            environment,
-            schedule,
+            environment: environment.unwrap_or_default(),
+            schedule: schedule
+                .ok_or_else(|| input.error("Cron validation failed: no schedule provided"))?,
         })
     }
 }

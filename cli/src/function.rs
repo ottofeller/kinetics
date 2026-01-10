@@ -5,7 +5,7 @@ use crate::project::Project;
 use crate::{api::func, client::Client};
 use base64::Engine as _;
 use crc_fast::{CrcAlgorithm::Crc64Nvme, Digest};
-use eyre::{eyre, ContextCompat, OptionExt, WrapErr};
+use eyre::{eyre, ContextCompat, WrapErr};
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -138,10 +138,9 @@ impl Function {
     /// Only relevant for endpoint type of functions.
     pub async fn url(&self) -> eyre::Result<String> {
         let url_path = match &self.role {
-            Role::Endpoint(endpoint) => endpoint.url_path.clone(),
-            _ => None,
-        }
-        .ok_or_eyre("No URL path specified for the function (not an endpoint?)")?;
+            Role::Endpoint(endpoint) => Ok(&endpoint.url_path),
+            _ => Err(eyre!("Not an endpoint")),
+        }?;
 
         Ok(format!(
             "{}{}",
