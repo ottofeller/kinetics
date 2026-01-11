@@ -27,7 +27,7 @@ pub fn workflow(project: &Project) -> eyre::Result<()> {
     };
 
     let rel_path = match project.path.strip_prefix(&git_root)?.to_str() {
-        Some(rel_path) if rel_path.is_empty() => ".",
+        Some("") => ".",
         Some(rel_path) => rel_path,
         None => {
             return Err(Error::new(

@@ -395,7 +395,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                     command: Some(TokensCommands::Create { name, period }),
                 }),
         }) => {
-            return commands::auth::tokens::create(&name, period)
+            return commands::auth::tokens::create(name, period)
                 .await
                 .map_err(Error::from);
         }
@@ -432,7 +432,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 return std::result::Result::Ok(());
             }
 
-            return commands::auth::tokens::delete(&name)
+            return commands::auth::tokens::delete(name)
                 .await
                 .map_err(Error::from);
         }
