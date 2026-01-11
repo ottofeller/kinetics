@@ -5,11 +5,11 @@ use lambda_runtime::Error;
 /// Configuration of an endpoint lambda
 #[derive(Clone, Debug)]
 pub struct EndpointConfig {
-    pub url_pattern: Option<String>,
+    pub url_pattern: String,
 }
 
 impl EndpointConfig {
-    pub fn new(url_pattern: &Option<String>) -> Self {
+    pub fn new(url_pattern: &str) -> Self {
         Self {
             url_pattern: url_pattern.to_owned(),
         }
@@ -18,14 +18,7 @@ impl EndpointConfig {
 
 impl std::fmt::Display for EndpointConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "EndpointConfig {{ url_pattern: {}}}",
-            match self.url_pattern.clone() {
-                Some(url_pattern) => format!("Some(\"{url_pattern}\".to_string())"),
-                None => "None".into(),
-            }
-        )
+        write!(f, "EndpointConfig {{ url_pattern: {}}}", self.url_pattern)
     }
 }
 
@@ -63,10 +56,7 @@ impl Config {
         })
     }
 
-    pub fn url_pattern(&self) -> Option<String> {
-        self.endpoint
-            .as_ref()
-            .map(|e| e.url_pattern.clone())
-            .unwrap_or_default()
+    pub fn url_pattern(&self) -> Option<&String> {
+        self.endpoint.as_ref().map(|e| &e.url_pattern)
     }
 }

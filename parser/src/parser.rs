@@ -108,8 +108,8 @@ impl Parser {
     pub fn new(path: Option<&PathBuf>) -> eyre::Result<Self> {
         let mut parser: Parser = Default::default();
 
-        if path.is_some() {
-            parser.walk_dir(path.unwrap())?;
+        if let Some(path) = path {
+            parser.walk_dir(path)?;
         }
 
         Ok(parser)
