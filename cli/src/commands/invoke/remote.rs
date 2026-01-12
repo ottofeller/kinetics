@@ -44,13 +44,12 @@ pub async fn invoke(
     let mut headers_map = reqwest::header::HeaderMap::new();
 
     if let Some(headers) = headers {
-        let headers_value = serde_json::from_str::<serde_json::Value>(headers).unwrap_or_default();
-
-        let headers_obj = headers_value
+        for (k, v) in serde_json::from_str::<serde_json::Value>(headers)
+            .unwrap_or_default()
             .as_object()
-            .wrap_err("Failed to parse headers JSON object")?;
-
-        for (k, v) in headers_obj.iter() {
+            .wrap_err("Failed to parse headers JSON object")?
+            .iter()
+        {
             headers_map.insert(
                 reqwest::header::HeaderName::from_str(k).wrap_err("Failed to parse header name")?,
                 reqwest::header::HeaderValue::from_str(
