@@ -18,7 +18,11 @@ impl EndpointConfig {
 
 impl std::fmt::Display for EndpointConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "EndpointConfig {{ url_pattern: {}}}", self.url_pattern)
+        write!(
+            f,
+            "EndpointConfig {{ url_pattern: \"{}\".to_string() }}",
+            self.url_pattern
+        )
     }
 }
 
