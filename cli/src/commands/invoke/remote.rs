@@ -1,8 +1,9 @@
 use crate::function::Function;
 use crate::project::Project;
 use color_eyre::owo_colors::OwoColorize;
-use eyre::Context;
+use eyre::{Context, ContextCompat, OptionExt};
 use std::path::Path;
+use std::str::FromStr;
 
 /// Resolve function name into URL and call it remotely
 pub async fn invoke(
@@ -43,17 +44,20 @@ pub async fn invoke(
     let mut headers_map = reqwest::header::HeaderMap::new();
 
     if let Some(headers) = headers {
-        for header_line in headers.lines() {
-            if let Some((key, value)) = header_line.split_once(':') {
-                if let (Ok(header_name), Ok(header_value)) = (
-                    reqwest::header::HeaderName::from_bytes(key.trim().as_bytes()),
-                    reqwest::header::HeaderValue::from_str(value.trim()),
-                ) {
-                    headers_map.insert(header_name, header_value);
-                }
-            } else {
-                log::warn!("Unsupported http header format: {header_line}");
-            }
+        let headers_value = serde_json::from_str::<serde_json::Value>(headers).unwrap_or_default();
+
+        let headers_obj = headers_value
+            .as_object()
+            .wrap_err("Failed to parse headers JSON object")?;
+
+        for (k, v) in headers_obj.iter() {
+            headers_map.insert(
+                reqwest::header::HeaderName::from_str(k).wrap_err("Failed to parse header name")?,
+                reqwest::header::HeaderValue::from_str(
+                    v.as_str().ok_or_eyre("Header value must be a string")?,
+                )
+                .wrap_err("Failed to parse header value")?,
+            );
         }
     }
 
