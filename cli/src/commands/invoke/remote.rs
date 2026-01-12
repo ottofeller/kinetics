@@ -1,7 +1,8 @@
 use crate::function::Function;
 use crate::project::Project;
 use color_eyre::owo_colors::OwoColorize;
-use eyre::{Context, ContextCompat, OptionExt};
+use eyre::Context;
+use std::collections::HashMap;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -44,18 +45,14 @@ pub async fn invoke(
     let mut headers_map = reqwest::header::HeaderMap::new();
 
     if let Some(headers) = headers {
-        for (k, v) in serde_json::from_str::<serde_json::Value>(headers)
-            .unwrap_or_default()
-            .as_object()
+        for (k, v) in serde_json::from_str::<HashMap<String, String>>(headers)
             .wrap_err("Failed to parse headers JSON object")?
             .iter()
         {
             headers_map.insert(
                 reqwest::header::HeaderName::from_str(k).wrap_err("Failed to parse header name")?,
-                reqwest::header::HeaderValue::from_str(
-                    v.as_str().ok_or_eyre("Header value must be a string")?,
-                )
-                .wrap_err("Failed to parse header value")?,
+                reqwest::header::HeaderValue::from_str(v)
+                    .wrap_err("Failed to parse header value")?,
             );
         }
     }
