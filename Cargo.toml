@@ -1,8 +1,8 @@
 [workspace.dependencies]
 # Do not upgrade as TOML parsing fails
-toml = "0.8.23"
+toml = "=0.8.23"
 
-tokio = "1.48.0"
+tokio = "1.49.0"
 
 [workspace]
 resolver = "2"
