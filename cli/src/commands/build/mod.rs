@@ -352,14 +352,14 @@ fn deps(
             .or_insert(toml_edit::Table::new().into())
             .as_table_mut()
         {
-            serde_json.insert("version", toml_edit::value("1.0.140"));
+            serde_json.insert("version", toml_edit::value("1.0.149"));
         }
 
         if let Some(reqwest) = doc["dependencies"]["reqwest"]
             .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
             .as_table_mut()
         {
-            reqwest.insert("version", toml_edit::value("0.12.15"));
+            reqwest.insert("version", toml_edit::value("0.13.1"));
             reqwest.insert("default-features", toml_edit::value(false));
             reqwest.insert(
                 "features",
@@ -373,7 +373,7 @@ fn deps(
             doc["dependencies"]["lambda_runtime"]
                 .or_insert(toml_edit::Table::new().into())
                 .as_table_mut()
-                .map(|t| t.insert("version", toml_edit::value("^0.14")));
+                .map(|t| t.insert("version", toml_edit::value("^1.0")));
         }
         Role::Endpoint(_) => {
             doc["dependencies"]["lambda_http"]
@@ -394,7 +394,7 @@ fn deps(
     doc["dependencies"]["kinetics"]
         .or_insert(toml_edit::Table::new().into())
         .as_table_mut()
-        .map(|t| t.insert("version", toml_edit::value("0.7.14")));
+        .map(|t| t.insert("version", toml_edit::value("0.11.7")));
 
     doc["dependencies"]["aws_lambda_events"]
         .or_insert(toml_edit::Table::new().into())
@@ -404,7 +404,7 @@ fn deps(
     doc["dependencies"]["aws-config"]
         .or_insert(toml_edit::Table::new().into())
         .as_table_mut()
-        .map(|t| t.insert("version", toml_edit::value("1.0.1")));
+        .map(|t| t.insert("version", toml_edit::value("1.8.12")));
 
     doc["dependencies"]["aws-sdk-ssm"]
         .or_insert(toml_edit::Table::new().into())
@@ -414,13 +414,13 @@ fn deps(
     doc["dependencies"]["aws-sdk-sqs"]
         .or_insert(toml_edit::Table::new().into())
         .as_table_mut()
-        .map(|t| t.insert("version", toml_edit::value("1.62.0")));
+        .map(|t| t.insert("version", toml_edit::value("1.91.0")));
 
     if let Some(tokio_dep) = doc["dependencies"]["tokio"]
         .or_insert(toml_edit::Table::new().into())
         .as_table_mut()
     {
-        tokio_dep.insert("version", toml_edit::value("1.43.0"));
+        tokio_dep.insert("version", toml_edit::value("1.49.0"));
         tokio_dep.insert("features", toml_edit::Array::from_iter(["full"]).into());
     }
 

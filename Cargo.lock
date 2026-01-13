@@ -1265,7 +1265,6 @@ dependencies = [
  "aws-sdk-sqs",
  "http 1.4.0",
  "kinetics 0.11.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "lambda_runtime 1.1.0-rc1",
  "matchit",
  "serde_json",
  "sqlx",
@@ -2087,7 +2086,7 @@ dependencies = [
  "kinetics-macro 0.11.7",
  "kinetics-parser 0.11.7",
  "lambda_http",
- "lambda_runtime 1.1.0-rc1",
+ "lambda_runtime 1.0.2",
  "log",
  "lzma-rust2 0.15.6",
  "once_cell",
@@ -2266,9 +2265,9 @@ dependencies = [
 
 [[package]]
 name = "lambda_runtime"
-version = "1.1.0-rc1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ef345d40ef6f1bcfb051a06cee05ed3cf8815ef32552610b8327b9675788615"
+checksum = "dc0b4409eea054e4c06f0101fed547b2cf208e8eca9dc6d41dead4114577852b"
 dependencies = [
  "async-stream",
  "base64 0.22.1",
