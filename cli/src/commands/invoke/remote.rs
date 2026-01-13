@@ -46,7 +46,7 @@ pub async fn invoke(
 
     if let Some(headers) = headers {
         for (k, v) in serde_json::from_str::<HashMap<String, String>>(headers)
-            .wrap_err("Failed to parse headers JSON object")?
+            .wrap_err("Failed to parse headers JSON object, must be {\"String\": \"String\"}")?
             .iter()
         {
             headers_map.insert(
