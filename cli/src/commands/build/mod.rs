@@ -363,7 +363,7 @@ fn deps(
             reqwest.insert("default-features", toml_edit::value(false));
             reqwest.insert(
                 "features",
-                toml_edit::Array::from_iter(["rustls-tls"]).into(),
+                toml_edit::Array::from_iter(["default-tls"]).into(),
             );
         }
     }
@@ -379,7 +379,7 @@ fn deps(
             doc["dependencies"]["lambda_http"]
                 .or_insert(toml_edit::Table::new().into())
                 .as_table_mut()
-                .map(|t| t.insert("version", toml_edit::value("^0")));
+                .map(|t| t.insert("version", toml_edit::value("^1.0")));
             doc["dependencies"]["http"]
                 .or_insert(toml_edit::Table::new().into())
                 .as_table_mut()
