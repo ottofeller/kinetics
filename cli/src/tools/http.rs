@@ -20,6 +20,7 @@ impl From<lambda_http::Body> for Body {
             lambda_http::Body::Empty => Body::Empty,
             lambda_http::Body::Text(chars) => Body::Text(chars),
             lambda_http::Body::Binary(bytes) => Body::Binary(bytes),
+            _ => unreachable!(),
         }
     }
 }
@@ -41,7 +42,7 @@ impl TryFrom<Body> for () {
 
     fn try_from(_value: Body) -> Result<Self, Self::Error> {
         // Unit struct usually implies no payload,
-        // thus we just htrow the body away.
+        // thus we just throw the body away.
         Ok(())
     }
 }
@@ -70,7 +71,7 @@ impl TryFrom<Body> for Vec<u8> {
     }
 }
 
-// The remaning implementation are copied from
+// The remaining implementation are copied from
 // https://github.com/awslabs/aws-lambda-rust-runtime/blob/main/lambda-events/src/encodings/http.rs#L96-L144
 // https://github.com/awslabs/aws-lambda-rust-runtime/blob/main/lambda-events/src/encodings/http.rs#L219-L246
 
