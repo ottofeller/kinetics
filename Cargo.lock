@@ -2105,7 +2105,7 @@ dependencies = [
  "lambda_http 1.0.2",
  "lambda_runtime 1.0.2",
  "log",
- "lzma-rust2 0.15.6",
+ "lzma-rust2 0.15.7",
  "once_cell",
  "percent-encoding",
  "prettyplease",
@@ -2129,7 +2129,7 @@ dependencies = [
  "url",
  "uuid",
  "walkdir",
- "zip 7.0.0",
+ "zip 7.1.0",
 ]
 
 [[package]]
@@ -2467,9 +2467,9 @@ dependencies = [
 
 [[package]]
 name = "lzma-rust2"
-version = "0.15.6"
+version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17f7337d278fec032975dc884152491580dd23750ee957047856735fe0e61ede"
+checksum = "1670343e58806300d87950e3401e820b519b9384281bbabfb15e3636689ffd69"
 dependencies = [
  "crc",
  "sha2",
@@ -5287,12 +5287,11 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "7.0.0"
+version = "7.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdd8a47718a4ee5fe78e07667cd36f3de80e7c2bfe727c7074245ffc7303c037"
+checksum = "9013f1222db8a6d680f13a7ccdc60a781199cd09c2fa4eff58e728bb181757fc"
 dependencies = [
  "aes",
- "arbitrary",
  "bzip2",
  "constant_time_eq",
  "crc32fast",
@@ -5302,7 +5301,7 @@ dependencies = [
  "getrandom 0.3.4",
  "hmac",
  "indexmap 2.13.0",
- "lzma-rust2 0.15.6",
+ "lzma-rust2 0.15.7",
  "memchr",
  "pbkdf2",
  "ppmd-rust",
