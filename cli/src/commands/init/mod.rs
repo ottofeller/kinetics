@@ -293,7 +293,7 @@ fn init_git(project_dir: &Path) -> eyre::Result<()> {
         ))?;
 
     // Add a github CD workflow
-    github::workflow(&Project::from_path(project_dir.into())?)
+    github::workflow(&Project::from_path(project_dir.into())?, true)
 }
 
 /// Clean up, and throw an error
