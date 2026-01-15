@@ -1,5 +1,5 @@
 use crate::tools::{config::Config as KineticsConfig, resource_name};
-use aws_lambda_events::sqs::{SqsBatchResponse, SqsEvent};
+use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use kinetics_parser::ParsedFunction;
 use lambda_runtime::LambdaEvent;
@@ -117,7 +117,11 @@ impl Retries {
         let mut sqs_batch_response = SqsBatchResponse::default();
 
         for id in self.ids.iter() {
-            sqs_batch_response.add_failure(id);
+            sqs_batch_response
+                .batch_item_failures
+                .push(BatchItemFailure {
+                    item_identifier: id.clone(),
+                });
         }
 
         sqs_batch_response

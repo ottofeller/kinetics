@@ -592,6 +592,26 @@ dependencies = [
 
 [[package]]
 name = "aws_lambda_events"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "831de96bc2c9d2e570664f4f016c8d56d86ce2a58b3a1d6268c4ba2f269684fe"
+dependencies = [
+ "base64 0.22.1",
+ "bytes",
+ "chrono",
+ "flate2",
+ "http 1.4.0",
+ "http-body 1.0.1",
+ "http-serde",
+ "query_map",
+ "serde",
+ "serde_dynamo",
+ "serde_json",
+ "serde_with",
+]
+
+[[package]]
+name = "aws_lambda_events"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca106ceeb46420f22b33b863f8a667214afbf6b0457bc209f8c97de2282bedae"
@@ -749,9 +769,9 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "chrono"
-version = "0.4.42"
+version = "0.4.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "145052bdd345b87320e369255277e3fb5152762ad123a901ef5c262dd38fe8d2"
+checksum = "fac4744fb15ae8337dc853fee7fb3f4e48c0fbaa23d0afe49c447b4fab126118"
 dependencies = [
  "iana-time-zone",
  "js-sys",
@@ -2046,7 +2066,7 @@ dependencies = [
  "aws-sdk-dsql",
  "aws-sdk-dynamodb",
  "aws-sdk-sqs",
- "aws_lambda_events",
+ "aws_lambda_events 0.18.0",
  "base64 0.22.1",
  "bytes",
  "chrono",
@@ -2105,7 +2125,7 @@ dependencies = [
  "aws-sdk-dsql",
  "aws-sdk-dynamodb",
  "aws-sdk-sqs",
- "aws_lambda_events",
+ "aws_lambda_events 1.0.3",
  "base64 0.22.1",
  "bytes",
  "chrono",
@@ -2199,7 +2219,7 @@ version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0b02fac5bd704497e93f0acacfa3c7942866b58b370d3aefaefb75a0f0eb7b2"
 dependencies = [
- "aws_lambda_events",
+ "aws_lambda_events 1.0.3",
  "bytes",
  "encoding_rs",
  "futures-util",
