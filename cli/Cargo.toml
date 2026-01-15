@@ -19,7 +19,7 @@ aws-sdk-dynamodb = "1.101.0"
 aws-sdk-sqs = "1.91.0"
 aws-sdk-dsql = "1.48.0"
 aws_lambda_events = "^1.0"
-chrono = { version = "0.4.42", features = ["serde"] }
+chrono = { version = "0.4.43", features = ["serde"] }
 uuid = { version = "1.19.0", features = ["v4"] }
 clap = { version = "4.5.54", features = ["derive"] }
 eyre = "0.6.12"
