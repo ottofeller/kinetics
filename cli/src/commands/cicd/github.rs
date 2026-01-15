@@ -85,11 +85,11 @@ pub fn workflow(project: &Project) -> eyre::Result<()> {
 
     println!(
         "\n{}\n{}\n\n{}\n{}\n",
-        console::style("Workflow created, finish configuration").dim(),
+        console::style("Added CI/CD config files at").dim(),
         console::style(deploy_workflow_path.to_string_lossy())
             .bold()
             .underlined(),
-        console::style("Check the docs").yellow(),
+        console::style("CI/CD docs available at").yellow(),
         console::style(
             "https://github.com/ottofeller/kinetics/blob/main/README.md#deploy-from-github-actions"
         )
