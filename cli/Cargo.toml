@@ -20,14 +20,12 @@ aws-sdk-sqs = "1.91.0"
 aws-sdk-dsql = "1.48.0"
 aws_lambda_events = "^1.0"
 chrono = { version = "0.4.42", features = ["serde"] }
-uuid = { version = "1.19.0", features = ["v4"] }
 clap = { version = "4.5.54", features = ["derive"] }
 eyre = "0.6.12"
 regex = "1.12.2"
 walkdir = "2.5.0"
 kinetics-macro = { path = "../macro", version = "0.11.9" }
 humantime = "2.3.0"
-zip = "7.1.0"
 tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
 toml_edit = "0.24.0+spec-1.1.0"
@@ -71,6 +69,3 @@ url = "2.5.8"
 sqlx = { version = "0.8.6", features = ["postgres", "chrono", "runtime-tokio-rustls"] }
 sqlparser = "0.60.0"
 once_cell = "1.21.3"
-
-# Explicitly set the version of the lzma-rust2 used in zip, needed to avoid crc crate related errors
-lzma-rust2 = "0.15.7"
