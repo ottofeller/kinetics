@@ -9,7 +9,7 @@ pub async fn init(project: &Project, _github: bool) -> eyre::Result<()> {
         console::style("Creating GitHub workflow...").bold().green()
     );
 
-    github::workflow(project)?;
+    github::workflow(project, false)?;
     println!("{}", console::style("Done").bold().green());
     Ok(())
 }

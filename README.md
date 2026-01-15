@@ -238,15 +238,31 @@ Output run statistics for a function:
 kinetics func stats BasicEndpointEndpoint
 ```
 
-## Deploy from github actions
-The newly initialized project contains a github workflow for continious deployment.
+## CI/CD
+### Initializing
+A GitHub workflow is automatically created in projects initialized with `kientics init`. If you need to add GitHub workflow in existing project do the following in the dir of the project:
+```sh
+kinetic cicd init
+```
+
+### Access token
+To make GitHub workflow work you need to provide it with kinetics access token:
 - After calling `kinetics init <project-name>`
-- run `kinetics auth token` to get a token
-- and add it as `KINETICS_ACCESS_TOKEN` secret to your repo to enable deploys.
+- In your terminal run `kinetics auth token` to get a token (you need to be logged in)
+- Add it as `KINETICS_ACCESS_TOKEN` secret to your repo to enable deploys (check example below).
 
-After this setup main branch updates will be automatically deployed.
+This workflow enables automatic cloud deployment of any update in the main branch.
 
-As the project gets developed, remember to add all secrets residing in `.env.secrets` to `env` section of the `Run kinetics deploy` step unless the file is under source control (which is highly descouraged because of insecurity implications of storing secrets within a repo).
+### Secrets
+In order to provide your functions with secrets residing in `.env.secrets` you need to add them to the `env` section of the `Run kinetics deploy` step with `KINETICS_SECRET_` prefix, e.g.:
+
+```yaml
+- name: Run kinetics deploy
+  env:
+    DEPLOY_DIR: .
+    KINETICS_ACCESS_TOKEN: ${{ secrets.KINETICS_ACCESS_TOKEN }}
+    KINETICS_SECRET_MY_SECRET: ${{ secrets.MY_SECRET }}
+```
 
 ## Support & Community
 
