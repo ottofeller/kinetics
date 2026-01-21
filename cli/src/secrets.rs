@@ -14,7 +14,15 @@ impl Secrets {
                 "No .env.secrets file found. Search for {PREFIX} prefixed environment variables."
             );
             return std::env::vars()
-                .filter(|(name, _)| name.starts_with(PREFIX) && name != PREFIX)
+                .filter_map(|(prefixed_name, value)| {
+                    if prefixed_name.starts_with(PREFIX) && prefixed_name != PREFIX {
+                        prefixed_name
+                            .strip_prefix(PREFIX)
+                            .map(|name| (name.to_owned(), value))
+                    } else {
+                        None
+                    }
+                })
                 .collect();
         }
 
