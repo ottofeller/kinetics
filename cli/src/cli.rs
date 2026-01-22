@@ -439,12 +439,17 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         _ => Ok(()),
     }?;
 
+    // Since this point all commands need the project to be presented
+    let project = project.wrap_err(
+        "Either provide \"--name <project name>\" argument or run command in project's dir",
+    )?;
+
     // Project commands
     match &cli.command {
         Some(Commands::Proj {
             command: Some(ProjCommands::Destroy { name }),
         }) => {
-            return commands::proj::destroy::destroy(&project.ok(), name.as_deref())
+            return commands::proj::destroy::destroy(&project, name.as_deref())
                 .await
                 .inspect_err(|err| log::error!("Error: {:?}", err))
                 .map_err(Error::from);
@@ -452,7 +457,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         Some(Commands::Proj {
             command: Some(ProjCommands::Rollback { version }),
         }) => {
-            return commands::proj::rollback::rollback(&project?, *version)
+            return commands::proj::rollback::rollback(&project, *version)
                 .await
                 .wrap_err("Failed to rollback the project")
                 .map_err(Error::from);
@@ -462,12 +467,9 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         }) => return commands::proj::list::list().await,
         Some(Commands::Proj {
             command: Some(ProjCommands::Versions {}),
-        }) => return commands::proj::versions::versions(&project?).await,
+        }) => return commands::proj::versions::versions(&project).await,
         _ => Ok(()),
     }?;
-
-    // Since this point all commands need the project to be presented
-    let project = project?;
 
     // Migrations commands
     match &cli.command {
