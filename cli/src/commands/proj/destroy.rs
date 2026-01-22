@@ -1,18 +1,12 @@
 use crate::project::Project;
 use crossterm::style::Stylize;
-use eyre::{eyre, Context, Result};
+use eyre::{Context, Result};
 use std::io::{self, Write};
 
-pub async fn destroy(project: &Option<Project>, name: Option<&str>) -> Result<()> {
-    if project.is_none() && name.is_none() {
-        return Err(eyre!(
-            "Either provide --name argument or run command in project's dir"
-        ));
-    }
-
+pub async fn destroy(project: &Project, name: Option<&str>) -> Result<()> {
     let project_name = match name {
         Some(name) => name,
-        None => project.as_ref().unwrap().name.as_str(),
+        None => project.name.as_str(),
     };
 
     let project = match Project::fetch_one(project_name).await {
