@@ -1260,7 +1260,7 @@ name = "examples"
 version = "0.9.2"
 dependencies = [
  "http 1.4.0",
- "kinetics 0.11.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kinetics 0.11.10",
  "matchit",
  "serde_json",
  "sqlx",
@@ -2056,60 +2056,6 @@ dependencies = [
 [[package]]
 name = "kinetics"
 version = "0.11.10"
-dependencies = [
- "async-trait",
- "aws-config",
- "aws-sdk-dsql",
- "aws-sdk-dynamodb",
- "aws-sdk-sqs",
- "aws_lambda_events 0.18.0",
- "base64 0.22.1",
- "bytes",
- "chrono",
- "clap",
- "color-eyre",
- "console",
- "crc-fast",
- "crossterm",
- "env_logger",
- "eyre",
- "futures",
- "http 1.4.0",
- "http-body 1.0.1",
- "humantime",
- "indicatif",
- "kinetics-macro 0.11.10",
- "kinetics-parser 0.11.10",
- "lambda_http",
- "lambda_runtime",
- "log",
- "once_cell",
- "percent-encoding",
- "prettyplease",
- "regex",
- "reqwest",
- "rust_dotenv",
- "serde",
- "serde_json",
- "serde_yaml",
- "sha256",
- "sqlparser",
- "sqlx",
- "syn",
- "tabled",
- "terminal_size",
- "tokio",
- "toml",
- "toml_edit 0.24.0+spec-1.1.0",
- "tower",
- "twox-hash",
- "url",
- "walkdir",
-]
-
-[[package]]
-name = "kinetics"
-version = "0.11.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e302605d5f70455a16dbb1f0ceae051c596a3005cc655fa9cca98fe8d3de4fe0"
 dependencies = [
@@ -2134,8 +2080,8 @@ dependencies = [
  "http-body 1.0.1",
  "humantime",
  "indicatif",
- "kinetics-macro 0.11.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "kinetics-parser 0.11.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kinetics-macro 0.11.10",
+ "kinetics-parser 0.11.10",
  "lambda_http",
  "lambda_runtime",
  "log",
@@ -2167,11 +2113,57 @@ dependencies = [
 ]
 
 [[package]]
-name = "kinetics-macro"
-version = "0.11.10"
+name = "kinetics"
+version = "0.11.11"
 dependencies = [
- "kinetics-parser 0.11.10",
+ "async-trait",
+ "aws-config",
+ "aws-sdk-dsql",
+ "aws-sdk-dynamodb",
+ "aws-sdk-sqs",
+ "aws_lambda_events 0.18.0",
+ "base64 0.22.1",
+ "bytes",
+ "chrono",
+ "clap",
+ "color-eyre",
+ "console",
+ "crc-fast",
+ "crossterm",
+ "env_logger",
+ "eyre",
+ "futures",
+ "http 1.4.0",
+ "http-body 1.0.1",
+ "humantime",
+ "indicatif",
+ "kinetics-macro 0.11.11",
+ "kinetics-parser 0.11.11",
+ "lambda_http",
+ "lambda_runtime",
+ "log",
+ "once_cell",
+ "percent-encoding",
+ "prettyplease",
+ "regex",
+ "reqwest",
+ "rust_dotenv",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha256",
+ "sqlparser",
+ "sqlx",
  "syn",
+ "tabled",
+ "terminal_size",
+ "tokio",
+ "toml",
+ "toml_edit 0.24.0+spec-1.1.0",
+ "tower",
+ "twox-hash",
+ "url",
+ "walkdir",
 ]
 
 [[package]]
@@ -2180,13 +2172,23 @@ version = "0.11.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "387d8bb9f3a26bf15147519fe4d11c0a78f55b0ff6b9df119fb2f7b1ce7e0308"
 dependencies = [
- "kinetics-parser 0.11.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kinetics-parser 0.11.10",
+ "syn",
+]
+
+[[package]]
+name = "kinetics-macro"
+version = "0.11.11"
+dependencies = [
+ "kinetics-parser 0.11.11",
  "syn",
 ]
 
 [[package]]
 name = "kinetics-parser"
 version = "0.11.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9107a38b54535428ab8e08a9d60095a4891838370ccdec8fc4276fdcfdade654"
 dependencies = [
  "color-eyre",
  "serde",
@@ -2196,9 +2198,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics-parser"
-version = "0.11.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9107a38b54535428ab8e08a9d60095a4891838370ccdec8fc4276fdcfdade654"
+version = "0.11.11"
 dependencies = [
  "color-eyre",
  "serde",
