@@ -119,7 +119,10 @@ impl Parser {
         for entry in WalkDir::new(path)
             .into_iter()
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
+            .filter(|e| {
+                e.path().strip_prefix(path).is_ok_and(|p| p.starts_with("src/")) // only src folder
+                && e.path().extension().is_some_and(|ext| ext == "rs") // only rust files
+            })
         {
             let content = std::fs::read_to_string(entry.path())?;
             let syntax = syn::parse_file(&content)?;
