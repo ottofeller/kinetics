@@ -2,7 +2,7 @@ use crate::client::Client;
 use crate::function::Function;
 use crate::project::Project;
 use color_eyre::owo_colors::OwoColorize;
-use kinetics_parser::{Endpoint, ParsedFunction, Parser, Role};
+use kinetics_parser::{ParsedFunction, Parser, Role};
 use serde_json::Value;
 use std::collections::HashMap;
 use tabled::settings::{peaker::Priority, style::Style, Settings, Width};
