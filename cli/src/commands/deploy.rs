@@ -37,6 +37,7 @@ pub async fn run(
 /// Deploy only environment variables for functions
 async fn envs(deploy_functions: &[String]) -> eyre::Result<()> {
     println!("{}...", console::style("Provisioning envs").green().bold());
+    let client = Client::new(false).await?;
     let project = Project::from_current_dir()?;
 
     let functions: Vec<Function> = prepare_functions(
@@ -79,8 +80,6 @@ async fn envs(deploy_functions: &[String]) -> eyre::Result<()> {
 
         envs.insert(function.name.clone(), function_envs.clone());
     }
-
-    let client = Client::new(false).await?;
 
     let result = client
         .post("/stack/deploy/envs")

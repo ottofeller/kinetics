@@ -1,6 +1,7 @@
 use crate::api::func::toggle;
 use crate::commands::{self};
 use crate::config::deploy::DeployConfig;
+use crate::credentials::Credentials;
 use crate::error::Error;
 use crate::function::Type as FunctionType;
 use crate::logger::Logger;
@@ -347,9 +348,47 @@ enum Commands {
     },
 }
 
+impl Commands {
+    /// Determines whether the current command requires authentication
+    pub fn requires_auth(&self) -> bool {
+        !matches!(
+            self,
+            // Commands that don't require authentication
+            Commands::Init { .. }
+                | Commands::Login { .. }
+                | Commands::Auth {
+                    command: Some(AuthCommands::Logout { .. }),
+                }
+                | Commands::Func {
+                    command: Some(FuncCommands::List { .. }),
+                }
+                | Commands::Envs {
+                    command: Some(EnvsCommands::List { .. }),
+                }
+                | Commands::Build { .. }
+                | Commands::Invoke { .. }
+                | Commands::Migrations { .. }
+                | Commands::Cicd { .. }
+        )
+    }
+}
+
 pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Error> {
     Logger::init();
     let cli = Cli::parse();
+
+    // Check credentials for commands that require authentication
+    if let Some(command) = &cli.command {
+        if command.requires_auth() {
+            let credentials = Credentials::new().await.map_err(Error::from)?;
+
+            if !credentials.is_valid() {
+                return Err(Error::from(eyre!(
+                    "Please run `kinetics login <email>` to authenticate."
+                )));
+            }
+        }
+    }
 
     // Commands that should be available outside of a project
     match &cli.command {

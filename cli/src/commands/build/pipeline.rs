@@ -32,6 +32,8 @@ impl Pipeline {
         // Only selected functions are built and uploaded
         deploy_functions: &[String],
     ) -> eyre::Result<()> {
+        let client = Client::new(self.deploy_config.is_some()).await?;
+
         if self.deploy_config.is_some() {
             println!(
                 "    {} `{}` {}",
@@ -87,8 +89,6 @@ impl Pipeline {
 
             return Ok(());
         }
-
-        let client = Client::new(self.deploy_config.is_some()).await?;
 
         // Define maximum number of parallel bundling jobs
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
