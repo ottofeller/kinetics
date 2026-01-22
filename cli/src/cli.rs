@@ -499,7 +499,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         }) => {
             return commands::func::list::list(&project, *verbose)
                 .await
-                .wrap_err("Failed to list functions")
                 .map_err(Error::from);
         }
         Some(Commands::Func {
