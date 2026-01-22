@@ -101,7 +101,7 @@ fn verbose(
 }
 
 /// Display the function with its main properties
-pub fn display_simple(function: &ParsedFunction, project_base_url: &str) -> eyre::Result<()> {
+pub fn display_simple(function: &ParsedFunction) -> eyre::Result<()> {
     println!(
         "{} {} {}",
         function.func_name(false)?.bold(),
@@ -110,18 +110,15 @@ pub fn display_simple(function: &ParsedFunction, project_base_url: &str) -> eyre
     );
 
     match function.role.clone() {
-        Role::Endpoint(Endpoint { url_path, .. }) => {
-            println!("{}", format!("{project_base_url}{url_path}").cyan());
-        }
+        Role::Endpoint(_) => {}
         Role::Cron(params) => println!("{} {}", "Scheduled".dimmed(), params.schedule.cyan()),
         Role::Worker(_) => {}
     }
 
-    println!();
     Ok(())
 }
 
-fn simple(functions: &[ParsedFunction], project_base_url: &str) -> eyre::Result<()> {
+fn simple(functions: &[ParsedFunction]) -> eyre::Result<()> {
     let crons: Vec<&ParsedFunction> = functions
         .iter()
         .filter(|f| matches!(f.role, Role::Cron(_)))
@@ -139,26 +136,17 @@ fn simple(functions: &[ParsedFunction], project_base_url: &str) -> eyre::Result<
 
     if !endpoints.is_empty() {
         println!("\n{}\n", "Endpoints".bold().green());
-
-        endpoints
-            .iter()
-            .try_for_each(|f| display_simple(f, project_base_url))?;
+        endpoints.iter().try_for_each(|f| display_simple(f))?;
     }
 
     if !workers.is_empty() {
-        println!("{}\n", "Workers".bold().green());
-
-        workers
-            .iter()
-            .try_for_each(|f| display_simple(f, project_base_url))?;
+        println!("\n{}\n", "Workers".bold().green());
+        workers.iter().try_for_each(|f| display_simple(f))?;
     }
 
     if !crons.is_empty() {
-        println!("{}\n", "Crons".bold().green());
-
-        crons
-            .iter()
-            .try_for_each(|f| display_simple(f, project_base_url))?;
+        println!("\n{}\n", "Crons".bold().green());
+        crons.iter().try_for_each(|f| display_simple(f))?;
     }
 
     Ok(())
@@ -169,12 +157,12 @@ fn simple(functions: &[ParsedFunction], project_base_url: &str) -> eyre::Result<
 /// With some extra information
 pub async fn list(project: &Project, is_verbose: bool) -> eyre::Result<()> {
     let functions = Parser::new(Some(&project.path))?.functions;
-    let project_base_url = Project::fetch_one(&project.name).await?.url;
 
     if !is_verbose {
-        return simple(&functions, &project_base_url);
+        return simple(&functions);
     }
 
+    let project_base_url = Project::fetch_one(&project.name).await?.url;
     let mut endpoint_rows = Vec::new();
     let mut cron_rows = Vec::new();
     let mut worker_rows = Vec::new();
