@@ -351,7 +351,9 @@ enum Commands {
 impl Commands {
     /// Determines whether the current command requires authentication
     ///
-    /// Returns true for all commands except those explicitly marked as not requiring authentication
+    /// Returns true for all commands except those explicitly marked as not requiring authentication.
+    /// Used to prevent situations when a long running command (like deploy) gets interrupted after doing some job
+    /// because of the missing credentials.
     pub fn requires_auth(&self) -> bool {
         match self {
             Commands::Init { .. } => false,
