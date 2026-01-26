@@ -58,7 +58,7 @@ terminal_size = "0.4.3"
 lambda_runtime = "^1.0"
 
 # Lock the lower version while as the higher one conflicts with AWD SDK crates
-crc-fast = "=1.6.0"
+crc-fast = "^1.6.0"
 
 base64 = "0.22.1"
 sha256 = "1.6.0"
