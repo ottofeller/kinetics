@@ -363,8 +363,10 @@ impl Commands {
                 command: Some(EnvsCommands::List { .. }),
             } => false,
             Commands::Build { .. } => false,
-            Commands::Migrations { .. } => false,
             Commands::Cicd { .. } => false,
+            Commands::Migrations {
+                command: Some(MigrationsCommands::Create { .. }),
+            } => false,
 
             // Some commands require authentication according to their arguments
             Commands::Func {
