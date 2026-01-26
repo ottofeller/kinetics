@@ -350,26 +350,29 @@ enum Commands {
 
 impl Commands {
     /// Determines whether the current command requires authentication
+    ///
+    /// Returns true for all commands except those explicitly marked as not requiring authentication
     pub fn requires_auth(&self) -> bool {
-        !matches!(
-            self,
-            // Commands that don't require authentication
-            Commands::Init { .. }
-                | Commands::Login { .. }
-                | Commands::Auth {
-                    command: Some(AuthCommands::Logout { .. }),
-                }
-                | Commands::Func {
-                    command: Some(FuncCommands::List { .. }),
-                }
-                | Commands::Envs {
-                    command: Some(EnvsCommands::List { .. }),
-                }
-                | Commands::Build { .. }
-                | Commands::Invoke { .. }
-                | Commands::Migrations { .. }
-                | Commands::Cicd { .. }
-        )
+        match self {
+            Commands::Init { .. } => false,
+            Commands::Login { .. } => false,
+            Commands::Auth {
+                command: Some(AuthCommands::Logout {}),
+            } => false,
+            Commands::Envs {
+                command: Some(EnvsCommands::List { .. }),
+            } => false,
+            Commands::Build { .. } => false,
+            Commands::Migrations { .. } => false,
+            Commands::Cicd { .. } => false,
+
+            // Some commands require authentication according to their arguments
+            Commands::Func {
+                command: Some(FuncCommands::List { verbose, .. }),
+            } => *verbose,
+            Commands::Invoke { remote, .. } => *remote,
+            _ => true,
+        }
     }
 }
 
