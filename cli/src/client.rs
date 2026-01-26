@@ -1,6 +1,7 @@
 use crate::config::api_url;
 use crate::credentials::Credentials;
 use crate::error::Error;
+use chrono::Utc;
 use eyre::{Ok, WrapErr};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -28,7 +29,7 @@ impl Client {
             .await?;
 
         // If credentials expired — request to re-login
-        if !credentials.is_valid() {
+        if credentials.expires_at.timestamp() <= Utc::now().timestamp() {
             return Err(eyre::eyre!("Credentials expired, please re-login."));
         }
 
