@@ -378,15 +378,14 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
     let cli = Cli::parse();
 
     // Check credentials for commands that require authentication
-    if let Some(command) = &cli.command {
-        if command.requires_auth() {
-            let credentials = Credentials::new().await.map_err(Error::from)?;
 
-            if !credentials.is_valid() {
-                return Err(Error::from(eyre!(
-                    "Please run `kinetics login <email>` to authenticate."
-                )));
-            }
+    if cli.command.as_ref().is_some_and(|c| c.requires_auth()) {
+        let credentials = Credentials::new().await.map_err(Error::from)?;
+
+        if !credentials.is_valid() {
+            return Err(Error::from(eyre!(
+                "Please run `kinetics login <email>` to authenticate."
+            )));
         }
     }
 
