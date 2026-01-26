@@ -5,12 +5,15 @@ use chrono::Utc;
 use eyre::{Ok, WrapErr};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
+use tokio::sync::OnceCell;
 
 #[derive(Clone)]
 pub struct Client {
     access_token: String,
     client: reqwest::Client,
 }
+
+static CREDENTIALS: OnceCell<Credentials> = OnceCell::const_new();
 
 impl Client {
     pub async fn new(is_directly: bool) -> eyre::Result<Self> {
@@ -21,7 +24,9 @@ impl Client {
             });
         }
 
-        let credentials = Credentials::new().await?;
+        let credentials = CREDENTIALS
+            .get_or_try_init(async || Credentials::new().await)
+            .await?;
 
         // If credentials expired — request to re-login
         if credentials.expires_at.timestamp() <= Utc::now().timestamp() {
@@ -29,7 +34,7 @@ impl Client {
         }
 
         Ok(Client {
-            access_token: credentials.token,
+            access_token: credentials.token.clone(),
             client: reqwest::Client::new(),
         })
     }

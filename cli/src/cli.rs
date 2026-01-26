@@ -1,6 +1,7 @@
 use crate::api::func::toggle;
 use crate::commands::{self};
 use crate::config::deploy::DeployConfig;
+use crate::credentials::Credentials;
 use crate::error::Error;
 use crate::function::Type as FunctionType;
 use crate::logger::Logger;
@@ -347,9 +348,53 @@ enum Commands {
     },
 }
 
+impl Commands {
+    /// Determines whether the current command requires authentication
+    ///
+    /// Returns true for all commands except those explicitly marked as not requiring authentication.
+    /// Used to prevent situations when a long running command (like deploy) gets interrupted after doing some job
+    /// because of the missing credentials.
+    pub fn requires_auth(&self) -> bool {
+        match self {
+            Commands::Init { .. } => false,
+            Commands::Login { .. } => false,
+            Commands::Auth {
+                command: Some(AuthCommands::Logout {}),
+            } => false,
+            Commands::Envs {
+                command: Some(EnvsCommands::List { .. }),
+            } => false,
+            Commands::Build { .. } => false,
+            Commands::Cicd { .. } => false,
+            Commands::Migrations {
+                command: Some(MigrationsCommands::Create { .. }),
+            } => false,
+
+            // Some commands require authentication according to their arguments
+            Commands::Func {
+                command: Some(FuncCommands::List { verbose, .. }),
+            } => *verbose,
+            Commands::Invoke { remote, .. } => *remote,
+            _ => true,
+        }
+    }
+}
+
 pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Error> {
     Logger::init();
     let cli = Cli::parse();
+
+    // Check credentials for commands that require authentication
+
+    if cli.command.as_ref().is_some_and(|c| c.requires_auth()) {
+        let credentials = Credentials::new().await.map_err(Error::from)?;
+
+        if !credentials.is_valid() {
+            return Err(Error::from(eyre!(
+                "Please run `kinetics login <email>` to authenticate."
+            )));
+        }
+    }
 
     // Commands that should be available outside of a project
     match &cli.command {
