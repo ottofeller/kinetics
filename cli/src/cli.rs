@@ -385,7 +385,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
     let cli = Cli::parse();
 
     // Check credentials for commands that require authentication
-
     if cli.command.as_ref().is_some_and(|c| c.requires_auth()) {
         let credentials = Credentials::new().await.map_err(Error::from)?;
 
