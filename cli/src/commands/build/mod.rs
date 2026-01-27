@@ -180,10 +180,11 @@ fn clear_dir(dst: &Path, checksum: &FileHash) -> eyre::Result<()> {
         // Leave intact:
         // - the `target` folder;
         // - `.checksums` file.
+        // - `Cargo.lock` file.
         if src_relative.strip_prefix("target").is_ok()
             || src_relative
                 .to_str()
-                .is_some_and(|p| p == CHECKSUMS_FILENAME)
+                .is_some_and(|p| p == CHECKSUMS_FILENAME || p == "Cargo.lock")
         {
             continue;
         };
