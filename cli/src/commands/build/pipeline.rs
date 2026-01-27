@@ -32,8 +32,6 @@ impl Pipeline {
         // Only selected functions are built and uploaded
         deploy_functions: &[String],
     ) -> eyre::Result<()> {
-        let client = Client::new(self.deploy_config.is_some()).await?;
-
         if self.deploy_config.is_some() {
             println!(
                 "    {} `{}` {}",
@@ -94,6 +92,8 @@ impl Pipeline {
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
 
         let deploy_functions_len = deploy_functions.len();
+
+        let client = Client::new(self.deploy_config.is_some()).await?;
 
         let handles = deploy_functions.into_iter().map(|mut function| {
             let client = client.clone();

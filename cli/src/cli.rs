@@ -323,7 +323,7 @@ enum Commands {
         table: Option<String>,
 
         /// Invoke function remotely. Only works if function was deployed before.
-        #[arg(short, long, action = ArgAction::SetFalse)]
+        #[arg(short, long)]
         remote: bool,
 
         /// Provision local SQL database for invoked function to use. Not available when called with --remote flag.
@@ -385,7 +385,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
     let cli = Cli::parse();
 
     // Check credentials for commands that require authentication
-
     if cli.command.as_ref().is_some_and(|c| c.requires_auth()) {
         let credentials = Credentials::new().await.map_err(Error::from)?;
 
@@ -620,7 +619,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 headers.as_deref(),
                 url_path.as_deref(),
                 table.as_deref(),
-                remote.to_owned(),
+                !remote.to_owned(),
                 sqldb.to_owned(),
                 with_queue.to_owned(),
                 with_migrations.as_deref(),
