@@ -111,11 +111,9 @@ fn clone(src: &Path, dst: &Path, checksum: &mut FileHash) -> eyre::Result<()> {
         src.join("target"),
         src.join(".git"),
         src.join(".github"),
+        // Skip project manifest, since we process it later.
+        src.join("Cargo.toml"),
     ];
-
-    // Handle Cargo.toml as a special case
-    let relative_cargo_path = Path::new("Cargo.toml");
-    let src_cargo_path = src.join(relative_cargo_path);
 
     for entry in WalkDir::new(src)
         .into_iter()
@@ -138,25 +136,6 @@ fn clone(src: &Path, dst: &Path, checksum: &mut FileHash) -> eyre::Result<()> {
 
         if src_path.is_dir() {
             fs::create_dir_all(&dst_path).wrap_err("Create dir failed")?;
-            continue;
-        }
-
-        // Cargo.toml found
-        if src_relative == relative_cargo_path {
-            // Copy Cargo.toml with modifications
-            let mut cargo_toml: toml_edit::DocumentMut =
-                fs::read_to_string(&src_cargo_path)?.parse()?;
-            if let Some(deps_table) = cargo_toml["dependencies"].as_table_mut() {
-                deps_table.remove("kinetics-macro");
-            }
-            let cargo_toml_string = cargo_toml.to_string();
-            if checksum.update(
-                relative_cargo_path.to_path_buf(),
-                &FileHash::hash_from_bytes(&cargo_toml_string)
-                    .wrap_err("Failed to calculate hash from bytes of Cargo.toml")?,
-            ) {
-                fs::write(&dst_path, &cargo_toml_string).wrap_err("Failed to write Cargo.toml")?;
-            }
             continue;
         }
 
@@ -210,22 +189,6 @@ fn clear_dir(dst: &Path, checksum: &FileHash) -> eyre::Result<()> {
     Ok(())
 }
 
-/// Attempt kinetics macro replacements in .rs files.
-fn remove_kinetics_macro(content: &str) -> eyre::Result<String> {
-    let re_endpoint = Regex::new(r"(?m)^\s*#\s*\[\s*endpoint[^]]*]\s*$")?;
-    let re_cron = Regex::new(r"(?m)^\s*#\s*\[\s*cron[^]]*]\s*$")?;
-    let re_worker = Regex::new(r"(?m)^\s*#\s*\[\s*worker[^]]*]\s*$")?;
-
-    let re_import = Regex::new(
-        r"(?m)^\s*use\s+kinetics_macro(\s*::\s*(\w+|\{\s*\w+(\s*,\s*\w+)*\s*}))?\s*;\s*$",
-    )?;
-
-    let mut new_content = re_endpoint.replace_all(content, "").to_string();
-    new_content = re_worker.replace_all(&new_content, "").to_string();
-    new_content = re_cron.replace_all(&new_content, "").to_string();
-    Ok(re_import.replace_all(&new_content, "").into_owned())
-}
-
 /// Create lib.rs file for the cloned crate.
 /// The file is used as an export point for all the functions.
 fn create_lib(
@@ -270,7 +233,7 @@ fn create_lib(
             }
         }
 
-        remove_kinetics_macro(&lib)?
+        lib
     } else {
         // Create lib.rs file with required exports.
         modules
@@ -498,10 +461,8 @@ fn clean_copy(
     }
 
     // Attempt kinetics macro replacements in .rs files.
-    let content = remove_kinetics_macro(
-        &fs::read_to_string(src_path_full)
-            .wrap_err(format!("Failed to read file {src_path_full:?}"))?,
-    )?;
+    let content = &fs::read_to_string(src_path_full)
+        .wrap_err(format!("Failed to read file {src_path_full:?}"))?;
     if checksum.update(
         file_path_relative.to_path_buf(),
         &FileHash::hash_from_bytes(&content).wrap_err_with(|| {
