@@ -10,7 +10,6 @@ pub fn endpoint(
         format!(
             "{import_statement}
             use http::request::Builder;
-            use serde_json;
             use reqwest::header::{{HeaderName, HeaderValue}};
             use std::str::FromStr;
             use kinetics::tools::config::{{Config as KineticsConfig, EndpointConfig}};
