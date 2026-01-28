@@ -36,11 +36,8 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
                 let context = lambda_runtime::Context::default();
                 let event = lambda_runtime::LambdaEvent::new(sqs_event, context);
 
-                match user_function(QueueRecord::from_sqsevent(event)?, &secrets, &kinetics_config).await {{
-                    Ok(response) => {{}},
-                    Err(err) => {{
-                        eprintln!(\"Request failed: {{:?}}\", err);
-                    }}
+                if let Err(err) = user_function(QueueRecord::from_sqsevent(event)?, &secrets, &kinetics_config).await {{
+                    eprintln!(\"Request failed: {{:?}}\", err);
                 }}
 
                 Ok(())
@@ -49,8 +46,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
     } else {
         format!(
             "{import_statement}
-            use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
-            use aws_lambda_events::{{sqs::SqsEvent, sqs::SqsBatchResponse}};\n\n\
+            use lambda_runtime::{{Error, run, service_fn}};\n\
             use kinetics::tools::{{queue::Record as QueueRecord, config::Config as KineticsConfig}};
             #[tokio::main]\n\
             async fn main() -> Result<(), Error> {{\n\
