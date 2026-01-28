@@ -1,6 +1,6 @@
 [package]
 name = "kinetics"
-version = "0.11.13"
+version = "0.11.14"
 edition = "2021"
 description = "Kinetics is a hosting platform for Rust applications that allows you to deploy all types of workloads by writing **only Rust code**."
 license = "Apache-2.0 OR MIT"
@@ -27,7 +27,7 @@ clap = { version = "4.5.54", features = ["derive"] }
 eyre = "0.6.12"
 regex = "1.12.2"
 walkdir = "2.5.0"
-kinetics-macro = { path = "../macro", version = "0.11.13" }
+kinetics-macro = { path = "../macro", version = "0.11.14" }
 humantime = "2.3.0"
 tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
@@ -52,7 +52,7 @@ crossterm = "0.29.0"
 async-trait = "0.1.89"
 log = "0.4.29"
 env_logger = "0.11.8"
-kinetics-parser = { path = "../parser", version = "0.11.13" }
+kinetics-parser = { path = "../parser", version = "0.11.14" }
 tabled = "0.20.0"
 terminal_size = "0.4.3"
 lambda_runtime = "^1.0"
