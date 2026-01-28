@@ -2114,7 +2114,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics"
-version = "0.11.13"
+version = "0.11.14"
 dependencies = [
  "async-trait",
  "aws-config",
@@ -2137,8 +2137,8 @@ dependencies = [
  "http-body 1.0.1",
  "humantime",
  "indicatif",
- "kinetics-macro 0.11.13",
- "kinetics-parser 0.11.13",
+ "kinetics-macro 0.11.14",
+ "kinetics-parser 0.11.14",
  "lambda_http",
  "lambda_runtime",
  "log",
@@ -2178,9 +2178,9 @@ dependencies = [
 
 [[package]]
 name = "kinetics-macro"
-version = "0.11.13"
+version = "0.11.14"
 dependencies = [
- "kinetics-parser 0.11.13",
+ "kinetics-parser 0.11.14",
  "syn",
 ]
 
@@ -2198,7 +2198,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics-parser"
-version = "0.11.13"
+version = "0.11.14"
 dependencies = [
  "color-eyre",
  "serde",
