@@ -8,7 +8,7 @@ use crate::project::Project;
 use eyre::{eyre, OptionExt, Report};
 use futures::future;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use std::io::IsTerminal;
+use std::io::{stdout, IsTerminal};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -379,11 +379,18 @@ impl Progress {
     }
 
     fn log_stage(&self, stage: &str) {
-        self.progress_bar.println(format!(
+        let msg = format!(
             "{} {}",
             console::style(self.with_padding(stage)).green().bold(),
             self.resource_name,
-        ));
+        );
+        if stdout().is_terminal() {
+            self.progress_bar.println(msg);
+        } else {
+            self.progress_bar.suspend(|| {
+                println!("{msg}");
+            });
+        }
     }
 
     fn finish(&self, stage: &str, status: ProgressStatus, message: Option<&str>) {
