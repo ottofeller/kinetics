@@ -384,6 +384,8 @@ impl Progress {
             console::style(self.with_padding(stage)).green().bold(),
             self.resource_name,
         );
+
+        // Terminal or CI/CD?
         if stdout().is_terminal() {
             self.progress_bar.println(msg);
         } else {
