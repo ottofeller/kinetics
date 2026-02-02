@@ -3,10 +3,12 @@ use crate::client::Client;
 use crate::config::build_config;
 use crate::config::deploy::DeployConfig;
 use crate::function::{build, Function};
+use crate::logger::Logger;
 use crate::project::Project;
 use eyre::{eyre, OptionExt, Report};
 use futures::future;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use std::io::{stdout, IsTerminal};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -291,15 +293,15 @@ impl PipelineBuilder {
 }
 
 #[derive(Clone)]
-struct PipelineProgress {
-    multi_progress: MultiProgress,
+struct PipelineProgress<'a> {
+    multi_progress: &'a MultiProgress,
     total_progress_bar: ProgressBar,
     completed_functions_count: Arc<AtomicUsize>,
 }
 
-impl PipelineProgress {
+impl<'a> PipelineProgress<'a> {
     fn new(total_functions: u64, is_deploy: bool) -> Self {
-        let multi_progress = MultiProgress::new();
+        let multi_progress = Logger::multi_progress();
         let completed_functions_count = Arc::new(AtomicUsize::new(0));
 
         // +1 for provisioning phase
@@ -368,8 +370,7 @@ impl Progress {
         let function_progress_bar =
             multi_progress.insert_before(total_progress_bar, ProgressBar::new_spinner());
 
-        function_progress_bar
-            .set_style(ProgressStyle::default_spinner().template("{msg}").unwrap());
+        function_progress_bar.set_style(ProgressStyle::with_template("{msg}").unwrap());
 
         Self {
             progress_bar: function_progress_bar,
@@ -378,11 +379,20 @@ impl Progress {
     }
 
     fn log_stage(&self, stage: &str) {
-        self.progress_bar.println(format!(
+        let msg = format!(
             "{} {}",
             console::style(self.with_padding(stage)).green().bold(),
             self.resource_name,
-        ));
+        );
+
+        // Terminal or CI/CD?
+        if stdout().is_terminal() {
+            self.progress_bar.println(msg);
+        } else {
+            self.progress_bar.suspend(|| {
+                println!("{msg}");
+            });
+        }
     }
 
     fn finish(&self, stage: &str, status: ProgressStatus, message: Option<&str>) {
