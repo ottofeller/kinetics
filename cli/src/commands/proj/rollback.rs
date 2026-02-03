@@ -68,12 +68,12 @@ pub async fn rollback(project: &Project, version: Option<u32>) -> Result<()> {
         .send()
         .await?;
 
-    let mut status = project.status().await?;
+    let mut status = project.status(stack::status::Op::Rollback).await?;
 
     // Poll the status of the rollback
     while status.status == "IN_PROGRESS" {
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-        status = project.status().await?;
+        status = project.status(stack::status::Op::Rollback).await?;
     }
 
     if status.status == "FAILED" {

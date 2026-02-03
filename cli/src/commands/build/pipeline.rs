@@ -1,4 +1,5 @@
 use super::prepare_functions;
+use crate::api::stack::status::Op;
 use crate::client::Client;
 use crate::config::build_config;
 use crate::config::deploy::DeployConfig;
@@ -168,7 +169,7 @@ impl Pipeline {
         }
 
         // Check if there's an ongoing deployment and wait for it to finish
-        let mut status = self.project.status().await?;
+        let mut status = self.project.status(Op::Deploy).await?;
         log::debug!("Pipeline status: {:?}", status.status);
         deploying_progress.log_stage("Provisioning");
 
@@ -180,7 +181,7 @@ impl Pipeline {
 
         while status.status == "IN_PROGRESS" {
             tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-            status = self.project.status().await?;
+            status = self.project.status(Op::Deploy).await?;
         }
 
         pipeline_progress.total_progress_bar.set_message(
@@ -210,12 +211,12 @@ impl Pipeline {
             Ok(_) => {
                 // Wait for stack deployment if it is updated.
                 deploying_progress.progress_bar.finish_and_clear();
-                let mut status = self.project.status().await?;
+                let mut status = self.project.status(Op::Deploy).await?;
 
                 // Poll the status of the deployment
                 while status.status == "IN_PROGRESS" {
                     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-                    status = self.project.status().await?;
+                    status = self.project.status(Op::Deploy).await?;
                 }
 
                 if status.status == "FAILED" {
