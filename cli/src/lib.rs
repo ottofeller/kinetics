@@ -31,6 +31,7 @@ mod process;
 // Used with cli::run struct.
 pub mod project;
 
+mod envs;
 mod secrets;
 
 // Used with tools::config.

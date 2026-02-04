@@ -128,9 +128,14 @@ impl Function {
         Ok(true)
     }
 
-    /// Returns env vars assigned to the function in macro definition
-    pub fn environment(&self) -> &HashMap<String, String> {
-        self.role.environment()
+    /// Env vars to be added to function's runtime
+    ///
+    /// These are env vars assigned to the function in macro definition
+    /// as well as those defined globally in .env file.
+    pub fn environment(&self) -> HashMap<String, String> {
+        let mut env = self.project.environment().clone();
+        env.extend(self.role.environment().clone());
+        env
     }
 
     /// URL to call the function
