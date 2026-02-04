@@ -2,6 +2,7 @@ use crate::api::projects::Kvdb;
 use crate::api::{projects, stack};
 use crate::client::Client;
 use crate::config::{build_config, deploy::DeployConfig};
+use crate::envs::Envs;
 use crate::error::Error;
 use crate::function::Function;
 use crate::secrets::Secrets;
@@ -181,6 +182,13 @@ impl Project {
     /// For example API Gateway are case sensitive.
     pub fn url(&self) -> String {
         self.url.to_lowercase()
+    }
+
+    /// Globally applied env vars sourced from .env file
+    ///
+    /// No need to store it in Project props, it's not going to be loaded frequently
+    pub fn environment(&self) -> HashMap<String, String> {
+        Envs::load()
     }
 }
 
