@@ -4,6 +4,7 @@ mod client;
 mod commands;
 mod config;
 mod credentials;
+mod envs;
 mod error;
 mod function;
 mod logger;
