@@ -1,5 +1,5 @@
 use super::prepare_functions;
-use crate::client::Client;
+use crate::api::client::Client;
 use crate::config::build_config;
 use crate::config::deploy::DeployConfig;
 use crate::function::{build, Function};

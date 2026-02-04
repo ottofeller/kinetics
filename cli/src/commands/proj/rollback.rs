@@ -1,5 +1,5 @@
 use crate::project::Project;
-use crate::{api::stack, client::Client, error::Error};
+use crate::{api::stack, api::client::Client, error::Error};
 use eyre::{Context, Result};
 
 /// Rollback a project by one version or to a specific version

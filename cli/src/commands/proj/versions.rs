@@ -1,5 +1,5 @@
 use crate::api::stack;
-use crate::client::Client;
+use crate::api::client::Client;
 use crate::error::Error;
 use crate::project::Project;
 use color_eyre::owo_colors::OwoColorize;

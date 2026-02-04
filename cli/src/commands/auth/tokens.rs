@@ -1,6 +1,6 @@
 use crate::api::request::Validate;
 use crate::error::Error;
-use crate::{api::auth, client::Client};
+use crate::api::{auth, client::Client};
 use chrono::{DateTime, Local};
 use eyre::{Context, Result};
 

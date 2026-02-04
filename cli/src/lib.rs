@@ -4,9 +4,6 @@ pub mod api;
 // Backend dev tools rely on cli:run in some functionalities.
 pub mod cli;
 
-// Export Client type for use with other public interfaces.
-pub mod client;
-
 mod commands;
 
 // Backend dev tools need DeployConfig.
