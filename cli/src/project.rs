@@ -1,6 +1,6 @@
 use crate::api::projects::Kvdb;
 use crate::api::{projects, stack};
-use crate::client::Client;
+use crate::api::client::Client;
 use crate::config::{build_config, deploy::DeployConfig};
 use crate::envs::Envs;
 use crate::error::Error;

@@ -1,4 +1,4 @@
-use crate::client::Client;
+use crate::api::client::Client;
 use crate::function::Function;
 use crate::project::Project;
 use color_eyre::owo_colors::OwoColorize;

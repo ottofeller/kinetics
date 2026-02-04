@@ -1,5 +1,5 @@
 use crate::api::project;
-use crate::client::Client;
+use crate::api::client::Client;
 use crate::migrations::Migrations;
 use crate::project::Project;
 use color_eyre::owo_colors::OwoColorize;

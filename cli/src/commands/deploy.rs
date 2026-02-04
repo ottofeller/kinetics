@@ -1,6 +1,6 @@
 use super::build::{pipeline::Pipeline, prepare_functions};
 use crate::api::stack;
-use crate::client::Client;
+use crate::api::client::Client;
 use crate::config::build_config;
 use crate::config::deploy::DeployConfig;
 use crate::function::Function;

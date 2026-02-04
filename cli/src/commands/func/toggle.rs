@@ -1,5 +1,5 @@
 use crate::api::func;
-use crate::client::Client;
+use crate::api::client::Client;
 use crate::error::Error;
 use crate::function::Function;
 use crate::project::Project;

@@ -2,7 +2,7 @@ use crate::api::upload;
 use crate::config::deploy::DeployConfig;
 use crate::error::Error;
 use crate::project::Project;
-use crate::{api::func, client::Client};
+use crate::api::{func, client::Client};
 use base64::Engine as _;
 use crc_fast::{CrcAlgorithm::Crc64Nvme, Digest};
 use eyre::{eyre, ContextCompat, WrapErr};

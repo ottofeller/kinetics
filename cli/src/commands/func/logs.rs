@@ -1,7 +1,7 @@
 use crate::error::Error;
 use crate::function::Function;
 use crate::project::Project;
-use crate::{api::func, client::Client};
+use crate::api::{func, client::Client};
 use chrono::{DateTime, Utc};
 use eyre::{Context, Result};
 use kinetics_parser::Parser;

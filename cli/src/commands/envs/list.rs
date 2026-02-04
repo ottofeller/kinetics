@@ -1,5 +1,5 @@
 use crate::api::envs;
-use crate::client::Client;
+use crate::api::client::Client;
 use crate::commands::build::prepare_functions;
 use crate::config::build_config;
 use crate::project::Project;
