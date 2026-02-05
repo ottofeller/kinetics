@@ -10,6 +10,7 @@ mod logger;
 mod migrations;
 mod process;
 mod project;
+mod runner;
 mod secrets;
 mod sqldb;
 pub mod tools;
