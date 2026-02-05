@@ -5,14 +5,10 @@ use kinetics_parser::ParsedFunction;
 use lambda_runtime::LambdaEvent;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tokio::sync::OnceCell;
 
 pub struct Client {
     queue: SendMessageFluentBuilder,
 }
-
-// Global cache for AWS SQS client to avoid re-initialization in Lambda
-static SQS_CLIENT: OnceCell<SendMessageFluentBuilder> = OnceCell::const_new();
 
 /// A queue client
 ///
@@ -45,51 +41,48 @@ impl Client {
     {
         Ok(Client {
             // Initialize the SQS client just once
-            queue: SQS_CLIENT
-                .get_or_init(|| async {
-                    let (project_name, function_path) = std::any::type_name_of_val(&worker)
-                        .split_once("::")
-                        .unwrap();
+            queue: {
+                let (project_name, function_path) = std::any::type_name_of_val(&worker)
+                    .split_once("::")
+                    .unwrap();
 
-                    let region = std::env::var("AWS_REGION").unwrap_or("us-east-1".to_string());
+                let region = std::env::var("AWS_REGION").unwrap_or("us-east-1".to_string());
 
-                    let queue_endpoint_url = std::env::var("KINETICS_QUEUE_ENDPOINT_URL")
-                        .unwrap_or(format!("https://sqs.{region}.amazonaws.com"));
+                let queue_endpoint_url = std::env::var("KINETICS_QUEUE_ENDPOINT_URL")
+                    .unwrap_or(format!("https://sqs.{region}.amazonaws.com"));
 
-                    let config = if std::env::var("KINETICS_IS_LOCAL").is_ok() {
-                        // Redefine endpoint in local mode
-                        aws_config::defaults(aws_config::BehaviorVersion::latest())
-                            .endpoint_url(&queue_endpoint_url)
-                            .load()
-                            .await
-                    } else {
-                        aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await
-                    };
+                let config = if std::env::var("KINETICS_IS_LOCAL").is_ok() {
+                    // Redefine endpoint in local mode
+                    aws_config::defaults(aws_config::BehaviorVersion::latest())
+                        .endpoint_url(&queue_endpoint_url)
+                        .load()
+                        .await
+                } else {
+                    aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await
+                };
 
-                    // Use a hardcoded queue name for local invocations, otherwise generate the name
-                    // out of user and project names
-                    let queue_name = std::env::var("KINETICS_QUEUE_NAME")
-                        .or_else(|_| {
-                            Ok::<String, std::env::VarError>(resource_name(
-                                &std::env::var("KINETICS_USERNAME")
-                                    .expect("KINETICS_USERNAME is not set"),
-                                project_name,
-                                &ParsedFunction::path_to_name(&function_path.replace("::", "/")),
-                            ))
-                        })
-                        .expect("Queue name is not set");
+                // Use a hardcoded queue name for local invocations, otherwise generate the name
+                // out of user and project names
+                let queue_name = std::env::var("KINETICS_QUEUE_NAME")
+                    .or_else(|_| {
+                        Ok::<String, std::env::VarError>(resource_name(
+                            &std::env::var("KINETICS_USERNAME")
+                                .expect("KINETICS_USERNAME is not set"),
+                            project_name,
+                            &ParsedFunction::path_to_name(&function_path.replace("::", "/")),
+                        ))
+                    })
+                    .expect("Queue name is not set");
 
-                    let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
-                        .expect("KINETICS_CLOUD_ACCOUNT_ID is not set");
+                let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
+                    .expect("KINETICS_CLOUD_ACCOUNT_ID is not set");
 
-                    aws_sdk_sqs::Client::new(&config)
-                        .send_message()
-                        // Create a full queue URL in a known format:
-                        // https://sqs.us-east1.amazonaws.com/000000000000/kinetics-queue-name
-                        .queue_url(format!("{queue_endpoint_url}/{account_id}/{queue_name}"))
-                })
-                .await
-                .to_owned(),
+                aws_sdk_sqs::Client::new(&config)
+                    .send_message()
+                    // Create a full queue URL in a known format:
+                    // https://sqs.us-east1.amazonaws.com/000000000000/kinetics-queue-name
+                    .queue_url(format!("{queue_endpoint_url}/{account_id}/{queue_name}"))
+            },
         })
     }
 }
