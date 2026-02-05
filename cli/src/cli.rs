@@ -548,14 +548,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
                 .map_err(Error::from);
         }
         Some(Commands::Func {
-            command: Some(FuncCommands::Stats { name, period }),
-        }) => {
-            return commands::func::stats::stats(name, &project, *period)
-                .await
-                .wrap_err("Failed to get function statistics")
-                .map_err(Error::from);
-        }
-        Some(Commands::Func {
             command: Some(FuncCommands::Logs { name, period }),
         }) => commands::func::logs::logs(name, &project, period).await,
         Some(Commands::Func {

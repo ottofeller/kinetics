@@ -9,3 +9,10 @@ pub mod invoke;
 pub mod login;
 pub mod migrations;
 pub mod proj;
+use clap::Subcommand;
+
+#[derive(Subcommand)]
+pub enum Commands {
+    #[clap(subcommand)]
+    Func(func::FuncCommands),
+}
