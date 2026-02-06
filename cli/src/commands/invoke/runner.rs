@@ -1,5 +1,4 @@
 use crate::commands::build::prepare_functions;
-use crate::commands::invoke::remote;
 use crate::commands::invoke::InvokeCommand;
 use crate::config::build_config;
 use crate::error::Error;
@@ -42,14 +41,7 @@ impl Runner for InvokeRunner {
         if !self.command.remote {
             self.local(&function, migrations_path.as_deref()).await?
         } else {
-            remote::invoke(
-                &function,
-                &project,
-                self.command.payload.as_deref(),
-                self.command.headers.as_deref(),
-                self.command.url_path.as_deref(),
-            )
-            .await?
+            self.remote(&function).await?
         }
 
         Ok(())
