@@ -65,7 +65,7 @@ impl InvokeRunner {
         let response = client
             .post(url)
             .headers(headers_map)
-            .body(self.command.payload.clone().unwrap_or("{}".into()).to_string())
+            .body(self.command.payload.clone().unwrap_or_else(|| "{}".into()))
             .send()
             .await
             .wrap_err("Failed to call function URL")?;
