@@ -1,62 +1,66 @@
 mod docker;
 mod local;
 mod remote;
+mod runner;
 mod service;
-use super::build::prepare_functions;
-use crate::config::build_config;
-use crate::function::Function;
-use crate::project::Project;
-use std::path::PathBuf;
+use crate::runner::{Runnable, Runner};
+use runner::InvokeRunner;
 
-/// Invoke the function either locally or remotely
-#[allow(clippy::too_many_arguments)]
-pub async fn invoke(
-    function_name: &str,
-    project: &Project,
-    payload: Option<&str>,
-    headers: Option<&str>,
-    url_path: Option<&str>,
+#[derive(clap::Args, Clone)]
+pub(crate) struct InvokeCommand {
+    /// Name of a function, use "kinetics func list" to see all names
+    #[arg()]
+    name: String,
 
-    // DynamoDB table to provision, only relevant for local invocations
-    table: Option<&str>,
+    /// Headers to be sent to endpoint function, in JSON.
+    ///
+    /// Example: --headers '{"auth": "Bearer 111"}'.
+    #[arg(long)]
+    headers: Option<String>,
 
-    is_local: bool,
-    is_sqldb_enabled: bool,
-    is_queue_enabled: bool,
-    with_migrations: Option<&str>,
-) -> eyre::Result<()> {
-    // Get function names as well as pull all updates from the code.
-    let all_functions = prepare_functions(
-        PathBuf::from(build_config()?.kinetics_path),
-        project,
-        &[function_name.into()],
-    )?;
+    /// Set URL path while calling endpoint function.
+    /// Required for endpoints with parametrized URLs, e.g. /user/*/profile.
+    ///
+    /// Example: --url-path /user/1/profile
+    #[arg(long)]
+    url_path: Option<String>,
 
-    let function = Function::find_by_name(&all_functions, function_name)?;
+    /// Must be a valid JSON.
+    ///
+    /// In case of endpoint functions payload is a body.
+    /// In case of workers, payload is a single event of a queue, which will be wrapped in array and passed to worker function.
+    ///
+    /// Example: --payload '{"name": "John Smith"}'
+    #[arg(short, long)]
+    payload: Option<String>,
 
-    // If --with_migrations was not passed, or comes with default "" value, then
-    // do not set the migrations path. There is a default value set down the flow.
-    let migrations_path = if with_migrations.unwrap_or_default().is_empty() {
-        None
-    } else {
-        with_migrations
-    };
+    /// Invoke function remotely. Only works if function was deployed before.
+    #[arg(short, long)]
+    remote: bool,
 
-    if is_local {
-        local::invoke(
-            &function,
-            project,
-            payload,
-            headers,
-            url_path,
-            table,
-            is_sqldb_enabled,
-            is_queue_enabled,
-            with_migrations.is_some(),
-            migrations_path,
-        )
-        .await
-    } else {
-        remote::invoke(&function, project, payload, headers, url_path).await
+    /// [DEPRECATED]
+    #[arg(short, long)]
+    table: Option<String>,
+
+    /// Provision local SQL database for invoked function to use. Not available when called with --remote flag.
+    #[arg(long="with-database", visible_aliases=["with-db", "db"])]
+    with_database: bool,
+
+    /// Apply migrations to locally provisioned database. Not available when called with --remote flag.
+    ///
+    /// Accepts a path to dir with SQL-files relative to crate's root, defaults to <crate>/migrations/
+    #[arg(short, long = "with-migrations", num_args = 0..=1, default_missing_value = "")]
+    with_migrations: Option<String>,
+
+    /// Provision a queue. Helpful when you test a function which sends something to queue. Not available when called with --remote flag.
+    #[arg(long="with-queue", visible_aliases=["queue"])]
+    with_queue: bool,
+}
+
+impl Runnable for InvokeCommand {
+    fn runner(&self) -> impl Runner {
+        InvokeRunner {
+            command: self.clone(),
+        }
     }
 }
