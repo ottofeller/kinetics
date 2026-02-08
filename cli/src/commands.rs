@@ -15,4 +15,7 @@ use clap::Subcommand;
 pub enum Commands {
     #[clap(subcommand)]
     Func(func::FuncCommands),
+
+    /// Invoke a function
+    Invoke(invoke::InvokeCommand),
 }
