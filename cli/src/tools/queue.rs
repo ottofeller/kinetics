@@ -1,14 +1,20 @@
 use crate::tools::{config::Config as KineticsConfig, resource_name};
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
+use eyre::OptionExt;
 use kinetics_parser::ParsedFunction;
 use lambda_runtime::LambdaEvent;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::{OnceCell, RwLock};
 
+#[derive(Clone)]
 pub struct Client {
     queue: SendMessageFluentBuilder,
 }
+
+static SQS_CLIENT_CACHE: OnceCell<Arc<RwLock<HashMap<String, Client>>>> = OnceCell::const_new();
 
 /// A queue client
 ///
@@ -39,12 +45,24 @@ impl Client {
         Fut:
             std::future::Future<Output = Result<Retries, Box<dyn std::error::Error + Send + Sync>>>,
     {
-        Ok(Client {
-            // Initialize the SQS client just once
+        let cache_key = std::any::type_name_of_val(&worker);
+
+        let cache = SQS_CLIENT_CACHE
+            .get_or_init(|| async { Arc::new(RwLock::new(HashMap::new())) })
+            .await;
+
+        // Check if the client is already initialized
+        let mut write_guard = cache.write().await;
+
+        if let Some(client) = write_guard.get(cache_key) {
+            return Ok(client.clone());
+        }
+
+        let client = Client {
             queue: {
-                let (project_name, function_path) = std::any::type_name_of_val(&worker)
+                let (project_name, function_path) = cache_key
                     .split_once("::")
-                    .unwrap();
+                    .ok_or_eyre("Failed to get the project name from a worker")?;
 
                 let region = std::env::var("AWS_REGION").unwrap_or("us-east-1".to_string());
 
@@ -83,7 +101,10 @@ impl Client {
                     // https://sqs.us-east1.amazonaws.com/000000000000/kinetics-queue-name
                     .queue_url(format!("{queue_endpoint_url}/{account_id}/{queue_name}"))
             },
-        })
+        };
+
+        write_guard.insert(cache_key.to_string(), client.clone());
+        Ok(client)
     }
 }
 
