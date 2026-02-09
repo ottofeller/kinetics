@@ -530,7 +530,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         _ => Ok(()),
     }?;
 
-    // DEPRECATED This is left to maintain compaitibility with the backend
+    // DEPRECATED This is left to maintain compatibility with the backend
     // Global commands
     match &cli.command {
         Some(Commands::Build { functions, .. }) => commands::build::run(functions).await,
