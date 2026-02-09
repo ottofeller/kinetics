@@ -48,6 +48,7 @@ async fn main() -> Result<(), Error> {
     // Match all commands here, in one place
     Ok(match cli.unwrap().command.unwrap() {
         Commands::Invoke(cmd) => run(cmd).await,
+        Commands::Deploy(cmd) => run(cmd).await,
 
         Commands::Func(func) => match func {
             commands::func::FuncCommands::Stats(cmd) => run(cmd).await,

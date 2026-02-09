@@ -18,4 +18,7 @@ pub enum Commands {
 
     /// Invoke a function
     Invoke(invoke::InvokeCommand),
+
+    /// Deploy entire project or certain function(s)
+    Deploy(deploy::DeployCommand),
 }
