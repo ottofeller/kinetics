@@ -14,7 +14,7 @@ use http::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use config_file::FileConfig;
+use config_file::ConfigFile;
 
 /// Managing user's project
 ///
@@ -40,7 +40,7 @@ impl Project {
     /// Returns default config if kinetics.toml does not exist. In that case the name will be taken
     /// from the ` Cargo.toml ` file in the same path
     pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
-        Ok(FileConfig::from_path(path)?.into())
+        Ok(ConfigFile::from_path(path)?.into())
     }
 
     /// Creates a new project instance from the current directory

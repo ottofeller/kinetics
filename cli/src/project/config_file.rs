@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 /// FileConfig is the structure of kinetics.toml
 #[derive(Debug, Clone, Default, Deserialize)]
-pub(super) struct FileConfig {
+pub(super) struct ConfigFile {
     /// [project]
     /// name = "some-project"
     #[serde(default)]
@@ -29,7 +29,7 @@ struct ProjectSection {
 }
 
 /// FileConfig is the structure of kinetics.toml
-impl FileConfig {
+impl ConfigFile {
     /// Reads a `FileConfig` instance from a given directory path
     ///
     /// This function looks for a `kinetics.toml` file in the specified directory.
@@ -51,7 +51,7 @@ impl FileConfig {
             });
         };
 
-        let mut config: FileConfig =
+        let mut config: ConfigFile =
             toml::from_str(&toml_string).wrap_err("Failed to parse kinetics.toml")?;
 
         // Set the path to the directory containing kinetics.toml
@@ -97,8 +97,8 @@ impl FileConfig {
     }
 }
 
-impl From<FileConfig> for Project {
-    fn from(cfg: FileConfig) -> Self {
+impl From<ConfigFile> for Project {
+    fn from(cfg: ConfigFile) -> Self {
         Project {
             path: cfg.path,
             name: cfg.project.name,
