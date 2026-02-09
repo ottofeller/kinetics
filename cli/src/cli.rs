@@ -1,4 +1,5 @@
 use crate::api::func::toggle;
+use crate::commands::build::pipeline::Pipeline;
 use crate::commands::{self};
 use crate::config::deploy::DeployConfig;
 use crate::credentials::Credentials;
@@ -222,7 +223,7 @@ enum Commands {
     },
 
     /// Deploy your functions
-    Deploy {
+    DeployOld {
         /// Maximum number of parallel concurrent builds
         #[arg(short, long, default_value_t = 3)]
         max_concurrency: usize,
@@ -529,17 +530,26 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         _ => Ok(()),
     }?;
 
+    // DEPRECATED This is left to maintain compaitibility with the backend
     // Global commands
     match &cli.command {
         Some(Commands::Build { functions, .. }) => commands::build::run(functions).await,
-        Some(Commands::Deploy {
+        Some(Commands::DeployOld {
             functions,
             max_concurrency,
-            envs,
             hotswap,
             ..
         }) => {
-            commands::deploy::run(functions, max_concurrency, *envs, *hotswap, deploy_config).await
+            Pipeline::builder()
+                .set_max_concurrent(*max_concurrency)
+                .with_deploy_enabled(true)
+                .with_hotswap(*hotswap)
+                .with_deploy_config(deploy_config)
+                .set_project(Project::from_current_dir()?)
+                .build()
+                .wrap_err("Failed to build pipeline")?
+                .run(functions)
+                .await
         }
         _ => Ok(()),
     }
