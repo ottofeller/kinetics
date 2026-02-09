@@ -222,7 +222,7 @@ enum Commands {
         functions: Vec<String>,
     },
 
-    /// Deploy your functions
+    /// Legacy/deprecated deploy path. Use `kinetics deploy` instead.
     DeployOld {
         /// Maximum number of parallel concurrent builds
         #[arg(short, long, default_value_t = 3)]
