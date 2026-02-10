@@ -1,5 +1,4 @@
 use std::io::{stdin, stdout, Write};
-
 use crate::api::auth::tokens::delete::Request;
 use crate::api::request::Validate;
 use crate::error::Error;
