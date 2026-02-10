@@ -367,11 +367,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
     // Auth commands
     match &cli.command {
         Some(Commands::Auth {
-            command: Some(AuthCommands::Logout {}),
-        }) => {
-            return commands::auth::logout::logout().await.map_err(Error::from);
-        }
-        Some(Commands::Auth {
             command:
                 Some(AuthCommands::Tokens {
                     command: Some(TokensCommands::Create { name, period }),
