@@ -1,5 +1,5 @@
 use crate::api::stack;
-use crate::commands::build::{pipeline::Pipeline, prepare_functions};
+use crate::commands::build::pipeline::Pipeline;
 use crate::commands::deploy::DeployCommand;
 use crate::config::build_config;
 use crate::error::Error;
@@ -35,15 +35,15 @@ impl DeployRunner {
         let client = self.api_client().await?;
         let project = Project::from_current_dir()?;
 
-        let functions: Vec<Function> = prepare_functions(
-            PathBuf::from(build_config()?.kinetics_path),
-            &project,
-            &self.command.functions,
-        )?
-        .iter()
-        .filter(|f| f.is_deploying)
-        .cloned()
-        .collect();
+        let functions: Vec<Function> = project
+            .parse(
+                PathBuf::from(build_config()?.kinetics_path),
+                &self.command.functions,
+            )?
+            .iter()
+            .filter(|f| f.is_deploying)
+            .cloned()
+            .collect();
 
         if functions.is_empty() {
             println!("{}", console::style("No functions found").yellow().bold(),);

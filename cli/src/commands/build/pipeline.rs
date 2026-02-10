@@ -1,4 +1,3 @@
-use super::prepare_functions;
 use crate::api::client::Client;
 use crate::config::build_config;
 use crate::config::deploy::DeployConfig;
@@ -47,9 +46,8 @@ impl Pipeline {
         print!("{}...", console::style("Preparing").green().bold(),);
 
         // All functions to add to the template
-        let all_functions = prepare_functions(
+        let all_functions = self.project.parse(
             PathBuf::from(build_config()?.kinetics_path),
-            &self.project,
             deploy_functions,
         )?;
 

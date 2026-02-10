@@ -1,6 +1,5 @@
-use crate::api::envs;
 use crate::api::client::Client;
-use crate::commands::build::prepare_functions;
+use crate::api::envs;
 use crate::config::build_config;
 use crate::project::Project;
 use crossterm::style::Stylize;
@@ -109,7 +108,7 @@ async fn remote(
 
 /// Gets environment variables from local configuration
 async fn local(project: &Project) -> eyre::Result<HashMap<String, HashMap<String, String>>> {
-    let functions = prepare_functions(PathBuf::from(build_config()?.kinetics_path), project, &[])?;
+    let functions = project.parse(PathBuf::from(build_config()?.kinetics_path), &[])?;
     let mut result = HashMap::new();
 
     for function in functions {
