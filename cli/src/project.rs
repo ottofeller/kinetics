@@ -1,5 +1,11 @@
 mod cache;
 mod config_file;
+mod filehash;
+mod parse;
+
+/// Runtime templates for different workloads
+mod templates;
+
 use crate::api::client::Client;
 use crate::api::projects::Kvdb;
 use crate::api::stack;
@@ -9,12 +15,12 @@ use crate::error::Error;
 use crate::function::Function;
 use crate::secrets::Secrets;
 use cache::Cache;
+use config_file::ConfigFile;
 use eyre::WrapErr;
 use http::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use config_file::ConfigFile;
 
 /// Managing user's project
 ///
