@@ -50,6 +50,7 @@ async fn main() -> Result<(), Error> {
         Commands::Invoke(cmd) => run(cmd).await,
         Commands::Deploy(cmd) => run(cmd).await,
         Commands::Build(cmd) => run(cmd).await,
+        Commands::Login(cmd) => run(cmd).await,
 
         Commands::Func(func) => match func {
             commands::func::FuncCommands::Stats(cmd) => run(cmd).await,

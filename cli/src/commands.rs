@@ -24,4 +24,7 @@ pub enum Commands {
 
     /// Build functions, without deployment
     Build(build::BuildCommand),
+
+    /// Log in with your email
+    Login(login::LoginCommand),
 }
