@@ -338,9 +338,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
 
     // Commands that should be available outside of a project
     match &cli.command {
-        Some(Commands::Login { email }) => {
-            return commands::login::login(email).await.map_err(Error::from);
-        }
         Some(Commands::Init {
             name,
             cron,
