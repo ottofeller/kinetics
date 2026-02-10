@@ -8,9 +8,7 @@ use crate::function::Type as FunctionType;
 use crate::logger::Logger;
 use crate::project::Project;
 use clap::{ArgAction, Parser, Subcommand};
-use crossterm::style::Stylize;
 use eyre::{eyre, Ok, WrapErr};
-use std::io::{stdin, stdout, Write};
 use std::sync::Arc;
 
 #[derive(Parser)]
@@ -48,40 +46,9 @@ enum MigrationsCommands {
 }
 
 #[derive(Subcommand)]
-enum TokensCommands {
-    /// Create a new access token
-    Create {
-        /// Time period for which the token is active (e.g. `1day`, or `3hours`, or `5d`).
-        ///
-        /// Defaults to 30days.
-        ///
-        #[arg(short, long)]
-        period: Option<String>,
-
-        /// Unique name for the access token, across the project.
-        name: String,
-    },
-
-    /// List all access tokens
-    List {},
-
-    /// Delete an access token
-    Delete {
-        /// Name of the access token to delete
-        name: String,
-    },
-}
-
-#[derive(Subcommand)]
 enum AuthCommands {
     /// Delete local access token locally and remotely
     Logout {},
-
-    /// Access tokens management
-    Tokens {
-        #[command(subcommand)]
-        command: Option<TokensCommands>,
-    },
 }
 
 #[derive(Subcommand)]
@@ -191,12 +158,6 @@ enum CicdCommands {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Auth and access tokens
-    Auth {
-        #[command(subcommand)]
-        command: Option<AuthCommands>,
-    },
-
     /// Manage projects
     Proj {
         #[command(subcommand)]
@@ -301,9 +262,6 @@ impl Commands {
         match self {
             Commands::Init { .. } => false,
             Commands::Login { .. } => false,
-            Commands::Auth {
-                command: Some(AuthCommands::Logout {}),
-            } => false,
             Commands::Envs {
                 command: Some(EnvsCommands::List { .. }),
             } => false,
@@ -363,58 +321,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
     }
 
     let project = Project::from_current_dir();
-
-    // Auth commands
-    match &cli.command {
-        Some(Commands::Auth {
-            command:
-                Some(AuthCommands::Tokens {
-                    command: Some(TokensCommands::Create { name, period }),
-                }),
-        }) => {
-            return commands::auth::tokens::create(name, period)
-                .await
-                .map_err(Error::from);
-        }
-        Some(Commands::Auth {
-            command:
-                Some(AuthCommands::Tokens {
-                    command: Some(TokensCommands::List {}),
-                }),
-        }) => {
-            return commands::auth::tokens::list().await.map_err(Error::from);
-        }
-        Some(Commands::Auth {
-            command:
-                Some(AuthCommands::Tokens {
-                    command: Some(TokensCommands::Delete { name }),
-                }),
-        }) => {
-            // Ask for confirmation
-            print!(
-                "\nDelete access token {}? {} ",
-                name.clone().bold(),
-                "[y/N]".dim()
-            );
-
-            stdout().flush().map_err(|e| Error::from(eyre!(e)))?;
-            let mut input = String::new();
-
-            stdin()
-                .read_line(&mut input)
-                .map_err(|e| Error::from(eyre!(e)))?;
-
-            if !matches!(input.trim().to_lowercase().as_ref(), "y" | "yes") {
-                println!("{}", "Canceled".yellow());
-                return std::result::Result::Ok(());
-            }
-
-            return commands::auth::tokens::delete(name)
-                .await
-                .map_err(Error::from);
-        }
-        _ => Ok(()),
-    }?;
 
     // Since this point all commands need the project to be presented
     let project = project.wrap_err(
