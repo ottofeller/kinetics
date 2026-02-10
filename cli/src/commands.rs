@@ -21,4 +21,7 @@ pub enum Commands {
 
     /// Deploy entire project or certain function(s)
     Deploy(deploy::DeployCommand),
+
+    /// Build functions, without deployment
+    Build(build::BuildCommand),
 }
