@@ -1,10 +1,11 @@
-pub mod pipeline;
+pub(crate) mod pipeline;
+pub mod progress;
 use crate::project::Project;
 use eyre::Context;
 use pipeline::Pipeline;
 
 /// The entry point to run the command
-pub async fn run(deploy_functions: &[String]) -> eyre::Result<()> {
+pub(crate) async fn run(deploy_functions: &[String]) -> eyre::Result<()> {
     Pipeline::builder()
         .with_deploy_enabled(false)
         .set_project(Project::from_current_dir()?)
