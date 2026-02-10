@@ -1,18 +1,20 @@
 pub(crate) mod pipeline;
 pub mod progress;
-use crate::project::Project;
-use eyre::Context;
-use pipeline::Pipeline;
+mod runner;
+use crate::runner::{Runnable, Runner};
+use runner::BuildRunner;
 
-/// The entry point to run the command
-pub(crate) async fn run(deploy_functions: &[String]) -> eyre::Result<()> {
-    Pipeline::builder()
-        .with_deploy_enabled(false)
-        .set_project(Project::from_current_dir()?)
-        .build()
-        .wrap_err("Failed to build pipeline")?
-        .run(deploy_functions)
-        .await?;
+#[derive(clap::Args, Clone)]
+pub(crate) struct BuildCommand {
+    /// Comma-separated list of function names to build (if not specified, all functions will be built)
+    #[arg(short, long, value_delimiter = ',')]
+    pub(crate) functions: Vec<String>,
+}
 
-    Ok(())
+impl Runnable for BuildCommand {
+    fn runner(&self) -> impl Runner {
+        BuildRunner {
+            command: self.clone(),
+        }
+    }
 }

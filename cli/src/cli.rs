@@ -215,13 +215,6 @@ enum Commands {
         command: Option<EnvsCommands>,
     },
 
-    /// Build functions, without deployment
-    Build {
-        /// Comma-separated list of function names to build (if not specified, all functions will be built)
-        #[arg(short, long, value_delimiter = ',')]
-        functions: Vec<String>,
-    },
-
     /// Legacy/deprecated deploy path. Use `kinetics deploy` instead.
     DeployOld {
         /// Maximum number of parallel concurrent builds
@@ -314,7 +307,6 @@ impl Commands {
             Commands::Envs {
                 command: Some(EnvsCommands::List { .. }),
             } => false,
-            Commands::Build { .. } => false,
             Commands::Cicd { .. } => false,
             Commands::Migrations {
                 command: Some(MigrationsCommands::Create { .. }),
@@ -533,7 +525,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
     // DEPRECATED This is left to maintain compatibility with the backend
     // Global commands
     match &cli.command {
-        Some(Commands::Build { functions, .. }) => commands::build::run(functions).await,
         Some(Commands::DeployOld {
             functions,
             max_concurrency,
