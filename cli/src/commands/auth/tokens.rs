@@ -1,8 +1,11 @@
-use crate::api::request::Validate;
+mod create;
+mod delete;
 use crate::api::{auth, client::Client};
 use crate::commands::auth::tokens::create::CreateCommand;
+use crate::commands::auth::tokens::delete::DeleteCommand;
 use crate::error::Error;
 use chrono::{DateTime, Local};
+use clap::Subcommand;
 use eyre::{Context, Result};
 
 /// Fetch and list all access tokens
@@ -65,55 +68,11 @@ pub async fn list() -> Result<()> {
     Ok(())
 }
 
-/// Deletes an access token
-pub async fn delete(name: &str) -> Result<()> {
-    println!(
-        "\n{}...",
-        console::style("Deleting access token").bold().green()
-    );
-
-    let client = Client::new(false).await?;
-    let request = auth::tokens::delete::Request { name: name.into() };
-
-    if let Some(errors) = request.validate() {
-        return Err(Error::new("Validation failed", Some(&errors.join("\n"))).into());
-    }
-
-    let response = client
-        .post("/auth/tokens/delete")
-        .json(&request)
-        .send()
-        .await
-        .wrap_err("Failed to call token deletion endpoint")?;
-
-    if !response.status().is_success() {
-        let response: serde_json::Value = response.json().await.wrap_err(Error::new(
-            "Invalid response from server",
-            Some("Try again later."),
-        ))?;
-
-        return Err(Error::new(
-            "Failed to delete token",
-            Some(
-                response
-                    .get("error")
-                    .unwrap_or(&serde_json::Value::Null)
-                    .as_str()
-                    .unwrap_or("Unknown error"),
-            ),
-        )
-        .into());
-    }
-
-    println!("\n{}", console::style("Deleted").green().bold());
-    Ok(())
-}
-
-mod create;
-use clap::Subcommand;
-
 #[derive(Subcommand)]
 pub(crate) enum TokensCommands {
     /// Create a new access token
     Create(CreateCommand),
+
+    /// Delete an access token
+    Delete(DeleteCommand),
 }

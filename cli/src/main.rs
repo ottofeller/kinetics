@@ -51,6 +51,7 @@ async fn main() -> Result<(), Error> {
             commands::auth::AuthCommands::Logout(cmd) => run(cmd).await,
             commands::auth::AuthCommands::Tokens(cmd) => match cmd {
                 commands::auth::tokens::TokensCommands::Create(cmd) => run(cmd).await,
+                commands::auth::tokens::TokensCommands::Delete(cmd) => run(cmd).await,
             },
         },
 
