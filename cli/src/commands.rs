@@ -14,6 +14,9 @@ use clap::Subcommand;
 #[derive(Subcommand)]
 pub enum Commands {
     #[clap(subcommand)]
+    Auth(auth::AuthCommands),
+
+    #[clap(subcommand)]
     Func(func::FuncCommands),
 
     /// Invoke a function

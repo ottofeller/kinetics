@@ -2,48 +2,69 @@ use crate::api::auth;
 use crate::api::client::Client;
 use crate::config::build_config;
 use crate::credentials::Credentials;
+use crate::error::Error;
+use crate::runner::{Runnable, Runner};
 use eyre::Context;
 use std::path::Path;
 
-async fn remove(email: &str) -> eyre::Result<()> {
-    let client = Client::new(false).await?;
+#[derive(clap::Args, Clone)]
+pub(crate) struct LogoutCommand {}
 
-    let response = client
-        .post("/auth/code/logout")
-        .json(&auth::code::logout::Request {
-            email: email.to_owned(),
-        })
-        .send()
-        .await?;
-
-    if !response.status().is_success() {
-        return Err(eyre::eyre!("Failed to logout: {}", response.text().await?));
+impl Runnable for LogoutCommand {
+    fn runner(&self) -> impl Runner {
+        LogoutRunner {
+            command: self.clone(),
+        }
     }
-
-    Ok(())
 }
 
-/// Logs user out
-///
-/// By cleaning up the local credentials file and voiding credentials on the backend
-pub async fn logout() -> eyre::Result<()> {
-    let path = Path::new(&build_config()?.credentials_path);
-    let credentials = Credentials::new().await?;
+struct LogoutRunner {
+    command: LogoutCommand,
+}
 
-    if credentials.is_valid() {
-        remove(&credentials.email)
-            .await
-            .wrap_err("Logout request failed")?;
+impl Runner for LogoutRunner {
+    /// Logs user out
+    ///
+    /// By cleaning up the local credentials file and voiding credentials on the backend
+    async fn run(&mut self) -> Result<(), Error> {
+        let path = Path::new(&build_config()?.credentials_path);
+        let credentials = Credentials::new().await?;
+
+        if credentials.is_valid() {
+            self.remove(&credentials.email)
+                .await
+                .wrap_err("Logout request failed")?;
+        }
+
+        if path.exists() {
+            std::fs::remove_file(path).wrap_err("Failed to delete credentials file")?;
+        }
+
+        println!(
+            "{}",
+            console::style("Successfully logged out").green().bold()
+        );
+
+        Ok(())
     }
+}
 
-    if path.exists() {
-        std::fs::remove_file(path).wrap_err("Failed to delete credentials file")?;
+impl LogoutRunner {
+    async fn remove(&mut self, email: &str) -> eyre::Result<()> {
+        let client = self.api_client().await?;
+
+        let response = client
+            .post("/auth/code/logout")
+            .json(&auth::code::logout::Request {
+                email: email.to_owned(),
+            })
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            return Err(eyre::eyre!("Failed to logout: {}", response.text().await?));
+        }
+
+        Ok(())
     }
-
-    println!(
-        "{}",
-        console::style("Successfully logged out").green().bold()
-    );
-
-    Ok(())
 }
