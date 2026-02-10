@@ -49,6 +49,9 @@ async fn main() -> Result<(), Error> {
     Ok(match cli.unwrap().command.unwrap() {
         Commands::Auth(auth) => match auth {
             commands::auth::AuthCommands::Logout(cmd) => run(cmd).await,
+            commands::auth::AuthCommands::Tokens(cmd) => match cmd {
+                commands::auth::tokens::TokensCommands::Create(cmd) => run(cmd).await,
+            },
         },
 
         Commands::Func(func) => match func {
