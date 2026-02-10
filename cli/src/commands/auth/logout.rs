@@ -1,5 +1,4 @@
 use crate::api::auth;
-use crate::api::client::Client;
 use crate::config::build_config;
 use crate::credentials::Credentials;
 use crate::error::Error;
