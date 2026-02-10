@@ -1,4 +1,3 @@
-use crate::commands::build::prepare_functions;
 use crate::commands::invoke::InvokeCommand;
 use crate::config::build_config;
 use crate::error::Error;
@@ -16,9 +15,8 @@ impl Runner for InvokeRunner {
         let project = self.project().await?;
 
         // Get function names as well as pull all updates from the code.
-        let all_functions = prepare_functions(
+        let all_functions = project.parse(
             PathBuf::from(build_config()?.kinetics_path),
-            &project,
             &[self.command.name.clone().into()],
         )?;
 
