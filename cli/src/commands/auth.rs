@@ -6,6 +6,9 @@ use clap::Subcommand;
 
 #[derive(Subcommand)]
 pub(crate) enum AuthCommands {
+    #[clap(subcommand)]
+    Tokens(tokens::TokensCommands),
+
     /// Log out from server
     Logout(LogoutCommand),
 }
