@@ -27,6 +27,10 @@ pub enum Commands {
     #[clap(subcommand)]
     Func(func::FuncCommands),
 
+    /// Database migrations
+    #[clap(subcommand)]
+    Migrations(migrations::MigrationsCommands),
+
     /// Invoke a function
     Invoke(invoke::InvokeCommand),
 

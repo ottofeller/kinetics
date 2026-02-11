@@ -72,6 +72,11 @@ async fn main() -> Result<(), Error> {
             commands::func::FuncCommands::Start(cmd) => run(cmd).await,
         },
 
+        Commands::Migrations(migrations) => match migrations {
+            commands::migrations::MigrationsCommands::Create(cmd) => run(cmd).await,
+            commands::migrations::MigrationsCommands::Apply(cmd) => run(cmd).await,
+        },
+
         Commands::Invoke(cmd) => run(cmd).await,
         Commands::Deploy(cmd) => run(cmd).await,
         Commands::Build(cmd) => run(cmd).await,

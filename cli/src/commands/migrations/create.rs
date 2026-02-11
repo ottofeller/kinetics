@@ -1,29 +1,47 @@
+use crate::error::Error;
 use crate::migrations::Migrations;
-use crate::project::Project;
-use eyre::Context;
+use crate::runner::{Runnable, Runner};
 
-/// Creates a new database migration file
-///
-/// `project` – current project
-/// `migrations_dir` – relative to project.path directory name
-///     - Defaults to `migrations` – it will be created if it doesn't exist
-///     - If set to Some(...), it must be a relative to `project.path` and must exist
-/// `name` – optional migration name
-pub async fn create(
-    project: &Project,
-    migrations_dir: &str,
-    name: Option<&str>,
-) -> eyre::Result<()> {
-    let migrations_path = project.path.join(migrations_dir);
+#[derive(clap::Args, Clone)]
+pub(crate) struct CreateCommand {
+    /// User-defined name for the migration
+    #[arg(value_name = "NAME")]
+    name: Option<String>,
 
-    // Create migrations directory if it doesn't exist
-    tokio::fs::create_dir_all(&migrations_path).await?;
+    /// Relative path to migrations directory
+    #[arg(short, long, value_name = "PATH", default_value = "migrations")]
+    path: String,
+}
 
-    Migrations::new(&migrations_path)
-        .wrap_err("Failed to initialize migrations")?
-        .create(name)
-        .await
-        .wrap_err("Failed to create new migration")?;
+impl Runnable for CreateCommand {
+    fn runner(&self) -> impl Runner {
+        CreateRunner {
+            command: self.clone(),
+        }
+    }
+}
 
-    Ok(())
+struct CreateRunner {
+    command: CreateCommand,
+}
+
+impl Runner for CreateRunner {
+    /// Creates a new database migration file
+    async fn run(&mut self) -> Result<(), Error> {
+        let project = self.project().await?;
+        let migrations_path = project.path.join(&self.command.path);
+
+        // Create migrations directory if it doesn't exist
+        tokio::fs::create_dir_all(&migrations_path)
+            .await
+            .map_err(|e| self.error(None, None, Some(e.into())))?;
+
+        Migrations::new(&migrations_path)
+            .map_err(|e| self.error(None, None, Some(e.into())))?
+            .create(self.command.name.as_deref())
+            .await
+            .map_err(|e| self.error(None, None, Some(e.into())))?;
+
+        Ok(())
+    }
 }
