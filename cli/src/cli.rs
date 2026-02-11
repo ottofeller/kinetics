@@ -308,8 +308,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         _ => Ok(()),
     }?;
 
-    // Functions commands are handled by the new command processing flow
-
     // DEPRECATED This is left to maintain compatibility with the backend
     // Global commands
     match &cli.command {
