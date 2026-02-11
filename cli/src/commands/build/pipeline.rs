@@ -167,15 +167,22 @@ impl Pipeline {
         log::debug!("Pipeline status: {:?}", status.status);
         deploying_progress.log_stage("Provisioning");
 
-        if status.status == "IN_PROGRESS" {
-            pipeline_progress
-                .total_progress_bar
-                .set_message("Waiting for previous deployment to finish...");
-        }
+        match status.status.as_str() {
+            "IN_PROGRESS" => {
+                pipeline_progress
+                    .total_progress_bar
+                    .set_message("Waiting for previous deployment to finish...");
 
-        while status.status == "IN_PROGRESS" {
-            tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-            status = self.project.status().await?;
+                while status.status == "IN_PROGRESS" {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+                    status = self.project.status().await?;
+                }
+            }
+            "FROZEN" => {
+                log::info!("Project in FROZEN state. Destroy it before deploying.");
+                self.project.destroy().await?;
+            }
+            _ => {}
         }
 
         pipeline_progress.total_progress_bar.set_message(
@@ -213,10 +220,21 @@ impl Pipeline {
                     status = self.project.status().await?;
                 }
 
-                if status.status == "FAILED" {
+                if matches!(status.status.as_str(), "FAILED" | "FROZEN") {
                     deploying_progress.error("Provisioning");
                     pipeline_progress.total_progress_bar.finish_and_clear();
-                    return Err(eyre!("{}", status.errors.unwrap().join("\n")));
+
+                    if status.status == "FROZEN" {
+                        log::info!("Project deploy failed with FROZEN status - destroy it.");
+                        self.project.destroy().await?;
+                    }
+
+                    let error_text = status
+                        .errors
+                        .map(|errors| errors.join("\n"))
+                        .unwrap_or("Unknown error".into());
+
+                    return Err(eyre!("{error_text}"));
                 }
             }
             Err(err) => {
