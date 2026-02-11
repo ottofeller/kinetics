@@ -65,7 +65,11 @@ async fn main() -> Result<(), Error> {
         },
 
         Commands::Func(func) => match func {
+            commands::func::FuncCommands::List(cmd) => run(cmd).await,
             commands::func::FuncCommands::Stats(cmd) => run(cmd).await,
+            commands::func::FuncCommands::Logs(cmd) => run(cmd).await,
+            commands::func::FuncCommands::Stop(cmd) => run(cmd).await,
+            commands::func::FuncCommands::Start(cmd) => run(cmd).await,
         },
 
         Commands::Invoke(cmd) => run(cmd).await,
