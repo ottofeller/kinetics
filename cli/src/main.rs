@@ -60,6 +60,10 @@ async fn main() -> Result<(), Error> {
             commands::cicd::CicdCommands::Init(cmd) => run(cmd).await,
         },
 
+        Commands::Envs(envs) => match envs {
+            commands::envs::EnvsCommands::List(cmd) => run(cmd).await,
+        },
+
         Commands::Func(func) => match func {
             commands::func::FuncCommands::Stats(cmd) => run(cmd).await,
         },
