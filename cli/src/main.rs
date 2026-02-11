@@ -56,6 +56,10 @@ async fn main() -> Result<(), Error> {
             },
         },
 
+        Commands::Cicd(cicd) => match cicd {
+            commands::cicd::CicdCommands::Init(cmd) => run(cmd).await,
+        },
+
         Commands::Func(func) => match func {
             commands::func::FuncCommands::Stats(cmd) => run(cmd).await,
         },

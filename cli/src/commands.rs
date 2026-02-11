@@ -16,6 +16,10 @@ pub enum Commands {
     #[clap(subcommand)]
     Auth(auth::AuthCommands),
 
+    /// Manage GitHub (and other providers') workflows
+    #[clap(subcommand)]
+    Cicd(cicd::CicdCommands),
+
     #[clap(subcommand)]
     Func(func::FuncCommands),
 
