@@ -24,13 +24,16 @@ impl Runner for ListRunner {
         // Let it fail if user's logged out
         self.api_client().await?;
 
+        println!(
+            "{}...\n",
+            console::style("Fetching projects").green().bold()
+        );
+
         Project::fetch_all()
             .await
             .map_err(|e| self.server_error(Some(e.into())))?
             .iter()
-            .for_each(|Project { name, url, .. }| {
-                println!("{}\n{}\n\n", name.bold(), url.dimmed())
-            });
+            .for_each(|Project { name, url, .. }| println!("{}\n{}\n", name.bold(), url.dimmed()));
 
         Ok(())
     }
