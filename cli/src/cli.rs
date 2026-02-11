@@ -24,22 +24,6 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
-enum AuthCommands {
-    /// Delete local access token locally and remotely
-    Logout {},
-}
-
-#[derive(Subcommand)]
-enum EnvsCommands {
-    /// List all environment variables for all functions
-    List {
-        /// When passed shows env vars used by deployed functions
-        #[arg(short, long, action = ArgAction::SetTrue)]
-        remote: bool,
-    },
-}
-
-#[derive(Subcommand)]
 enum CicdCommands {
     /// Initialize a CI/CD pipeline
     Init {
@@ -56,12 +40,6 @@ enum CicdCommands {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Environment variables for functions
-    Envs {
-        #[command(subcommand)]
-        command: Option<EnvsCommands>,
-    },
-
     /// Legacy/deprecated deploy path. Use `kinetics deploy` instead.
     DeployOld {
         /// Maximum number of parallel concurrent builds
@@ -118,13 +96,6 @@ enum Commands {
         no_git: bool,
     },
 
-    /// Login
-    Login {
-        /// Your registered email address
-        #[arg()]
-        email: String,
-    },
-
     /// Manage GitHub (and pther providers') workflows
     Cicd {
         #[command(subcommand)]
@@ -141,10 +112,6 @@ impl Commands {
     pub fn requires_auth(&self) -> bool {
         match self {
             Commands::Init { .. } => false,
-            Commands::Login { .. } => false,
-            Commands::Envs {
-                command: Some(EnvsCommands::List { .. }),
-            } => false,
             Commands::Cicd { .. } => false,
             _ => true,
         }
