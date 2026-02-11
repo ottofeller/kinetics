@@ -26,7 +26,7 @@ impl Runner for ListRunner {
 
         Project::fetch_all()
             .await
-            .map_err(|e| self.error(None, None, Some(e.into())))?
+            .map_err(|e| self.server_error(Some(e.into())))?
             .iter()
             .for_each(|Project { name, url, .. }| {
                 println!("{}\n{}\n\n", name.bold(), url.dimmed())
