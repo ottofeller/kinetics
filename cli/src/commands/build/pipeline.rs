@@ -2,7 +2,6 @@ use super::prepare_functions;
 use crate::api::client::Client;
 use crate::config::build_config;
 use crate::config::deploy::DeployConfig;
-use crate::error::Error;
 use crate::function::{build, Function};
 use crate::logger::Logger;
 use crate::project::Project;
@@ -185,12 +184,8 @@ impl Pipeline {
                 }
             }
             "FROZEN" => {
-                deploying_progress.error("Provisioning");
-                pipeline_progress.total_progress_bar.finish_and_clear();
-                eyre::bail!(Error::new(
-                    "Previous deploy failed and can't be recovered.",
-                    Some("Please run `kinetics proj destroy` before deploying again."),
-                ));
+                log::info!("Project in FROZEN state. Destroy it before deploying.");
+                self.project.destroy().await?;
             }
             _ => {}
         }
@@ -235,6 +230,7 @@ impl Pipeline {
                     pipeline_progress.total_progress_bar.finish_and_clear();
 
                     if status.status == "FROZEN" {
+                        log::info!("Project deploy failed with FROZEN status - destroy it.");
                         self.project.destroy().await?;
                     }
 
