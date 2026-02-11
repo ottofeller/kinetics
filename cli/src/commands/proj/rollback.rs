@@ -39,7 +39,8 @@ impl Runner for RollbackRunner {
                 },
             )
             .await
-            .map_err(|e| self.error(None, None, Some(e.into())))?;
+            .wrap_err("Failed to fetch versions")
+            .map_err(|e| self.server_error(Some(e.into())))?;
 
         if versions.versions.len() < 2 && self.command.version.is_none() {
             println!(
@@ -88,12 +89,13 @@ impl Runner for RollbackRunner {
             })
             .send()
             .await
-            .map_err(|e| self.error(None, None, Some(e.into())))?;
+            .wrap_err("Failed to rollback")
+            .map_err(|e| self.server_error(Some(e.into())))?;
 
         let mut status = project
             .status()
             .await
-            .map_err(|e| self.error(None, None, Some(e.into())))?;
+            .map_err(|e| self.server_error(Some(e.into())))?;
 
         // Poll the status of the rollback
         while status.status == "IN_PROGRESS" {
@@ -101,13 +103,13 @@ impl Runner for RollbackRunner {
             status = project
                 .status()
                 .await
-                .map_err(|e| self.error(None, None, Some(e.into())))?;
+                .map_err(|e| self.server_error(Some(e.into())))?;
         }
 
         if status.status == "FAILED" {
             return Err(self.error(
                 Some("Rollback failed"),
-                Some("Try again in a few seconds."),
+                Some("Try again in a few minutes."),
                 None,
             ));
         }
