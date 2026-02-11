@@ -30,29 +30,6 @@ enum AuthCommands {
 }
 
 #[derive(Subcommand)]
-enum ProjCommands {
-    /// [DANGER] Destroy a project
-    Destroy {
-        /// Name of the project to destroy (optional, defaults to current project name)
-        #[arg(short, long)]
-        name: Option<String>,
-    },
-
-    /// Rollback to older version
-    Rollback {
-        /// Specific version to rollback to (optional)
-        #[arg(short, long)]
-        version: Option<u32>,
-    },
-
-    /// List projects
-    List {},
-
-    /// List all available versions
-    Versions {},
-}
-
-#[derive(Subcommand)]
 enum EnvsCommands {
     /// List all environment variables for all functions
     List {
@@ -79,12 +56,6 @@ enum CicdCommands {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Manage projects
-    Proj {
-        #[command(subcommand)]
-        command: Option<ProjCommands>,
-    },
-
     /// Environment variables for functions
     Envs {
         #[command(subcommand)]
@@ -220,42 +191,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         }
         _ => {}
     }
-
-    let project = Project::from_current_dir();
-
-    // Since this point all commands need the project to be presented
-    let project = project.wrap_err(
-        "Either provide \"--name <project name>\" argument or run command in project's dir",
-    )?;
-
-    // Project commands
-    match &cli.command {
-        Some(Commands::Proj {
-            command: Some(ProjCommands::Destroy { name }),
-        }) => {
-            return commands::proj::destroy::destroy(&project, name.as_deref())
-                .await
-                .inspect_err(|err| log::error!("Error: {:?}", err))
-                .map_err(Error::from);
-        }
-        Some(Commands::Proj {
-            command: Some(ProjCommands::Rollback { version }),
-        }) => {
-            return commands::proj::rollback::rollback(&project, *version)
-                .await
-                .wrap_err("Failed to rollback the project")
-                .map_err(Error::from);
-        }
-        Some(Commands::Proj {
-            command: Some(ProjCommands::List {}),
-        }) => return commands::proj::list::list().await,
-        Some(Commands::Proj {
-            command: Some(ProjCommands::Versions {}),
-        }) => return commands::proj::versions::versions(&project).await,
-        _ => Ok(()),
-    }?;
-
-    // Migrations commands are handled by the new command processing flow
 
     // DEPRECATED This is left to maintain compatibility with the backend
     // Global commands
