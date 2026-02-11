@@ -75,6 +75,9 @@ impl Runner for ListRunner {
     /// Prints out the list of all functions with some extra information
     async fn run(&mut self) -> Result<(), Error> {
         let project = self.project().await?;
+
+        // Initialize client early and fail with clear error if user's logged out
+        // If the method is called within other method, then the auth error won't be propogated
         let client = self.api_client().await?;
 
         self.functions = Parser::new(Some(&project.path))
