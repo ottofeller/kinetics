@@ -20,6 +20,10 @@ pub enum Commands {
     #[clap(subcommand)]
     Cicd(cicd::CicdCommands),
 
+    /// Environment variables for functions
+    #[clap(subcommand)]
+    Envs(envs::EnvsCommands),
+
     #[clap(subcommand)]
     Func(func::FuncCommands),
 
