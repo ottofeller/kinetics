@@ -2,6 +2,7 @@ use crate::error::Error;
 use crate::project::Project;
 use crate::runner::{Runnable, Runner};
 use crossterm::style::Stylize;
+use eyre::Context;
 use std::io::{self, Write};
 
 #[derive(clap::Args, Clone)]
@@ -42,15 +43,18 @@ impl Runner for DestroyRunner {
         };
 
         print!("{} {}: ", "Do you want to proceed?".bold(), "[y/N]".dim());
+
         io::stdout()
             .flush()
+            .wrap_err("Failed to process stdout")
             .map_err(|e| self.error(None, None, Some(e.into())))?;
 
         let mut input = String::new();
 
         io::stdin()
             .read_line(&mut input)
-            .map_err(|e| self.error(Some("Failed to read input"), None, Some(e.into())))?;
+            .wrap_err("Failed to read user's input")
+            .map_err(|e| self.error(None, None, Some(e.into())))?;
 
         if !matches!(input.trim().to_lowercase().as_ref(), "y" | "yes") {
             println!("{}", "Destroying canceled".dim().bold());
@@ -62,7 +66,8 @@ impl Runner for DestroyRunner {
         project
             .destroy()
             .await
-            .map_err(|e| self.error(Some("Failed to destroy project"), None, Some(e.into())))?;
+            .wrap_err("Project destroy reqeust failed")
+            .map_err(|e| self.server_error(Some(e.into())))?;
 
         println!("{}", console::style("Project destroyed").green());
         Ok(())
