@@ -1,4 +1,5 @@
 use crate::{api::client::Client, error::Error, project::Project};
+use std::error::Error as StdError;
 
 pub(crate) trait Runner {
     /// Construct the API client instance
@@ -7,8 +8,9 @@ pub(crate) trait Runner {
     async fn api_client(&mut self) -> Result<Client, Error> {
         if false {
             return Err(self.error(
-                "Login required",
+                Some("Login required"),
                 Some("You need to log in to use this command"),
+                None,
             ));
         }
 
@@ -21,8 +23,9 @@ pub(crate) trait Runner {
 
         if project.is_err() {
             return Err(self.error(
-                "Project not found",
+                Some("Project not found"),
                 Some("Could not find project in specified directory"),
+                None,
             ));
         }
 
@@ -35,8 +38,29 @@ pub(crate) trait Runner {
     async fn run(&mut self) -> Result<(), Error>;
 
     /// Construct an error shown to the user
-    fn error(&self, title: &str, description: Option<&str>) -> Error {
-        Error::new(title, description)
+    fn error(
+        &self,
+        title: Option<&str>,
+        description: Option<&str>,
+        origin: Option<Box<dyn StdError>>,
+    ) -> Error {
+        if let Some(origin) = origin {
+            log::error!("{origin:?}");
+        }
+
+        if let Some(title) = title {
+            Error::new(title, description)
+        } else {
+            Error::new(
+                "Failed to run the command",
+                Some("Please report a bug at support@deploykinetics.com"),
+            )
+        }
+    }
+
+    /// A shortcut to display server error message
+    fn server_error(&self, origin: Option<Box<dyn StdError>>) -> Error {
+        self.error(Some("Server error"), Some("Try again later."), origin)
     }
 }
 
