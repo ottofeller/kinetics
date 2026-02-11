@@ -24,27 +24,6 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
-enum MigrationsCommands {
-    /// Create a new migration file
-    Create {
-        /// User-defined name for the migration
-        #[arg(value_name = "NAME")]
-        name: Option<String>,
-
-        /// Relative path to migrations directory
-        #[arg(short, long, value_name = "PATH", default_value = "migrations")]
-        path: String,
-    },
-
-    /// Apply migrations to remote DB
-    Apply {
-        /// Relative path to migrations directory
-        #[arg(short, long, value_name = "PATH", default_value = "migrations")]
-        path: String,
-    },
-}
-
-#[derive(Subcommand)]
 enum AuthCommands {
     /// Delete local access token locally and remotely
     Logout {},
@@ -130,12 +109,6 @@ enum Commands {
         functions: Vec<String>,
     },
 
-    /// Database migrations
-    Migrations {
-        #[command(subcommand)]
-        command: Option<MigrationsCommands>,
-    },
-
     /// Start new project from template
     Init {
         /// Name of the project to create
@@ -202,9 +175,6 @@ impl Commands {
                 command: Some(EnvsCommands::List { .. }),
             } => false,
             Commands::Cicd { .. } => false,
-            Commands::Migrations {
-                command: Some(MigrationsCommands::Create { .. }),
-            } => false,
             _ => true,
         }
     }
@@ -285,28 +255,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         _ => Ok(()),
     }?;
 
-    // Migrations commands
-    match &cli.command {
-        Some(Commands::Migrations {
-            command: Some(MigrationsCommands::Create { name, path }),
-        }) => {
-            return commands::migrations::create(&project, path, name.as_deref())
-                .await
-                .wrap_err("Failed to create migration")
-                .map_err(Error::from);
-        }
-
-        Some(Commands::Migrations {
-            command: Some(MigrationsCommands::Apply { path }),
-        }) => {
-            return commands::migrations::apply(&project, path)
-                .await
-                .wrap_err("Failed to apply migrations")
-                .map_err(Error::from);
-        }
-
-        _ => Ok(()),
-    }?;
+    // Migrations commands are handled by the new command processing flow
 
     // DEPRECATED This is left to maintain compatibility with the backend
     // Global commands
