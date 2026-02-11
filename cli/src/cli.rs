@@ -1,4 +1,3 @@
-use crate::api::func::toggle;
 use crate::commands::build::pipeline::Pipeline;
 use crate::commands::{self};
 use crate::config::deploy::DeployConfig;
@@ -85,63 +84,6 @@ enum EnvsCommands {
 }
 
 #[derive(Subcommand)]
-enum FuncCommands {
-    /// List all functions in the project
-    List {
-        /// Show detailed information for each function
-        #[arg(short, long)]
-        verbose: bool,
-    },
-
-    /// Get function statistics,
-    /// that include run statistics (error/success/total count)
-    /// as well as last call time and status.
-    Stats {
-        /// Function name to get statistics for.
-        /// Run `kinetics list` to get a complete list of function names in a project.
-        #[arg()]
-        name: String,
-
-        /// Period to get statistics for (in days).
-        /// Maximum value is 7 days.
-        #[arg(short, long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..=7))]
-        period: u32,
-    },
-
-    /// Show function logs
-    Logs {
-        /// Function name to retrieve logs for
-        #[arg()]
-        name: String,
-
-        /// Time period to get logs for.
-        ///
-        /// The period object (e.g. `1day 3hours`) is a concatenation of time spans.
-        /// Where each time span is an integer number and a suffix representing time units.
-        ///
-        /// Maximum available period is 1 month.
-        /// Defaults to 1hour.
-        ///
-        #[arg(short, long)]
-        period: Option<String>,
-    },
-
-    /// Stop function in the cloud
-    Stop {
-        /// Function name to stop
-        #[arg()]
-        name: String,
-    },
-
-    /// Start previously stopped function
-    Start {
-        /// Function name to start
-        #[arg()]
-        name: String,
-    },
-}
-
-#[derive(Subcommand)]
 enum CicdCommands {
     /// Initialize a CI/CD pipeline
     Init {
@@ -162,12 +104,6 @@ enum Commands {
     Proj {
         #[command(subcommand)]
         command: Option<ProjCommands>,
-    },
-
-    /// Functions log, telemetry, and management
-    Func {
-        #[command(subcommand)]
-        command: Option<FuncCommands>,
     },
 
     /// Environment variables for functions
@@ -269,11 +205,6 @@ impl Commands {
             Commands::Migrations {
                 command: Some(MigrationsCommands::Create { .. }),
             } => false,
-
-            // Some commands require authentication according to their arguments
-            Commands::Func {
-                command: Some(FuncCommands::List { verbose, .. }),
-            } => *verbose,
             _ => true,
         }
     }
@@ -377,26 +308,7 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         _ => Ok(()),
     }?;
 
-    // Functions commands
-    match &cli.command {
-        Some(Commands::Func {
-            command: Some(FuncCommands::List { verbose }),
-        }) => {
-            return commands::func::list::list(&project, *verbose)
-                .await
-                .map_err(Error::from);
-        }
-        Some(Commands::Func {
-            command: Some(FuncCommands::Logs { name, period }),
-        }) => commands::func::logs::logs(name, &project, period).await,
-        Some(Commands::Func {
-            command: Some(FuncCommands::Stop { name }),
-        }) => commands::func::toggle::toggle(name, &project, toggle::Op::Stop).await,
-        Some(Commands::Func {
-            command: Some(FuncCommands::Start { name }),
-        }) => commands::func::toggle::toggle(name, &project, toggle::Op::Start).await,
-        _ => Ok(()),
-    }?;
+    // Functions commands are handled by the new command processing flow
 
     // DEPRECATED This is left to maintain compatibility with the backend
     // Global commands
