@@ -24,21 +24,6 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
-enum CicdCommands {
-    /// Initialize a CI/CD pipeline
-    Init {
-        /// Create a GitHub workflow file.
-        #[arg(
-            short,
-            long,
-            action = ArgAction::SetTrue,
-            required = false
-        )]
-        github: bool,
-    },
-}
-
-#[derive(Subcommand)]
 enum Commands {
     /// Legacy/deprecated deploy path. Use `kinetics deploy` instead.
     DeployOld {
@@ -95,12 +80,6 @@ enum Commands {
         #[arg(short, long)]
         no_git: bool,
     },
-
-    /// Manage GitHub (and pther providers') workflows
-    Cicd {
-        #[command(subcommand)]
-        command: Option<CicdCommands>,
-    },
 }
 
 impl Commands {
@@ -112,7 +91,6 @@ impl Commands {
     pub fn requires_auth(&self) -> bool {
         match self {
             Commands::Init { .. } => false,
-            Commands::Cicd { .. } => false,
             _ => true,
         }
     }
