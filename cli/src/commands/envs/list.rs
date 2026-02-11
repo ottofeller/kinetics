@@ -34,7 +34,7 @@ impl Runner for ListRunner {
     async fn run(&mut self) -> Result<(), Error> {
         let project = self.project().await?;
         let parsed_functions = Parser::new(Some(&project.path))
-            .map_err(|e| self.error(&format!("{e}"), None))?
+            .map_err(|e| self.error(None, None, Some(e.into())))?
             .functions;
 
         println!();
@@ -47,14 +47,13 @@ impl Runner for ListRunner {
 
             remote(&project, &parsed_functions)
                 .await
-                .inspect_err(|e| log::error!("Error: {e:?}"))
-                .map_err(|e| self.error(&format!("{e}"), Some("Failed to fetch the list of env vars")))?
+                .map_err(|e| self.server_error(Some(e.into())))?
         } else {
             println!("{}\n", "Showing local env vars".bold().green());
 
             local(&project)
                 .await
-                .map_err(|e| self.error(&format!("{e}"), None))?
+                .map_err(|e| self.error(None, None, Some(e.into())))?
         };
 
         if envs.is_empty() {
@@ -77,8 +76,7 @@ impl Runner for ListRunner {
                         == function_name
                 })
                 .ok_or(eyre!("Parsed artifact has no function name"))
-                .inspect_err(|e| log::error!("Error: {e:?}"))
-                .map_err(|e| self.error(&format!("{e}"), None))?
+                .map_err(|e| self.error(None, None, Some(e.into())))?
                 .relative_path
                 .to_owned();
 
