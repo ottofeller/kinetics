@@ -398,13 +398,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         _ => Ok(()),
     }?;
 
-    // CI/CD commands
-    match &cli.command {
-        Some(Commands::Cicd {
-            command: Some(CicdCommands::Init { github }),
-        }) => commands::cicd::init::init(&project, *github).await,
-        _ => Ok(()),
-    }?;
 
     // Envs commands
     match &cli.command {
