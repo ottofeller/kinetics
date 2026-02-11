@@ -29,11 +29,7 @@ impl Runner for RollbackRunner {
     /// If version is specified, rollback to that specific version
     async fn run(&mut self) -> Result<(), Error> {
         let project = self.project().await?;
-
-        let client = Client::new(false)
-            .await
-            .wrap_err("Failed to create client")
-            .map_err(|e| self.error(None, None, Some(e.into())))?;
+        let client = self.api_client().await?;
 
         let versions: stack::versions::Response = client
             .request(
