@@ -77,7 +77,7 @@ impl Runner for LogsRunner {
             .send()
             .await
             .wrap_err("Failed to send request to logs endpoint")
-            .map_err(|e| self.server_error(None))?;
+            .map_err(|e| self.server_error(Some(e.into())))?;
 
         if !response.status().is_success() {
             let status = response.status();
