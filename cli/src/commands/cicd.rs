@@ -1,6 +1,5 @@
 pub mod github;
 pub mod init;
-
 use crate::commands::cicd::init::InitCommand;
 use clap::Subcommand;
 

@@ -3,7 +3,6 @@ use eyre::WrapErr;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
-
 const GITHUB_WORKFLOW_TEMPLATE: &str = include_str!("github-workflow-template.yaml");
 
 /// Add a GitHub CD workflow
