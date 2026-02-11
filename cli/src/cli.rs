@@ -398,21 +398,6 @@ pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Err
         _ => Ok(()),
     }?;
 
-
-    // Envs commands
-    match &cli.command {
-        Some(Commands::Envs {
-            command: Some(EnvsCommands::List { remote }),
-        }) => {
-            return commands::envs::list::list(&project, *remote)
-                .await
-                .wrap_err("Failed to list environment variables")
-                .inspect_err(|e| log::error!("{e:?}"))
-                .map_err(Error::from);
-        }
-        _ => Ok(()),
-    }?;
-
     // DEPRECATED This is left to maintain compatibility with the backend
     // Global commands
     match &cli.command {
