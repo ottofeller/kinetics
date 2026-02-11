@@ -31,6 +31,10 @@ pub enum Commands {
     #[clap(subcommand)]
     Migrations(migrations::MigrationsCommands),
 
+    /// Manage projects
+    #[clap(subcommand)]
+    Proj(proj::ProjCommands),
+
     /// Invoke a function
     Invoke(invoke::InvokeCommand),
 
