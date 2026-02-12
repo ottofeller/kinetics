@@ -1,13 +1,10 @@
 use crate::commands::build::pipeline::Pipeline;
-use crate::commands::{self};
 use crate::config::deploy::DeployConfig;
-use crate::credentials::Credentials;
 use crate::error::Error;
-use crate::function::Type as FunctionType;
 use crate::logger::Logger;
 use crate::project::Project;
 use clap::{ArgAction, Parser, Subcommand};
-use eyre::{eyre, Ok, WrapErr};
+use eyre::{Ok, WrapErr};
 use std::sync::Arc;
 
 #[derive(Parser)]
@@ -42,100 +39,11 @@ enum Commands {
         #[arg(value_delimiter = ',')]
         functions: Vec<String>,
     },
-
-    /// Start new project from template
-    Init {
-        /// Name of the project to create
-        #[arg()]
-        name: String,
-
-        /// Cron job template
-        #[arg(
-            short,
-            long,
-            action = ArgAction::SetTrue,
-            required = false
-        )]
-        cron: bool,
-
-        /// REST API endpoint
-        #[arg(
-            short,
-            long,
-            action = ArgAction::SetTrue,
-            required = false
-        )]
-        endpoint: bool,
-
-        /// Queue worker
-        #[arg(
-            short,
-            long,
-            action = ArgAction::SetTrue,
-            required = false
-        )]
-        worker: bool,
-
-        /// Disable git repository initialization
-        #[arg(short, long)]
-        no_git: bool,
-    },
-}
-
-impl Commands {
-    /// Determines whether the current command requires authentication
-    ///
-    /// Returns true for all commands except those explicitly marked as not requiring authentication.
-    /// Used to prevent situations when a long running command (like deploy) gets interrupted after doing some job
-    /// because of the missing credentials.
-    pub fn requires_auth(&self) -> bool {
-        match self {
-            Commands::Init { .. } => false,
-            _ => true,
-        }
-    }
 }
 
 pub async fn run(deploy_config: Option<Arc<dyn DeployConfig>>) -> Result<(), Error> {
     Logger::init();
     let cli = Cli::parse();
-
-    // Check credentials for commands that require authentication
-    if cli.command.as_ref().is_some_and(|c| c.requires_auth()) {
-        let credentials = Credentials::new().await.map_err(Error::from)?;
-
-        if !credentials.is_valid() {
-            return Err(Error::from(eyre!(
-                "Please run `kinetics login <email>` to authenticate."
-            )));
-        }
-    }
-
-    // Commands that should be available outside of a project
-    match &cli.command {
-        Some(Commands::Init {
-            name,
-            cron,
-            endpoint: _,
-            worker,
-            no_git,
-        }) => {
-            return commands::init::init(
-                name,
-                if *cron {
-                    FunctionType::Cron
-                } else if *worker {
-                    FunctionType::Worker
-                } else {
-                    FunctionType::Endpoint
-                },
-                !*no_git,
-            )
-            .await
-            .map_err(Error::from);
-        }
-        _ => {}
-    }
 
     // DEPRECATED This is left to maintain compatibility with the backend
     // Global commands
