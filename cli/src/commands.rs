@@ -35,6 +35,9 @@ pub enum Commands {
     #[clap(subcommand)]
     Proj(proj::ProjCommands),
 
+    /// Start new project from template
+    Init(init::InitCommand),
+
     /// Invoke a function
     Invoke(invoke::InvokeCommand),
 

@@ -84,6 +84,7 @@ async fn main() -> Result<(), Error> {
             commands::proj::ProjCommands::Versions(cmd) => run(cmd).await,
         },
 
+        Commands::Init(cmd) => run(cmd).await,
         Commands::Invoke(cmd) => run(cmd).await,
         Commands::Deploy(cmd) => run(cmd).await,
         Commands::Build(cmd) => run(cmd).await,
