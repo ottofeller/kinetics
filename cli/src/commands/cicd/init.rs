@@ -33,7 +33,10 @@ impl Runner for InitRunner {
             console::style("Creating GitHub workflow...").bold().green()
         );
 
-        github::workflow(&project, false).map_err(|e| self.error(None, None, Some(e.into())))?;
+        if self.command.github {
+            github::workflow(&project, false)
+                .map_err(|e| self.error(None, None, Some(e.into())))?;
+        }
 
         println!("{}", console::style("Done").bold().green());
         Ok(())
