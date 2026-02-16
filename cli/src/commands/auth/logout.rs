@@ -11,15 +11,11 @@ pub(crate) struct LogoutCommand {}
 
 impl Runnable for LogoutCommand {
     fn runner(&self) -> impl Runner {
-        LogoutRunner {
-            command: self.clone(),
-        }
+        LogoutRunner {}
     }
 }
 
-struct LogoutRunner {
-    command: LogoutCommand,
-}
+struct LogoutRunner;
 
 impl Runner for LogoutRunner {
     /// Logs user out

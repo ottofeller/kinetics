@@ -9,15 +9,11 @@ pub(crate) struct ListCommand;
 
 impl Runnable for ListCommand {
     fn runner(&self) -> impl Runner {
-        ListRunner {
-            command: self.clone(),
-        }
+        ListRunner {}
     }
 }
 
-struct ListRunner {
-    command: ListCommand,
-}
+struct ListRunner;
 
 impl Runner for ListRunner {
     /// Fetch and list all access tokens
