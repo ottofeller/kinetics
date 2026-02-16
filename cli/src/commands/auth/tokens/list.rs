@@ -1,8 +1,8 @@
 use crate::api::auth::tokens::list::Response;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
-use eyre::Context;
 use chrono::{DateTime, Local};
+use eyre::Context;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct ListCommand;
