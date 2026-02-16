@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 /// Credentials to be used with API
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub(crate) struct Credentials {
+pub struct Credentials {
     #[serde(skip)]
     pub(crate) path: PathBuf,
 

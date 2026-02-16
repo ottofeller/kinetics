@@ -16,7 +16,7 @@ impl Project {
     /// Parses source code and prepares project for deployment
     ///
     /// Stores rust crate inside target_directory and returns list of encountered functions
-    pub(crate) fn parse(
+    pub fn parse(
         &self,
         dst: PathBuf,
 
