@@ -1,4 +1,4 @@
-use crate::api::{client::Client, stack};
+use crate::api::stack;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use eyre::Context;
