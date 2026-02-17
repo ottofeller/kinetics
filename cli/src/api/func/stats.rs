@@ -4,8 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct Request {
     pub project_name: String,
     pub function_name: String,
-    /// The period (measured in days) to get statistics for
-    pub period: u32,
+    pub period: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
