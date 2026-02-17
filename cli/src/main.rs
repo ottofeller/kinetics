@@ -1,5 +1,4 @@
 pub mod api;
-mod cli;
 mod commands;
 mod config;
 mod credentials;
@@ -14,7 +13,6 @@ mod runner;
 mod secrets;
 mod sqldb;
 pub mod tools;
-use crate::cli::run as old_run;
 use crate::commands::Commands;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
@@ -39,11 +37,6 @@ async fn run(command: impl Runnable) {
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let cli = Cli::try_parse();
-
-    // The command has not yet been transitioned to the new engine
-    if cli.is_err() {
-        return old_run(None).await;
-    }
 
     // Match all commands here, in one place
     Ok(match cli.unwrap().command.unwrap() {
