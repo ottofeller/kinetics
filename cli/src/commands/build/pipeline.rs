@@ -279,11 +279,6 @@ impl PipelineBuilder {
         })
     }
 
-    pub fn with_deploy_config(mut self, config: Option<Arc<dyn DeployConfig>>) -> Self {
-        self.deploy_config = config;
-        self
-    }
-
     pub fn with_deploy_enabled(mut self, is_deploy_enabled: bool) -> Self {
         self.is_deploy_enabled = Some(is_deploy_enabled);
         self
