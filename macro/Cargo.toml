@@ -9,7 +9,7 @@ keywords = ["kinetics", "rust", "macro"]
 categories = ["parsing"]
 
 [dependencies]
-syn = "2.0.114"
+syn = "2.0.116"
 kinetics-parser = { path = "../parser", version = "0.12.2" }
 
 [lib]
