@@ -11,15 +11,11 @@ pub(crate) struct VersionsCommand {}
 
 impl Runnable for VersionsCommand {
     fn runner(&self) -> impl Runner {
-        VersionsRunner {
-            command: self.clone(),
-        }
+        VersionsRunner {}
     }
 }
 
-struct VersionsRunner {
-    command: VersionsCommand,
-}
+struct VersionsRunner;
 
 impl Runner for VersionsRunner {
     /// Prints out the list of all available versions for the project

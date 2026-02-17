@@ -15,7 +15,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 // Re-export types from kinetics-parser
 pub use kinetics_parser::{ParsedFunction, Role};
 
-pub(crate) enum Type {
+pub enum Type {
     Cron,
     Endpoint,
     Worker,
@@ -189,7 +189,7 @@ impl Function {
     }
 }
 
-pub(crate) async fn build(
+pub async fn build(
     functions: &[Function],
     total_progress: &indicatif::ProgressBar,
 ) -> eyre::Result<()> {

@@ -4,7 +4,7 @@ use regex::Regex;
 static NAME_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^[a-zA-Z\-]{2,32}$").expect("Failed to init regexp"));
 
-pub(crate) struct Name;
+pub struct Name;
 
 impl Name {
     pub fn validate(name: &str) -> bool {
