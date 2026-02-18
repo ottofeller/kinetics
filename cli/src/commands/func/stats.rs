@@ -1,10 +1,10 @@
 use crate::api::func;
 use crate::error::Error;
 use crate::function::Function;
+use crate::runner::{Runnable, Runner};
 use color_eyre::owo_colors::OwoColorize as _;
 use eyre::Context;
 use kinetics_parser::Parser;
-use crate::runner::{Runnable, Runner};
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct StatsCommand {
@@ -13,10 +13,16 @@ pub(crate) struct StatsCommand {
     #[arg()]
     name: String,
 
-    /// Period to get statistics for (in days).
-    /// Maximum value is 7 days.
-    #[arg(short, long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..=7))]
-    period: u32,
+    /// Period to get statistics for.
+    ///
+    /// The period object (e.g. `1day 3hours`) is a concatenation of time spans.
+    /// Where each time span is an integer number and a suffix representing time units.
+    ///
+    /// Maximum available period is 7 days.
+    /// Defaults to 1day.
+    ///
+    #[arg(short, long)]
+    period: Option<String>,
 }
 
 impl Runnable for StatsCommand {
@@ -58,7 +64,7 @@ impl Runner for StatsRunner {
             .json(&func::stats::Request {
                 project_name: project.name.to_owned(),
                 function_name: function.name,
-                period: self.command.period,
+                period: self.command.period.to_owned(),
             })
             .send()
             .await

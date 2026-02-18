@@ -16,8 +16,7 @@ pub(crate) enum FuncCommands {
 
     /// Get function stats
     ///
-    /// Includes run statistics (error/success/total count) as well as last
-    /// call time and status.
+    /// Includes run statistics (error/success/total count).
     Stats(StatsCommand),
 
     /// Show function logs
