@@ -43,9 +43,8 @@ impl ParsedFunction {
     pub fn func_name(&self, is_local: bool) -> eyre::Result<String> {
         let path = match &self.role {
             Role::Endpoint(endpoint) => {
-                // Clean url path parameters with special characters
-                let re = Regex::new(r"[{*}\\+]+")?;
-                re.replace_all(&endpoint.url_path, "").to_string()
+                // Use rust function name as a fallback
+                Self::url_to_path(&endpoint.url_path)?.unwrap_or(self.rust_function_name.clone())
             }
 
             _ => self
@@ -66,6 +65,30 @@ impl ParsedFunction {
 
         // TODO Check the name for uniqueness
         Ok(format!("{}{}", name, if is_local { "Local" } else { "" }))
+    }
+
+    /// Converts URL path to a valid path for further processing
+    ///
+    /// Removes `{...}` blocks and collapses multiple slashes to a single slash
+    ///
+    /// Examples:
+    ///     /some/{other}/{*rest} -> /some
+    ///     /{other}/{*rest} -> None
+    fn url_to_path(url_path: &str) -> eyre::Result<Option<String>> {
+        let re_block = Regex::new(r"\{[^}]*}")?; // remove `{...}` blocks
+        let re_slash = Regex::new(r"/{2,}")?; // collapse `////` -> `/`
+        let s = re_block.replace_all(url_path, "");
+        let s = re_slash.replace_all(s.as_ref(), "/");
+
+        // Remove trailing slash
+        let name = s.trim_end_matches('/').to_string();
+
+        // In case of url like: /{some}/{other}/{*rest} return None
+        if name.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(name))
     }
 }
 
