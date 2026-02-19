@@ -61,14 +61,11 @@ impl ParsedFunction {
         let name = &Self::path_to_name(&path);
 
         if name.len() > 64 {
-            Err(eyre::eyre!(
-                "Function name is longer than 64 chars: {}",
-                name
-            ))
-        } else {
-            // TODO Check the name for uniqueness
-            Ok(format!("{}{}", name, if is_local { "Local" } else { "" }))
+            eyre::bail!("Function name is longer than 64 chars: {}", name);
         }
+
+        // TODO Check the name for uniqueness
+        Ok(format!("{}{}", name, if is_local { "Local" } else { "" }))
     }
 }
 
