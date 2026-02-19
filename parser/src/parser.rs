@@ -23,7 +23,8 @@ pub struct ParsedFunction {
 impl ParsedFunction {
     /// Convert a path to CamelCase name
     pub fn path_to_name(path: &str) -> String {
-        path.split(&['.', '/'])
+        path.replace("-", "/")
+            .split(&['.', '/'])
             .filter(|s| !s.eq(&"rs"))
             .map(|s| match s.chars().next() {
                 Some(first) => first.to_uppercase().collect::<String>() + &s[1..],
