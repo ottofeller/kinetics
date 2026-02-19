@@ -36,8 +36,9 @@ impl ParsedFunction {
 
     /// Generate lambda function name out of Rust function name or macro attribute
     ///
-    /// For Endpoint functions use a cleaned URL path as the function name.
-    /// For other functions use the Rust function plus crate path as the function name. Convert
+    /// For Endpoint functions, use a cleaned URL path as the function name
+    /// or the function name as a fallback.
+    /// For other functions, use the Rust function plus crate path as the function name. Convert
     /// some-name to SomeName, and do other transformations in order to comply with Lambda
     /// function name requirements.
     pub fn func_name(&self, is_local: bool) -> eyre::Result<String> {
