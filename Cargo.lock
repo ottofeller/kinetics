@@ -2171,6 +2171,7 @@ name = "kinetics-parser"
 version = "0.12.3"
 dependencies = [
  "color-eyre",
+ "regex",
  "serde",
  "syn",
  "walkdir",
