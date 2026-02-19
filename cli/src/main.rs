@@ -19,7 +19,13 @@ use crate::runner::{Runnable, Runner};
 use clap::Parser;
 
 #[derive(Parser)]
-#[command(version, about, long_about = None)]
+#[command(
+    arg_required_else_help = true,
+    name = "kinetics",
+    version,
+    about = "CLI tool for building and deploying serverless Rust functions",
+    long_about = "A comprehensive CLI for managing Kinetics serverless Rust functions, including building, deploying and managing your infrastructure."
+)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
