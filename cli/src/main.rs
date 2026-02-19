@@ -42,10 +42,10 @@ async fn run(command: impl Runnable) {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let cli = Cli::try_parse();
+    let cli = Cli::parse();
 
     // Match all commands here, in one place
-    Ok(match cli.unwrap().command.unwrap() {
+    Ok(match cli.command.unwrap() {
         Commands::Auth(auth) => match auth {
             commands::auth::AuthCommands::Logout(cmd) => run(cmd).await,
             commands::auth::AuthCommands::Tokens(cmd) => match cmd {
