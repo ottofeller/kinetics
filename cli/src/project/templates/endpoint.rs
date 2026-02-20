@@ -141,7 +141,13 @@ pub fn endpoint(
                         Ok(response) => Ok(response),
                         Err(err) => {{
                             eprintln!(\"Error occurred while handling request: {{:?}}\", err);
-                            Err(err)
+                            let box_error: tower::BoxError = Box::from(err);
+                            match box_error.downcast_ref::<kinetics::tools::http::Error>() {{
+                                Some(http_error) => Ok(http::Response::new(
+                                    kinetics::tools::http::Body::from(http_error.to_string()).try_into()?,
+                                )),
+                                None => Err(box_error),
+                            }}
                         }}
                     }}
                 }})).await

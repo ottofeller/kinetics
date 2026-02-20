@@ -1,5 +1,5 @@
 use http_body::{Body as HttpBody, Frame, SizeHint};
-use std::{borrow::Cow, mem::take, pin::Pin, task::Poll};
+use std::{borrow::Cow, fmt::Display, mem::take, pin::Pin, task::Poll};
 
 /// Request body supported by kinetics runtime.
 /// In addition to empty bodies string and binary data are supported.
@@ -59,6 +59,18 @@ impl TryFrom<Body> for String {
     }
 }
 
+impl TryFrom<&Body> for String {
+    type Error = eyre::Error;
+
+    fn try_from(value: &Body) -> Result<Self, Self::Error> {
+        match value {
+            Body::Empty => Ok(String::new()),
+            Body::Text(chars) => Ok(chars.to_owned()),
+            Body::Binary(bytes) => Ok(String::from_utf8(bytes.to_owned())?),
+        }
+    }
+}
+
 impl TryFrom<Body> for Vec<u8> {
     type Error = eyre::Error;
 
@@ -68,6 +80,12 @@ impl TryFrom<Body> for Vec<u8> {
             Body::Text(chars) => Ok(chars.into_bytes()),
             Body::Binary(bytes) => Ok(bytes),
         }
+    }
+}
+
+impl From<&String> for Body {
+    fn from(value: &String) -> Self {
+        Self::Text(value.to_owned())
     }
 }
 
@@ -151,5 +169,64 @@ impl HttpBody for Body {
             Body::Text(s) => Some(Ok(Frame::data(s.into()))),
             Body::Binary(b) => Some(Ok(Frame::data(b.into()))),
         })
+    }
+}
+
+/// HTTP error for most common scenarios.
+///
+/// Use these errors with endpoint workload
+/// in order to get corresponding HTTP responses out of the box.
+#[derive(Debug, Clone)]
+pub enum Error {
+    /// 400 Bad Request
+    BadRequest(String),
+    /// 401 Unauthorized
+    Unauthorized(String),
+    /// 403 Forbidden
+    Forbidden(String),
+    /// 500 Internal Server Error
+    Internal(String),
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::BadRequest(msg) => write!(f, "Bad Request Error: {msg}"),
+            Error::Unauthorized(msg) => write!(f, "Unauthorized Error: {msg}"),
+            Error::Forbidden(msg) => write!(f, "Forbidden Error: {msg}"),
+            Error::Internal(msg) => write!(f, "Internal Server Error: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
+impl From<&Error> for http::Response<Body> {
+    fn from(value: &Error) -> Self {
+        match value {
+            Error::BadRequest(body) => http::Response::builder()
+                .status(http::StatusCode::BAD_REQUEST)
+                .body(body.into()),
+            Error::Unauthorized(body) => http::Response::builder()
+                .status(http::StatusCode::BAD_REQUEST)
+                .body(body.into()),
+            Error::Forbidden(body) => http::Response::builder()
+                .status(http::StatusCode::BAD_REQUEST)
+                .body(body.into()),
+            Error::Internal(body) => http::Response::builder()
+                .status(http::StatusCode::INTERNAL_SERVER_ERROR)
+                .body(body.into()),
+        }
+        // The only failing call to status already uses StatusCode as argument and should succeed.
+        .unwrap()
+    }
+}
+
+impl From<Error> for lambda_runtime::Diagnostic {
+    fn from(value: Error) -> Self {
+        Self {
+            error_type: std::any::type_name::<Error>().into(),
+            error_message: value.to_string(),
+        }
     }
 }

@@ -1231,6 +1231,7 @@ dependencies = [
  "http 1.4.0",
  "kinetics 0.12.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "matchit",
+ "serde",
  "serde_json",
  "sqlx",
  "tokio",
