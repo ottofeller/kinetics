@@ -4,7 +4,7 @@ use super::Project;
 use crate::function::Function;
 use crate::tools::config::EndpointConfig;
 use eyre::Context;
-use kinetics_parser::{ParsedFunction, Parser, Role};
+use kinetics_parser::{ParsedFunction, Params, Parser, Role};
 use regex::Regex;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -259,13 +259,13 @@ impl Project {
         )?;
 
         let rust_function_name = parsed_function.rust_function_name.clone();
-        let main_code = match &parsed_function.role {
-            Role::Endpoint(params) => {
+        let main_code = match &parsed_function.params {
+            Params::Endpoint(params) => {
                 let endpoint_config = EndpointConfig::new(&params.url_path);
                 templates::endpoint(&fn_import, &rust_function_name, endpoint_config, is_local)
             }
-            Role::Worker(_) => templates::worker(&fn_import, &rust_function_name, is_local),
-            Role::Cron(_) => templates::cron(&fn_import, &rust_function_name, is_local),
+            Params::Worker(_) => templates::worker(&fn_import, &rust_function_name, is_local),
+            Params::Cron(_) => templates::cron(&fn_import, &rust_function_name, is_local),
         };
 
         let item: syn::File = syn::parse_str(&main_code)?;
@@ -288,8 +288,8 @@ impl Project {
         is_local: bool,
         doc: &mut toml_edit::DocumentMut,
     ) -> eyre::Result<()> {
-        if matches!(parsed_function.role, Role::Cron(_) | Role::Worker(_))
-            || (matches!(parsed_function.role, Role::Endpoint(_)) && is_local)
+        if matches!(parsed_function.role, Role::Cron | Role::Worker)
+            || (matches!(parsed_function.role, Role::Endpoint) && is_local)
         {
             if let Some(serde_json) = doc["dependencies"]["serde_json"]
                 .or_insert(toml_edit::Table::new().into())
@@ -312,13 +312,13 @@ impl Project {
         }
 
         match parsed_function.role {
-            Role::Cron(_) | Role::Worker(_) => {
+            Role::Cron | Role::Worker => {
                 doc["dependencies"]["lambda_runtime"]
                     .or_insert(toml_edit::Table::new().into())
                     .as_table_mut()
                     .map(|t| t.insert("version", toml_edit::value("^1.0")));
             }
-            Role::Endpoint(_) => {
+            Role::Endpoint => {
                 doc["dependencies"]["lambda_http"]
                     .or_insert(toml_edit::Table::new().into())
                     .as_table_mut()

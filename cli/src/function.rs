@@ -13,7 +13,7 @@ use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 // Re-export types from kinetics-parser
-pub use kinetics_parser::{ParsedFunction, Role};
+pub use kinetics_parser::{ParsedFunction, Params};
 
 pub enum Type {
     Cron,
@@ -30,8 +30,8 @@ pub struct Function {
     /// Whether the function is requested for deployment
     pub is_deploying: bool,
 
-    /// The role of the function with parameters
-    pub role: Role,
+    /// The role-specific parameters of the function
+    pub role: Params,
 
     /// The project that contains the function, it belongs to Crate in the build directory
     pub project: Project,
@@ -43,7 +43,7 @@ impl Function {
             name: function.func_name(false)?,
             is_deploying: false,
             project: project.clone(),
-            role: function.role.clone(),
+            role: function.params.clone(),
         })
     }
 
@@ -143,7 +143,7 @@ impl Function {
     /// Only relevant for endpoint type of functions.
     pub async fn url(&self) -> eyre::Result<String> {
         let url_path = match &self.role {
-            Role::Endpoint(endpoint) => Ok(&endpoint.url_path),
+            Params::Endpoint(endpoint) => Ok(&endpoint.url_path),
             _ => Err(eyre!("Not an endpoint")),
         }?;
 

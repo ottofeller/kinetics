@@ -1,5 +1,5 @@
 use crate::{function::Function, project::Project};
-use kinetics_parser::Role;
+use kinetics_parser::Params;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -17,7 +17,7 @@ pub struct Request {
 pub struct FunctionRequest {
     pub is_deploying: bool,
     pub name: String,
-    pub role: Role,
+    pub role: Params,
     pub environment: HashMap<String, String>,
 }
 
