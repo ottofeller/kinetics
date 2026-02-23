@@ -3,7 +3,7 @@ use color_eyre::eyre;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-/// The kind of function, without parameters.
+/// The kind of function
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Role {
     Endpoint,
