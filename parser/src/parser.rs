@@ -1,4 +1,4 @@
-use crate::{environment::Environment, Cron, Endpoint, Worker};
+use crate::params::{Cron, Endpoint, Params, Worker};
 use color_eyre::eyre;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
@@ -15,8 +15,11 @@ pub struct ParsedFunction {
     /// Path to the file where function is defined
     pub relative_path: String,
 
-    /// Parsed from kinetics_macro macro definition
+    /// The kind of function (endpoint, cron, or worker), without parameters
     pub role: Role,
+
+    /// The role-specific parameters parsed from the kinetics macro attribute
+    pub params: Params,
 }
 
 impl ParsedFunction {
@@ -41,7 +44,7 @@ impl ParsedFunction {
         let rust_name = &self.rust_function_name;
         let full_path = format!("{}/{rust_name}", self.relative_path);
         let default_func_name = Self::path_to_name(&full_path);
-        let name = self.role.name().unwrap_or(&default_func_name);
+        let name = self.params.name().unwrap_or(&default_func_name);
 
         if name.len() > 64 {
             Err(eyre::eyre!(
@@ -55,40 +58,23 @@ impl ParsedFunction {
     }
 }
 
+/// The kind of function, without parameters.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Role {
-    Endpoint(Endpoint),
-    Cron(Cron),
-    Worker(Worker),
+    Endpoint,
+    Cron,
+    Worker,
 }
 
 impl Display for Role {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            Role::Endpoint(_) => "endpoint",
-            Role::Cron(_) => "cron",
-            Role::Worker(_) => "worker",
+            Role::Endpoint => "endpoint",
+            Role::Cron => "cron",
+            Role::Worker => "worker",
         };
 
         write!(f, "{}", str)
-    }
-}
-
-impl Role {
-    pub fn name(&self) -> Option<&String> {
-        match self {
-            Role::Endpoint(params) => params.name.as_ref(),
-            Role::Cron(params) => params.name.as_ref(),
-            Role::Worker(params) => params.name.as_ref(),
-        }
-    }
-
-    pub fn environment(&self) -> &Environment {
-        match self {
-            Role::Endpoint(params) => &params.environment,
-            Role::Cron(params) => &params.environment,
-            Role::Worker(params) => &params.environment,
-        }
     }
 }
 
@@ -178,24 +164,25 @@ impl Visit<'_> for Parser {
     fn visit_item_fn(&mut self, item: &ItemFn) {
         for attr in &item.attrs {
             // Skip non-endpoint or non-worker attributes
-            let role = match self.parse_attr_role(attr).as_str() {
+            let (role, params) = match self.parse_attr_role(attr).as_str() {
                 "endpoint" => {
                     let params = self.parse_endpoint(attr).unwrap();
-                    Role::Endpoint(params)
+                    (Role::Endpoint, Params::Endpoint(params))
                 }
                 "worker" => {
                     let params = self.parse_worker(attr).unwrap();
-                    Role::Worker(params)
+                    (Role::Worker, Params::Worker(params))
                 }
                 "cron" => {
                     let params = self.parse_cron(attr).unwrap();
-                    Role::Cron(params)
+                    (Role::Cron, Params::Cron(params))
                 }
                 _ => continue,
             };
 
             self.functions.push(ParsedFunction {
                 role,
+                params,
                 rust_function_name: item.sig.ident.to_string(),
                 relative_path: self.relative_path.clone(),
             });
