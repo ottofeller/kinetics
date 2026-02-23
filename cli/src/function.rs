@@ -30,8 +30,8 @@ pub struct Function {
     /// Whether the function is requested for deployment
     pub is_deploying: bool,
 
-    /// The role-specific parameters of the function
-    pub role: Params,
+    /// The workload-specific parameters of the function
+    pub params: Params,
 
     /// The project that contains the function, it belongs to Crate in the build directory
     pub project: Project,
@@ -43,7 +43,7 @@ impl Function {
             name: function.func_name(false)?,
             is_deploying: false,
             project: project.clone(),
-            role: function.params.clone(),
+            params: function.params.clone(),
         })
     }
 
@@ -134,7 +134,7 @@ impl Function {
     /// as well as those defined globally in .env file.
     pub fn environment(&self) -> HashMap<String, String> {
         let mut env = self.project.environment().clone();
-        env.extend(self.role.environment().clone());
+        env.extend(self.params.environment().clone());
         env
     }
 
@@ -142,7 +142,7 @@ impl Function {
     ///
     /// Only relevant for endpoint type of functions.
     pub async fn url(&self) -> eyre::Result<String> {
-        let url_path = match &self.role {
+        let url_path = match &self.params {
             Params::Endpoint(endpoint) => Ok(&endpoint.url_path),
             _ => Err(eyre!("Not an endpoint")),
         }?;

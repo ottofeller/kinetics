@@ -17,7 +17,7 @@ pub struct Request {
 pub struct FunctionRequest {
     pub is_deploying: bool,
     pub name: String,
-    pub role: Params,
+    pub params: Params,
     pub environment: HashMap<String, String>,
 }
 
@@ -26,7 +26,7 @@ impl From<&Function> for FunctionRequest {
         Self {
             name: f.name.clone(),
             is_deploying: f.is_deploying,
-            role: f.role.clone(),
+            params: f.params.clone(),
             environment: f.environment(),
         }
     }
