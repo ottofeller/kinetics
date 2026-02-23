@@ -13,7 +13,7 @@ use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 // Re-export types from kinetics-parser
-pub use kinetics_parser::{ParsedFunction, Params};
+pub use kinetics_parser::{ParsedFunction, Params, Role};
 
 pub enum Type {
     Cron,
@@ -30,6 +30,9 @@ pub struct Function {
     /// Whether the function is requested for deployment
     pub is_deploying: bool,
 
+    /// The role of the workload
+    pub role: Role,
+
     /// The workload-specific parameters of the function
     pub params: Params,
 
@@ -38,12 +41,14 @@ pub struct Function {
 }
 
 impl Function {
+    /// Instantiate struct from parsed function data
     pub fn new(project: &Project, function: &ParsedFunction) -> eyre::Result<Self> {
         Ok(Function {
             name: function.func_name(false)?,
             is_deploying: false,
             project: project.clone(),
             params: function.params.clone(),
+            role: function.role.clone(),
         })
     }
 
