@@ -154,9 +154,8 @@ impl Parser {
     }
 
     /// Checks if the input is a valid kinetics_macro definition and returns its role
-    /// Checks if the input is a valid kinetics_macro definition
     /// Known definitions:
-    /// kinetics_macro::<role> or <role>
+    /// #[kinetics_macro::<role> or <role>]
     fn parse_attr_role(&self, input: &Attribute) -> String {
         let path = input.path();
 
