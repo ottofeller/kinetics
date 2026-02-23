@@ -15,12 +15,6 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 // Re-export types from kinetics-parser
 pub use kinetics_parser::{ParsedFunction, Params, Role};
 
-pub enum Type {
-    Cron,
-    Endpoint,
-    Worker,
-}
-
 /// Represents a function in the project
 #[derive(Clone, Debug)]
 pub struct Function {
