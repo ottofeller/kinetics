@@ -2,7 +2,7 @@ use crate::api::upload;
 use crate::config::deploy::DeployConfig;
 use crate::error::Error;
 use crate::project::Project;
-use crate::{api::func, client::Client};
+use crate::api::{func, client::Client};
 use base64::Engine as _;
 use crc_fast::{CrcAlgorithm::Crc64Nvme, Digest};
 use eyre::{eyre, ContextCompat, WrapErr};
@@ -15,7 +15,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 // Re-export types from kinetics-parser
 pub use kinetics_parser::{ParsedFunction, Role};
 
-pub(crate) enum Type {
+pub enum Type {
     Cron,
     Endpoint,
     Worker,
@@ -128,9 +128,14 @@ impl Function {
         Ok(true)
     }
 
-    /// Returns env vars assigned to the function in macro definition
-    pub fn environment(&self) -> &HashMap<String, String> {
-        self.role.environment()
+    /// Env vars to be added to function's runtime
+    ///
+    /// These are env vars assigned to the function in macro definition
+    /// as well as those defined globally in .env file.
+    pub fn environment(&self) -> HashMap<String, String> {
+        let mut env = self.project.environment().clone();
+        env.extend(self.role.environment().clone());
+        env
     }
 
     /// URL to call the function
@@ -184,7 +189,7 @@ impl Function {
     }
 }
 
-pub(crate) async fn build(
+pub async fn build(
     functions: &[Function],
     total_progress: &indicatif::ProgressBar,
 ) -> eyre::Result<()> {

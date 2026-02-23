@@ -1,72 +1,100 @@
+use crate::api::client::Client;
 use crate::api::envs;
-use crate::client::Client;
-use crate::commands::build::prepare_functions;
 use crate::config::build_config;
+use crate::error::Error;
 use crate::project::Project;
+use crate::runner::{Runnable, Runner};
 use crossterm::style::Stylize;
 use eyre::{eyre, WrapErr};
 use kinetics_parser::{ParsedFunction, Parser};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-/// Lists all environment variables for all functions in the current crate
-pub async fn list(project: &Project, is_remote: bool) -> eyre::Result<()> {
-    let parsed_functions = Parser::new(Some(&project.path))?.functions;
-    println!();
+#[derive(clap::Args, Clone)]
+pub(crate) struct ListCommand {
+    /// When passed shows env vars used by deployed functions
+    #[arg(short, long, action = clap::ArgAction::SetTrue)]
+    remote: bool,
+}
 
-    let envs = if is_remote {
-        println!(
-            "{}...\n",
-            console::style("Fetching env vars").green().bold()
-        );
-
-        remote(project, &parsed_functions)
-            .await
-            .inspect_err(|e| log::error!("Error: {e:?}"))
-            .wrap_err("Failed to fetch the list of env vars")?
-    } else {
-        println!("{}\n", "Showing local env vars".bold().green());
-        local(project).await?
-    };
-
-    if envs.is_empty() {
-        println!("{}", "No envs found".yellow());
-        return Ok(());
+impl Runnable for ListCommand {
+    fn runner(&self) -> impl Runner {
+        ListRunner {
+            command: self.clone(),
+        }
     }
+}
 
-    for (function_name, env_vars) in envs {
-        if env_vars.is_empty() {
-            continue;
-        }
+struct ListRunner {
+    command: ListCommand,
+}
 
-        let path = parsed_functions
-            .iter()
-            .find(|f| {
-                f.func_name(false)
-                    .inspect_err(|e| log::error!("Error: {e:?}"))
-                    .wrap_err("Failed to process functions")
-                    .unwrap()
-                    == function_name
-            })
-            .ok_or(eyre!("Parsed artifact has no function name"))
-            .inspect_err(|e| log::error!("Error: {e:?}"))?
-            .relative_path
-            .to_owned();
-
-        println!(
-            "{} {}",
-            function_name.bold(),
-            format!("from {}", path).dim()
-        );
-
-        for (key, value) in env_vars {
-            println!("{} {}", key.dim(), value.black());
-        }
+impl Runner for ListRunner {
+    /// Lists all environment variables for all functions in the current crate
+    async fn run(&mut self) -> Result<(), Error> {
+        let project = self.project().await?;
+        let parsed_functions = Parser::new(Some(&project.path))
+            .map_err(|e| self.error(None, None, Some(e.into())))?
+            .functions;
 
         println!();
-    }
 
-    Ok(())
+        let envs = if self.command.remote {
+            println!(
+                "{}...\n",
+                console::style("Fetching env vars").green().bold()
+            );
+
+            remote(&project, &parsed_functions)
+                .await
+                .map_err(|e| self.server_error(Some(e.into())))?
+        } else {
+            println!("{}\n", "Showing local env vars".bold().green());
+
+            local(&project)
+                .await
+                .map_err(|e| self.error(None, None, Some(e.into())))?
+        };
+
+        if envs.is_empty() {
+            println!("{}", "No envs found".yellow());
+            return Ok(());
+        }
+
+        for (function_name, env_vars) in envs {
+            if env_vars.is_empty() {
+                continue;
+            }
+
+            let path = parsed_functions
+                .iter()
+                .find(|f| {
+                    f.func_name(false)
+                        .inspect_err(|e| log::error!("Error: {e:?}"))
+                        .wrap_err("Failed to process functions")
+                        .unwrap()
+                        == function_name
+                })
+                .ok_or(eyre!("Parsed artifact has no function name"))
+                .map_err(|e| self.error(None, None, Some(e.into())))?
+                .relative_path
+                .to_owned();
+
+            println!(
+                "{} {}",
+                function_name.bold(),
+                format!("from {}", path).dim()
+            );
+
+            for (key, value) in env_vars {
+                println!("{} {}", key.dim(), value.black());
+            }
+
+            println!();
+        }
+
+        Ok(())
+    }
 }
 
 /// Gets environment variables from the backend
@@ -109,7 +137,7 @@ async fn remote(
 
 /// Gets environment variables from local configuration
 async fn local(project: &Project) -> eyre::Result<HashMap<String, HashMap<String, String>>> {
-    let functions = prepare_functions(PathBuf::from(build_config()?.kinetics_path), project, &[])?;
+    let functions = project.parse(PathBuf::from(build_config()?.kinetics_path), &[])?;
     let mut result = HashMap::new();
 
     for function in functions {

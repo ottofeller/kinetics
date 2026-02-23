@@ -8,7 +8,6 @@ pub(crate) struct BuildConfig<'a> {
     pub(crate) kinetics_path: &'a str,
     pub(crate) credentials_path: &'a str,
     pub(crate) credentials_env: &'a str,
-    pub(crate) provision_warn_threshold: usize,
 }
 
 static BUILD_CONFIG: OnceLock<BuildConfig> = OnceLock::new();
@@ -51,7 +50,6 @@ pub(crate) fn build_config() -> Result<&'static BuildConfig<'static>, Error> {
             kinetics_path: build_path,
             credentials_path,
             credentials_env: "KINETICS_ACCESS_TOKEN",
-            provision_warn_threshold: 5,
         }
     }))
 }

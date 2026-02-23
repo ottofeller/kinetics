@@ -18,6 +18,7 @@ pub struct FunctionRequest {
     pub is_deploying: bool,
     pub name: String,
     pub role: Role,
+    pub environment: HashMap<String, String>,
 }
 
 impl From<&Function> for FunctionRequest {
@@ -26,6 +27,7 @@ impl From<&Function> for FunctionRequest {
             name: f.name.clone(),
             is_deploying: f.is_deploying,
             role: f.role.clone(),
+            environment: f.environment(),
         }
     }
 }

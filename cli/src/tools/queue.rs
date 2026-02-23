@@ -1,18 +1,20 @@
 use crate::tools::{config::Config as KineticsConfig, resource_name};
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
+use eyre::OptionExt;
 use kinetics_parser::ParsedFunction;
 use lambda_runtime::LambdaEvent;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tokio::sync::OnceCell;
+use std::sync::Arc;
+use tokio::sync::{OnceCell, RwLock};
 
+#[derive(Clone)]
 pub struct Client {
     queue: SendMessageFluentBuilder,
 }
 
-// Global cache for AWS SQS client to avoid re-initialization in Lambda
-static SQS_CLIENT: OnceCell<SendMessageFluentBuilder> = OnceCell::const_new();
+static SQS_CLIENT_CACHE: OnceCell<Arc<RwLock<HashMap<String, Client>>>> = OnceCell::const_new();
 
 /// A queue client
 ///
@@ -43,54 +45,66 @@ impl Client {
         Fut:
             std::future::Future<Output = Result<Retries, Box<dyn std::error::Error + Send + Sync>>>,
     {
-        Ok(Client {
-            // Initialize the SQS client just once
-            queue: SQS_CLIENT
-                .get_or_init(|| async {
-                    let (project_name, function_path) = std::any::type_name_of_val(&worker)
-                        .split_once("::")
-                        .unwrap();
+        let cache_key = std::any::type_name_of_val(&worker);
 
-                    let region = std::env::var("AWS_REGION").unwrap_or("us-east-1".to_string());
+        let cache = SQS_CLIENT_CACHE
+            .get_or_init(|| async { Arc::new(RwLock::new(HashMap::new())) })
+            .await;
 
-                    let queue_endpoint_url = std::env::var("KINETICS_QUEUE_ENDPOINT_URL")
-                        .unwrap_or(format!("https://sqs.{region}.amazonaws.com"));
+        // Check if the client is already initialized
+        let mut write_guard = cache.write().await;
 
-                    let config = if std::env::var("KINETICS_IS_LOCAL").is_ok() {
-                        // Redefine endpoint in local mode
-                        aws_config::defaults(aws_config::BehaviorVersion::latest())
-                            .endpoint_url(&queue_endpoint_url)
-                            .load()
-                            .await
-                    } else {
-                        aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await
-                    };
+        if let Some(client) = write_guard.get(cache_key) {
+            return Ok(client.clone());
+        }
 
-                    // Use a hardcoded queue name for local invocations, otherwise generate the name
-                    // out of user and project names
-                    let queue_name = std::env::var("KINETICS_QUEUE_NAME")
-                        .or_else(|_| {
-                            Ok::<String, std::env::VarError>(resource_name(
-                                &std::env::var("KINETICS_USERNAME")
-                                    .expect("KINETICS_USERNAME is not set"),
-                                project_name,
-                                &ParsedFunction::path_to_name(&function_path.replace("::", "/")),
-                            ))
-                        })
-                        .expect("Queue name is not set");
+        let client = Client {
+            queue: {
+                let (project_name, function_path) = cache_key
+                    .split_once("::")
+                    .ok_or_eyre("Failed to get the project name from a worker")?;
 
-                    let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
-                        .expect("KINETICS_CLOUD_ACCOUNT_ID is not set");
+                let region = std::env::var("AWS_REGION").unwrap_or("us-east-1".to_string());
 
-                    aws_sdk_sqs::Client::new(&config)
-                        .send_message()
-                        // Create a full queue URL in a known format:
-                        // https://sqs.us-east1.amazonaws.com/000000000000/kinetics-queue-name
-                        .queue_url(format!("{queue_endpoint_url}/{account_id}/{queue_name}"))
-                })
-                .await
-                .to_owned(),
-        })
+                let queue_endpoint_url = std::env::var("KINETICS_QUEUE_ENDPOINT_URL")
+                    .unwrap_or(format!("https://sqs.{region}.amazonaws.com"));
+
+                let config = if std::env::var("KINETICS_IS_LOCAL").is_ok() {
+                    // Redefine endpoint in local mode
+                    aws_config::defaults(aws_config::BehaviorVersion::latest())
+                        .endpoint_url(&queue_endpoint_url)
+                        .load()
+                        .await
+                } else {
+                    aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await
+                };
+
+                // Use a hardcoded queue name for local invocations, otherwise generate the name
+                // out of user and project names
+                let queue_name = std::env::var("KINETICS_QUEUE_NAME")
+                    .or_else(|_| {
+                        Ok::<String, std::env::VarError>(resource_name(
+                            &std::env::var("KINETICS_USERNAME")
+                                .expect("KINETICS_USERNAME is not set"),
+                            project_name,
+                            &ParsedFunction::path_to_name(&function_path.replace("::", "/")),
+                        ))
+                    })
+                    .expect("Queue name is not set");
+
+                let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
+                    .expect("KINETICS_CLOUD_ACCOUNT_ID is not set");
+
+                aws_sdk_sqs::Client::new(&config)
+                    .send_message()
+                    // Create a full queue URL in a known format:
+                    // https://sqs.us-east1.amazonaws.com/000000000000/kinetics-queue-name
+                    .queue_url(format!("{queue_endpoint_url}/{account_id}/{queue_name}"))
+            },
+        };
+
+        write_guard.insert(cache_key.to_string(), client.clone());
+        Ok(client)
     }
 }
 
