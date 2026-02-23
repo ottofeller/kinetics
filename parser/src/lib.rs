@@ -1,10 +1,8 @@
-mod cron;
-mod endpoint;
 mod environment;
+mod function;
+pub mod params;
 mod parser;
-mod worker;
 
-pub use cron::Cron;
-pub use endpoint::Endpoint;
-pub use parser::{ParsedFunction, Parser, Role};
-pub use worker::Worker;
+pub use function::{ParsedFunction, Role};
+pub use params::{Cron, Endpoint, Params, Worker};
+pub use parser::Parser;

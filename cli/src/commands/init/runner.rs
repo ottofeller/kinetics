@@ -1,10 +1,10 @@
 use crate::commands::cicd::github;
 use crate::commands::init::InitCommand;
 use crate::error::Error;
-use crate::function::Type as FunctionType;
 use crate::project::Project;
 use crate::runner::Runner;
 use eyre::{eyre, WrapErr};
+use kinetics_parser::Role;
 use reqwest::Response;
 use std::env;
 use std::fs;
@@ -33,12 +33,12 @@ impl Runner for InitRunner {
     /// Downloads the Kinetics template archive into a new directory,
     /// customizes it with the provided project name, and sets up a ready-to-use project structure.
     async fn run(&mut self) -> Result<(), Error> {
-        let function_type = if self.command.cron {
-            FunctionType::Cron
+        let function_role = if self.command.cron {
+            Role::Cron
         } else if self.command.worker {
-            FunctionType::Worker
+            Role::Worker
         } else {
-            FunctionType::Endpoint
+            Role::Endpoint
         };
 
         let is_git_enabled = !self.command.no_git;
@@ -63,10 +63,10 @@ impl Runner for InitRunner {
 
         let client = reqwest::Client::new();
 
-        let template_url = match function_type {
-            FunctionType::Cron => CRON_TEMPLATE_URL,
-            FunctionType::Worker => WORKER_TEMPLATE_URL,
-            FunctionType::Endpoint => ENDPOINT_TEMPLATE_URL,
+        let template_url = match function_role {
+            Role::Cron => CRON_TEMPLATE_URL,
+            Role::Worker => WORKER_TEMPLATE_URL,
+            Role::Endpoint => ENDPOINT_TEMPLATE_URL,
         };
 
         let response = match client.get(template_url).send().await {

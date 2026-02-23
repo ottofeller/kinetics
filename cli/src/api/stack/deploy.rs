@@ -1,8 +1,7 @@
 use crate::{function::Function, project::Project};
-use kinetics_parser::Role;
+use kinetics_parser::{Params, Role};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
 pub mod envs;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -18,6 +17,7 @@ pub struct FunctionRequest {
     pub is_deploying: bool,
     pub name: String,
     pub role: Role,
+    pub params: Params,
     pub environment: HashMap<String, String>,
 }
 
@@ -26,6 +26,7 @@ impl From<&Function> for FunctionRequest {
         Self {
             name: f.name.clone(),
             is_deploying: f.is_deploying,
+            params: f.params.clone(),
             role: f.role.clone(),
             environment: f.environment(),
         }
