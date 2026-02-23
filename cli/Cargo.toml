@@ -15,15 +15,15 @@ path = "src/main.rs"
 
 [dependencies]
 aws-config = "1.8.14"
-aws-sdk-dynamodb = "1.105.0"
-aws-sdk-sqs = "1.94.0"
-aws-sdk-dsql = "1.51.0"
+aws-sdk-dynamodb = "1.106.0"
+aws-sdk-sqs = "1.95.0"
+aws-sdk-dsql = "1.52.0"
 
 # 1.0 makes some structs which we construct non_exhaustive, needs refactoring
 aws_lambda_events = "=0.18.0"
 
-chrono = { version = "0.4.43", features = ["serde"] }
-clap = { version = "4.5.58", features = ["derive"] }
+chrono = { version = "0.4.44", features = ["serde"] }
+clap = { version = "4.5.60", features = ["derive"] }
 eyre = "0.6.12"
 regex = "1.12.3"
 walkdir = "2.5.0"
@@ -31,7 +31,7 @@ kinetics-macro = { path = "../macro", version = "0.12.5" }
 humantime = "2.3.0"
 tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
-toml_edit = "0.25.1+spec-1.1.0"
+toml_edit = "0.25.3+spec-1.1.0"
 rust_dotenv = "0.1.3"
 reqwest = { version = "0.13.2", features = [
   "json",
