@@ -10,8 +10,9 @@ use crate::environment::Environment;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-/// The role-specific parameters parsed from the kinetics macro attribute.
-/// Carries the full configuration data for each function type.
+/// The workload-specific parameters
+///
+/// Parsed from the kinetics macro attribute.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Params {
     Endpoint(Endpoint),
