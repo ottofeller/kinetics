@@ -15,7 +15,7 @@ path = "src/main.rs"
 
 [dependencies]
 aws-config = "1.8.14"
-aws-sdk-dynamodb = "1.106.0"
+aws-sdk-dynamodb = "1.107.0"
 aws-sdk-sqs = "1.95.0"
 aws-sdk-dsql = "1.52.0"
 
