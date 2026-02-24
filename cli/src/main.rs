@@ -37,7 +37,10 @@ async fn run(command: impl Runnable) {
     let run = command.runner().run().await;
 
     if run.is_err() {
-        println!("Error\n{}", run.unwrap_err())
+        let error = run.unwrap_err();
+        log::error!("{:?}", error);
+        eprintln!("\n\n{}\n{error}", console::style("Error").red().bold());
+        std::process::exit(1)
     }
 }
 
