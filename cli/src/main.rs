@@ -15,6 +15,7 @@ mod sqldb;
 pub mod tools;
 use crate::commands::Commands;
 use crate::error::Error;
+use crate::logger::Logger;
 use crate::runner::{Runnable, Runner};
 use clap::Parser;
 
@@ -36,12 +37,16 @@ async fn run(command: impl Runnable) {
     let run = command.runner().run().await;
 
     if run.is_err() {
-        println!("Error\n{}", run.unwrap_err())
+        let error = run.unwrap_err();
+        log::error!("{:?}", error);
+        eprintln!("\n\n{}\n{error}", console::style("Error").red().bold());
+        std::process::exit(1)
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    Logger::init();
     let cli = Cli::parse();
 
     // Match all commands here, in one place
