@@ -4,7 +4,7 @@ use super::Project;
 use crate::function::Function;
 use crate::tools::config::EndpointConfig;
 use eyre::Context;
-use kinetics_parser::{ParsedFunction, Params, Parser, Role};
+use kinetics_parser::{Params, ParsedFunction, Parser, Role};
 use regex::Regex;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -142,7 +142,9 @@ impl Project {
             // - the `target` folder;
             // - `.checksums` file.
             // - `Cargo.lock` file.
-            if src_relative.strip_prefix("target").is_ok()
+            // - non *.rs files
+            if src_relative.extension().is_some_and(|ext| ext != "rs")
+                || src_relative.strip_prefix("target").is_ok()
                 || src_relative
                     .to_str()
                     .is_some_and(|p| p == CHECKSUMS_FILENAME || p == "Cargo.lock")
