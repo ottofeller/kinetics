@@ -17,6 +17,7 @@ pub(crate) struct DeployCommand {
     #[arg(long, action = ArgAction::SetTrue)]
     hotswap: bool,
 
+    /// The set of functions to deploy, comma separated
     #[arg(value_delimiter = ',')]
     functions: Vec<String>,
 }
