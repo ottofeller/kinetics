@@ -49,8 +49,8 @@ impl LogoutRunner {
         let client = self.api_client().await?;
 
         let response = client
-            .post("/auth/code/logout")
-            .json(&auth::code::logout::Request {
+            .post("/auth/logout")
+            .json(&auth::logout::Request {
                 email: email.to_owned(),
             })
             .send()
