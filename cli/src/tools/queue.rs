@@ -131,11 +131,10 @@ impl Retries {
         let mut sqs_batch_response = SqsBatchResponse::default();
 
         for id in self.ids.iter() {
-            sqs_batch_response
-                .batch_item_failures
-                .push(BatchItemFailure {
-                    item_identifier: id.clone(),
-                });
+            // Construct through Default, because BatchItemFailure is non_exhaustive
+            let mut item = BatchItemFailure::default();
+            item.item_identifier = id.to_owned();
+            sqs_batch_response.batch_item_failures.push(item);
         }
 
         sqs_batch_response

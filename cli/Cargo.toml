@@ -20,7 +20,7 @@ aws-sdk-sqs = "1.95.0"
 aws-sdk-dsql = "1.52.0"
 
 # 1.0 makes some structs which we construct non_exhaustive, needs refactoring
-aws_lambda_events = "=0.18.0"
+aws_lambda_events = "1.0.3"
 
 chrono = { version = "0.4.44", features = ["serde"] }
 clap = { version = "4.5.60", features = ["derive"] }
