@@ -339,7 +339,7 @@ impl Project {
         doc["dependencies"]["kinetics"]
             .or_insert(toml_edit::Table::new().into())
             .as_table_mut()
-            .map(|t| t.insert("version", toml_edit::value("0.11.7")));
+            .map(|t| t.insert("version", toml_edit::value("0.13.4")));
 
         doc["dependencies"]["aws_lambda_events"]
             .or_insert(toml_edit::Table::new().into())
