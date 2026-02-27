@@ -1,4 +1,4 @@
-use crate::{api::client::Client, error::Error, project::Project};
+use crate::{api::client::Client, error::Error, project::Project, writer::Writer};
 use std::error::Error as StdError;
 
 pub(crate) trait Runner {
@@ -68,5 +68,5 @@ pub(crate) trait Runner {
 ///
 /// Ideally this should be a macro
 pub(crate) trait Runnable {
-    fn runner(&self) -> impl Runner;
+    fn runner(&self, writer: &Writer) -> impl Runner;
 }
