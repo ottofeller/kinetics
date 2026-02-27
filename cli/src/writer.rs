@@ -1,5 +1,5 @@
-use std::io::{Stderr, Stdout, Write};
 use crate::error::Error;
+use std::io::{Stderr, Stdout, Write};
 
 /// Write all stdout/stderr outputs in the app
 ///
