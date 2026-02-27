@@ -6,16 +6,19 @@ use crate::error::Error;
 use crate::function::Function;
 use crate::project::Project;
 use crate::runner::Runner;
+use crate::writer::Writer;
 use eyre::Context;
 use reqwest::StatusCode;
+use serde_json::json;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-pub(crate) struct DeployRunner {
+pub(crate) struct DeployRunner<'a> {
     pub(crate) command: DeployCommand,
+    pub(crate) writer: &'a Writer,
 }
 
-impl Runner for DeployRunner {
+impl Runner for DeployRunner<'_> {
     /// Invoke the function either locally or remotely
     async fn run(&mut self) -> Result<(), Error> {
         if self.command.envs {
@@ -24,14 +27,19 @@ impl Runner for DeployRunner {
             self.deploy_all().await?;
         }
 
+        self.writer.json(json!({"success": true}))?;
         Ok(())
     }
 }
 
-impl DeployRunner {
+impl DeployRunner<'_> {
     /// Deploy only environment variables for functions
     async fn deploy_envs(&mut self) -> eyre::Result<()> {
-        println!("{}...", console::style("Provisioning envs").green().bold());
+        self.writer.text(&format!(
+            "{}...\n",
+            console::style("Provisioning envs").green().bold()
+        ))?;
+
         let client = self.api_client().await?;
         let project = Project::from_current_dir()?;
 
@@ -46,7 +54,11 @@ impl DeployRunner {
             .collect();
 
         if functions.is_empty() {
-            println!("{}", console::style("No functions found").yellow().bold(),);
+            self.writer.text(&format!(
+                "{}\n",
+                console::style("No functions found").yellow().bold()
+            ))?;
+
             return Ok(());
         }
 
@@ -63,15 +75,15 @@ impl DeployRunner {
                 .collect::<Vec<_>>()
                 .join(", ");
 
-            println!(
-                "{} {}",
+            self.writer.text(&format!(
+                "{} {}\n",
                 console::style(function.name.clone()).bold(),
                 if envs_string.is_empty() {
                     console::style("None").dim().yellow()
                 } else {
                     console::style(envs_string.as_str()).dim()
                 }
-            );
+            ))?;
 
             envs.insert(function.name.clone(), function_envs.clone());
         }
@@ -112,13 +124,15 @@ impl DeployRunner {
             ));
         }
 
-        println!("{}", console::style("Done").green().bold(),);
+        self.writer
+            .text(&format!("{}\n", console::style("Done").green().bold()))?;
+
         Ok(())
     }
 
     /// Do full deployment of requested functions
     async fn deploy_all(&self) -> eyre::Result<()> {
-        Pipeline::builder()
+        Pipeline::builder(self.writer)
             .set_max_concurrent(self.command.max_concurrency)
             .with_deploy_enabled(true)
             .with_hotswap(self.command.hotswap)

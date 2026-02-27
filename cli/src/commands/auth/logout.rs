@@ -3,6 +3,7 @@ use crate::config::build_config;
 use crate::credentials::Credentials;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 use eyre::Context;
 use std::path::Path;
 
@@ -10,7 +11,7 @@ use std::path::Path;
 pub(crate) struct LogoutCommand {}
 
 impl Runnable for LogoutCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         LogoutRunner {}
     }
 }

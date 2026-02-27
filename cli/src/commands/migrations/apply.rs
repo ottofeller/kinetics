@@ -2,6 +2,7 @@ use crate::api::project;
 use crate::error::Error;
 use crate::migrations::Migrations;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 use eyre::Context;
 use project::sqldb::connect::Request;
 
@@ -13,7 +14,7 @@ pub(crate) struct ApplyCommand {
 }
 
 impl Runnable for ApplyCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         ApplyRunner {
             command: self.clone(),
         }

@@ -2,6 +2,7 @@ use crate::api::func;
 use crate::error::Error;
 use crate::function::Function;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 use eyre::Context;
 use http::StatusCode;
 use kinetics_parser::Parser;
@@ -14,7 +15,7 @@ pub(crate) struct StopCommand {
 }
 
 impl Runnable for StopCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         ToggleRunner {
             name: self.name.clone(),
             op: func::toggle::Op::Stop,
@@ -30,7 +31,7 @@ pub(crate) struct StartCommand {
 }
 
 impl Runnable for StartCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         ToggleRunner {
             name: self.name.clone(),
             op: func::toggle::Op::Start,

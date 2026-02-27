@@ -2,6 +2,7 @@ use crate::api::func;
 use crate::error::Error;
 use crate::function::Function;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 use chrono::{DateTime, Utc};
 use eyre::Context;
 use kinetics_parser::Parser;
@@ -25,7 +26,7 @@ pub(crate) struct LogsCommand {
 }
 
 impl Runnable for LogsCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         LogsRunner {
             command: self.clone(),
         }

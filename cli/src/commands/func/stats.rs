@@ -2,6 +2,7 @@ use crate::api::func;
 use crate::error::Error;
 use crate::function::Function;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize as _;
 use eyre::Context;
 use kinetics_parser::Parser;
@@ -26,7 +27,7 @@ pub(crate) struct StatsCommand {
 }
 
 impl Runnable for StatsCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         StatsRunner {
             command: self.clone(),
         }

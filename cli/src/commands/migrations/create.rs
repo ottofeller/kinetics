@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::migrations::Migrations;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct CreateCommand {
@@ -14,7 +15,7 @@ pub(crate) struct CreateCommand {
 }
 
 impl Runnable for CreateCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         CreateRunner {
             command: self.clone(),
         }

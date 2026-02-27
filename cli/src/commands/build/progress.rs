@@ -9,10 +9,11 @@ pub(super) struct PipelineProgress<'a> {
     multi_progress: &'a MultiProgress,
     pub(super) total_progress_bar: ProgressBar,
     completed_functions_count: Arc<AtomicUsize>,
+    is_disabled: bool,
 }
 
 impl<'a> PipelineProgress<'a> {
-    pub(super) fn new(total_functions: u64, is_deploy: bool) -> Self {
+    pub(super) fn new(total_functions: u64, is_deploy: bool, is_disabled: bool) -> Self {
         let multi_progress = Logger::multi_progress();
         let completed_functions_count = Arc::new(AtomicUsize::new(0));
 
@@ -35,12 +36,18 @@ impl<'a> PipelineProgress<'a> {
                 .progress_chars("=> "),
         );
 
+        // Hide any output
+        if is_disabled {
+            total_progress_bar.set_style(ProgressStyle::default_bar().template("").unwrap());
+        }
+
         total_progress_bar.set_position(0);
 
         Self {
             multi_progress,
             total_progress_bar,
             completed_functions_count,
+            is_disabled,
         }
     }
 
@@ -57,6 +64,7 @@ impl<'a> PipelineProgress<'a> {
             &self.multi_progress,
             &self.total_progress_bar,
             resource_name,
+            self.is_disabled,
         )
     }
 }
@@ -64,6 +72,7 @@ impl<'a> PipelineProgress<'a> {
 pub struct Progress {
     pub progress_bar: ProgressBar,
     resource_name: String,
+    is_disabled: bool,
 }
 
 pub(super) enum ProgressStatus {
@@ -78,6 +87,7 @@ impl Progress {
         multi_progress: &MultiProgress,
         total_progress_bar: &ProgressBar,
         function_name: &str,
+        is_disabled: bool,
     ) -> Self {
         let function_progress_bar =
             multi_progress.insert_before(total_progress_bar, ProgressBar::new_spinner());
@@ -87,10 +97,15 @@ impl Progress {
         Self {
             progress_bar: function_progress_bar,
             resource_name: function_name.to_string(),
+            is_disabled,
         }
     }
 
     pub(super) fn log_stage(&self, stage: &str) {
+        if self.is_disabled {
+            return;
+        }
+
         let msg = format!(
             "{} {}",
             console::style(self.with_padding(stage)).green().bold(),
@@ -108,6 +123,10 @@ impl Progress {
     }
 
     pub(super) fn finish(&self, stage: &str, status: ProgressStatus, message: Option<&str>) {
+        if self.is_disabled {
+            return;
+        }
+
         let stage = console::style(self.with_padding(stage)).bold();
         let stage = match status {
             ProgressStatus::Success => stage.green(),
@@ -120,6 +139,10 @@ impl Progress {
     }
 
     pub(super) fn error(&self, stage: &str) {
+        if self.is_disabled {
+            return;
+        }
+
         self.finish(stage, ProgressStatus::Error, None);
     }
 

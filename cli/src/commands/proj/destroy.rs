@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::project::Project;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 use crossterm::style::Stylize;
 use eyre::Context;
 use std::io::{self, Write};
@@ -13,7 +14,7 @@ pub(crate) struct DestroyCommand {
 }
 
 impl Runnable for DestroyCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         DestroyRunner {
             command: self.clone(),
         }
