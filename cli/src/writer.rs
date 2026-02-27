@@ -72,7 +72,7 @@ impl Writer {
         let stream: &mut dyn Write = if is_error { &mut stderr } else { &mut stdout };
 
         stream.write(output.as_bytes()).map_err(|e| {
-            log::error!("Error while writing to stdout: {e:?}");
+            log::error!("Error while writing to std*: {e:?}");
 
             Error::new(
                 "Output error",
