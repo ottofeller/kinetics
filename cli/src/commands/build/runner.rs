@@ -2,6 +2,7 @@ use crate::commands::build::pipeline::Pipeline;
 use crate::commands::build::BuildCommand;
 use crate::error::Error;
 use crate::runner::Runner;
+use crate::writer::Writer;
 use eyre::Context;
 
 pub(crate) struct BuildRunner {

@@ -3,6 +3,7 @@ use crate::commands::init::InitCommand;
 use crate::error::Error;
 use crate::project::Project;
 use crate::runner::Runner;
+use crate::writer::Writer;
 use eyre::{eyre, WrapErr};
 use kinetics_parser::Role;
 use reqwest::Response;

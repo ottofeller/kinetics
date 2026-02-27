@@ -4,6 +4,7 @@ use crate::config::build_config;
 use crate::error::Error;
 use crate::project::Project;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 use crossterm::style::Stylize;
 use eyre::{eyre, WrapErr};
 use kinetics_parser::{ParsedFunction, Parser};
@@ -18,7 +19,7 @@ pub(crate) struct ListCommand {
 }
 
 impl Runnable for ListCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         ListRunner {
             command: self.clone(),
         }

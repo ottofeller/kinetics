@@ -1,13 +1,14 @@
 use crate::error::Error;
 use crate::project::Project;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct ListCommand;
 
 impl Runnable for ListCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         ListRunner {}
     }
 }

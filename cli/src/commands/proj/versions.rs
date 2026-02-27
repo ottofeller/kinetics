@@ -2,6 +2,7 @@ use crate::api::client::Client;
 use crate::api::stack;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize;
 use crossterm::style::Stylize;
 use eyre::Context;
@@ -10,7 +11,7 @@ use eyre::Context;
 pub(crate) struct VersionsCommand {}
 
 impl Runnable for VersionsCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         VersionsRunner {}
     }
 }

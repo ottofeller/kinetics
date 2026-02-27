@@ -2,6 +2,7 @@ use crate::api::auth::tokens::create::{Request, Response};
 use crate::api::request::Validate;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 use eyre::Context;
 
 #[derive(clap::Args, Clone)]
@@ -17,7 +18,7 @@ pub(crate) struct CreateCommand {
 }
 
 impl Runnable for CreateCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         CreateRunner {
             command: self.clone(),
         }

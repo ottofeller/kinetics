@@ -1,6 +1,7 @@
 use crate::commands::cicd::github;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct InitCommand {
@@ -10,7 +11,7 @@ pub(crate) struct InitCommand {
 }
 
 impl Runnable for InitCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         InitRunner {
             command: self.clone(),
         }

@@ -3,7 +3,7 @@ mod local;
 mod remote;
 mod runner;
 mod service;
-use crate::runner::{Runnable, Runner};
+use crate::{runner::{Runnable, Runner}, writer::Writer};
 use runner::InvokeRunner;
 
 #[derive(clap::Args, Clone)]
@@ -58,7 +58,7 @@ pub(crate) struct InvokeCommand {
 }
 
 impl Runnable for InvokeCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         InvokeRunner {
             command: self.clone(),
         }
