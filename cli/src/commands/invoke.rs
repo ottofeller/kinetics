@@ -58,7 +58,7 @@ pub(crate) struct InvokeCommand {
 }
 
 impl Runnable for InvokeCommand {
-    fn runner(&self, writer: &Writer) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         InvokeRunner {
             command: self.clone(),
         }

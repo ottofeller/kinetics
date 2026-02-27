@@ -59,7 +59,7 @@ pub(crate) struct ListCommand {
 }
 
 impl Runnable for ListCommand {
-    fn runner(&self, writer: &Writer) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         ListRunner {
             command: self.clone(),
             functions: vec![],

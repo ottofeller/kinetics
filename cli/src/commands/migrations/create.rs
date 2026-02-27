@@ -15,7 +15,7 @@ pub(crate) struct CreateCommand {
 }
 
 impl Runnable for CreateCommand {
-    fn runner(&self, writer: &Writer) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         CreateRunner {
             command: self.clone(),
         }

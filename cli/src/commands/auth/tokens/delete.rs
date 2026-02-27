@@ -14,7 +14,7 @@ pub(crate) struct DeleteCommand {
 }
 
 impl Runnable for DeleteCommand {
-    fn runner(&self, writer: &Writer) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         DeleteRunner {
             command: self.clone(),
         }

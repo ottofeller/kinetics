@@ -10,7 +10,7 @@ pub(crate) struct LoginCommand {
 }
 
 impl Runnable for LoginCommand {
-    fn runner(&self, writer: &Writer) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         LoginRunner {
             command: self.clone(),
         }

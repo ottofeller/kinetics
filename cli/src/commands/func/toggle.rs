@@ -15,7 +15,7 @@ pub(crate) struct StopCommand {
 }
 
 impl Runnable for StopCommand {
-    fn runner(&self, writer: &Writer) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         ToggleRunner {
             name: self.name.clone(),
             op: func::toggle::Op::Stop,
@@ -31,7 +31,7 @@ pub(crate) struct StartCommand {
 }
 
 impl Runnable for StartCommand {
-    fn runner(&self, writer: &Writer) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         ToggleRunner {
             name: self.name.clone(),
             op: func::toggle::Op::Start,

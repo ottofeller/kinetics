@@ -11,7 +11,7 @@ use std::path::Path;
 pub(crate) struct LogoutCommand {}
 
 impl Runnable for LogoutCommand {
-    fn runner(&self, writer: &Writer) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         LogoutRunner {}
     }
 }

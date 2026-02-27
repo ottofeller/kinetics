@@ -27,7 +27,7 @@ pub(crate) struct StatsCommand {
 }
 
 impl Runnable for StatsCommand {
-    fn runner(&self, writer: &Writer) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         StatsRunner {
             command: self.clone(),
         }

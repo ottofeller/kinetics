@@ -14,7 +14,7 @@ pub(crate) struct ApplyCommand {
 }
 
 impl Runnable for ApplyCommand {
-    fn runner(&self, writer: &Writer) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         ApplyRunner {
             command: self.clone(),
         }

@@ -3,7 +3,6 @@ use crate::config::build_config;
 use crate::error::Error;
 use crate::function::Function;
 use crate::runner::Runner;
-use crate::writer::Writer;
 use std::path::PathBuf;
 
 pub(crate) struct InvokeRunner {

@@ -11,7 +11,7 @@ use eyre::Context;
 pub(crate) struct VersionsCommand {}
 
 impl Runnable for VersionsCommand {
-    fn runner(&self, writer: &Writer) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         VersionsRunner {}
     }
 }

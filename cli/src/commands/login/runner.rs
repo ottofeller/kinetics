@@ -3,7 +3,6 @@ use crate::credentials::Credentials;
 use crate::error::Error;
 use crate::project::Project;
 use crate::runner::Runner;
-use crate::writer::Writer;
 use crate::{api::auth, config::api_url};
 use crossterm::{
     event::{self, Event, KeyCode},

@@ -26,7 +26,7 @@ pub(crate) struct LogsCommand {
 }
 
 impl Runnable for LogsCommand {
-    fn runner(&self, writer: &Writer) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         LogsRunner {
             command: self.clone(),
         }
