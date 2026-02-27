@@ -50,18 +50,22 @@ impl Cli {
 
         if run.is_err() {
             let error = run.unwrap_err();
-            log::error!("{:?}", error);
+            log::error!("{error:?}");
 
             self.writer
                 .error(&format!(
                     "\n\n{}\n{error}\n",
                     console::style("Error").red().bold()
                 ))
-                .unwrap();
+                .unwrap_or_else(|e| {
+                    log::error!("Output error: {e:?}");
+                });
 
             self.writer
                 .json(json!({"success": false, "error": error.to_string()}))
-                .unwrap();
+                .unwrap_or_else(|e| {
+                    log::error!("Output error: {e:?}");
+                });
 
             std::process::exit(1)
         }
