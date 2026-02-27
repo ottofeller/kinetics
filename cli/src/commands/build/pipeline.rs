@@ -75,12 +75,12 @@ impl Pipeline {
             pipeline_progress.increase_current_function_position();
             pipeline_progress.total_progress_bar.finish_and_clear();
 
-            println!(
-                "    {} `{}` project building in {:.2}s",
+            self.writer.text(&format!(
+                "    {} `{}` project building in {:.2}s\n",
                 console::style("Finished").green().bold(),
                 self.project.name,
                 start_time.elapsed().as_secs_f64(),
-            );
+            ))?;
 
             return Ok(());
         }
@@ -247,11 +247,11 @@ impl Pipeline {
         pipeline_progress.increase_current_function_position();
         pipeline_progress.total_progress_bar.finish_and_clear();
 
-        println!(
-            "    {} Deployed in {:.2}s",
+        self.writer.text(&format!(
+            "    {} Deployed in {:.2}s\n",
             console::style("Finished").green().bold(),
             start_time.elapsed().as_secs_f64(),
-        );
+        ))?;
 
         Ok(())
     }

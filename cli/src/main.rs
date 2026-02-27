@@ -54,7 +54,7 @@ impl Cli {
 
             self.writer
                 .error(&format!(
-                    "\n\n{}\n{error}",
+                    "\n\n{}\n{error}\n",
                     console::style("Error").red().bold()
                 ))
                 .unwrap();
