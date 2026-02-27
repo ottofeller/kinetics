@@ -4,6 +4,7 @@ use crate::config::build_config;
 use crate::config::deploy::DeployConfig;
 use crate::function::{build, Function};
 use crate::project::Project;
+use crate::writer::Writer;
 use eyre::{eyre, OptionExt, Report};
 use futures::future;
 use std::path::PathBuf;
@@ -11,17 +12,21 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Semaphore;
 
-pub struct Pipeline {
+pub struct Pipeline<'a> {
     is_deploy_enabled: bool,
     is_hotswap: bool,
     project: Project,
     max_concurrent: usize,
     deploy_config: Option<Arc<dyn DeployConfig>>,
+    writer: &'a Writer,
 }
 
-impl Pipeline {
-    pub fn builder() -> PipelineBuilder {
-        PipelineBuilder::default()
+impl<'a> Pipeline<'a> {
+    pub fn builder(writer: &'a Writer) -> PipelineBuilder<'a> {
+        PipelineBuilder {
+            writer,
+            ..Default::default()
+        }
     }
 
     pub async fn run(
@@ -31,16 +36,20 @@ impl Pipeline {
         deploy_functions: &[String],
     ) -> eyre::Result<()> {
         if self.deploy_config.is_some() {
-            println!(
+            self.writer.text(&format!(
                 "    {} `{}` {}",
                 console::style("Using a custom deployment configuration for").yellow(),
                 console::style(&self.project.name).green().bold(),
                 console::style("project").yellow(),
-            );
+            ))?;
         }
 
         let start_time = Instant::now();
-        print!("{}...", console::style("Preparing").green().bold(),);
+
+        self.writer.text(&format!(
+            "{}...",
+            console::style("Preparing").green().bold()
+        ))?;
 
         // All functions to add to the template
         let all_functions = self.project.parse(
@@ -49,7 +58,7 @@ impl Pipeline {
         )?;
 
         // Clear the previous line, the "Preparing..." step is not a part of the build pipeline
-        print!("\r\x1B[K");
+        self.writer.text(&format!("\r\x1B[K"))?;
 
         let deploy_functions: Vec<Function> = all_functions
             .iter()
@@ -128,7 +137,7 @@ impl Pipeline {
                 pipeline_progress.increase_current_function_position();
 
                 if let Err(error) = tokio::fs::remove_file(function.bundle_path()).await {
-                    eprintln!(
+                    log::error!(
                         "Failed to remove file {:?} with error {}",
                         function.bundle_path(),
                         error,
@@ -185,13 +194,13 @@ impl Pipeline {
             _ => {}
         }
 
-        pipeline_progress.total_progress_bar.set_message(
-            if deploy_functions_len >= 5 {
+        pipeline_progress
+            .total_progress_bar
+            .set_message(if deploy_functions_len >= 5 {
                 "May take longer than a minute..."
             } else {
                 "Provisioning resources..."
-            },
-        );
+            });
 
         match self
             .project
@@ -258,16 +267,17 @@ impl Pipeline {
 }
 
 #[derive(Default)]
-pub struct PipelineBuilder {
+pub struct PipelineBuilder<'a> {
     is_deploy_enabled: Option<bool>,
     is_hotswap: Option<bool>,
     project: Option<Project>,
     max_concurrent: Option<usize>,
     deploy_config: Option<Arc<dyn DeployConfig>>,
+    writer: &'a Writer,
 }
 
-impl PipelineBuilder {
-    pub fn build(self) -> eyre::Result<Pipeline> {
+impl<'a> PipelineBuilder<'a> {
+    pub fn build(self) -> eyre::Result<Pipeline<'a>> {
         Ok(Pipeline {
             project: self
                 .project
@@ -276,6 +286,7 @@ impl PipelineBuilder {
             is_hotswap: self.is_hotswap.unwrap_or(false),
             max_concurrent: self.max_concurrent.unwrap_or(10),
             deploy_config: self.deploy_config,
+            writer: self.writer,
         })
     }
 

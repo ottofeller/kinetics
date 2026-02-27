@@ -15,6 +15,7 @@ impl Runnable for BuildCommand {
     fn runner(&self, writer: &Writer) -> impl Runner {
         BuildRunner {
             command: self.clone(),
+            writer,
         }
     }
 }

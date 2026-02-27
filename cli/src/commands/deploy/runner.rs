@@ -132,7 +132,7 @@ impl DeployRunner<'_> {
 
     /// Do full deployment of requested functions
     async fn deploy_all(&self) -> eyre::Result<()> {
-        Pipeline::builder()
+        Pipeline::builder(self.writer)
             .set_max_concurrent(self.command.max_concurrency)
             .with_deploy_enabled(true)
             .with_hotswap(self.command.hotswap)
