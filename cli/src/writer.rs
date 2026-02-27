@@ -49,7 +49,7 @@ impl Writer {
             return Ok(());
         }
 
-        self.write(&output.to_string(), false)?;
+        self.write(&format!("{}\n", &output.to_string()), false)?;
         Ok(())
     }
 
@@ -81,5 +81,9 @@ impl Writer {
         })?;
 
         Ok(())
+    }
+
+    pub(crate) fn is_structured(&self) -> bool {
+        self.is_structured
     }
 }

@@ -69,6 +69,7 @@ impl<'a> Pipeline<'a> {
         let pipeline_progress = PipelineProgress::new(
             deploy_functions.len() as u64 * if self.is_deploy_enabled { 1 } else { 0 },
             self.is_deploy_enabled,
+            self.writer.is_structured(),
         );
 
         let deploying_progress = pipeline_progress.new_progress(&self.project.name);
