@@ -4,6 +4,7 @@ use crate::error::Error;
 use crate::runner::Runner;
 use crate::writer::Writer;
 use eyre::Context;
+use serde_json::json;
 
 pub(crate) struct BuildRunner<'a> {
     pub(crate) command: BuildCommand,
@@ -23,6 +24,7 @@ impl Runner for BuildRunner<'_> {
             .run(&self.command.functions)
             .await?;
 
+        self.writer.json(json!({"success": true}))?;
         Ok(())
     }
 }
