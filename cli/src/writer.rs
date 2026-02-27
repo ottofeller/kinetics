@@ -9,6 +9,19 @@ pub(crate) struct Writer {
     is_structured: bool,
 }
 
+/// Implement default for ref
+///
+/// Some structs with Default trait are storing a writer as a ref.
+impl<'a> Default for &'a Writer {
+    fn default() -> &'a Writer {
+        static WRITER: Writer = Writer {
+            is_structured: false,
+        };
+
+        &WRITER
+    }
+}
+
 impl Writer {
     pub(crate) fn new(is_structured: bool) -> Self {
         Writer { is_structured }
