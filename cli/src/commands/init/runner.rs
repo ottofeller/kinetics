@@ -3,9 +3,11 @@ use crate::commands::init::InitCommand;
 use crate::error::Error;
 use crate::project::Project;
 use crate::runner::Runner;
+use crate::writer::Writer;
 use eyre::{eyre, WrapErr};
 use kinetics_parser::Role;
 use reqwest::Response;
+use serde_json::json;
 use std::env;
 use std::fs;
 use std::io::Write;
@@ -22,12 +24,13 @@ const ENDPOINT_TEMPLATE_URL: &str =
 const WORKER_TEMPLATE_URL: &str =
     "https://github.com/ottofeller/kinetics-worker-template/archive/refs/heads/main.zip";
 
-pub(crate) struct InitRunner {
+pub(crate) struct InitRunner<'a> {
     pub(super) command: InitCommand,
     pub(super) dir: PathBuf,
+    pub(super) writer: &'a Writer,
 }
 
-impl Runner for InitRunner {
+impl<'a> Runner for InitRunner<'a> {
     /// Initialize a new Kinetics project by downloading and unpacking a template archive
     ///
     /// Downloads the Kinetics template archive into a new directory,
@@ -44,22 +47,22 @@ impl Runner for InitRunner {
         let is_git_enabled = !self.command.no_git;
         self.set_dir()?;
 
-        println!(
-            "\n{} {} {}...",
+        self.writer.text(&format!(
+            "\n{} {} {}...\n",
             console::style("Starting project").green().bold(),
             console::style("in").dim(),
             console::style(&self.dir.to_string_lossy()).bold()
-        );
+        ))?;
 
         // Create project directory
         fs::create_dir_all(&self.dir)
             .wrap_err("Failed to create project directory")
             .map_err(|e| self.error(None, None, Some(e.into())))?;
 
-        print!(
+        self.writer.text(&format!(
             "\r\x1B[K{}",
             console::style("Downloading template archive").dim()
-        );
+        ))?;
 
         let client = reqwest::Client::new();
 
@@ -86,7 +89,11 @@ impl Runner for InitRunner {
             }
         };
 
-        print!("\r\x1B[K{}", console::style("Extracting template").dim());
+        self.writer.text(&format!(
+            "\r\x1B[K{}",
+            console::style("Extracting template").dim()
+        ))?;
+
         let unpack_result = self.unpack(response).await;
 
         if unpack_result.is_err() {
@@ -99,7 +106,8 @@ impl Runner for InitRunner {
             ));
         };
 
-        print!("\r\x1B[K{}", console::style("Cleaning up").dim());
+        self.writer
+            .text(&format!("\r\x1B[K{}", console::style("Cleaning up").dim()))?;
 
         // The extraction creates a subdirectory with the repository name and branch
         // We need to move all files from that subdirectory to our project directory
@@ -136,7 +144,10 @@ impl Runner for InitRunner {
         // Remove the now empty extracted directory
         fs::remove_dir_all(&extracted_dir).unwrap_or(());
 
-        print!("\r\x1B[K{}", console::style("Renaming project").dim());
+        self.writer.text(&format!(
+            "\r\x1B[K{}",
+            console::style("Renaming project").dim()
+        ))?;
 
         self.rename(&self.command.name)
             .map_err(|e| self.error(
@@ -145,7 +156,7 @@ impl Runner for InitRunner {
                 Some(e.into())
             ))?;
 
-        print!("\r\x1B[K");
+        self.writer.text(&format!("\r\x1B[K"))?;
 
         if is_git_enabled {
             self.init_git().map_err(|e| {
@@ -154,12 +165,15 @@ impl Runner for InitRunner {
             })?;
         }
 
-        println!("{}", console::style("Done").bold().green());
+        self.writer
+            .text(&format!("{}\n", console::style("Done").bold().green()))?;
+
+        self.writer.json(json!({"success": true}))?;
         Ok(())
     }
 }
 
-impl InitRunner {
+impl<'a> InitRunner<'a> {
     // Set the dir to create project in
     fn set_dir(&mut self) -> Result<(), Error> {
         let dir = env::current_dir()
