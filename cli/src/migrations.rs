@@ -211,10 +211,10 @@ impl<'a> Migrations<'a> {
             }
 
             if !ddl.is_empty() && !others.is_empty() {
-                return Err(eyre::eyre!(
+                eyre::bail!(
                     "Migration: {path} contains both DDL and DML statements. \
                     Please split them into separate migration files."
-                ));
+                )
             }
         }
 
