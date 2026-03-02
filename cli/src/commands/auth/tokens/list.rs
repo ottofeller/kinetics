@@ -4,27 +4,30 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use chrono::{DateTime, Local};
 use eyre::Context;
+use serde_json::{json, Value};
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct ListCommand;
 
 impl Runnable for ListCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
-        ListRunner {}
+    fn runner(&self, writer: &Writer) -> impl Runner {
+        ListRunner { writer }
     }
 }
 
-struct ListRunner;
+struct ListRunner<'a> {
+    writer: &'a Writer,
+}
 
-impl Runner for ListRunner {
+impl Runner for ListRunner<'_> {
     /// Fetch and list all access tokens
     async fn run(&mut self) -> Result<(), Error> {
         let client = self.api_client().await?;
 
-        println!(
-            "\n{}...\n",
+        self.writer.text(&format!(
+            "\n{}...\n\n",
             console::style("Fetching access tokens").bold().green()
-        );
+        ))?;
 
         let response = client
             .post("/auth/tokens/list")
@@ -56,23 +59,31 @@ impl Runner for ListRunner {
             .0;
 
         if tokens.is_empty() {
-            println!("{}", console::style("No tokens found").yellow());
+            self.writer
+                .text(&format!("{}", console::style("No tokens found").yellow()))?;
+            self.writer.json(json!({"success": true, "tokens": []}))?;
             return Ok(());
         }
 
+        let mut tokens_json: Vec<Value> = vec![];
+
         for token in tokens {
             let expires_at_local: DateTime<Local> = token.expires_at.into();
+            tokens_json.push(json!({"name": token.name, "expires_at": token.expires_at}));
 
-            println!(
-                "{}\n{}\n",
+            self.writer.text(&format!(
+                "{}\n{}\n\n",
                 console::style(&token.name).bold(),
                 console::style(format!(
                     "Expires at {}",
                     expires_at_local.format("%d %b %Y %H:%M:%S")
                 ))
                 .dim(),
-            );
+            ))?;
         }
+
+        self.writer
+            .json(json!({"success": true, "tokens": tokens_json}))?;
 
         Ok(())
     }
