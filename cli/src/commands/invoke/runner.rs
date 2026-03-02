@@ -3,13 +3,15 @@ use crate::config::build_config;
 use crate::error::Error;
 use crate::function::Function;
 use crate::runner::Runner;
+use crate::writer::Writer;
 use std::path::PathBuf;
 
-pub(crate) struct InvokeRunner {
+pub(crate) struct InvokeRunner<'a> {
     pub(crate) command: InvokeCommand,
+    pub(crate) writer: &'a Writer,
 }
 
-impl Runner for InvokeRunner {
+impl Runner for InvokeRunner<'_> {
     /// Invoke the function either locally or remotely
     async fn run(&mut self) -> Result<(), Error> {
         let project = self.project().await?;

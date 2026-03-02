@@ -1,5 +1,5 @@
 use super::service::{LocalDynamoDB, LocalQueue, LocalSqlDB, Service};
-use crate::error::Error;
+use crate::{error::Error, writer::Writer};
 use crate::process::Process;
 use eyre::{Context, OptionExt};
 use serde_yaml::{Mapping, Value};
@@ -30,7 +30,7 @@ impl Docker {
     }
 
     /// Start docker containers
-    pub fn start(&mut self) -> eyre::Result<()> {
+    pub fn start(&mut self, writer: &Writer) -> eyre::Result<()> {
         // There is nothing to start if there are no services
         if self.services.is_empty() {
             return Ok(());
@@ -58,11 +58,11 @@ impl Docker {
             .spawn()
             .wrap_err("Failed to execute docker-compose")?;
 
-        let mut process = Process::new(child);
+        let mut process = Process::new(child, writer);
         let status = process.log()?;
 
         if !status.success() {
-            process.print_error();
+            process.print_error()?;
 
             return Err(Error::new(
                 "Failed to start Docker containers",
