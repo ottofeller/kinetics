@@ -321,6 +321,10 @@ impl<'a> InitRunner<'a> {
             ))?;
 
         // Add a github CD workflow
-        github::workflow(&Project::from_path(self.dir.clone().into())?, true)
+        github::workflow(
+            &Project::from_path(self.dir.clone().into())?,
+            true,
+            self.writer,
+        )
     }
 }
