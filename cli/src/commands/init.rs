@@ -1,9 +1,10 @@
 mod runner;
-
-use std::path::PathBuf;
-
-use crate::{runner::{Runnable, Runner}, writer::Writer};
+use crate::{
+    runner::{Runnable, Runner},
+    writer::Writer,
+};
 use runner::InitRunner;
+use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct InitCommand {

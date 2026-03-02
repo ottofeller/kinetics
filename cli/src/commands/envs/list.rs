@@ -8,6 +8,7 @@ use crate::writer::Writer;
 use crossterm::style::Stylize;
 use eyre::{eyre, WrapErr};
 use kinetics_parser::{ParsedFunction, Parser};
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -19,18 +20,20 @@ pub(crate) struct ListCommand {
 }
 
 impl Runnable for ListCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         ListRunner {
             command: self.clone(),
+            writer,
         }
     }
 }
 
-struct ListRunner {
+struct ListRunner<'a> {
     command: ListCommand,
+    writer: &'a Writer,
 }
 
-impl Runner for ListRunner {
+impl Runner for ListRunner<'_> {
     /// Lists all environment variables for all functions in the current crate
     async fn run(&mut self) -> Result<(), Error> {
         let project = self.project().await?;
@@ -38,19 +41,22 @@ impl Runner for ListRunner {
             .map_err(|e| self.error(None, None, Some(e.into())))?
             .functions;
 
-        println!();
+        self.writer.text("\n")?;
 
         let envs = if self.command.remote {
-            println!(
-                "{}...\n",
+            self.writer.text(&format!(
+                "{}...\n\n",
                 console::style("Fetching env vars").green().bold()
-            );
+            ))?;
 
             remote(&project, &parsed_functions)
                 .await
                 .map_err(|e| self.server_error(Some(e.into())))?
         } else {
-            println!("{}\n", "Showing local env vars".bold().green());
+            self.writer.text(&format!(
+                "{}\n\n",
+                console::style("Showing local env vars").bold().green()
+            ))?;
 
             local(&project)
                 .await
@@ -58,11 +64,14 @@ impl Runner for ListRunner {
         };
 
         if envs.is_empty() {
-            println!("{}", "No envs found".yellow());
+            self.writer.text(&format!("{}", "No envs found".yellow()))?;
+            self.writer.json(json!({"success": true, "envs": {}}))?;
             return Ok(());
         }
 
-        for (function_name, env_vars) in envs {
+        let mut envs_json: HashMap<String, Value> = HashMap::new();
+
+        for (function_name, env_vars) in &envs {
             if env_vars.is_empty() {
                 continue;
             }
@@ -74,25 +83,34 @@ impl Runner for ListRunner {
                         .inspect_err(|e| log::error!("Error: {e:?}"))
                         .wrap_err("Failed to process functions")
                         .unwrap()
-                        == function_name
+                        == *function_name
                 })
                 .ok_or(eyre!("Parsed artifact has no function name"))
                 .map_err(|e| self.error(None, None, Some(e.into())))?
                 .relative_path
                 .to_owned();
 
-            println!(
-                "{} {}",
-                function_name.bold(),
+            self.writer.text(&format!(
+                "{} {}\n",
+                function_name.as_str().bold(),
                 format!("from {}", path).dim()
-            );
+            ))?;
+
+            envs_json.insert(function_name.clone(), json!(env_vars));
 
             for (key, value) in env_vars {
-                println!("{} {}", key.dim(), value.black());
+                self.writer.text(&format!(
+                    "{} {}\n",
+                    key.as_str().dim(),
+                    value.as_str().black()
+                ))?;
             }
 
-            println!();
+            self.writer.text("\n")?;
         }
+
+        self.writer
+            .json(json!({"success": true, "envs": envs_json}))?;
 
         Ok(())
     }
