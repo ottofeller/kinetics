@@ -8,7 +8,6 @@ use syn::parse_macro_input;
 /// - `name`: override the function name
 /// - `url_path`: URL path of the endpoint
 /// - `environment`: environment variables
-/// - `queues`: SQS queues accessible from the lambda
 #[proc_macro_attribute]
 pub fn endpoint(attr: TokenStream, item: TokenStream) -> TokenStream {
     // Parse the macro attributes in order to validate the inputs,

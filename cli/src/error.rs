@@ -1,5 +1,3 @@
-use log::error;
-
 /// Display global error message in unified format
 #[derive(Clone, Debug)]
 pub struct Error(String, Option<String>);
@@ -28,15 +26,8 @@ impl std::error::Error for Error {}
 /// Automatically convert all eyre error reports
 impl From<eyre::ErrReport> for Error {
     fn from(error: eyre::ErrReport) -> Self {
-        error!("Error {:?}", error);
-
-        let error = error
+        error
             .downcast::<Error>()
-            .unwrap_or_else(|err| Error::new(&err.to_string(), None));
-
-        eprintln!("\n\n{}\n{error}", console::style("Error").red().bold());
-
-        // The Error should be used as a terminating error
-        std::process::exit(1)
+            .unwrap_or_else(|err| Error::new(&err.to_string(), None))
     }
 }

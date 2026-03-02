@@ -10,7 +10,6 @@ pub struct Endpoint {
     pub name: Option<String>,
     pub url_path: String,
     pub environment: Environment,
-    pub queues: Option<Vec<String>>,
     pub is_disabled: Option<bool>,
 }
 
@@ -19,7 +18,6 @@ impl Parse for Endpoint {
         let mut name = None;
         let mut url_path = None;
         let mut environment = None;
-        let mut queues = None;
         let mut is_disabled = None;
 
         while !input.is_empty() {
@@ -52,24 +50,6 @@ impl Parse for Endpoint {
                     }
                     environment = Some(parse_environment(input)?);
                 }
-                "queues" => {
-                    if queues.is_some() {
-                        return Err(syn::Error::new(ident_span, "Duplicate attribute `queues`"));
-                    }
-                    let content;
-                    syn::bracketed!(content in input);
-                    let queue_list = content.parse::<LitStr>()?.value();
-
-                    queues = Some(
-                        queue_list
-                            // Remove square brackets
-                            .trim_matches(|c| c == '[' || c == ']')
-                            .split(',')
-                            // Remove whitespaces and quotes per item
-                            .map(|i| i.trim().trim_matches('"').to_string())
-                            .collect::<Vec<String>>(),
-                    );
-                }
                 "is_disabled" => {
                     if is_disabled.is_some() {
                         return Err(syn::Error::new(
@@ -94,7 +74,6 @@ impl Parse for Endpoint {
             url_path: url_path
                 .ok_or_else(|| input.error("Missing required attribute `url_path`"))?,
             environment: environment.unwrap_or_default(),
-            queues,
             is_disabled,
         })
     }

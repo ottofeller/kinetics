@@ -1,7 +1,7 @@
 pub(crate) mod pipeline;
 pub mod progress;
 mod runner;
-use crate::runner::{Runnable, Runner};
+use crate::{runner::{Runnable, Runner}, writer::Writer};
 use runner::BuildRunner;
 
 #[derive(clap::Args, Clone)]
@@ -12,9 +12,10 @@ pub(crate) struct BuildCommand {
 }
 
 impl Runnable for BuildCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         BuildRunner {
             command: self.clone(),
+            writer,
         }
     }
 }

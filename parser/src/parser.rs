@@ -1,96 +1,10 @@
-use crate::{environment::Environment, Cron, Endpoint, Worker};
+use crate::{
+    ParsedFunction, Role, params::{Cron, Endpoint, Params, Worker}
+};
 use color_eyre::eyre;
-use serde::{Deserialize, Serialize};
-use std::fmt::Display;
 use std::path::PathBuf;
 use syn::{parse::Parse, visit::Visit, Attribute, ItemFn};
 use walkdir::WalkDir;
-
-/// Represents a function in the source code
-#[derive(Debug, Clone)]
-pub struct ParsedFunction {
-    /// Name of the function, parsed from the function definition
-    pub rust_function_name: String,
-
-    /// Path to the file where function is defined
-    pub relative_path: String,
-
-    /// Parsed from kinetics_macro macro definition
-    pub role: Role,
-}
-
-impl ParsedFunction {
-    /// Convert a path to CamelCase name
-    pub fn path_to_name(path: &str) -> String {
-        path.split(&['.', '/'])
-            .filter(|s| !s.eq(&"rs"))
-            .map(|s| match s.chars().next() {
-                Some(first) => first.to_uppercase().collect::<String>() + &s[1..],
-                None => String::new(),
-            })
-            .collect::<String>()
-            .replacen("Src", "", 1)
-    }
-
-    /// Generate lambda function name out of Rust function name or macro attribute
-    ///
-    /// By default use the Rust function plus crate path as the function name. Convert
-    /// some-name to SomeName, and do other transformations in order to comply with Lambda
-    /// function name requirements.
-    pub fn func_name(&self, is_local: bool) -> eyre::Result<String> {
-        let rust_name = &self.rust_function_name;
-        let full_path = format!("{}/{rust_name}", self.relative_path);
-        let default_func_name = Self::path_to_name(&full_path);
-        let name = self.role.name().unwrap_or(&default_func_name);
-
-        if name.len() > 64 {
-            Err(eyre::eyre!(
-                "Function name is longer than 64 chars: {}",
-                name
-            ))
-        } else {
-            // TODO Check the name for uniqueness
-            Ok(format!("{}{}", name, if is_local { "Local" } else { "" }))
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Role {
-    Endpoint(Endpoint),
-    Cron(Cron),
-    Worker(Worker),
-}
-
-impl Display for Role {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let str = match self {
-            Role::Endpoint(_) => "endpoint",
-            Role::Cron(_) => "cron",
-            Role::Worker(_) => "worker",
-        };
-
-        write!(f, "{}", str)
-    }
-}
-
-impl Role {
-    pub fn name(&self) -> Option<&String> {
-        match self {
-            Role::Endpoint(params) => params.name.as_ref(),
-            Role::Cron(params) => params.name.as_ref(),
-            Role::Worker(params) => params.name.as_ref(),
-        }
-    }
-
-    pub fn environment(&self) -> &Environment {
-        match self {
-            Role::Endpoint(params) => &params.environment,
-            Role::Cron(params) => &params.environment,
-            Role::Worker(params) => &params.environment,
-        }
-    }
-}
 
 #[derive(Debug, Default)]
 pub struct Parser {
@@ -154,9 +68,8 @@ impl Parser {
     }
 
     /// Checks if the input is a valid kinetics_macro definition and returns its role
-    /// Checks if the input is a valid kinetics_macro definition
     /// Known definitions:
-    /// kinetics_macro::<role> or <role>
+    /// #[kinetics_macro::<role> or <role>]
     fn parse_attr_role(&self, input: &Attribute) -> String {
         let path = input.path();
 
@@ -179,24 +92,25 @@ impl Visit<'_> for Parser {
     fn visit_item_fn(&mut self, item: &ItemFn) {
         for attr in &item.attrs {
             // Skip non-endpoint or non-worker attributes
-            let role = match self.parse_attr_role(attr).as_str() {
+            let (role, params) = match self.parse_attr_role(attr).as_str() {
                 "endpoint" => {
                     let params = self.parse_endpoint(attr).unwrap();
-                    Role::Endpoint(params)
+                    (Role::Endpoint, Params::Endpoint(params))
                 }
                 "worker" => {
                     let params = self.parse_worker(attr).unwrap();
-                    Role::Worker(params)
+                    (Role::Worker, Params::Worker(params))
                 }
                 "cron" => {
                     let params = self.parse_cron(attr).unwrap();
-                    Role::Cron(params)
+                    (Role::Cron, Params::Cron(params))
                 }
                 _ => continue,
             };
 
             self.functions.push(ParsedFunction {
                 role,
+                params,
                 rust_function_name: item.sig.ident.to_string(),
                 relative_path: self.relative_path.clone(),
             });

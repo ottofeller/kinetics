@@ -1,6 +1,7 @@
 use crate::api::auth::tokens::list::Response;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 use chrono::{DateTime, Local};
 use eyre::Context;
 
@@ -8,7 +9,7 @@ use eyre::Context;
 pub(crate) struct ListCommand;
 
 impl Runnable for ListCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         ListRunner {}
     }
 }

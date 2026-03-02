@@ -3,9 +3,10 @@ use crate::error::Error;
 use crate::function::Function;
 use crate::project::Project;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
-use kinetics_parser::{ParsedFunction, Parser, Role};
+use kinetics_parser::{ParsedFunction, Params, Parser, Role};
 use serde_json::Value;
 use std::collections::HashMap;
 use tabled::settings::{peaker::Priority, style::Style, Settings, Width};
@@ -58,7 +59,7 @@ pub(crate) struct ListCommand {
 }
 
 impl Runnable for ListCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         ListRunner {
             command: self.clone(),
             functions: vec![],
@@ -106,19 +107,19 @@ impl ListRunner {
         let crons: Vec<&ParsedFunction> = self
             .functions
             .iter()
-            .filter(|f| matches!(f.role, Role::Cron(_)))
+            .filter(|f| matches!(f.role, Role::Cron))
             .collect();
 
         let endpoints: Vec<&ParsedFunction> = self
             .functions
             .iter()
-            .filter(|f| matches!(f.role, Role::Endpoint(_)))
+            .filter(|f| matches!(f.role, Role::Endpoint))
             .collect();
 
         let workers: Vec<&ParsedFunction> = self
             .functions
             .iter()
-            .filter(|f| matches!(f.role, Role::Worker(_)))
+            .filter(|f| matches!(f.role, Role::Worker))
             .collect();
 
         if !endpoints.is_empty() {
@@ -161,8 +162,8 @@ impl ListRunner {
 
             let func_path = parsed_function.relative_path;
 
-            match parsed_function.role {
-                Role::Endpoint(params) => {
+            match parsed_function.params {
+                Params::Endpoint(params) => {
                     endpoint_rows.push(EndpointRow {
                         function: format_function_and_path(&function.name, &func_path),
                         environment: format_environment(&format!("{:?}", params.environment)),
@@ -170,7 +171,7 @@ impl ListRunner {
                         last_modified,
                     });
                 }
-                Role::Cron(params) => {
+                Params::Cron(params) => {
                     cron_rows.push(CronRow {
                         function: format_function_and_path(&function.name, &func_path),
                         environment: format_environment(&format!("{:?}", params.environment)),
@@ -178,7 +179,7 @@ impl ListRunner {
                         last_modified,
                     });
                 }
-                Role::Worker(params) => {
+                Params::Worker(params) => {
                     worker_rows.push(WorkerRow {
                         function: format_function_and_path(&function.name, &func_path),
                         environment: format_environment(&format!("{:?}", params.environment)),
@@ -227,10 +228,10 @@ impl ListRunner {
             function.relative_path.dimmed(),
         );
 
-        match function.role.clone() {
-            Role::Endpoint(_) => {}
-            Role::Cron(params) => println!("{} {}", "Scheduled".dimmed(), params.schedule.cyan()),
-            Role::Worker(_) => {}
+        match function.params.clone() {
+            Params::Endpoint(_) => {}
+            Params::Cron(params) => println!("{} {}", "Scheduled".dimmed(), params.schedule.cyan()),
+            Params::Worker(_) => {}
         }
 
         Ok(())

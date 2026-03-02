@@ -1,6 +1,7 @@
 use crate::api::stack;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 use eyre::Context;
 
 #[derive(clap::Args, Clone)]
@@ -11,7 +12,7 @@ pub(crate) struct RollbackCommand {
 }
 
 impl Runnable for RollbackCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         RollbackRunner {
             command: self.clone(),
         }

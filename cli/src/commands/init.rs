@@ -2,7 +2,7 @@ mod runner;
 
 use std::path::PathBuf;
 
-use crate::runner::{Runnable, Runner};
+use crate::{runner::{Runnable, Runner}, writer::Writer};
 use runner::InitRunner;
 
 #[derive(clap::Args, Clone)]
@@ -29,7 +29,7 @@ pub(crate) struct InitCommand {
 }
 
 impl Runnable for InitCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         InitRunner {
             command: self.clone(),
             dir: PathBuf::default(),

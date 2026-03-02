@@ -2,18 +2,21 @@ use crate::commands::build::pipeline::Pipeline;
 use crate::commands::build::BuildCommand;
 use crate::error::Error;
 use crate::runner::Runner;
+use crate::writer::Writer;
 use eyre::Context;
+use serde_json::json;
 
-pub(crate) struct BuildRunner {
+pub(crate) struct BuildRunner<'a> {
     pub(crate) command: BuildCommand,
+    pub(crate) writer: &'a Writer,
 }
 
-impl Runner for BuildRunner {
+impl Runner for BuildRunner<'_> {
     /// Build one or more functions
     async fn run(&mut self) -> Result<(), Error> {
         let project = self.project().await?;
 
-        Pipeline::builder()
+        Pipeline::builder(self.writer)
             .with_deploy_enabled(false)
             .set_project(project)
             .build()
@@ -21,6 +24,7 @@ impl Runner for BuildRunner {
             .run(&self.command.functions)
             .await?;
 
+        self.writer.json(json!({"success": true}))?;
         Ok(())
     }
 }

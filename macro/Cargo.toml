@@ -1,6 +1,6 @@
 [package]
 name = "kinetics-macro"
-version = "0.12.5"
+version = "0.13.4"
 edition = "2021"
 description = "A set of macros used in Kinetics project."
 license = "Apache-2.0 OR MIT"
@@ -9,8 +9,8 @@ keywords = ["kinetics", "rust", "macro"]
 categories = ["parsing"]
 
 [dependencies]
-syn = "2.0.116"
-kinetics-parser = { path = "../parser", version = "0.12.5" }
+syn = "2.0.117"
+kinetics-parser = { path = "../parser", version = "0.13.4" }
 
 [lib]
 proc-macro = true

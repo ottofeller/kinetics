@@ -1,5 +1,5 @@
 mod runner;
-use crate::runner::{Runnable, Runner};
+use crate::{runner::{Runnable, Runner}, writer::Writer};
 use runner::LoginRunner;
 
 #[derive(clap::Args, Clone)]
@@ -10,7 +10,7 @@ pub(crate) struct LoginCommand {
 }
 
 impl Runnable for LoginCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         LoginRunner {
             command: self.clone(),
         }

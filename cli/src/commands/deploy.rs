@@ -1,5 +1,6 @@
 mod runner;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 use clap::ArgAction;
 use runner::DeployRunner;
 
@@ -17,14 +18,16 @@ pub(crate) struct DeployCommand {
     #[arg(long, action = ArgAction::SetTrue)]
     hotswap: bool,
 
+    /// The set of functions to deploy, comma separated
     #[arg(value_delimiter = ',')]
     functions: Vec<String>,
 }
 
 impl Runnable for DeployCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         DeployRunner {
             command: self.clone(),
+            writer,
         }
     }
 }

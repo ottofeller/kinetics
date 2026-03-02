@@ -3,6 +3,7 @@ use crate::api::auth::tokens::delete::Request;
 use crate::api::request::Validate;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
+use crate::writer::Writer;
 use crossterm::style::Stylize;
 use eyre::Context;
 
@@ -13,7 +14,7 @@ pub(crate) struct DeleteCommand {
 }
 
 impl Runnable for DeleteCommand {
-    fn runner(&self) -> impl Runner {
+    fn runner(&self, _writer: &Writer) -> impl Runner {
         DeleteRunner {
             command: self.clone(),
         }
