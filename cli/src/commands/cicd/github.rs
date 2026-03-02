@@ -1,3 +1,4 @@
+use crate::writer::Writer;
 use crate::{error::Error, project::Project};
 use eyre::WrapErr;
 use std::fs;
@@ -8,7 +9,7 @@ const GITHUB_WORKFLOW_TEMPLATE: &str = include_str!("github-workflow-template.ya
 /// Add a GitHub CD workflow
 ///
 /// When is_silent is true no CLI  output generated.
-pub fn workflow(project: &Project, is_silent: bool) -> eyre::Result<()> {
+pub fn workflow(project: &Project, is_silent: bool, writer: &Writer) -> eyre::Result<()> {
     // Resolve the Git root - GitHub workflow shall be added there.
     let git_root = match Command::new("git")
         .args(["rev-parse", "--show-toplevel"])
@@ -85,7 +86,7 @@ pub fn workflow(project: &Project, is_silent: bool) -> eyre::Result<()> {
         ))?;
 
     if !is_silent {
-        println!(
+        writer.text(&format!(
             "\n{}\n{}\n\n{}\n{}\n",
             console::style("Added CI/CD config files at").dim(),
             console::style(deploy_workflow_path.to_string_lossy())
@@ -96,7 +97,7 @@ pub fn workflow(project: &Project, is_silent: bool) -> eyre::Result<()> {
                 "https://github.com/ottofeller/kinetics/blob/main/README.md#deploy-from-github-actions"
             )
             .cyan(),
-        );
+        ))?;
     }
 
     Ok(())

@@ -2,6 +2,7 @@ use crate::commands::cicd::github;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
+use serde_json::json;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct InitCommand {
@@ -11,35 +12,40 @@ pub(crate) struct InitCommand {
 }
 
 impl Runnable for InitCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         InitRunner {
             command: self.clone(),
+            writer,
         }
     }
 }
 
-struct InitRunner {
+struct InitRunner<'a> {
     command: InitCommand,
+    writer: &'a Writer,
 }
 
-impl Runner for InitRunner {
+impl Runner for InitRunner<'_> {
     /// Initialize a deployment workflow within an existing kinetics project
     ///
     /// Currently only supports GitHub, but expected to expand in the future.
     async fn run(&mut self) -> Result<(), Error> {
         let project = self.project().await?;
 
-        println!(
-            "{}",
+        self.writer.text(&format!(
+            "{}\n",
             console::style("Creating GitHub workflow...").bold().green()
-        );
+        ))?;
 
         if self.command.github {
-            github::workflow(&project, false)
+            github::workflow(&project, false, self.writer)
                 .map_err(|e| self.error(None, None, Some(e.into())))?;
         }
 
-        println!("{}", console::style("Done").bold().green());
+        self.writer
+            .text(&format!("{}\n", console::style("Done").bold().green()))?;
+
+        self.writer.json(json!({"success": true}))?;
         Ok(())
     }
 }
