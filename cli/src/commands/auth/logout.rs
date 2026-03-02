@@ -5,20 +5,23 @@ use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use eyre::Context;
+use serde_json::json;
 use std::path::Path;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct LogoutCommand {}
 
 impl Runnable for LogoutCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
-        LogoutRunner {}
+    fn runner(&self, writer: &Writer) -> impl Runner {
+        LogoutRunner { writer }
     }
 }
 
-struct LogoutRunner;
+struct LogoutRunner<'a> {
+    writer: &'a Writer,
+}
 
-impl Runner for LogoutRunner {
+impl Runner for LogoutRunner<'_> {
     /// Logs user out
     ///
     /// By cleaning up the local credentials file and voiding credentials on the backend
@@ -36,16 +39,17 @@ impl Runner for LogoutRunner {
             std::fs::remove_file(path).wrap_err("Failed to delete credentials file")?;
         }
 
-        println!(
-            "{}",
+        self.writer.text(&format!(
+            "{}\n",
             console::style("Successfully logged out").green().bold()
-        );
+        ))?;
 
+        self.writer.json(json!({ "success": true }))?;
         Ok(())
     }
 }
 
-impl LogoutRunner {
+impl LogoutRunner<'_> {
     async fn remove(&mut self, email: &str) -> eyre::Result<()> {
         let client = self.api_client().await?;
 
