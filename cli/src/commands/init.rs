@@ -29,10 +29,11 @@ pub(crate) struct InitCommand {
 }
 
 impl Runnable for InitCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         InitRunner {
             command: self.clone(),
             dir: PathBuf::default(),
+            writer,
         }
     }
 }
