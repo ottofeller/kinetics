@@ -5,10 +5,11 @@ use crate::project::Project;
 use crate::runner::Runner;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::WrapErr;
+use serde_json::json;
 use std::collections::HashMap;
 use std::path::{Path};
 
-impl InvokeRunner {
+impl InvokeRunner<'_> {
     /// Resolve function name into URL and call it remotely
     #[allow(clippy::too_many_arguments)]
     pub async fn remote(
@@ -20,12 +21,12 @@ impl InvokeRunner {
         let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", project.name));
         let display_path = format!("{}/src/bin/{}.rs", invoke_dir.display(), function.name);
 
-        println!(
-            "\n{} {} {}...",
+        self.writer.text(&format!(
+            "\n{} {} {}...\n",
             console::style("Invoking remote function").green().bold(),
             console::style("from").dimmed(),
             console::style(&display_path).underlined().bold()
-        );
+        )).map_err(|e| eyre::eyre!(e))?;
 
         // `url_path` arg is optional,
         // thus fall back to the url_path from macro
@@ -41,7 +42,8 @@ impl InvokeRunner {
             )
         };
 
-        println!("{}\n", console::style(&url).dimmed());
+        self.writer.text(&format!("{}\n\n", console::style(&url).dimmed()))
+            .map_err(|e| eyre::eyre!(e))?;
 
         // Parse headers string into HeaderMap
         let mut headers_map = reqwest::header::HeaderMap::new();
@@ -77,8 +79,12 @@ impl InvokeRunner {
             .await
             .unwrap_or("Failed to read response".to_string());
 
-        println!("Status\n{}\n", status);
-        println!("Response\n{}", response_text);
+        self.writer.text(&format!("Status\n{}\n\nResponse\n{}\n", status, response_text))
+            .map_err(|e| eyre::eyre!(e))?;
+
+        self.writer.json(json!({"status": status.as_u16(), "response": response_text}))
+            .map_err(|e| eyre::eyre!(e))?;
+
         Ok(())
     }
 }

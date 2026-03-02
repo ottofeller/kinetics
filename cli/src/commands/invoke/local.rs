@@ -8,11 +8,12 @@ use crate::runner::Runner;
 use crate::secrets::Secrets;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::WrapErr;
+use serde_json::json;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-impl InvokeRunner {
+impl InvokeRunner<'_> {
     /// Invoke the function locally
     #[allow(clippy::too_many_arguments)]
     pub async fn local(
@@ -32,12 +33,14 @@ impl InvokeRunner {
         let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", project.name));
         let display_path = format!("{}/src/bin/{}Local.rs", invoke_dir.display(), function.name);
 
-        println!(
-            "\n{} {} {}...",
-            console::style("Invoking function").green().bold(),
-            console::style("from").dimmed(),
-            console::style(&display_path).underlined().bold()
-        );
+        self.writer
+            .text(&format!(
+                "\n{} {} {}...\n",
+                console::style("Invoking function").green().bold(),
+                console::style("from").dimmed(),
+                console::style(&display_path).underlined().bold()
+            ))
+            .map_err(|e| eyre::eyre!(e))?;
 
         let mut docker = Docker::new(&PathBuf::from(&build_config()?.kinetics_path));
 
@@ -72,7 +75,7 @@ impl InvokeRunner {
             docker.with_dynamodb(LocalDynamoDB::new(&table));
         }
 
-        docker.start()?;
+        docker.start(self.writer)?;
         docker.provision().await?;
 
         let mut aws_credentials = HashMap::new();
@@ -110,16 +113,24 @@ impl InvokeRunner {
             .spawn()
             .wrap_err("Failed to execute cargo run")?;
 
-        let mut process = Process::new(child);
+        let mut process = Process::new(child, self.writer);
         let status = process.log()?;
 
         if !status.success() {
-            process.print_error();
-            return Err(eyre::eyre!("Failed with exit code: {}", status));
+            process.print_error()?;
+
+            return Err(eyre::eyre!(
+                "Invocation failed with status {}: {}",
+                status,
+                process.errors_output()
+            ));
         }
 
         // If successful, print the full stdout
-        process.print();
+        process.print()?;
+
+        self.writer
+            .json(json!({"success": true, "output": process.output()}))?;
 
         Ok(())
     }
