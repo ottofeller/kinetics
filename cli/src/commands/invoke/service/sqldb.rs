@@ -1,5 +1,5 @@
-use crate::migrations::Migrations;
 use crate::project::Project;
+use crate::{migrations::Migrations, writer::Writer};
 use eyre::Context;
 use sqlx::{PgPool, Pool, Postgres};
 use std::path::PathBuf;
@@ -19,7 +19,7 @@ local-postgres:
 /// A structure representing a local SQL database configuration.
 ///
 /// This struct is used to configure properties for setting up a local SQL database.
-pub struct LocalSqlDB {
+pub struct LocalSqlDB<'a> {
     /// Current project
     project: Project,
 
@@ -30,15 +30,18 @@ pub struct LocalSqlDB {
     ///
     /// Default is <project >/migrations/
     migrations_path: PathBuf,
+
+    writer: &'a Writer,
 }
 
-impl LocalSqlDB {
-    pub fn new(project: &Project) -> Self {
+impl<'a> LocalSqlDB<'a> {
+    pub fn new(project: &Project, writer: &'a Writer) -> Self {
         Self {
             // The default migrations path is `migrations` relative to the project root directory
             migrations_path: project.path.join("migrations"),
             with_migrations: false,
             project: project.clone(),
+            writer,
         }
     }
 
@@ -92,7 +95,7 @@ impl LocalSqlDB {
         }
 
         if self.with_migrations {
-            Migrations::new(self.migrations_path.as_path())?
+            Migrations::new(self.migrations_path.as_path(), self.writer)?
                 .apply(self.connection_string())
                 .await?;
         }
