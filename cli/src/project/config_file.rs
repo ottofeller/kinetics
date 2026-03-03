@@ -1,6 +1,6 @@
 use crate::api::projects::Kvdb;
 use crate::error::Error;
-use crate::project::Project;
+use crate::project::{Project, ProjectWorkspace};
 use eyre::{ContextCompat, WrapErr};
 use serde::Deserialize;
 use std::fs;
@@ -21,6 +21,9 @@ pub(super) struct ConfigFile {
 
     #[serde(skip)]
     path: PathBuf,
+
+    #[serde(skip)]
+    workspace: Option<ProjectWorkspace>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -41,12 +44,14 @@ impl ConfigFile {
         let config_toml_path = path.join("kinetics.toml");
 
         let Ok(toml_string) = fs::read_to_string(&config_toml_path) else {
+            let workspace = ProjectWorkspace::from_path(&path)?;
             // Return default config if kinetics.toml is not found
             return Ok(Self {
                 project: ProjectSection {
                     name: Self::cargo_toml_name(path.as_path())?,
                 },
                 path,
+                workspace,
                 ..Default::default()
             });
         };
@@ -56,6 +61,7 @@ impl ConfigFile {
 
         // Set the path to the directory containing kinetics.toml
         config.path = path.clone();
+        config.workspace = ProjectWorkspace::from_path(&path)?;
 
         // If project name is explicitly set in kinetics.toml, return it right away
         if !config.project.name.is_empty() {
@@ -101,6 +107,7 @@ impl From<ConfigFile> for Project {
     fn from(cfg: ConfigFile) -> Self {
         Project {
             path: cfg.path,
+            workspace: cfg.workspace,
             name: cfg.project.name,
             url: "".to_string(), // Unknown at this point, will be populated by the API
             kvdb: cfg.kvdb,

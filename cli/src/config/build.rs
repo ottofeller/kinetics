@@ -13,14 +13,14 @@ pub(crate) struct BuildConfig<'a> {
 static BUILD_CONFIG: OnceLock<BuildConfig> = OnceLock::new();
 
 pub(crate) fn build_config() -> Result<&'static BuildConfig<'static>, Error> {
-    let home_dir = std::env::var("HOME").map_err(|_| {
+    let Some(home_dir) = std::env::home_dir() else {
         log::error!("Failed to get $HOME");
 
-        Error::new(
+        return Err(Error::new(
             "$HOME is missing",
             Some("Your shell might not be supported."),
-        )
-    })?;
+        ));
+    };
 
     Ok(BUILD_CONFIG.get_or_init(|| {
         let api_base =
@@ -37,13 +37,7 @@ pub(crate) fn build_config() -> Result<&'static BuildConfig<'static>, Error> {
                 .into_boxed_str(),
         );
 
-        let build_path = Box::leak(
-            Path::new(&home_dir)
-                .join(".kinetics")
-                .display()
-                .to_string()
-                .into_boxed_str(),
-        );
+        let build_path = Box::leak(build_path_raw.display().to_string().into_boxed_str());
 
         BuildConfig {
             api_base,

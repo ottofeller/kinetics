@@ -6,7 +6,7 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
-use kinetics_parser::{ParsedFunction, Params, Parser, Role};
+use kinetics_parser::{Params, ParsedFunction, Parser, Role};
 use serde_json::Value;
 use std::collections::HashMap;
 use tabled::settings::{peaker::Priority, style::Style, Settings, Width};

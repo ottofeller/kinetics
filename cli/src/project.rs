@@ -15,12 +15,39 @@ use crate::error::Error;
 use crate::function::Function;
 use crate::secrets::Secrets;
 use cache::Cache;
+use cargo_metadata::MetadataCommand;
 use config_file::ConfigFile;
 use eyre::WrapErr;
 use http::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+
+/// A collection of paths for the project containing workspace, if any.
+///
+/// - Absolute path to containing workspace if any.
+/// - Local path within the workspace (empty for non-workspace package).
+#[derive(Clone, Debug)]
+pub struct ProjectWorkspace {
+    pub root_path: PathBuf,
+    pub local_path: PathBuf,
+}
+
+impl ProjectWorkspace {
+    pub fn from_path(path: &PathBuf) -> eyre::Result<Option<Self>> {
+        let metadata = MetadataCommand::new().current_dir(&path).exec()?;
+        let root_path = metadata.workspace_root.into_std_path_buf();
+        if *path == root_path {
+            Ok(None)
+        } else {
+            let local_path = path.strip_prefix(&root_path)?.to_path_buf();
+            Ok(Some(Self {
+                root_path,
+                local_path,
+            }))
+        }
+    }
+}
 
 /// Managing user's project
 ///
@@ -29,6 +56,9 @@ use std::path::PathBuf;
 pub struct Project {
     #[serde(skip)]
     pub path: PathBuf,
+
+    #[serde(skip)]
+    pub workspace: Option<ProjectWorkspace>,
 
     /// Project name (used as a prefix for all resources)
     pub name: String,

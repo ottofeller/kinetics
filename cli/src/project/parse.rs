@@ -27,26 +27,45 @@ impl Project {
         // Parse functions from source code
         let parsed_functions = Parser::new(Some(&self.path))?.functions;
         let src = &self.path;
-        let dst = dst.join(&self.name);
+        let src_workspace = self
+            .workspace
+            .as_ref()
+            .map(|ws| &ws.root_path)
+            .unwrap_or(src);
+        let dst_workspace = dst.join(&self.name);
+        let dst_local = src.strip_prefix(src_workspace).unwrap_or(Path::new(""));
+        let dst_abs = dst_workspace.join(dst_local);
+
         // Checksums of source files for preventing rewrite existing files
-        let mut checksum = FileHash::new(dst.to_path_buf());
+        let mut checksum = FileHash::new(dst_workspace.to_path_buf());
 
         // Clone user project into the build folder.
-        self.clone(src, &dst, &mut checksum)?;
+        self.clone(src_workspace, &dst_workspace, &dst_local, &mut checksum)?;
 
         // Create lib.rs exporting a containing module of each parsed function.
-        self.create_lib(src, &dst, &parsed_functions, &mut checksum)?;
+        self.create_lib(
+            src,
+            &dst_workspace.join(&dst_local),
+            &parsed_functions,
+            &mut checksum,
+        )?;
 
         let relative_manifest_path = Path::new("Cargo.toml");
         let mut manifest: toml_edit::DocumentMut =
             fs::read_to_string(src.join(relative_manifest_path))?.parse()?;
-        let bin_dir = Path::new("src/bin");
-        fs::create_dir_all(dst.join(bin_dir)).wrap_err("Create dir failed")?;
+        let bin_dir = dst_local.join("src/bin");
+        fs::create_dir_all(dst_workspace.join(&bin_dir)).wrap_err("Create dir failed")?;
 
         for parsed_function in &parsed_functions {
             for is_local in [false, true] {
                 // Create bin file for every parsed function
-                self.create_lambda_bin(&dst, bin_dir, parsed_function, is_local, &mut checksum)?;
+                self.create_lambda_bin(
+                    &dst_workspace,
+                    &bin_dir,
+                    parsed_function,
+                    is_local,
+                    &mut checksum,
+                )?;
 
                 // Add dependencies required to run a lambda to Cargo.toml
                 self.deps(parsed_function, is_local, &mut manifest)?;
@@ -59,15 +78,15 @@ impl Project {
             &FileHash::hash_from_bytes(&manifest_string)
                 .wrap_err("Failed to calculate hash from bytes of Cargo.toml")?,
         ) {
-            fs::write(dst.join(relative_manifest_path), &manifest_string)
+            fs::write(dst_abs.join(relative_manifest_path), &manifest_string)
                 .wrap_err("Failed to write Cargo.toml")?;
         }
 
         checksum.save().wrap_err("Failed to save checksums")?;
-        self.clear_dir(&dst, &checksum)?;
+        self.clear_dir(&dst_workspace, &checksum)?;
 
         // Create a new project instance for the target build directory
-        let dst_project = Project::from_path(dst.to_path_buf())?;
+        let dst_project = Project::from_path(dst_abs.to_path_buf())?;
 
         parsed_functions
             .into_iter()
@@ -85,8 +104,15 @@ impl Project {
     }
 
     /// Clone the project dir to a new directory
-    fn clone(&self, src: &Path, dst: &Path, checksum: &mut FileHash) -> eyre::Result<()> {
-        fs::create_dir_all(dst).wrap_err("Failed to create dir to clone the project to")?;
+    fn clone(
+        &self,
+        src: &Path,
+        dst_workspace: &Path,
+        dst_package: &Path,
+        checksum: &mut FileHash,
+    ) -> eyre::Result<()> {
+        fs::create_dir_all(dst_workspace)
+            .wrap_err("Failed to create dir to clone the project to")?;
 
         let skip_paths = [
             // Skip the target dir, cargo lambda use it (if exist) for incremental builds.
@@ -94,7 +120,7 @@ impl Project {
             src.join(".git"),
             src.join(".github"),
             // Skip project manifest, since we process it later.
-            src.join("Cargo.toml"),
+            src.join(dst_package).join("Cargo.toml"),
         ];
 
         for entry in WalkDir::new(src)
@@ -114,7 +140,7 @@ impl Project {
                 .strip_prefix(src)
                 .unwrap_or_else(|_| entry.path());
 
-            let dst_path = dst.join(src_relative);
+            let dst_path = dst_workspace.join(src_relative);
 
             if src_path.is_dir() {
                 fs::create_dir_all(&dst_path).wrap_err("Create dir failed")?;
@@ -122,7 +148,7 @@ impl Project {
             }
 
             // If src file has been modified, copy it to the destination
-            self.clean_copy(src_path, dst, src_relative, checksum)?;
+            self.clean_copy(src_path, dst_workspace, src_relative, checksum)?;
         }
 
         Ok(())
@@ -367,10 +393,6 @@ impl Project {
         {
             tokio_dep.insert("version", toml_edit::value("1.49.0"));
             tokio_dep.insert("features", toml_edit::Array::from_iter(["full"]).into());
-        }
-
-        if let Some(deps_table) = doc["dependencies"].as_table_mut() {
-            deps_table.remove("kinetics-macro");
         }
 
         Ok(())

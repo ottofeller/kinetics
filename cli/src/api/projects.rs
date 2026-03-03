@@ -1,6 +1,7 @@
+use std::path::PathBuf;
+
 use crate::project::Project;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Response {
@@ -23,6 +24,7 @@ impl From<ProjectInfo> for Project {
     fn from(value: ProjectInfo) -> Self {
         Self {
             path: PathBuf::new(),
+            workspace: None,
             name: value.name,
             url: value.url,
             kvdb: value.kvdb,

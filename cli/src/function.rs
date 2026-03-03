@@ -1,8 +1,8 @@
 use crate::api::upload;
+use crate::api::{client::Client, func};
 use crate::config::deploy::DeployConfig;
 use crate::error::Error;
 use crate::project::Project;
-use crate::api::{func, client::Client};
 use base64::Engine as _;
 use crc_fast::{CrcAlgorithm::Crc64Nvme, Digest};
 use eyre::{eyre, ContextCompat, WrapErr};
@@ -13,7 +13,7 @@ use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 // Re-export types from kinetics-parser
-pub use kinetics_parser::{ParsedFunction, Params, Role};
+pub use kinetics_parser::{Params, ParsedFunction, Role};
 
 /// Represents a function in the project
 #[derive(Clone, Debug)]
@@ -205,9 +205,16 @@ pub async fn build(
         .arg("x86_64-unknown-linux-musl")
         .arg("--output-format")
         .arg("zip")
-        .current_dir(&project.path)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+
+    if let Some(workspace) = project.workspace.as_ref() {
+        cmd.current_dir(&workspace.root_path)
+            .arg("--package")
+            .arg(&project.name);
+    } else {
+        cmd.current_dir(&project.path);
+    }
 
     for function in functions {
         cmd.arg("--bin").arg(&function.name);
