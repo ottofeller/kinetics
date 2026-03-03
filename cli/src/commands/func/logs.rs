@@ -6,6 +6,7 @@ use crate::writer::Writer;
 use chrono::{DateTime, Utc};
 use eyre::Context;
 use kinetics_parser::Parser;
+use serde_json::json;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct LogsCommand {
@@ -26,18 +27,20 @@ pub(crate) struct LogsCommand {
 }
 
 impl Runnable for LogsCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         LogsRunner {
             command: self.clone(),
+            writer,
         }
     }
 }
 
-struct LogsRunner {
+struct LogsRunner<'a> {
     command: LogsCommand,
+    writer: &'a Writer,
 }
 
-impl Runner for LogsRunner {
+impl Runner for LogsRunner<'_> {
     /// Retrieves and displays logs for a specific function
     async fn run(&mut self) -> Result<(), Error> {
         let project = self.project().await?;
@@ -61,12 +64,12 @@ impl Runner for LogsRunner {
 
         let client = self.api_client().await?;
 
-        println!(
-            "\n{} {} {}...\n",
+        self.writer.text(&format!(
+            "\n{} {} {}...\n\n",
             console::style("Fetching logs").bold().green(),
             console::style("for").dim(),
             console::style(&function.name).bold()
-        );
+        ))?;
 
         let response = client
             .post("/function/logs")
@@ -94,17 +97,20 @@ impl Runner for LogsRunner {
             .map_err(|e| self.error(None, None, Some(e.into())))?;
 
         if logs_response.events.is_empty() {
-            println!(
-                "{}",
+            self.writer.text(&format!(
+                "{}\n",
                 console::style(format!(
                     "No logs found for this function in the last {}.",
                     self.command.period.clone().unwrap_or("1 hour".into())
                 ))
                 .yellow(),
-            );
+            ))?;
 
+            self.writer.json(json!({"success": true, "logs": []}))?;
             return Ok(());
         }
+
+        let mut events_json: Vec<String> = vec![];
 
         for event in logs_response.events {
             // Convert timestamp to readable format
@@ -117,8 +123,19 @@ impl Runner for LogsRunner {
             };
 
             let formatted_time = datetime.format("%Y-%m-%d %H:%M:%S").to_string();
-            print!("{} {}", console::style(formatted_time).dim(), event.message);
+
+            let line = format!(
+                "{} {}",
+                console::style(formatted_time).dim(),
+                event.message
+            );
+
+            self.writer.text(&line)?;
+            events_json.push(line);
         }
+
+        self.writer
+            .json(json!({"success": true, "logs": events_json}))?;
 
         Ok(())
     }
