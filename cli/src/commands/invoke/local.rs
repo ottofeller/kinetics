@@ -51,7 +51,7 @@ impl InvokeRunner<'_> {
         ]);
 
         if self.command.with_database {
-            let mut sqldb = LocalSqlDB::new(&project);
+            let mut sqldb = LocalSqlDB::new(&project, self.writer);
 
             if self.command.with_migrations.is_some() {
                 sqldb.with_migrations(migrations_path);
