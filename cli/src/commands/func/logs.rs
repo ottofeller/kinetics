@@ -123,13 +123,7 @@ impl Runner for LogsRunner<'_> {
             };
 
             let formatted_time = datetime.format("%Y-%m-%d %H:%M:%S").to_string();
-
-            let line = format!(
-                "{} {}",
-                console::style(formatted_time).dim(),
-                event.message
-            );
-
+            let line = format!("{} {}", console::style(formatted_time).dim(), event.message);
             self.writer.text(&line)?;
             events_json.push(line);
         }
