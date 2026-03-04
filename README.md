@@ -230,6 +230,8 @@ Apply DB migrations from a local folder to the production DB:
 kinetics migrations apply
 ```
 
+> ⚠️ **Note:** Do not mix DDL (`CREATE TABLE`, `ALTER TABLE`, etc.) and DML (`INSERT`, `UPDATE`, etc.) in the same migration file. Split them into separate files instead.
+
 Output logs for a function:
 
 ```sh
