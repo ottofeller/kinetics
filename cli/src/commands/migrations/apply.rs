@@ -5,6 +5,7 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use eyre::Context;
 use project::sqldb::connect::Request;
+use serde_json::json;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct ApplyCommand {
@@ -14,32 +15,34 @@ pub(crate) struct ApplyCommand {
 }
 
 impl Runnable for ApplyCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         ApplyRunner {
             command: self.clone(),
+            writer,
         }
     }
 }
 
-struct ApplyRunner {
+struct ApplyRunner<'a> {
     command: ApplyCommand,
+    writer: &'a Writer,
 }
 
-impl Runner for ApplyRunner {
+impl<'a> Runner for ApplyRunner<'a> {
     /// Applies migrations to the database
     async fn run(&mut self) -> Result<(), Error> {
         let project = self.project().await?;
         let client = self.api_client().await?;
         let migrations_path = project.path.join(&self.command.path);
 
-        println!(
-            "{} {} {}...",
+        self.writer.text(&format!(
+            "{} {} {}...\n\n",
             console::style("Applying migrations").green().bold(),
             console::style("from").dim(),
             console::style(format!("{}", migrations_path.to_string_lossy()))
                 .underlined()
                 .bold(),
-        );
+        ))?;
 
         let response = client
             .request::<_, project::sqldb::connect::Response>(
@@ -69,7 +72,7 @@ impl Runner for ApplyRunner {
         .await
         .map_err(|e| self.server_error(Some(e.into())))?;
 
-        let migrations = Migrations::new(migrations_path.as_path())
+        let migrations = Migrations::new(migrations_path.as_path(), self.writer)
             .map_err(|e| self.error(None, None, Some(e.into())))?;
 
         migrations
@@ -78,7 +81,10 @@ impl Runner for ApplyRunner {
             .wrap_err("Failed to apply migrations")
             .map_err(|e| self.server_error(Some(e.into())))?;
 
-        println!("\n{}\n", console::style("Done").green().bold());
+        self.writer
+            .text(&format!("\n{}\n", console::style("Done").green().bold()))?;
+
+        self.writer.json(json!({"success": true}))?;
         Ok(())
     }
 }

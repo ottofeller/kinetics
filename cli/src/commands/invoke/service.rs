@@ -5,8 +5,8 @@ pub use dynamodb::LocalDynamoDB;
 pub use queue::LocalQueue;
 pub use sqldb::LocalSqlDB;
 
-pub enum Service {
+pub enum Service<'a> {
     DynamoDB(LocalDynamoDB),
-    SqlDB(LocalSqlDB),
+    SqlDB(LocalSqlDB<'a>),
     Queue(LocalQueue),
 }

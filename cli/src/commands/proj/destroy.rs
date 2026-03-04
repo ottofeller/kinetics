@@ -4,6 +4,7 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use crossterm::style::Stylize;
 use eyre::Context;
+use serde_json::json;
 use std::io::{self, Write};
 
 #[derive(clap::Args, Clone)]
@@ -14,18 +15,20 @@ pub(crate) struct DestroyCommand {
 }
 
 impl Runnable for DestroyCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         DestroyRunner {
             command: self.clone(),
+            writer,
         }
     }
 }
 
-struct DestroyRunner {
+struct DestroyRunner<'a> {
     command: DestroyCommand,
+    writer: &'a Writer,
 }
 
-impl Runner for DestroyRunner {
+impl Runner for DestroyRunner<'_> {
     /// Destroys a project after user confirmation
     async fn run(&mut self) -> Result<(), Error> {
         let current_project = self.project().await?;
@@ -37,32 +40,47 @@ impl Runner for DestroyRunner {
 
         let project = match Project::fetch_one(project_name).await {
             Ok(project) => project,
+
             Err(_) => {
-                println!("{}", "Project not found".yellow());
+                self.writer
+                    .text(&format!("{}\n", "Project not found".yellow()))?;
+
+                self.writer
+                    .json(json!({"success": false, "message": "Project not found"}))?;
+
                 return Ok(());
             }
         };
 
-        print!("{} {}: ", "Do you want to proceed?".bold(), "[y/N]".dim());
+        // Ask for confirmation (skip in structured/JSON mode)
+        if !self.writer.is_structured() {
+            self.writer.text(&format!(
+                "{} {}: ",
+                "Do you want to proceed?".bold(),
+                "[y/N]".dim()
+            ))?;
 
-        io::stdout()
-            .flush()
-            .wrap_err("Failed to process stdout")
-            .map_err(|e| self.error(None, None, Some(e.into())))?;
+            io::stdout()
+                .flush()
+                .wrap_err("Failed to process stdout")
+                .map_err(|e| self.error(None, None, Some(e.into())))?;
 
-        let mut input = String::new();
+            let mut input = String::new();
 
-        io::stdin()
-            .read_line(&mut input)
-            .wrap_err("Failed to read user's input")
-            .map_err(|e| self.error(None, None, Some(e.into())))?;
+            io::stdin()
+                .read_line(&mut input)
+                .wrap_err("Failed to read user's input")
+                .map_err(|e| self.error(None, None, Some(e.into())))?;
 
-        if !matches!(input.trim().to_lowercase().as_ref(), "y" | "yes") {
-            println!("{}", "Destroying canceled".dim().bold());
-            return Ok(());
+            if !matches!(input.trim().to_lowercase().as_ref(), "y" | "yes") {
+                self.writer
+                    .text(&format!("{}\n", "Destroying canceled".dim().bold()))?;
+                return Ok(());
+            }
         }
 
-        println!("{}: {}", "Destroying".bold(), &project.name);
+        self.writer
+            .text(&format!("{}: {}\n", "Destroying".bold(), &project.name))?;
 
         project
             .destroy()
@@ -70,7 +88,12 @@ impl Runner for DestroyRunner {
             .wrap_err("Project destroy reqeust failed")
             .map_err(|e| self.server_error(Some(e.into())))?;
 
-        println!("{}", console::style("Project destroyed").green());
+        self.writer.text(&format!(
+            "{}\n",
+            console::style("Project destroyed").green()
+        ))?;
+
+        self.writer.json(json!({"success": true}))?;
         Ok(())
     }
 }

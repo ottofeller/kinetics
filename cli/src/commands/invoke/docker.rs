@@ -1,5 +1,5 @@
 use super::service::{LocalDynamoDB, LocalQueue, LocalSqlDB, Service};
-use crate::error::Error;
+use crate::{error::Error, writer::Writer};
 use crate::process::Process;
 use eyre::{Context, OptionExt};
 use serde_yaml::{Mapping, Value};
@@ -9,7 +9,7 @@ use std::{path::Path, path::PathBuf, process, process::Stdio};
 ///
 /// Docker is mostly used to provision services (e.g. a database, or a queue)
 /// when a function gets invoked locally.
-pub struct Docker {
+pub struct Docker<'a> {
     /// Path to .kinetics dir
     build_path: PathBuf,
 
@@ -17,10 +17,10 @@ pub struct Docker {
     is_started: bool,
 
     /// List of services to start
-    services: Vec<Service>,
+    services: Vec<Service<'a>>,
 }
 
-impl Docker {
+impl<'a> Docker<'a> {
     pub fn new(build_path: &Path) -> Self {
         Self {
             build_path: build_path.to_owned(),
@@ -30,7 +30,7 @@ impl Docker {
     }
 
     /// Start docker containers
-    pub fn start(&mut self) -> eyre::Result<()> {
+    pub fn start(&mut self, writer: &Writer) -> eyre::Result<()> {
         // There is nothing to start if there are no services
         if self.services.is_empty() {
             return Ok(());
@@ -58,11 +58,11 @@ impl Docker {
             .spawn()
             .wrap_err("Failed to execute docker-compose")?;
 
-        let mut process = Process::new(child);
+        let mut process = Process::new(child, writer);
         let status = process.log()?;
 
         if !status.success() {
-            process.print_error();
+            process.print_error()?;
 
             return Err(Error::new(
                 "Failed to start Docker containers",
@@ -141,7 +141,7 @@ impl Docker {
         self.services.push(Service::DynamoDB(dynamodb));
     }
 
-    pub fn with_sqldb(&mut self, sqldb: LocalSqlDB) {
+    pub fn with_sqldb(&mut self, sqldb: LocalSqlDB<'a>) {
         self.services.push(Service::SqlDB(sqldb));
     }
 
@@ -194,7 +194,7 @@ impl Docker {
     }
 }
 
-impl Drop for Docker {
+impl Drop for Docker<'_> {
     fn drop(&mut self) {
         self.stop().unwrap();
     }

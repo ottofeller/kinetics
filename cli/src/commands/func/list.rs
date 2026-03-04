@@ -6,8 +6,8 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
-use kinetics_parser::{ParsedFunction, Params, Parser, Role};
-use serde_json::Value;
+use kinetics_parser::{Params, ParsedFunction, Parser, Role};
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use tabled::settings::{peaker::Priority, style::Style, Settings, Width};
 use tabled::{Table, Tabled};
@@ -59,20 +59,22 @@ pub(crate) struct ListCommand {
 }
 
 impl Runnable for ListCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         ListRunner {
             command: self.clone(),
             functions: vec![],
+            writer,
         }
     }
 }
 
-struct ListRunner {
+struct ListRunner<'a> {
     functions: Vec<ParsedFunction>,
     command: ListCommand,
+    writer: &'a Writer,
 }
 
-impl Runner for ListRunner {
+impl Runner for ListRunner<'_> {
     /// Prints out the list of all functions with some extra information
     async fn run(&mut self) -> Result<(), Error> {
         let project = self.project().await?;
@@ -102,7 +104,7 @@ impl Runner for ListRunner {
     }
 }
 
-impl ListRunner {
+impl ListRunner<'_> {
     fn simple(&self) -> eyre::Result<()> {
         let crons: Vec<&ParsedFunction> = self
             .functions
@@ -123,19 +125,48 @@ impl ListRunner {
             .collect();
 
         if !endpoints.is_empty() {
-            println!("\n{}\n", "Endpoints".bold().green());
+            self.writer
+                .text(&format!("\n{}\n\n", "Endpoints".bold().green()))
+                .map_err(|e| eyre::eyre!(e))?;
+
             endpoints.iter().try_for_each(|f| self.display_simple(f))?;
         }
 
         if !workers.is_empty() {
-            println!("\n{}\n", "Workers".bold().green());
+            self.writer
+                .text(&format!("\n{}\n\n", "Workers".bold().green()))
+                .map_err(|e| eyre::eyre!(e))?;
+
             workers.iter().try_for_each(|f| self.display_simple(f))?;
         }
 
         if !crons.is_empty() {
-            println!("\n{}\n", "Crons".bold().green());
+            self.writer
+                .text(&format!("\n{}\n\n", "Crons".bold().green()))
+                .map_err(|e| eyre::eyre!(e))?;
+
             crons.iter().try_for_each(|f| self.display_simple(f))?;
         }
+
+        let mut functions_json: Vec<Value> = vec![];
+
+        for f in &self.functions {
+            let mut entry = json!({
+                "name": f.func_name(false)?,
+                "role": format!("{:?}", f.role).to_lowercase(),
+                "path": &f.relative_path,
+            });
+
+            if let Params::Cron(ref params) = f.params {
+                entry["schedule"] = json!(params.schedule.to_string());
+            }
+
+            functions_json.push(entry);
+        }
+
+        self.writer
+            .json(json!({"success": true, "functions": functions_json}))
+            .map_err(|e| eyre::eyre!(e))?;
 
         Ok(())
     }
@@ -148,7 +179,17 @@ impl ListRunner {
         let mut worker_rows = Vec::new();
 
         if self.functions.is_empty() {
-            println!("{}", console::style("No functions found").yellow());
+            self.writer
+                .text(&format!(
+                    "{}\n",
+                    console::style("No functions found").yellow()
+                ))
+                .map_err(|e| eyre::eyre!(e))?;
+
+            self.writer
+                .json(json!({"success": true, "functions": []}))
+                .map_err(|e| eyre::eyre!(e))?;
+
             return Ok(());
         }
 
@@ -201,36 +242,86 @@ impl ListRunner {
         if !endpoint_rows.is_empty() {
             let mut table = Table::new(endpoint_rows.to_vec());
             table.with(Style::modern()).with(settings.clone());
-            println!("Endpoints\n{}", table);
+
+            self.writer
+                .text(&format!("Endpoints\n{}\n", table))
+                .map_err(|e| eyre::eyre!(e))?;
         }
 
         if !cron_rows.is_empty() {
             let mut table = Table::new(cron_rows.to_vec());
             table.with(Style::modern()).with(settings.clone());
-            println!("Crons:\n{}", table);
+
+            self.writer
+                .text(&format!("Crons:\n{}\n", table))
+                .map_err(|e| eyre::eyre!(e))?;
         }
 
         if !worker_rows.is_empty() {
             let mut table = Table::new(worker_rows.to_vec());
             table.with(Style::modern()).with(settings);
-            println!("Workers:\n{}", table);
+            self.writer
+                .text(&format!("Workers:\n{}\n", table))
+                .map_err(|e| eyre::eyre!(e))?;
         }
+
+        let mut functions_json: Vec<Value> = vec![];
+
+        for row in &endpoint_rows {
+            functions_json.push(json!({
+                "role": "endpoint",
+                "function": &row.function,
+                "environment": &row.environment,
+                "url_path": &row.url_path,
+                "last_modified": &row.last_modified,
+            }));
+        }
+
+        for row in &cron_rows {
+            functions_json.push(json!({
+                "role": "cron",
+                "function": &row.function,
+                "environment": &row.environment,
+                "schedule": &row.schedule,
+                "last_modified": &row.last_modified,
+            }));
+        }
+
+        for row in &worker_rows {
+            functions_json.push(json!({
+                "role": "worker",
+                "function": &row.function,
+                "environment": &row.environment,
+                "fifo": &row.fifo,
+                "concurrency": &row.concurrency,
+                "last_modified": &row.last_modified,
+            }));
+        }
+
+        self.writer
+            .json(json!({"success": true, "functions": functions_json}))
+            .map_err(|e| eyre::eyre!(e))?;
 
         Ok(())
     }
 
     /// Display the function with its main properties
     fn display_simple(&self, function: &ParsedFunction) -> eyre::Result<()> {
-        println!(
-            "{} {} {}",
-            function.func_name(false)?.bold(),
-            "from".dimmed(),
-            function.relative_path.dimmed(),
-        );
+        self.writer
+            .text(&format!(
+                "{} {}\n",
+                function.func_name(false)?.bold(),
+                function.relative_path.dimmed(),
+            ))
+            .map_err(|e| eyre::eyre!(e))?;
 
         match function.params.clone() {
             Params::Endpoint(_) => {}
-            Params::Cron(params) => println!("{} {}", "Scheduled".dimmed(), params.schedule.cyan()),
+            Params::Cron(params) => {
+                self.writer
+                    .text(&format!("{}\n", params.schedule.cyan()))
+                    .map_err(|e| eyre::eyre!(e))?;
+            }
             Params::Worker(_) => {}
         }
 

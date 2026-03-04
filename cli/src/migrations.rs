@@ -1,3 +1,4 @@
+use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
@@ -11,6 +12,9 @@ use std::path::Path;
 pub struct Migrations<'a> {
     /// Directory where migration files are stored
     path: &'a Path,
+
+    /// Global output writer
+    writer: &'a Writer,
 }
 
 /// Methods for managing database migrations
@@ -18,7 +22,7 @@ impl<'a> Migrations<'a> {
     /// Creates a new `Migrations` instance from a directory path
     ///
     /// `path` is a path to the migrations directory; it must exist in the filesystem
-    pub fn new(path: &'a Path) -> eyre::Result<Self> {
+    pub fn new(path: &'a Path, writer: &'a Writer) -> eyre::Result<Self> {
         if !path.try_exists()? {
             return Err(eyre::eyre!(
                 "Migrations directory does not exist: {}",
@@ -26,7 +30,7 @@ impl<'a> Migrations<'a> {
             ));
         }
 
-        Ok(Self { path })
+        Ok(Self { path, writer })
     }
 
     /// Applies database migrations based on the stored migration files and the current state
@@ -56,7 +60,11 @@ impl<'a> Migrations<'a> {
         let migrations = self.migrations(&last_db_id).await?;
 
         if migrations.is_empty() {
-            println!("{}", console::style("No migrations to apply...").yellow());
+            self.writer.text(&format!(
+                "{}",
+                console::style("No migrations to apply...").yellow()
+            ))?;
+
             return Ok(());
         }
 
@@ -74,11 +82,11 @@ impl<'a> Migrations<'a> {
                 .execute(&connection)
                 .await?;
 
-            println!(
-                "{} {}",
+            self.writer.text(&format!(
+                "{} {}\n",
                 console::style("✓").green(),
                 console::style(&filename).dimmed()
-            );
+            ))?;
         }
 
         Ok(())
@@ -114,14 +122,14 @@ impl<'a> Migrations<'a> {
             .await
             .wrap_err("Failed to create a migration file")?;
 
-        println!(
-            "{} {} {}",
+        self.writer.text(&format!(
+            "{} {} {}\n",
             console::style("Created migration").green().bold(),
             console::style("at").dim(),
             console::style(format!("{}", filepath.to_string_lossy()))
                 .underlined()
                 .bold(),
-        );
+        ))?;
 
         Ok(())
     }
@@ -183,7 +191,7 @@ impl<'a> Migrations<'a> {
     }
 
     /// Validates SQL statements of migrations
-    /// 
+    ///
     /// Returns an error if DDL and DML are mixed together in the same file.
     async fn validate_migrations(&self, migrations: &Vec<(String, String)>) -> eyre::Result<()> {
         for (path, content) in migrations {

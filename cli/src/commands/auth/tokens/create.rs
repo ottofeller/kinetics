@@ -4,6 +4,7 @@ use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use eyre::Context;
+use serde_json::json;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct CreateCommand {
@@ -18,24 +19,26 @@ pub(crate) struct CreateCommand {
 }
 
 impl Runnable for CreateCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         CreateRunner {
             command: self.clone(),
+            writer,
         }
     }
 }
 
-struct CreateRunner {
+struct CreateRunner<'a> {
     command: CreateCommand,
+    writer: &'a Writer,
 }
 
-impl Runner for CreateRunner {
+impl Runner for CreateRunner<'_> {
     /// Creates a new authentication token
     async fn run(&mut self) -> Result<(), Error> {
-        println!(
-            "\n{}...",
+        self.writer.text(&format!(
+            "\n{}...\n",
             console::style("Requesting new access token").bold().green()
-        );
+        ))?;
 
         let client = self.api_client().await?;
 
@@ -78,7 +81,10 @@ impl Runner for CreateRunner {
             ))?
             .token;
 
-        println!("{}", console::style(&token).dim());
+        self.writer
+            .text(&format!("{}\n", console::style(&token).dim()))?;
+
+        self.writer.json(json!({"success": true, "token": token}))?;
         Ok(())
     }
 }

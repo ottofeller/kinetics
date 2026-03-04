@@ -1,3 +1,4 @@
+use crate::writer::Writer;
 use eyre::{Context, ContextCompat};
 use std::process::{Child, ExitStatus};
 use std::{
@@ -8,18 +9,20 @@ use std::{
 /// A wrapper over system process
 ///
 /// It is used to implement various helpers and utilities.
-pub struct Process {
+pub struct Process<'a> {
     child: Child,
+    writer: &'a Writer,
 
     // Collect all lines for later display
     stdout_lines: Arc<Mutex<Vec<String>>>,
     stderr_lines: Arc<Mutex<Vec<String>>>,
 }
 
-impl Process {
-    pub fn new(child: Child) -> Self {
+impl<'a> Process<'a> {
+    pub fn new(child: Child, writer: &'a Writer) -> Self {
         Process {
             child,
+            writer,
             stdout_lines: Arc::new(Mutex::new(Vec::new())),
             stderr_lines: Arc::new(Mutex::new(Vec::new())),
         }
@@ -31,6 +34,8 @@ impl Process {
         reader: BufReader<impl Read + Send + 'static>,
         lock: Arc<Mutex<Vec<String>>>,
     ) -> std::thread::JoinHandle<()> {
+        let is_plain_text = !self.writer.is_structured();
+
         std::thread::spawn(move || {
             for line in reader.lines().map_while(Result::ok) {
                 // Store the line for later output
@@ -39,7 +44,9 @@ impl Process {
                 }
 
                 // Clear the line and print normal (non-red) output
-                print!("\r\x1B[K");
+                if is_plain_text {
+                    print!("\r\x1B[K");
+                }
 
                 // Trim the line to 48 characters with ellipsis if necessary
                 let line_trimmed = if line.trim().len() > 48 {
@@ -48,7 +55,10 @@ impl Process {
                     line.trim().to_string()
                 };
 
-                print!("{}", console::style(&line_trimmed.trim()).dim());
+                if is_plain_text {
+                    print!("{}", console::style(&line_trimmed.trim()).dim());
+                }
+
                 let _ = std::io::stdout().flush();
             }
         })
@@ -84,26 +94,50 @@ impl Process {
         stderr_thread.join().unwrap();
 
         // Clean up old output
-        print!("\r\x1B[K");
+        if !self.writer.is_structured() {
+            print!("\r\x1B[K");
+        }
 
         Ok(status)
     }
 
     /// If there was an error, print the full stderr
-    pub fn print_error(&self) {
+    pub fn print_error(&self) -> eyre::Result<()> {
         if let Ok(lines) = self.stderr_lines.lock() {
-            println!(
+            self.writer.text(&format!(
                 "\n{}\n{}",
                 console::style("Error:").red().bold(),
                 lines.join("\n")
-            );
+            ))?
         }
+
+        Ok(())
     }
 
     /// Print the full output
-    pub fn print(&self) {
+    pub fn print(&self) -> eyre::Result<()> {
         if let Ok(lines) = self.stdout_lines.lock() {
-            println!("{}", lines.join("\n"));
+            self.writer.text(&format!("{}", lines.join("\n")))?;
         }
+
+        Ok(())
+    }
+
+    /// Return the full output
+    pub fn output(&self) -> String {
+        if let Ok(lines) = self.stdout_lines.lock() {
+            return lines.join("\n");
+        }
+
+        "".into()
+    }
+
+    /// Return the full errors output
+    pub fn errors_output(&self) -> String {
+        if let Ok(lines) = self.stderr_lines.lock() {
+            return lines.join("\n");
+        }
+
+        "".into()
     }
 }

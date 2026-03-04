@@ -1,4 +1,3 @@
-use std::io::{stdin, stdout, Write};
 use crate::api::auth::tokens::delete::Request;
 use crate::api::request::Validate;
 use crate::error::Error;
@@ -6,6 +5,8 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use crossterm::style::Stylize;
 use eyre::Context;
+use serde_json::json;
+use std::io::{stdin, stdout, Write};
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct DeleteCommand {
@@ -14,18 +15,20 @@ pub(crate) struct DeleteCommand {
 }
 
 impl Runnable for DeleteCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         DeleteRunner {
             command: self.clone(),
+            writer,
         }
     }
 }
 
-struct DeleteRunner {
+struct DeleteRunner<'a> {
     command: DeleteCommand,
+    writer: &'a Writer,
 }
 
-impl Runner for DeleteRunner {
+impl Runner for DeleteRunner<'_> {
     /// Deletes an access token
     async fn run(&mut self) -> Result<(), Error> {
         let generic_error = Error::new(
@@ -33,34 +36,36 @@ impl Runner for DeleteRunner {
             Some("Please report a bug at support@deploykinetics.com"),
         );
 
-        // Ask for confirmation
-        print!(
-            "\nDelete access token {}? {} ",
-            self.command.name.clone().bold(),
-            "[y/N]".dim()
-        );
+        // Ask for confirmation (skip in structured/JSON mode)
+        if !self.writer.is_structured() {
+            self.writer.text(&format!(
+                "\nDelete access token {}? {} ",
+                self.command.name.clone().bold(),
+                "[y/N]".dim()
+            ))?;
 
-        let mut input = String::new();
+            let mut input = String::new();
 
-        stdout().flush().map_err(|e| {
-            log::error!("Failed to write to stdout: {e:?}");
-            generic_error.clone()
-        })?;
+            stdout().flush().map_err(|e| {
+                log::error!("Failed to write to stdout: {e:?}");
+                generic_error.clone()
+            })?;
 
-        stdin().read_line(&mut input).map_err(|e| {
-            log::error!("Failed to read from stdin: {e:?}");
-            generic_error
-        })?;
+            stdin().read_line(&mut input).map_err(|e| {
+                log::error!("Failed to read from stdin: {e:?}");
+                generic_error
+            })?;
 
-        if !matches!(input.trim().to_lowercase().as_ref(), "y" | "yes") {
-            println!("{}", "Canceled".yellow());
-            return std::result::Result::Ok(());
+            if !matches!(input.trim().to_lowercase().as_ref(), "y" | "yes") {
+                self.writer.text(&format!("{}\n", "Canceled".yellow()))?;
+                return std::result::Result::Ok(());
+            }
         }
 
-        println!(
-            "\n{}...",
+        self.writer.text(&format!(
+            "\n{}...\n",
             console::style("Deleting access token").bold().green()
-        );
+        ))?;
 
         let client = self.api_client().await?;
 
@@ -98,7 +103,10 @@ impl Runner for DeleteRunner {
             .into());
         }
 
-        println!("\n{}", console::style("Deleted").green().bold());
+        self.writer
+            .text(&format!("\n{}\n", console::style("Deleted").green().bold()))?;
+
+        self.writer.json(json!({"success": true}))?;
         Ok(())
     }
 }

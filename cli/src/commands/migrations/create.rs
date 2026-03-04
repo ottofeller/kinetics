@@ -2,6 +2,7 @@ use crate::error::Error;
 use crate::migrations::Migrations;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
+use serde_json::json;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct CreateCommand {
@@ -15,18 +16,20 @@ pub(crate) struct CreateCommand {
 }
 
 impl Runnable for CreateCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         CreateRunner {
             command: self.clone(),
+            writer,
         }
     }
 }
 
-struct CreateRunner {
+struct CreateRunner<'a> {
     command: CreateCommand,
+    writer: &'a Writer,
 }
 
-impl Runner for CreateRunner {
+impl Runner for CreateRunner<'_> {
     /// Creates a new database migration file
     async fn run(&mut self) -> Result<(), Error> {
         let project = self.project().await?;
@@ -37,12 +40,13 @@ impl Runner for CreateRunner {
             .await
             .map_err(|e| self.error(None, None, Some(e.into())))?;
 
-        Migrations::new(&migrations_path)
+        Migrations::new(&migrations_path, self.writer)
             .map_err(|e| self.error(None, None, Some(e.into())))?
             .create(self.command.name.as_deref())
             .await
             .map_err(|e| self.error(None, None, Some(e.into())))?;
 
+        self.writer.json(json!({"success": true}))?;
         Ok(())
     }
 }

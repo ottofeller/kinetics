@@ -6,6 +6,7 @@ use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize as _;
 use eyre::Context;
 use kinetics_parser::Parser;
+use serde_json::json;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct StatsCommand {
@@ -27,18 +28,20 @@ pub(crate) struct StatsCommand {
 }
 
 impl Runnable for StatsCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         StatsRunner {
             command: self.clone(),
+            writer,
         }
     }
 }
 
-struct StatsRunner {
+struct StatsRunner<'a> {
     command: StatsCommand,
+    writer: &'a Writer,
 }
 
-impl Runner for StatsRunner {
+impl Runner for StatsRunner<'_> {
     /// Retrieves and displays run statistics for a specific function
     async fn run(&mut self) -> Result<(), Error> {
         let project = self.project().await?;
@@ -49,16 +52,16 @@ impl Runner for StatsRunner {
             .into_iter()
             .map(|f| Function::new(&project, &f))
             .collect::<eyre::Result<Vec<Function>>>()?;
-        let function = Function::find_by_name(&all_functions, &self.command.name)?;
 
+        let function = Function::find_by_name(&all_functions, &self.command.name)?;
         let client = self.api_client().await?;
 
-        println!(
-            "\n{} {} {}...\n",
+        self.writer.text(&format!(
+            "\n{} {} {}...\n\n",
             console::style("Fetching stats").bold().green(),
             console::style("for").dim(),
             console::style(&function.name).bold()
-        );
+        ))?;
 
         let response = client
             .post("/function/stats")
@@ -74,11 +77,13 @@ impl Runner for StatsRunner {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or("Unknown error".to_string());
+
             log::error!(
                 "Failed to fetch statistics from API ({}): {}",
                 status,
                 error_text
             );
+
             return Err(Error::new("Failed to fetch statistics", Some("Try again later.")).into());
         }
 
@@ -87,10 +92,21 @@ impl Runner for StatsRunner {
             Some("Try again later."),
         ))?;
 
-        println!("{}", "Runs:".bold());
-        println!("  Total: {}", logs_response.runs.total);
-        println!("  Success: {}", logs_response.runs.success);
-        println!("  Error: {}", logs_response.runs.error);
+        self.writer.text(&format!(
+            "{}\n  Total: {}\n  Success: {}\n  Error: {}\n",
+            "Runs:".bold(),
+            logs_response.runs.total,
+            logs_response.runs.success,
+            logs_response.runs.error,
+        ))?;
+
+        self.writer.json(json!({
+            "success": true,
+            "total": logs_response.runs.total,
+            "successes": logs_response.runs.success,
+            "errors": logs_response.runs.error,
+        }))?;
+
         Ok(())
     }
 }
