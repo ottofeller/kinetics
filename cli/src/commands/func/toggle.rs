@@ -6,6 +6,7 @@ use crate::writer::Writer;
 use eyre::Context;
 use http::StatusCode;
 use kinetics_parser::Parser;
+use serde_json::json;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct StopCommand {
@@ -15,10 +16,11 @@ pub(crate) struct StopCommand {
 }
 
 impl Runnable for StopCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         ToggleRunner {
             name: self.name.clone(),
             op: func::toggle::Op::Stop,
+            writer,
         }
     }
 }
@@ -31,20 +33,22 @@ pub(crate) struct StartCommand {
 }
 
 impl Runnable for StartCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         ToggleRunner {
             name: self.name.clone(),
             op: func::toggle::Op::Start,
+            writer,
         }
     }
 }
 
-struct ToggleRunner {
+struct ToggleRunner<'a> {
     name: String,
     op: func::toggle::Op,
+    writer: &'a Writer,
 }
 
-impl Runner for ToggleRunner {
+impl Runner for ToggleRunner<'_> {
     /// Adds/removes throttling from a function.
     ///
     /// - For start operation the function starts receiving requests.
@@ -72,11 +76,11 @@ impl Runner for ToggleRunner {
 
         let client = self.api_client().await?;
 
-        println!(
-            "\n{} {}...\n",
+        self.writer.text(&format!(
+            "\n{} {}...\n\n",
             console::style(format!("{}", self.op)).bold().green(),
             console::style(&function.name).bold()
-        );
+        ))?;
 
         let response = client
             .post("/function/toggle")
@@ -90,23 +94,36 @@ impl Runner for ToggleRunner {
             .wrap_err(format!("Failed to send {:?} request", self.op))
             .map_err(|e| self.server_error(Some(e.into())))?;
 
+        let is_throttled = match self.op {
+            func::toggle::Op::Start => false,
+            func::toggle::Op::Stop => true,
+        };
+
         match response.status() {
             status if status.is_success() => {
-                println!("{}", console::style("Done").bold().green());
+                self.writer
+                    .text(&format!("{}\n", console::style("Done").bold().green()))?;
+
+                self.writer
+                    .json(json!({"success": true, "is_throttled": is_throttled}))?;
+
                 Ok(())
             }
             StatusCode::NOT_MODIFIED => {
-                println!(
-                    "{}",
-                    console::style(format!(
-                        "Nothing changed. Function is {} throttled.",
-                        match self.op {
-                            func::toggle::Op::Start => "not",
-                            func::toggle::Op::Stop => "already",
-                        }
-                    ))
-                    .yellow(),
+                let message = format!(
+                    "Nothing changed. Function is {} throttled.",
+                    match self.op {
+                        func::toggle::Op::Start => "not",
+                        func::toggle::Op::Stop => "already",
+                    }
                 );
+
+                self.writer
+                    .text(&format!("{}\n", console::style(&message).yellow()))?;
+
+                self.writer.json(
+                    json!({"success": true, "message": message, "is_throttled": is_throttled}),
+                )?;
 
                 Ok(())
             }
@@ -117,10 +134,13 @@ impl Runner for ToggleRunner {
                     .wrap_err("Invalid response from server")
                     .map_err(|e| self.server_error(Some(e.into())))?;
 
-                println!(
-                    "{}",
-                    console::style(format!("Function is stopped by platform. {reason}")).yellow(),
-                );
+                let message = format!("Function is stopped by platform. {reason}");
+
+                self.writer
+                    .text(&format!("{}\n", console::style(&message).yellow()))?;
+
+                self.writer
+                    .json(json!({"success": false, "message": message}))?;
 
                 Ok(())
             }
