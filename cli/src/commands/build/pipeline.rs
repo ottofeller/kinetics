@@ -19,6 +19,7 @@ pub struct Pipeline<'a> {
     max_concurrent: usize,
     deploy_config: Option<Arc<dyn DeployConfig>>,
     writer: &'a Writer,
+    deploy_message: Option<String>,
 }
 
 impl<'a> Pipeline<'a> {
@@ -58,7 +59,7 @@ impl<'a> Pipeline<'a> {
         )?;
 
         // Clear the previous line, the "Preparing..." step is not a part of the build pipeline
-        self.writer.text(&format!("\r\x1B[K"))?;
+        self.writer.text("\r\x1B[K")?;
 
         let deploy_functions: Vec<Function> = all_functions
             .iter()
@@ -209,6 +210,7 @@ impl<'a> Pipeline<'a> {
                 &all_functions,
                 self.is_hotswap,
                 self.deploy_config.as_deref(),
+                self.deploy_message,
             )
             .await
         {
@@ -275,6 +277,7 @@ pub struct PipelineBuilder<'a> {
     max_concurrent: Option<usize>,
     deploy_config: Option<Arc<dyn DeployConfig>>,
     writer: &'a Writer,
+    deploy_message: Option<String>,
 }
 
 impl<'a> PipelineBuilder<'a> {
@@ -288,6 +291,7 @@ impl<'a> PipelineBuilder<'a> {
             max_concurrent: self.max_concurrent.unwrap_or(10),
             deploy_config: self.deploy_config,
             writer: self.writer,
+            deploy_message: self.deploy_message,
         })
     }
 
@@ -308,6 +312,11 @@ impl<'a> PipelineBuilder<'a> {
 
     pub fn set_max_concurrent(mut self, max_concurrent: usize) -> Self {
         self.max_concurrent = Some(max_concurrent);
+        self
+    }
+
+    pub fn with_deploy_message(mut self, message: Option<String>) -> Self {
+        self.deploy_message = message;
         self
     }
 }

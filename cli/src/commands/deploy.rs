@@ -21,6 +21,10 @@ pub(crate) struct DeployCommand {
     /// The set of functions to deploy, comma separated
     #[arg(value_delimiter = ',')]
     functions: Vec<String>,
+
+    /// Message to include in the deployment
+    #[arg(short, long)]
+    message: Option<String>,
 }
 
 impl Runnable for DeployCommand {
