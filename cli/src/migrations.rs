@@ -68,7 +68,7 @@ impl<'a> Migrations<'a> {
             return Ok(());
         }
 
-        self.validate_migrations(&migrations).await?;
+        self.validate(&migrations).await?;
 
         for (filename, content) in migrations {
             sqlx::raw_sql(&content)
@@ -192,8 +192,8 @@ impl<'a> Migrations<'a> {
 
     /// Validates SQL statements of migrations
     ///
-    /// Returns an error if DDL and DML are mixed together in the same file.
-    async fn validate_migrations(&self, migrations: &Vec<(String, String)>) -> eyre::Result<()> {
+    /// Returns an error if DDL and DML are mixed in the same file
+    async fn validate(&self, migrations: &Vec<(String, String)>) -> eyre::Result<()> {
         for (path, content) in migrations {
             // Strip ASYNC keyword before parsing — sqlparser doesn't support
             // CREATE ASYNC INDEX (DSQL syntax) but it's need DDL/DML classification only
