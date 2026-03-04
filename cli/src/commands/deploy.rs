@@ -22,9 +22,23 @@ pub(crate) struct DeployCommand {
     #[arg(value_delimiter = ',')]
     functions: Vec<String>,
 
-    /// Message to include in the deployment
-    #[arg(short, long)]
+    /// Message to include in the deployment (max 100 characters)
+    #[arg(short, long, value_parser = validate_message)]
     message: Option<String>,
+}
+
+const MAX_MESSAGE_LENGTH: usize = 100;
+
+fn validate_message(s: &str) -> eyre::Result<String> {
+    if s.chars().count() > MAX_MESSAGE_LENGTH {
+        eyre::bail!(
+            "message must be at most {} characters, got {}",
+            MAX_MESSAGE_LENGTH,
+            s.chars().count()
+        );
+    }
+
+    Ok(s.to_string())
 }
 
 impl Runnable for DeployCommand {
