@@ -24,6 +24,11 @@ struct VersionsRunner<'a> {
 impl Runner for VersionsRunner<'_> {
     /// Prints out the list of all available versions for the project
     async fn run(&mut self) -> Result<(), Error> {
+        self.writer.text(&format!(
+            "{}...\n\n",
+            console::style("Fetching versions").green().bold()
+        ))?;
+
         let project = self.project().await?;
 
         let client = Client::new(false)
