@@ -68,61 +68,27 @@ impl<'a> Migrations<'a> {
             return Ok(());
         }
 
-        struct ParsedMigration {
-            filename: String,
-            content: Vec<String>,
-        }
-
-        let mut parsed_ddl = Vec::new();
-        let mut parsed_others = Vec::new();
+        self.validate(&migrations).await?;
 
         for (filename, content) in migrations {
-            let (ddl, others) = self
-                .parse_sql(&content)
-                .wrap_err("Failed to parse migration SQL")?;
-
-            parsed_ddl.push(ParsedMigration {
-                filename: filename.clone(),
-                content: ddl,
-            });
-
-            parsed_others.push(ParsedMigration {
-                filename: filename.clone(),
-                content: others,
-            });
-        }
-
-        for migration in parsed_ddl {
-            sqlx::raw_sql(&migration.content.join(";"))
+            sqlx::raw_sql(&content)
                 .execute(&connection)
-                .await
-                .inspect_err(|e| log::error!("Error: {e:?}"))
-                .wrap_err("Failed to apply migration")?;
-        }
-
-        // Start a transaction for DML statements
-        let mut tx = connection.begin().await?;
-
-        for migration in parsed_others {
-            self.writer.text(&format!(
-                "{} {}\n",
-                console::style("✓").green(),
-                console::style(&migration.filename).dimmed()
-            ))?;
-
-            sqlx::raw_sql(&migration.content.join(";"))
-                .execute(&mut *tx)
                 .await
                 .inspect_err(|e| log::error!("Error: {e:?}"))
                 .wrap_err("Failed to apply migration")?;
 
             sqlx::query(r#"INSERT INTO "schema_migrations" (id) VALUES ($1)"#)
-                .bind(&migration.filename)
-                .execute(&mut *tx)
+                .bind(&filename)
+                .execute(&connection)
                 .await?;
+
+            self.writer.text(&format!(
+                "{} {}\n",
+                console::style("✓").green(),
+                console::style(&filename).dimmed()
+            ))?;
         }
 
-        tx.commit().await?;
         Ok(())
     }
 
@@ -224,36 +190,43 @@ impl<'a> Migrations<'a> {
         Ok(result)
     }
 
-    /// Parses SQL statements from a string and returns DDL and other statements separately
+    /// Validates SQL statements of migrations
     ///
-    /// Returns a tuple of two vectors:
-    ///   - `Vec<String>`: A list of DDL (Data Definition Language) statements
-    ///   - `Vec<String>`: A list of other (DML Data Manipulation Language) statements (e.g., INSERT, UPDATE, DELETE, etc.)
-    ///
-    /// Keep in mind that it returns only DDL supported by Aurora DSQL
-    /// https://docs.aws.amazon.com/aurora-dsql/latest/userguide/working-with-postgresql-compatibility-unsupported-features.html
-    fn parse_sql(&self, sql: &str) -> eyre::Result<(Vec<String>, Vec<String>)> {
-        let statements = Parser::parse_sql(&PostgreSqlDialect {}, sql)
-            .wrap_err("Failed to parse migration SQL")?;
+    /// Returns an error if DDL and DML are mixed in the same file
+    async fn validate(&self, migrations: &Vec<(String, String)>) -> eyre::Result<()> {
+        for (path, content) in migrations {
+            // Strip ASYNC keyword before parsing — sqlparser doesn't support
+            // CREATE ASYNC INDEX (DSQL syntax) but it's need DDL/DML classification only
+            let sanitized = content.replace("CREATE ASYNC INDEX", "CREATE INDEX");
+            let statements = Parser::parse_sql(&PostgreSqlDialect {}, &sanitized)
+                .wrap_err("Failed to parse migration SQL")?;
 
-        let mut ddl = Vec::new();
-        let mut others = Vec::new();
+            let mut ddl = Vec::new();
+            let mut others = Vec::new();
 
-        for stmt in statements {
-            if matches!(
-                stmt,
-                Statement::CreateTable { .. }
-                    | Statement::AlterTable { .. }
-                    | Statement::Drop { .. }
-                    | Statement::CreateIndex { .. }
-                    | Statement::CreateView { .. }
-            ) {
-                ddl.push(stmt.to_string());
-            } else {
-                others.push(stmt.to_string());
+            for stmt in statements {
+                if matches!(
+                    stmt,
+                    Statement::CreateTable { .. }
+                        | Statement::AlterTable { .. }
+                        | Statement::Drop { .. }
+                        | Statement::CreateIndex { .. }
+                        | Statement::CreateView { .. }
+                ) {
+                    ddl.push(stmt.to_string());
+                } else {
+                    others.push(stmt.to_string());
+                }
+            }
+
+            if !ddl.is_empty() && !others.is_empty() {
+                eyre::bail!(
+                    "Migration: {path} contains both DDL and DML statements. \
+                    Please split them into separate migration files."
+                )
             }
         }
 
-        Ok((ddl, others))
+        Ok(())
     }
 }
