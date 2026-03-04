@@ -65,12 +65,13 @@ impl Runner for VersionsRunner<'_> {
                 "{} {}\n{}\n\n",
                 v.version.to_string().bold(),
                 updated_at.dimmed(),
-                "No message".black().dimmed()
+                v.message.as_deref().unwrap_or("No message").dimmed()
             ))?;
 
             versions_json.push(json!({
                 "version": v.version,
                 "updated_at": v.updated_at,
+                "message": v.message,
             }));
         }
 
