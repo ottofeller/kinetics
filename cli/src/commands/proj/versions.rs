@@ -6,19 +6,22 @@ use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize;
 use crossterm::style::Stylize;
 use eyre::Context;
+use serde_json::{json, Value};
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct VersionsCommand {}
 
 impl Runnable for VersionsCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
-        VersionsRunner {}
+    fn runner(&self, writer: &Writer) -> impl Runner {
+        VersionsRunner { writer }
     }
 }
 
-struct VersionsRunner;
+struct VersionsRunner<'a> {
+    writer: &'a Writer,
+}
 
-impl Runner for VersionsRunner {
+impl Runner for VersionsRunner<'_> {
     /// Prints out the list of all available versions for the project
     async fn run(&mut self) -> Result<(), Error> {
         let project = self.project().await?;
@@ -43,24 +46,36 @@ impl Runner for VersionsRunner {
             .versions;
 
         if versions.is_empty() {
-            println!("{}", "No versions found".yellow());
+            self.writer
+                .text(&format!("{}", "No versions found".yellow()))?;
+
+            self.writer.json(json!({"success": true, "versions": []}))?;
             return Ok(());
         }
 
         // Show the latest version at the bottom
         versions.reverse();
 
-        for v in versions {
-            println!(
-                "{} {}\n{}\n",
+        let mut versions_json: Vec<Value> = vec![];
+
+        for v in &versions {
+            let updated_at = v.updated_at.format("%Y-%m-%d %H:%M:%S").to_string();
+
+            self.writer.text(&format!(
+                "{} {}\n{}\n\n",
                 v.version.to_string().bold(),
-                v.updated_at
-                    .format("%Y-%m-%d %H:%M:%S")
-                    .to_string()
-                    .dimmed(),
+                updated_at.dimmed(),
                 "No message".black().dimmed()
-            );
+            ))?;
+
+            versions_json.push(json!({
+                "version": v.version,
+                "updated_at": v.updated_at,
+            }));
         }
+
+        self.writer
+            .json(json!({"success": true, "versions": versions_json}))?;
 
         Ok(())
     }
