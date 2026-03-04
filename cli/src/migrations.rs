@@ -182,8 +182,9 @@ impl<'a> Migrations<'a> {
         Ok(result)
     }
 
-    /// Validates SQL statements of migrations, returns an error if mixing DDL and DML are
-    /// found in the same migration file
+    /// Validates SQL statements of migrations
+    /// 
+    /// Returns an error if DDL and DML are mixed together in the same file.
     async fn validate_migrations(&self, migrations: &Vec<(String, String)>) -> eyre::Result<()> {
         for (path, content) in migrations {
             // Strip ASYNC keyword before parsing — sqlparser doesn't support
