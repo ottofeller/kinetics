@@ -1,4 +1,3 @@
-use crate::api::client::Client;
 use crate::api::stack;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
@@ -24,18 +23,14 @@ struct VersionsRunner<'a> {
 impl Runner for VersionsRunner<'_> {
     /// Prints out the list of all available versions for the project
     async fn run(&mut self) -> Result<(), Error> {
+        let client = self.api_client().await?;
+
         self.writer.text(&format!(
             "{}...\n\n",
             console::style("Fetching versions").green().bold()
         ))?;
 
         let project = self.project().await?;
-
-        let client = Client::new(false)
-            .await
-            .inspect_err(|e| log::error!("Failed to create client: {e:?}"))
-            .wrap_err("Authentication failed. Please login first.")
-            .map_err(|e| self.error(None, None, Some(e.into())))?;
 
         let mut versions = client
             .request::<_, stack::versions::Response>(
