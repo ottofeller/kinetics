@@ -3,6 +3,7 @@ use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use eyre::Context;
+use serde_json::json;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct RollbackCommand {
@@ -12,18 +13,20 @@ pub(crate) struct RollbackCommand {
 }
 
 impl Runnable for RollbackCommand {
-    fn runner(&self, _writer: &Writer) -> impl Runner {
+    fn runner(&self, writer: &Writer) -> impl Runner {
         RollbackRunner {
             command: self.clone(),
+            writer,
         }
     }
 }
 
-struct RollbackRunner {
+struct RollbackRunner<'a> {
     command: RollbackCommand,
+    writer: &'a Writer,
 }
 
-impl Runner for RollbackRunner {
+impl Runner for RollbackRunner<'_> {
     /// Rollback a project by one version or to a specific version
     ///
     /// Consequent rollbacks are possible and will revert one version at a time
@@ -44,10 +47,15 @@ impl Runner for RollbackRunner {
             .map_err(|e| self.server_error(Some(e.into())))?;
 
         if versions.versions.len() < 2 && self.command.version.is_none() {
-            println!(
-                "{}",
+            self.writer.text(&format!(
+                "{}\n",
                 console::style("Nothing to rollback, there is only one version").yellow()
-            );
+            ))?;
+
+            self.writer.json(
+                json!({"success": true, "message": "Nothing to rollback, no other versions"}),
+            )?;
+
             return Ok(());
         }
 
@@ -70,8 +78,8 @@ impl Runner for RollbackRunner {
             }
         };
 
-        println!(
-            "{} {} {}...",
+        self.writer.text(&format!(
+            "{} {} {}...\n\n",
             console::style("Rolling back").bold().green(),
             console::style("to").dim(),
             console::style(format!(
@@ -80,7 +88,7 @@ impl Runner for RollbackRunner {
                 target_version.updated_at.with_timezone(&chrono::Local)
             ))
             .bold(),
-        );
+        ))?;
 
         client
             .post("/stack/rollback")
@@ -101,6 +109,7 @@ impl Runner for RollbackRunner {
         // Poll the status of the rollback
         while status.status == "IN_PROGRESS" {
             tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+
             status = project
                 .status()
                 .await
@@ -115,7 +124,10 @@ impl Runner for RollbackRunner {
             ));
         }
 
-        println!("{}", console::style("Done").green());
+        self.writer
+            .text(&format!("{}\n", console::style("Done").green()))?;
+
+        self.writer.json(json!({"success": true}))?;
         Ok(())
     }
 }
