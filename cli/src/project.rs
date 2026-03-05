@@ -102,7 +102,7 @@ impl Project {
         functions: &[Function],
         is_hotswap: bool,
         deploy_config: Option<&dyn DeployConfig>,
-        deploy_message: Option<String>,
+        version_message: Option<String>,
     ) -> eyre::Result<bool> {
         let client = Client::new(deploy_config.is_some()).await?;
         let secrets = Secrets::load();
@@ -114,7 +114,7 @@ impl Project {
         let body = stack::deploy::Request {
             is_hotswap,
             secrets,
-            deploy_message,
+            version_message,
             functions: functions
                 .iter()
                 .map(|f| f.into())

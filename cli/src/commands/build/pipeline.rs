@@ -19,7 +19,7 @@ pub struct Pipeline<'a> {
     max_concurrent: usize,
     deploy_config: Option<Arc<dyn DeployConfig>>,
     writer: &'a Writer,
-    deploy_message: Option<String>,
+    version_message: Option<String>,
 }
 
 impl<'a> Pipeline<'a> {
@@ -210,7 +210,7 @@ impl<'a> Pipeline<'a> {
                 &all_functions,
                 self.is_hotswap,
                 self.deploy_config.as_deref(),
-                self.deploy_message,
+                self.version_message,
             )
             .await
         {
@@ -277,7 +277,7 @@ pub struct PipelineBuilder<'a> {
     max_concurrent: Option<usize>,
     deploy_config: Option<Arc<dyn DeployConfig>>,
     writer: &'a Writer,
-    deploy_message: Option<String>,
+    version_message: Option<String>,
 }
 
 impl<'a> PipelineBuilder<'a> {
@@ -291,7 +291,7 @@ impl<'a> PipelineBuilder<'a> {
             max_concurrent: self.max_concurrent.unwrap_or(10),
             deploy_config: self.deploy_config,
             writer: self.writer,
-            deploy_message: self.deploy_message,
+            version_message: self.version_message,
         })
     }
 
@@ -315,8 +315,8 @@ impl<'a> PipelineBuilder<'a> {
         self
     }
 
-    pub fn with_deploy_message(mut self, message: Option<String>) -> Self {
-        self.deploy_message = message;
+    pub fn with_version_message(mut self, message: Option<String>) -> Self {
+        self.version_message = message;
         self
     }
 }

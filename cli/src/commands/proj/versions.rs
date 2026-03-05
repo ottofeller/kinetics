@@ -61,11 +61,16 @@ impl Runner for VersionsRunner<'_> {
         for v in &versions {
             let updated_at = v.updated_at.format("%Y-%m-%d %H:%M:%S").to_string();
 
+            let message = match v.message.as_deref() {
+                Some(msg) => msg.to_string(),
+                None => "No message".dimmed().to_string(),
+            };
+
             self.writer.text(&format!(
                 "{} {}\n{}\n\n",
                 v.version.to_string().bold(),
                 updated_at.dimmed(),
-                v.message.as_deref().unwrap_or("No message").dimmed()
+                message
             ))?;
 
             versions_json.push(json!({

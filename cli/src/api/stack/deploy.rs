@@ -10,7 +10,7 @@ pub struct Request {
     pub project: Project,
     pub secrets: HashMap<String, String>,
     pub functions: Vec<FunctionRequest>,
-    pub deploy_message: Option<String>,
+    pub version_message: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

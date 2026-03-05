@@ -136,7 +136,7 @@ impl DeployRunner<'_> {
             .set_max_concurrent(self.command.max_concurrency)
             .with_deploy_enabled(true)
             .with_hotswap(self.command.hotswap)
-            .with_deploy_message(self.command.message.clone())
+            .with_version_message(self.command.message.clone())
             .set_project(Project::from_current_dir()?)
             .build()
             .wrap_err("Failed to build pipeline")?
