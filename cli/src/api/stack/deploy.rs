@@ -1,3 +1,4 @@
+use crate::api::request::Validate;
 use crate::{function::Function, project::Project};
 use kinetics_parser::{Params, Role};
 use serde::{Deserialize, Serialize};
@@ -11,6 +12,30 @@ pub struct Request {
     pub secrets: HashMap<String, String>,
     pub functions: Vec<FunctionRequest>,
     pub version_message: Option<String>,
+}
+
+const MAX_MESSAGE_LENGTH: usize = 100;
+
+impl Validate for Request {
+    fn validate(&self) -> Option<Vec<String>> {
+        let mut errors = Vec::new();
+
+        if let Some(message) = &self.version_message {
+            if message.chars().count() > MAX_MESSAGE_LENGTH {
+                errors.push(format!(
+                    "message must be at most {} characters, got {}",
+                    MAX_MESSAGE_LENGTH,
+                    message.chars().count()
+                ));
+            }
+        }
+
+        if !errors.is_empty() {
+            return Some(errors);
+        }
+
+        None
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]

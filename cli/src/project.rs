@@ -8,6 +8,7 @@ mod templates;
 
 use crate::api::client::Client;
 use crate::api::projects::Kvdb;
+use crate::api::request::Validate;
 use crate::api::stack;
 use crate::config::deploy::DeployConfig;
 use crate::envs::Envs;
@@ -111,7 +112,7 @@ impl Project {
             return config.deploy(self, secrets, functions).await;
         }
 
-        let body = stack::deploy::Request {
+        let request = stack::deploy::Request {
             is_hotswap,
             secrets,
             version_message,
@@ -122,14 +123,18 @@ impl Project {
             project: self.clone(),
         };
 
+        if let Some(errors) = request.validate() {
+            return Err(Error::new("Validation failed", Some(&errors.join("\n"))).into());
+        }
+
         log::debug!(
             "Sending request to deploy:\n{}",
-            serde_json::to_string_pretty(&body)?
+            serde_json::to_string_pretty(&request)?
         );
 
         let result = client
             .post("/stack/deploy")
-            .json(&body)
+            .json(&request)
             .send()
             .await
             .inspect_err(|err| log::error!("Error while requesting deploy: {err:?}"))
