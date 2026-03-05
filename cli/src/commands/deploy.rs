@@ -7,7 +7,7 @@ use runner::DeployRunner;
 #[derive(clap::Args, Clone)]
 pub(crate) struct DeployCommand {
     /// Maximum number of parallel concurrent builds
-    #[arg(short, long, default_value_t = 3)]
+    #[arg(short = 'c', long = "concurrency", default_value_t = 3)]
     max_concurrency: usize,
 
     /// Deploy only environment variables instead of full deployment
@@ -21,6 +21,10 @@ pub(crate) struct DeployCommand {
     /// The set of functions to deploy, comma separated
     #[arg(value_delimiter = ',')]
     functions: Vec<String>,
+
+    /// Message to include in the deployment (max 100 characters)
+    #[arg(short, long)]
+    message: Option<String>,
 }
 
 impl Runnable for DeployCommand {
