@@ -1,5 +1,8 @@
 mod runner;
-use crate::{runner::{Runnable, Runner}, writer::Writer};
+use crate::{
+    runner::{Runnable, Runner},
+    writer::Writer,
+};
 use runner::LoginRunner;
 
 #[derive(clap::Args, Clone)]

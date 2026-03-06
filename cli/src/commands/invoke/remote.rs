@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use crate::commands::invoke::InvokeRunner;
 use crate::function::Function;
 use crate::project::Project;
@@ -7,26 +6,26 @@ use color_eyre::owo_colors::OwoColorize;
 use eyre::WrapErr;
 use serde_json::json;
 use std::collections::HashMap;
-use std::path::{Path};
+use std::path::Path;
+use std::str::FromStr;
 
 impl InvokeRunner<'_> {
     /// Resolve function name into URL and call it remotely
     #[allow(clippy::too_many_arguments)]
-    pub async fn remote(
-        &self,
-        function: &Function,
-    ) -> eyre::Result<()> {
+    pub async fn remote(&self, function: &Function) -> eyre::Result<()> {
         let project = self.project().await?;
         let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
         let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", project.name));
         let display_path = format!("{}/src/bin/{}.rs", invoke_dir.display(), function.name);
 
-        self.writer.text(&format!(
-            "\n{} {} {}...\n",
-            console::style("Invoking remote function").green().bold(),
-            console::style("from").dimmed(),
-            console::style(&display_path).underlined().bold()
-        )).map_err(|e| eyre::eyre!(e))?;
+        self.writer
+            .text(&format!(
+                "\n{} {} {}...\n",
+                console::style("Invoking remote function").green().bold(),
+                console::style("from").dimmed(),
+                console::style(&display_path).underlined().bold()
+            ))
+            .map_err(|e| eyre::eyre!(e))?;
 
         // `url_path` arg is optional,
         // thus fall back to the url_path from macro
@@ -42,7 +41,8 @@ impl InvokeRunner<'_> {
             )
         };
 
-        self.writer.text(&format!("{}\n\n", console::style(&url).dimmed()))
+        self.writer
+            .text(&format!("{}\n\n", console::style(&url).dimmed()))
             .map_err(|e| eyre::eyre!(e))?;
 
         // Parse headers string into HeaderMap
@@ -79,10 +79,15 @@ impl InvokeRunner<'_> {
             .await
             .unwrap_or("Failed to read response".to_string());
 
-        self.writer.text(&format!("Status\n{}\n\nResponse\n{}\n", status, response_text))
+        self.writer
+            .text(&format!(
+                "Status\n{}\n\nResponse\n{}\n",
+                status, response_text
+            ))
             .map_err(|e| eyre::eyre!(e))?;
 
-        self.writer.json(json!({"status": status.as_u16(), "response": response_text}))
+        self.writer
+            .json(json!({"status": status.as_u16(), "response": response_text}))
             .map_err(|e| eyre::eyre!(e))?;
 
         Ok(())
