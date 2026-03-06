@@ -244,6 +244,29 @@ Output run statistics for a function:
 kinetics func stats BasicEndpointEndpoint
 ```
 
+Use `tokio::sync::OnceCell` to have code run once before handling requests (e.g. initialize tracing library or get some constant values):
+```rust
+static INIT_CELL: OnceCell<&str> = OnceCell::const_new();
+async fn initialize() -> Result<&'static str, BoxError> {
+    println!("Initialized");
+    Ok("Running")
+}
+
+#[endpoint(url_path = "/my-rest-endpoint", environment = {"SOME_VAR": "SomeVal"})]
+pub async fn endpoint(
+    _event: Request<()>,
+    _secrets: &HashMap<String, String>,
+    _config: &KineticsConfig,
+) -> Result<Response<Body>, BoxError> {
+    let status = INIT_CELL.get_or_try_init(initialize).await?;
+    let resp = Response::builder()
+        .status(200)
+        .header("content-type", "text/plain")
+        .body(format!("Status: {status}"))?;
+
+    Ok(resp)
+}
+
 ## CI/CD
 ### Initializing
 A GitHub workflow is automatically created in projects initialized with `kientics init`. If you need to add GitHub workflow in existing project do the following in the dir of the project:
