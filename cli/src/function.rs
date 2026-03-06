@@ -1,8 +1,8 @@
 use crate::api::upload;
+use crate::api::{client::Client, func};
 use crate::config::deploy::DeployConfig;
 use crate::error::Error;
 use crate::project::Project;
-use crate::api::{func, client::Client};
 use base64::Engine as _;
 use crc_fast::{CrcAlgorithm::Crc64Nvme, Digest};
 use eyre::{eyre, ContextCompat, WrapErr};
@@ -13,7 +13,7 @@ use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 // Re-export types from kinetics-parser
-pub use kinetics_parser::{ParsedFunction, Params, Role};
+pub use kinetics_parser::{Params, ParsedFunction, Role};
 
 /// Represents a function in the project
 #[derive(Clone, Debug)]
@@ -223,7 +223,9 @@ pub async fn build(
         let regex = regex::Regex::new(r"^[\t ]+")?;
 
         while let Some(line) = reader.next_line().await? {
-            if line.trim().starts_with("error") || is_failed {
+            let trimmed = line.trim();
+
+            if is_failed || trimmed.starts_with("error") || trimmed.starts_with("Error") {
                 is_failed = true;
                 error_message_lines.push(line);
                 continue;
