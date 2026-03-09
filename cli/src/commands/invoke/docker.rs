@@ -1,6 +1,6 @@
 use super::service::{LocalDynamoDB, LocalQueue, LocalSqlDB, Service};
-use crate::{error::Error, writer::Writer};
 use crate::process::Process;
+use crate::{error::Error, writer::Writer};
 use eyre::{Context, OptionExt};
 use serde_yaml::{Mapping, Value};
 use std::{path::Path, path::PathBuf, process, process::Stdio};

@@ -3,7 +3,10 @@ mod local;
 mod remote;
 mod runner;
 mod service;
-use crate::{runner::{Runnable, Runner}, writer::Writer};
+use crate::{
+    runner::{Runnable, Runner},
+    writer::Writer,
+};
 use runner::InvokeRunner;
 
 #[derive(clap::Args, Clone)]

@@ -1,7 +1,10 @@
 pub(crate) mod pipeline;
 pub mod progress;
 mod runner;
-use crate::{runner::{Runnable, Runner}, writer::Writer};
+use crate::{
+    runner::{Runnable, Runner},
+    writer::Writer,
+};
 use runner::BuildRunner;
 
 #[derive(clap::Args, Clone)]

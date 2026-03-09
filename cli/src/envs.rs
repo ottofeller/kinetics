@@ -8,7 +8,7 @@ impl Envs {
     pub fn load() -> HashMap<String, String> {
         if !std::path::Path::new(".env").exists() {
             log::debug!("No .env file found");
-            return HashMap::new()
+            return HashMap::new();
         }
 
         DotEnv::new("").all_vars().to_owned()
