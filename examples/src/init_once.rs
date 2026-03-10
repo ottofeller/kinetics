@@ -7,10 +7,14 @@ use tokio::sync::OnceCell;
 // Custom errors would work as well.
 use tower::BoxError;
 
-static INIT_CELL: OnceCell<&str> = OnceCell::const_new();
-async fn initialize() -> Result<&'static str, BoxError> {
+struct FnConfig {
+    pub status: &'static str,
+}
+
+static INIT_CELL: OnceCell<&FnConfig> = OnceCell::const_new();
+async fn initialize() -> Result<&'static FnConfig, BoxError> {
     println!("Initialized");
-    Ok("Running")
+    Ok(&FnConfig { status: "Running" })
 }
 
 /// REST API endpoint which initializes a string slice "Running"
@@ -24,11 +28,11 @@ pub async fn init_once(
     _secrets: &HashMap<String, String>,
     _config: &KineticsConfig,
 ) -> Result<Response<String>, BoxError> {
-    let status = INIT_CELL.get_or_try_init(initialize).await?;
+    let config = INIT_CELL.get_or_try_init(initialize).await?;
     let resp = Response::builder()
         .status(200)
         .header("content-type", "text/plain")
-        .body(format!("Status: {status}"))?;
+        .body(format!("Status: {}", config.status))?;
 
     Ok(resp)
 }
