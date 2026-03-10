@@ -244,6 +244,8 @@ Output run statistics for a function:
 kinetics func stats BasicEndpointEndpoint
 ```
 
+Use `tokio::sync::OnceCell` to have code run once before handling requests (e.g. initialize tracing library or get some constant values): [examples/src/init_once.rs](/examples/src/init_once.rs).
+
 ## CI/CD
 ### Initializing
 A GitHub workflow is automatically created in projects initialized with `kientics init`. If you need to add GitHub workflow in existing project do the following in the dir of the project:
