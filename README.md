@@ -244,7 +244,7 @@ Output run statistics for a function:
 kinetics func stats BasicEndpointEndpoint
 ```
 
-Use `tokio::sync::OnceCell` to have code run once before handling requests (e.g. initialize tracing library or get some constant values): [examples/src/init.rs](/examples/src/init.rs).
+Use `tokio::sync::OnceCell` to have code run once before handling requests (e.g. initialize tracing library or get some constant values): [examples/src/init_once.rs](/examples/src/init_once.rs).
 
 ## CI/CD
 ### Initializing
