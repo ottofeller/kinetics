@@ -18,8 +18,8 @@ async fn initialize() -> Result<&'static str, BoxError> {
 ///
 /// Test locally with the following command:
 /// kinetics invoke InitInit
-#[endpoint(url_path = "/init")]
-pub async fn init(
+#[endpoint(url_path = "/init-once")]
+pub async fn init_once(
     _event: Request<Body>,
     _secrets: &HashMap<String, String>,
     _config: &KineticsConfig,
