@@ -123,13 +123,24 @@ impl ConfigFile {
     }
 }
 
-impl From<ConfigFile> for Project {
-    fn from(cfg: ConfigFile) -> Self {
-        Project {
-            path: cfg.path,
-            name: cfg.project.name,
-            url: "".to_string(), // Unknown at this point, will be populated by the API
-            kvdb: cfg.kvdb,
+impl TryFrom<ConfigFile> for Project {
+    type Error = eyre::Report;
+
+    fn try_from(cfg: ConfigFile) -> eyre::Result<Self> {
+        let mut project = Project::new(cfg.path, cfg.project.name).with_kvdb(cfg.kvdb);
+
+        if cfg.observability.is_some() {
+            let observability = cfg.observability.unwrap();
+
+            // Read DataDog API key from env, it's not safe to store it in kinetics config file
+            let dd_api_key = std::env::var(&observability.dd_api_key_env).wrap_err(format!(
+                "Failed to read DataDog API key from specified env var \"{}\"",
+                observability.dd_api_key_env
+            ))?;
+
+            project = project.with_observability(dd_api_key, observability.service_name);
         }
+
+        Ok(project)
     }
 }

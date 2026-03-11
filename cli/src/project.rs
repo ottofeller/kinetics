@@ -47,7 +47,7 @@ impl Project {
     /// Returns default config if kinetics.toml does not exist. In that case the name will be taken
     /// from the ` Cargo.toml ` file in the same path
     pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
-        Ok(ConfigFile::from_path(path)?.into())
+        Ok(ConfigFile::from_path(path)?.try_into()?)
     }
 
     /// Creates a new project instance from the current directory
