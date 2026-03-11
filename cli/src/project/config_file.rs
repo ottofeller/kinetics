@@ -9,8 +9,6 @@ use std::path::{Path, PathBuf};
 /// FileConfig is the structure of kinetics.toml
 #[derive(Debug, Clone, Default, Deserialize)]
 pub(super) struct ConfigFile {
-    /// [project]
-    /// name = "some-project"
     #[serde(default)]
     project: ProjectSection,
 
