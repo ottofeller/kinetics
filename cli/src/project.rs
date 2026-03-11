@@ -39,9 +39,42 @@ pub struct Project {
 
     /// KVDBs to be created
     pub kvdb: Vec<Kvdb>,
+
+    pub observability: Option<Observability>,
+}
+
+/// Project's settings for observability
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Observability {
+    dd_api_key: Option<String>,
+    service_name: String,
 }
 
 impl Project {
+    fn new(path: PathBuf, name: String) -> Self {
+        Self {
+            path,
+            name,
+            url: String::new(),
+            kvdb: Vec::new(),
+            observability: None,
+        }
+    }
+
+    fn with_observability(mut self, dd_api_key: String, service_name: String) -> Self {
+        self.observability = Some(Observability {
+            dd_api_key: Some(dd_api_key),
+            service_name,
+        });
+
+        self
+    }
+
+    fn with_kvdb(mut self, kvdb: Vec<Kvdb>) -> Self {
+        self.kvdb = kvdb;
+        self
+    }
+
     /// Creates a new project instance by reading `kinetics.toml` from a given file `path`
     ///
     /// Returns default config if kinetics.toml does not exist. In that case the name will be taken
