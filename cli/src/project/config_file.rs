@@ -56,8 +56,16 @@ impl ConfigFile {
             });
         };
 
-        let mut config: ConfigFile =
-            toml::from_str(&toml_string).wrap_err("Failed to parse kinetics.toml")?;
+        let result: Result<ConfigFile, toml::de::Error> = toml::from_str(&toml_string);
+
+        let mut config = if result.is_err() {
+            return Err(eyre::eyre!(
+                "Failed to parse kinetics.toml: {}\nCheck docs at https://github.com/ottofeller/kinetics",
+                result.err().unwrap().message().to_string()
+            ));
+        } else {
+            result.unwrap()
+        };
 
         // Set the path to the directory containing kinetics.toml
         config.path = path.clone();
