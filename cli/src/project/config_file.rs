@@ -14,8 +14,9 @@ pub(super) struct ConfigFile {
     #[serde(default)]
     project: ProjectSection,
 
-    /// [[kvdb]]
-    /// name = "kvdb"
+    #[serde(default)]
+    observability: Option<ObservabilitySection>,
+
     #[serde(default)]
     kvdb: Vec<Kvdb>,
 
@@ -26,6 +27,12 @@ pub(super) struct ConfigFile {
 #[derive(Debug, Clone, Default, Deserialize)]
 struct ProjectSection {
     name: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+struct ObservabilitySection {
+    dd_api_key_env: String,
+    service_name: String,
 }
 
 /// FileConfig is the structure of kinetics.toml
