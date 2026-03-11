@@ -70,6 +70,19 @@ impl ConfigFile {
         // Set the path to the directory containing kinetics.toml
         config.path = path.clone();
 
+        match config.observability.clone() {
+            Some(observability) => {
+                if observability.dd_api_key_env.is_empty() || observability.service_name.is_empty()
+                {
+                    return Err(eyre::eyre!(
+                        "When [observability] section presented in kinetics.toml
+                        both dd_api_key and service_name properties must be specified"
+                    ));
+                }
+            }
+            None => {}
+        }
+
         // If project name is explicitly set in kinetics.toml, return it right away
         if !config.project.name.is_empty() {
             return Ok(config);
