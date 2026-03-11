@@ -1,8 +1,8 @@
 use super::service::{LocalDynamoDB, LocalQueue, LocalSqlDB, Service};
 use crate::process::Process;
 use crate::{error::Error, writer::Writer};
-use eyre::{Context, OptionExt};
-use serde_yaml::{Mapping, Value};
+use eyre::Context;
+use serde_json::{Map, Value};
 use std::{path::Path, path::PathBuf, process, process::Stdio};
 
 /// Manage docker containers
@@ -152,7 +152,7 @@ impl<'a> Docker<'a> {
     /// Creates docker-compose.yml string with all docker services
     fn docker_compose_string(&self) -> eyre::Result<String> {
         // Contains all services for docker-compose.yml file
-        let mut services = Mapping::new();
+        let mut services = Map::new();
 
         for service in &self.services {
             // Prepare service YAML snippets for each service
@@ -162,12 +162,8 @@ impl<'a> Docker<'a> {
                 Service::SqlDB(service) => service.docker_compose_snippet(),
             };
 
-            let value: Value = serde_yaml::from_str(&service_snippet)
+            let mapping: Map<String, Value> = serde_saphyr::from_str(&service_snippet)
                 .wrap_err("failed to parse service YAML snippet")?;
-
-            let mapping = value
-                .as_mapping()
-                .ok_or_eyre("Failed to parse service YAML snippet")?;
 
             for (k, v) in mapping {
                 services.insert(k.clone(), v.clone());
@@ -175,15 +171,10 @@ impl<'a> Docker<'a> {
         }
 
         // Create root YAML for docker-compose.yml file and insert services
-        let mut root = Mapping::new();
+        let root = Map::from_iter([("services".to_string(), Value::from(services))]);
 
-        root.insert(
-            Value::String("services".to_string()),
-            Value::Mapping(services),
-        );
-
-        let docker_compose = serde_yaml::to_string(&Value::Mapping(root))
-            .wrap_err("failed to serialize docker-compose YAML")?;
+        let docker_compose =
+            serde_saphyr::to_string(&root).wrap_err("failed to serialize docker-compose YAML")?;
 
         Ok(docker_compose)
     }
