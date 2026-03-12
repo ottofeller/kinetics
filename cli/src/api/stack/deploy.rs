@@ -30,6 +30,14 @@ impl Validate for Request {
             }
         }
 
+        if let Some(observability) = &self.project.observability {
+            if observability.dd_api_key.is_empty() {
+                errors.push(
+                    "DataDog API key is missing in [observability] section of kinetics.toml".into(),
+                );
+            }
+        }
+
         if !errors.is_empty() {
             return Some(errors);
         }
