@@ -30,7 +30,6 @@ struct ProjectSection {
 #[derive(Debug, Clone, Default, Deserialize)]
 struct ObservabilitySection {
     dd_api_key_env: String,
-    service_name: String,
 }
 
 /// FileConfig is the structure of kinetics.toml
@@ -72,8 +71,7 @@ impl ConfigFile {
 
         match config.observability.clone() {
             Some(observability) => {
-                if observability.dd_api_key_env.is_empty() || observability.service_name.is_empty()
-                {
+                if observability.dd_api_key_env.is_empty() {
                     return Err(eyre::eyre!(
                         "When [observability] section presented in kinetics.toml
                         both dd_api_key and service_name properties must be specified"
@@ -138,7 +136,7 @@ impl TryFrom<ConfigFile> for Project {
                 observability.dd_api_key_env
             ))?;
 
-            project = project.with_observability(dd_api_key, observability.service_name);
+            project = project.with_observability(dd_api_key);
         }
 
         Ok(project)

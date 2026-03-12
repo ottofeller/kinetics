@@ -46,8 +46,7 @@ pub struct Project {
 /// Project's settings for observability
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Observability {
-    dd_api_key: Option<String>,
-    service_name: String,
+    pub dd_api_key: String,
 }
 
 impl Project {
@@ -61,12 +60,8 @@ impl Project {
         }
     }
 
-    fn with_observability(mut self, dd_api_key: String, service_name: String) -> Self {
-        self.observability = Some(Observability {
-            dd_api_key: Some(dd_api_key),
-            service_name,
-        });
-
+    fn with_observability(mut self, dd_api_key: String) -> Self {
+        self.observability = Some(Observability { dd_api_key });
         self
     }
 
