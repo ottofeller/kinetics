@@ -1,4 +1,4 @@
-use http::{Request, Response};
+use http::{Method, Request, Response};
 use kinetics::tools::config::Config as KineticsConfig;
 use kinetics::{macros::endpoint, tools::http::Body};
 use serde_json::json;
@@ -11,12 +11,23 @@ use tower::BoxError;
 ///
 /// Test locally with the following command:
 /// kinetics invoke BasicEndpointEndpoint
-#[endpoint(url_path = "/endpoint")]
+#[endpoint(url_path = "/endpoint", methods = ["GET", "POST"])]
 pub async fn endpoint(
-    _event: Request<Body>,
+    event: Request<Body>,
     _secrets: &HashMap<String, String>,
     _config: &KineticsConfig,
 ) -> Result<Response<String>, BoxError> {
+    match *event.method() {
+        Method::POST => {
+            let body = event.body();
+            println!("Received POST request with body: {:?}", body);
+        }
+        Method::GET => {
+            println!("Received GET request");
+        }
+        _ => {}
+    }
+
     let resp = Response::builder()
         .status(200)
         .header("content-type", "application/json")
