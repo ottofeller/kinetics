@@ -1,5 +1,2 @@
 [project]
 name = "examples"
-
-[observability]
-dd_api_key_env = "DD_API_KEY"
