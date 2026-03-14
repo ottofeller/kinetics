@@ -9,13 +9,12 @@ use std::path::{Path, PathBuf};
 /// FileConfig is the structure of kinetics.toml
 #[derive(Debug, Clone, Default, Deserialize)]
 pub(super) struct ConfigFile {
-    /// [project]
-    /// name = "some-project"
     #[serde(default)]
     project: ProjectSection,
 
-    /// [[kvdb]]
-    /// name = "kvdb"
+    #[serde(default)]
+    observability: Option<ObservabilitySection>,
+
     #[serde(default)]
     kvdb: Vec<Kvdb>,
 
@@ -26,6 +25,11 @@ pub(super) struct ConfigFile {
 #[derive(Debug, Clone, Default, Deserialize)]
 struct ProjectSection {
     name: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+struct ObservabilitySection {
+    dd_api_key_env: String,
 }
 
 /// FileConfig is the structure of kinetics.toml
@@ -51,11 +55,31 @@ impl ConfigFile {
             });
         };
 
-        let mut config: ConfigFile =
-            toml::from_str(&toml_string).wrap_err("Failed to parse kinetics.toml")?;
+        let result: Result<ConfigFile, toml::de::Error> = toml::from_str(&toml_string);
+
+        let mut config = if result.is_err() {
+            return Err(eyre::eyre!(
+                "Failed to parse kinetics.toml: {}\nCheck docs at https://github.com/ottofeller/kinetics",
+                result.err().unwrap().message().to_string()
+            ));
+        } else {
+            result.unwrap()
+        };
 
         // Set the path to the directory containing kinetics.toml
         config.path = path.clone();
+
+        match config.observability.clone() {
+            Some(observability) => {
+                if observability.dd_api_key_env.is_empty() {
+                    return Err(eyre::eyre!(
+                        "When [observability] section presented in kinetics.toml
+                        both dd_api_key and service_name properties must be specified"
+                    ));
+                }
+            }
+            None => {}
+        }
 
         // If project name is explicitly set in kinetics.toml, return it right away
         if !config.project.name.is_empty() {
@@ -97,13 +121,24 @@ impl ConfigFile {
     }
 }
 
-impl From<ConfigFile> for Project {
-    fn from(cfg: ConfigFile) -> Self {
-        Project {
-            path: cfg.path,
-            name: cfg.project.name,
-            url: "".to_string(), // Unknown at this point, will be populated by the API
-            kvdb: cfg.kvdb,
+impl TryFrom<ConfigFile> for Project {
+    type Error = eyre::Report;
+
+    fn try_from(cfg: ConfigFile) -> eyre::Result<Self> {
+        let mut project = Project::new(cfg.path, cfg.project.name).with_kvdb(cfg.kvdb);
+
+        if cfg.observability.is_some() {
+            let observability = cfg.observability.unwrap();
+
+            // Read DataDog API key from env, it's not safe to store it in kinetics config file
+            let dd_api_key = std::env::var(&observability.dd_api_key_env).wrap_err(format!(
+                "Failed to read DataDog API key from specified env var \"{}\"",
+                observability.dd_api_key_env
+            ))?;
+
+            project = project.with_observability(dd_api_key);
         }
+
+        Ok(project)
     }
 }

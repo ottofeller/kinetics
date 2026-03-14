@@ -39,15 +39,43 @@ pub struct Project {
 
     /// KVDBs to be created
     pub kvdb: Vec<Kvdb>,
+
+    pub observability: Option<Observability>,
+}
+
+/// Project's settings for observability
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Observability {
+    pub dd_api_key: String,
 }
 
 impl Project {
+    fn new(path: PathBuf, name: String) -> Self {
+        Self {
+            path,
+            name,
+            url: String::new(),
+            kvdb: Vec::new(),
+            observability: None,
+        }
+    }
+
+    fn with_observability(mut self, dd_api_key: String) -> Self {
+        self.observability = Some(Observability { dd_api_key });
+        self
+    }
+
+    fn with_kvdb(mut self, kvdb: Vec<Kvdb>) -> Self {
+        self.kvdb = kvdb;
+        self
+    }
+
     /// Creates a new project instance by reading `kinetics.toml` from a given file `path`
     ///
     /// Returns default config if kinetics.toml does not exist. In that case the name will be taken
     /// from the ` Cargo.toml ` file in the same path
     pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
-        Ok(ConfigFile::from_path(path)?.into())
+        Ok(ConfigFile::from_path(path)?.try_into()?)
     }
 
     /// Creates a new project instance from the current directory

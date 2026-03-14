@@ -5,9 +5,15 @@ edition = "2021"
 
 [dependencies]
 http = "^1.0"
-kinetics = "0.13.5"
+kinetics = "0.13.6"
 tokio = "1.50.0"
 tower = "^0"
 serde_json = { version = "1.0.149", features = ["default"] }
 sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio-rustls"] }
 matchit = "0.9.1"
+opentelemetry = { version = "0.31.0", features = [ "trace", "metrics", "logs" ] }
+opentelemetry_sdk = { version = "0.31.0", features = [ "trace", "metrics", "logs" ] }
+opentelemetry-otlp = { version = "0.31.0", features = [ "grpc-tonic", "trace", "metrics", "logs", "internal-logs", "http-proto", "opentelemetry-http", "http-json"] }
+opentelemetry-appender-tracing = { version = "0.31.1" }
+tracing = { version = "0.1.44", features = [ "std" ] }
+tracing-subscriber = { version = "0.3.22", features = [ "env-filter", "registry", "std", "fmt", "tracing-log" ] }

@@ -26,6 +26,7 @@ impl From<ProjectInfo> for Project {
             name: value.name,
             url: value.url,
             kvdb: value.kvdb,
+            observability: None,
         }
     }
 }
