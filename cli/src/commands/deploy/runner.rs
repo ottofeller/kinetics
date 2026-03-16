@@ -21,10 +21,25 @@ pub(crate) struct DeployRunner<'a> {
 impl Runner for DeployRunner<'_> {
     /// Invoke the function either locally or remotely
     async fn run(&mut self) -> Result<(), Error> {
+        let project = Project::from_current_dir()?;
+
+        // DataDog API key only needed during deployment, to send it to the backend
+        if project
+            .clone()
+            .observability
+            .filter(|o| o.dd_api_key.is_empty())
+            .is_some()
+        {
+            return Err(Error::new(
+                "DataDog API key is missing",
+                Some("Failed to read from specified env var. Check kinetics.toml:[observability]"),
+            ));
+        }
+
         if self.command.envs {
-            self.deploy_envs().await?;
+            self.deploy_envs(project).await?;
         } else {
-            self.deploy_all().await?;
+            self.deploy_all(project).await?;
         }
 
         self.writer.json(json!({"success": true}))?;
@@ -34,14 +49,13 @@ impl Runner for DeployRunner<'_> {
 
 impl DeployRunner<'_> {
     /// Deploy only environment variables for functions
-    async fn deploy_envs(&mut self) -> eyre::Result<()> {
+    async fn deploy_envs(&mut self, project: Project) -> eyre::Result<()> {
         self.writer.text(&format!(
             "{}...\n",
             console::style("Provisioning envs").green().bold()
         ))?;
 
         let client = self.api_client().await?;
-        let project = Project::from_current_dir()?;
 
         let functions: Vec<Function> = project
             .parse(
@@ -131,13 +145,13 @@ impl DeployRunner<'_> {
     }
 
     /// Do full deployment of requested functions
-    async fn deploy_all(&self) -> eyre::Result<()> {
+    async fn deploy_all(&self, project: Project) -> eyre::Result<()> {
         Pipeline::builder(self.writer)
             .set_max_concurrent(self.command.max_concurrency)
             .with_deploy_enabled(true)
             .with_hotswap(self.command.hotswap)
             .with_version_message(self.command.message.clone())
-            .set_project(Project::from_current_dir()?)
+            .set_project(project)
             .build()
             .wrap_err("Failed to build pipeline")?
             .run(&self.command.functions)

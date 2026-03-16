@@ -131,10 +131,7 @@ impl TryFrom<ConfigFile> for Project {
             let observability = cfg.observability.unwrap();
 
             // Read DataDog API key from env, it's not safe to store it in kinetics config file
-            let dd_api_key = std::env::var(&observability.dd_api_key_env).wrap_err(format!(
-                "Failed to read DataDog API key from specified env var \"{}\"",
-                observability.dd_api_key_env
-            ))?;
+            let dd_api_key = std::env::var(&observability.dd_api_key_env).unwrap_or_default();
 
             project = project.with_observability(dd_api_key);
         }
