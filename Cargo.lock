@@ -97,9 +97,9 @@ dependencies = [
 
 [[package]]
 name = "anstyle"
-version = "1.0.13"
+version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5192cca8006f1fd4f7237516f40fa183bb07f8fbdfedaa0036de5ea9b0b45e78"
+checksum = "940b3a0ca603d1eade50a4846a2afffd5ef57a9feac2c0e2ec2e14f9ead76000"
 
 [[package]]
 name = "anstyle-parse"
@@ -606,9 +606,9 @@ dependencies = [
 
 [[package]]
 name = "aws-smithy-types"
-version = "1.4.6"
+version = "1.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2b1117b3b2bbe166d11199b540ceed0d0f7676e36e7b962b5a437a9971eac75"
+checksum = "9d73dbfbaa8e4bc57b9045137680b958d274823509a360abfd8e1d514d40c95c"
 dependencies = [
  "base64-simd",
  "bytes",
@@ -773,9 +773,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.56"
+version = "1.2.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aebf35691d1bfb0ac386a69bac2fde4dd276fb618cf8bf4f5318fe285e821bb2"
+checksum = "7a0dd1ca384932ff3641c8718a02769f1698e7563dc6974ffd03346116310423"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -893,9 +893,9 @@ dependencies = [
 
 [[package]]
 name = "colorchoice"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
+checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 
 [[package]]
 name = "combine"
@@ -1068,9 +1068,9 @@ dependencies = [
 
 [[package]]
 name = "darling"
-version = "0.21.3"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cdf337090841a411e2a7f3deb9187445851f91b309c0c0a29e05f74a00a48c0"
+checksum = "25ae13da2f202d56bd7f91c25fba009e7717a1e4a1cc98a76d844b65ae912e9d"
 dependencies = [
  "darling_core",
  "darling_macro",
@@ -1078,11 +1078,10 @@ dependencies = [
 
 [[package]]
 name = "darling_core"
-version = "0.21.3"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1247195ecd7e3c85f83c8d2a366e4210d588e802133e1e355180a9870b517ea4"
+checksum = "9865a50f7c335f53564bb694ef660825eb8610e0a53d3e11bf1b0d3df31e03b0"
 dependencies = [
- "fnv",
  "ident_case",
  "proc-macro2",
  "quote",
@@ -1092,9 +1091,9 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.21.3"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d38308df82d1080de0afee5d069fa14b0326a88c14f15c5ccda35b4a6c414c81"
+checksum = "ac3984ec7bd6cfa798e62b4a642426a5be0e68f9401cfc2a01e3fa9ea2fcdb8d"
 dependencies = [
  "darling_core",
  "quote",
@@ -1293,7 +1292,7 @@ name = "examples"
 version = "0.9.2"
 dependencies = [
  "http 1.4.0",
- "kinetics 0.14.1",
+ "kinetics 0.14.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "matchit",
  "opentelemetry",
  "opentelemetry-appender-tracing",
@@ -2114,63 +2113,6 @@ dependencies = [
 
 [[package]]
 name = "kinetics"
-version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0c71d64cdf4360889cc83e5206d98f46825c8c6e81be13886296c9a78ae8087"
-dependencies = [
- "async-trait",
- "aws-config",
- "aws-sdk-dsql",
- "aws-sdk-dynamodb",
- "aws-sdk-sqs",
- "aws_lambda_events",
- "base64 0.22.1",
- "bytes",
- "chrono",
- "clap",
- "color-eyre",
- "console",
- "crc-fast",
- "crossterm",
- "env_logger",
- "eyre",
- "futures",
- "http 1.4.0",
- "http-body 1.0.1",
- "humantime",
- "indicatif",
- "indicatif-log-bridge",
- "kinetics-macro 0.14.1",
- "kinetics-parser 0.14.1",
- "lambda_http",
- "lambda_runtime",
- "log",
- "once_cell",
- "percent-encoding",
- "prettyplease",
- "regex",
- "reqwest 0.13.2",
- "rust_dotenv",
- "serde",
- "serde-saphyr",
- "serde_json",
- "sha256",
- "sqlparser",
- "sqlx",
- "syn",
- "tabled",
- "terminal_size",
- "tokio",
- "toml",
- "toml_edit 0.25.4+spec-1.1.0",
- "tower",
- "twox-hash",
- "url",
- "walkdir",
-]
-
-[[package]]
-name = "kinetics"
 version = "0.14.2"
 dependencies = [
  "async-trait",
@@ -2225,13 +2167,60 @@ dependencies = [
 ]
 
 [[package]]
-name = "kinetics-macro"
-version = "0.14.1"
+name = "kinetics"
+version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "697f05c13908eed9ac824b98ae9c2261e57840b4d7382fdff7887fa931c49d1d"
+checksum = "dee3499b2b28a086e5c4bcb0a107c6074317d5cf66b0e8c7f3bc5040fd0e47b7"
 dependencies = [
- "kinetics-parser 0.14.1",
+ "async-trait",
+ "aws-config",
+ "aws-sdk-dsql",
+ "aws-sdk-dynamodb",
+ "aws-sdk-sqs",
+ "aws_lambda_events",
+ "base64 0.22.1",
+ "bytes",
+ "chrono",
+ "clap",
+ "color-eyre",
+ "console",
+ "crc-fast",
+ "crossterm",
+ "env_logger",
+ "eyre",
+ "futures",
+ "http 1.4.0",
+ "http-body 1.0.1",
+ "humantime",
+ "indicatif",
+ "indicatif-log-bridge",
+ "kinetics-macro 0.14.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kinetics-parser 0.14.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lambda_http",
+ "lambda_runtime",
+ "log",
+ "once_cell",
+ "percent-encoding",
+ "prettyplease",
+ "regex",
+ "reqwest 0.13.2",
+ "rust_dotenv",
+ "serde",
+ "serde-saphyr",
+ "serde_json",
+ "sha256",
+ "sqlparser",
+ "sqlx",
  "syn",
+ "tabled",
+ "terminal_size",
+ "tokio",
+ "toml",
+ "toml_edit 0.25.4+spec-1.1.0",
+ "tower",
+ "twox-hash",
+ "url",
+ "walkdir",
 ]
 
 [[package]]
@@ -2243,12 +2232,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "kinetics-parser"
-version = "0.14.1"
+name = "kinetics-macro"
+version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a5f1291019882af41dc3f30a3503f41ea3e12622d0d06bbebc9888172fc8d91"
+checksum = "992fe3249de593365235a83d7184b6cdcdf348fd0e7903c2cb0f396da378f55c"
+dependencies = [
+ "kinetics-parser 0.14.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syn",
+]
+
+[[package]]
+name = "kinetics-parser"
+version = "0.14.2"
 dependencies = [
  "color-eyre",
+ "http 1.4.0",
  "serde",
  "syn",
  "walkdir",
@@ -2257,6 +2255,8 @@ dependencies = [
 [[package]]
 name = "kinetics-parser"
 version = "0.14.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e0591dc2371e8263a89f993b3451036fe46d12ade7e9b79f6a56a2210c7b604"
 dependencies = [
  "color-eyre",
  "serde",
@@ -2266,9 +2266,9 @@ dependencies = [
 
 [[package]]
 name = "lambda_http"
-version = "1.0.2"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0b02fac5bd704497e93f0acacfa3c7942866b58b370d3aefaefb75a0f0eb7b2"
+checksum = "b0f0300091919bd7c3d953bd0fb6a7a170d24f333486e4129421c0f6aa1164ac"
 dependencies = [
  "aws_lambda_events",
  "bytes",
@@ -2291,9 +2291,9 @@ dependencies = [
 
 [[package]]
 name = "lambda_runtime"
-version = "1.0.2"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc0b4409eea054e4c06f0101fed547b2cf208e8eca9dc6d41dead4114577852b"
+checksum = "23583c918bee8de7bc005ba2ad8ebd84529894bfd9a863cf24226bb6c7787690"
 dependencies = [
  "async-stream",
  "base64 0.22.1",
@@ -2799,9 +2799,9 @@ checksum = "c33a9471896f1c69cecef8d20cbe2f7accd12527ce60845ff44c153bb2a21b49"
 
 [[package]]
 name = "portable-atomic-util"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a9db96d7fa8782dd8c15ce32ffe8680bbd1e978a43bf51a34d39483540495f5"
+checksum = "091397be61a01d4be58e7841595bd4bfedb15f1cd54977d79b8271e94ed799a3"
 dependencies = [
  "portable-atomic",
 ]
@@ -3625,9 +3625,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "3.17.0"
+version = "3.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "381b283ce7bc6b476d903296fb59d0d36633652b633b27f64db4fb46dcbfc3b9"
+checksum = "dd5414fad8e6907dbdd5bc441a50ae8d6e26151a03b1de04d89a5576de61d01f"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3644,9 +3644,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with_macros"
-version = "3.17.0"
+version = "3.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6d4e30573c8cb306ed6ab1dca8423eec9a463ea0e155f45399455e0368b27e0"
+checksum = "d3db8978e608f1fe7357e211969fd9abdcae80bac1ba7a3369bb7eb6b404eb65"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -4223,9 +4223,9 @@ dependencies = [
 
 [[package]]
 name = "tinyvec"
-version = "1.10.0"
+version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfa5fdc3bce6191a1dbc8c02d5c8bffcf557bafa17c124c5264a458f1b0613fa"
+checksum = "3e61e67053d25a4e82c844e8424039d9745781b3fc4f32b8d55ed50f5f667ef3"
 dependencies = [
  "tinyvec_macros",
 ]
