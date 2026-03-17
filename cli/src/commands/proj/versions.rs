@@ -68,13 +68,13 @@ impl Runner for VersionsRunner<'_> {
 
             self.writer.text(&format!(
                 "{} {}\n{}\n\n",
-                v.version.to_string().bold(),
+                v.version_id.to_string().bold(),
                 updated_at.dimmed(),
                 message
             ))?;
 
             versions_json.push(json!({
-                "version": v.version,
+                "version_id": v.version_id,
                 "updated_at": v.updated_at,
                 "message": v.message,
             }));

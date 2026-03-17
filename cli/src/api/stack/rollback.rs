@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct Request {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub version: Option<u32>,
+    pub version_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

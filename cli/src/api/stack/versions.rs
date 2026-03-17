@@ -13,7 +13,7 @@ pub struct Response {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Version {
-    pub version: u32,
+    pub version_id: String,
     pub updated_at: DateTime<Utc>,
     pub message: Option<String>,
 }

@@ -9,7 +9,7 @@ use serde_json::json;
 pub(crate) struct RollbackCommand {
     /// Specific version to rollback to (optional)
     #[arg(short, long)]
-    version: Option<u32>,
+    version_id: Option<String>,
 }
 
 impl Runnable for RollbackCommand {
@@ -46,7 +46,7 @@ impl Runner for RollbackRunner<'_> {
             .wrap_err("Failed to fetch versions")
             .map_err(|e| self.server_error(Some(e.into())))?;
 
-        if versions.versions.len() < 2 && self.command.version.is_none() {
+        if versions.versions.len() < 2 && self.command.version_id.is_none() {
             self.writer.text(&format!(
                 "{}\n",
                 console::style("Nothing to rollback, there is only one version").yellow()
@@ -59,10 +59,10 @@ impl Runner for RollbackRunner<'_> {
             return Ok(());
         }
 
-        let target_version = match self.command.version {
+        let target_version = match &self.command.version_id {
             Some(v) => {
                 // Find the specified version in the list
-                if let Some(target) = versions.versions.iter().find(|ver| ver.version == v) {
+                if let Some(target) = versions.versions.iter().find(|ver| &ver.version_id == v) {
                     target.clone()
                 } else {
                     return Err(self.error(
@@ -84,7 +84,7 @@ impl Runner for RollbackRunner<'_> {
             console::style("to").dim(),
             console::style(format!(
                 "v{} ({})",
-                target_version.version,
+                target_version.version_id,
                 target_version.updated_at.with_timezone(&chrono::Local)
             ))
             .bold(),
@@ -94,7 +94,7 @@ impl Runner for RollbackRunner<'_> {
             .post("/stack/rollback")
             .json(&stack::rollback::Request {
                 name: project.name.to_string(),
-                version: self.command.version,
+                version_id: self.command.version_id.clone(),
             })
             .send()
             .await
