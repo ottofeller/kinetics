@@ -1,6 +1,6 @@
 [package]
 name = "kinetics"
-version = "0.14.0"
+version = "0.14.2"
 edition = "2021"
 description = "Kinetics is a hosting platform for Rust applications that allows you to deploy all types of workloads by writing **only Rust code**."
 license = "Apache-2.0 OR MIT"
@@ -20,14 +20,14 @@ aws-sdk-sqs = "1.96.0"
 aws-sdk-dsql = "1.53.0"
 
 # 1.0 makes some structs which we construct non_exhaustive, needs refactoring
-aws_lambda_events = "1.0.3"
+aws_lambda_events = "1.1.1"
 
 chrono = { version = "0.4.44", features = ["serde"] }
-clap = { version = "4.5.60", features = ["derive"] }
+clap = { version = "4.6.0", features = ["derive"] }
 eyre = "0.6.12"
 regex = "1.12.3"
 walkdir = "2.5.0"
-kinetics-macro = { path = "../macro", version = "0.14.0" }
+kinetics-macro = { path = "../macro", version = "0.14.2" }
 humantime = "2.3.0"
 tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
@@ -47,13 +47,13 @@ twox-hash = "2.1.2"
 futures = "0.3.32"
 indicatif = "0.18.4"
 indicatif-log-bridge = "0.2.3"
-console = "0.16.2"
+console = "0.16.3"
 color-eyre = "0.6.5"
 crossterm = "0.29.0"
 async-trait = "0.1.89"
 log = "0.4.29"
 env_logger = "0.11.9"
-kinetics-parser = { path = "../parser", version = "0.14.0" }
+kinetics-parser = { path = "../parser", version = "0.14.2" }
 tabled = "0.20.0"
 terminal_size = "0.4.3"
 lambda_runtime = "^1.0"
@@ -76,4 +76,4 @@ sqlx = { version = "0.8.6", features = [
   "runtime-tokio-rustls",
 ] }
 sqlparser = "0.61.0"
-once_cell = "1.21.3"
+once_cell = "1.21.4"
