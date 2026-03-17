@@ -7,6 +7,7 @@ use color_eyre::owo_colors::OwoColorize as _;
 use eyre::Context;
 use kinetics_parser::Parser;
 use serde_json::json;
+use std::time::Duration;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct StatsCommand {
@@ -111,7 +112,7 @@ impl Runner for StatsRunner<'_> {
                 "\n{}\n  Wiating: {}\n  Oldest: {}\n  In flight: {}\n  Retries: {}\n  Failed: {}\n  Completed: {}\n",
                 "Queue:".bold(),
                 queue.waiting,
-                queue.oldest,
+                humantime::format_duration(Duration::from_secs(queue.oldest.round() as u64)),
                 queue.in_flight,
                 queue.retries,
                 queue.failed,
