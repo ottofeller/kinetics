@@ -23,8 +23,8 @@ pub(crate) trait Runner {
 
         if project.is_err() {
             return Err(self.error(
-                Some("Project not found"),
-                Some("Could not find project in specified directory"),
+                Some("Project error"),
+                Some(&project.err().unwrap().to_string()),
                 None,
             ));
         }

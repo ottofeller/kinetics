@@ -74,6 +74,10 @@ Automatically provision secrets from `.env.secrets` file or `KINETICS_SECRET_*` 
 
 Monitor your functions with just CLI. Each function gets its own stream of logs.
 
+🔭 **Comes with OpenTelemetry**
+
+Emit logs, metrics, and traces via the OpenTelemetry SDK — we spin up the collector automatically. One config line to export to any OTLP-compatible backend, including Datadog.
+
 🤖 **No infrastructure management**
 
 The infrastructure is always provisioned automatically.
@@ -158,6 +162,31 @@ Alternatively store the secrets in environment variables starting with `KINETICS
 We automatically provision one SQL DB for each project. Also `kinetics invoke --with-db [Function name]` will automatically provision DB locally and replace the connection string with local endpoint.
 
 You can then interact with it like you normally interact with a SQL DB, [example](https://github.com/ottofeller/kinetics/blob/main/examples/src/database.rs).
+
+#### OpenTelemetry
+
+Enable DataDog integration in the following way.
+
+1. Set env var with DataDog API key:
+```shell
+export DD_API_KEY=NNN
+```
+
+2. Add `[observability]` section in `kinetics.toml`, with `dd_api_key_env` set to the env var name from the previous step:
+```toml
+[observability]
+dd_api_key_env = "DD_API_KEY"
+```
+
+3. Deploy the example:
+```shell
+kinetics deploy DatadogDatadog
+```
+
+4. Call the deployed function remotely, and then check the logs and metrics in DataDog dashboard (may take a few minutes to ingest):
+```shell
+kinetics invoke DatadogDatadog --remote
+```
 
 ### Examples
 
