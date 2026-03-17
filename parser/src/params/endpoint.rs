@@ -1,4 +1,5 @@
 use crate::environment::{parse_environment, Environment};
+use http::Method;
 use serde::{Deserialize, Serialize};
 use syn::{
     bracketed,
@@ -7,7 +8,13 @@ use syn::{
     token, Ident, LitBool, LitStr,
 };
 
-const ALLOWED_METHODS: [&str; 6] = ["GET", "POST", "PUT", "PATCH", "DELETE", "ANY"];
+const ALLOWED_METHODS: [Method; 5] = [
+    Method::GET,
+    Method::POST,
+    Method::PUT,
+    Method::DELETE,
+    Method::PATCH,
+];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Endpoint {
@@ -70,6 +77,7 @@ impl Parse for Endpoint {
                         return Err(syn::Error::new(ident_span, "Duplicate attribute `methods`"));
                     }
 
+                    // Parse a list of methods with a comma delimiter, like: ["POST", "GET", ...]
                     let content;
                     bracketed!(content in input);
                     let parsed = Punctuated::<LitStr, token::Comma>::parse_terminated(&content)?;
@@ -79,19 +87,30 @@ impl Parse for Endpoint {
                         .map(|item| LitStr::value(item).to_uppercase())
                         .collect();
 
-                    if methods.contains(&"ANY".to_owned()) && methods.len() != 1 {
-                        return Err(syn::Error::new(
-                            ident_span,
-                            "Mixing `ANY` with other methods is not allowed",
-                        ));
-                    }
-
                     for method in methods.iter() {
-                        if !ALLOWED_METHODS.contains(&method.as_str()) {
-                            return Err(syn::Error::new(
-                                ident_span,
-                                format!("Invalid method: {}", method),
-                            ));
+                        match Method::from_bytes(method.as_bytes()) {
+                            Ok(method) => {
+                                if !ALLOWED_METHODS.contains(&method) {
+                                    let allowed = ALLOWED_METHODS
+                                        .iter()
+                                        .map(|m| m.as_str())
+                                        .collect::<Vec<&str>>()
+                                        .join(", ");
+
+                                    return Err(syn::Error::new(
+                                        ident_span,
+                                        format!(
+                                            "Unsupported method: {method}. Available: [{allowed}]",
+                                        ),
+                                    ));
+                                }
+                            }
+                            Err(err) => {
+                                return Err(syn::Error::new(
+                                    ident_span,
+                                    format!("Invalid method: {}", err),
+                                ))
+                            }
                         }
                     }
                 }
@@ -103,11 +122,6 @@ impl Parse for Endpoint {
             if !input.is_empty() {
                 input.parse::<token::Comma>()?;
             }
-        }
-
-        // Use ANY method as a fallback if no methods are specified
-        if methods.is_empty() {
-            methods.push("ANY".to_string());
         }
 
         Ok(Endpoint {

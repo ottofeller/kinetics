@@ -1252,7 +1252,7 @@ name = "examples"
 version = "0.9.2"
 dependencies = [
  "http 1.4.0",
- "kinetics 0.13.5",
+ "kinetics 0.14.1",
  "matchit",
  "serde_json",
  "sqlx",
@@ -2045,63 +2045,6 @@ dependencies = [
 
 [[package]]
 name = "kinetics"
-version = "0.13.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a09c2a58c4c7b81226f4c4441cfcbacdcebf00ded3cfb4f873b673ae9eac811"
-dependencies = [
- "async-trait",
- "aws-config",
- "aws-sdk-dsql",
- "aws-sdk-dynamodb",
- "aws-sdk-sqs",
- "aws_lambda_events",
- "base64 0.22.1",
- "bytes",
- "chrono",
- "clap",
- "color-eyre",
- "console",
- "crc-fast",
- "crossterm",
- "env_logger",
- "eyre",
- "futures",
- "http 1.4.0",
- "http-body 1.0.1",
- "humantime",
- "indicatif",
- "indicatif-log-bridge",
- "kinetics-macro 0.13.5",
- "kinetics-parser 0.13.5",
- "lambda_http",
- "lambda_runtime",
- "log",
- "once_cell",
- "percent-encoding",
- "prettyplease",
- "regex",
- "reqwest",
- "rust_dotenv",
- "serde",
- "serde_json",
- "serde_yaml",
- "sha256",
- "sqlparser",
- "sqlx",
- "syn",
- "tabled",
- "terminal_size",
- "tokio",
- "toml",
- "toml_edit 0.25.4+spec-1.1.0",
- "tower",
- "twox-hash",
- "url",
- "walkdir",
-]
-
-[[package]]
-name = "kinetics"
 version = "0.13.6"
 dependencies = [
  "async-trait",
@@ -2156,13 +2099,60 @@ dependencies = [
 ]
 
 [[package]]
-name = "kinetics-macro"
-version = "0.13.5"
+name = "kinetics"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0c765f39530c4add06e45a482bcc4159606e15af61251112d3cef03784153a1"
+checksum = "a0c71d64cdf4360889cc83e5206d98f46825c8c6e81be13886296c9a78ae8087"
 dependencies = [
- "kinetics-parser 0.13.5",
+ "async-trait",
+ "aws-config",
+ "aws-sdk-dsql",
+ "aws-sdk-dynamodb",
+ "aws-sdk-sqs",
+ "aws_lambda_events",
+ "base64 0.22.1",
+ "bytes",
+ "chrono",
+ "clap",
+ "color-eyre",
+ "console",
+ "crc-fast",
+ "crossterm",
+ "env_logger",
+ "eyre",
+ "futures",
+ "http 1.4.0",
+ "http-body 1.0.1",
+ "humantime",
+ "indicatif",
+ "indicatif-log-bridge",
+ "kinetics-macro 0.14.1",
+ "kinetics-parser 0.14.1",
+ "lambda_http",
+ "lambda_runtime",
+ "log",
+ "once_cell",
+ "percent-encoding",
+ "prettyplease",
+ "regex",
+ "reqwest",
+ "rust_dotenv",
+ "serde",
+ "serde-saphyr",
+ "serde_json",
+ "sha256",
+ "sqlparser",
+ "sqlx",
  "syn",
+ "tabled",
+ "terminal_size",
+ "tokio",
+ "toml",
+ "toml_edit 0.25.4+spec-1.1.0",
+ "tower",
+ "twox-hash",
+ "url",
+ "walkdir",
 ]
 
 [[package]]
@@ -2174,12 +2164,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "kinetics-parser"
-version = "0.13.5"
+name = "kinetics-macro"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9892ad6eaf4a436f378e9dd1a7de5fbeeff96fdaac4e34997ed0d62524c44c82"
+checksum = "697f05c13908eed9ac824b98ae9c2261e57840b4d7382fdff7887fa931c49d1d"
+dependencies = [
+ "kinetics-parser 0.14.1",
+ "syn",
+]
+
+[[package]]
+name = "kinetics-parser"
+version = "0.13.6"
 dependencies = [
  "color-eyre",
+ "http 1.4.0",
  "serde",
  "syn",
  "walkdir",
@@ -2187,7 +2186,9 @@ dependencies = [
 
 [[package]]
 name = "kinetics-parser"
-version = "0.13.6"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a5f1291019882af41dc3f30a3503f41ea3e12622d0d06bbebc9888172fc8d91"
 dependencies = [
  "color-eyre",
  "serde",
@@ -3398,19 +3399,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_yaml"
-version = "0.9.34+deprecated"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
-dependencies = [
- "indexmap 2.13.0",
- "itoa",
- "ryu",
- "serde",
- "unsafe-libyaml",
-]
-
-[[package]]
 name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4323,12 +4311,6 @@ name = "unit-prefix"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81e544489bf3d8ef66c953931f56617f423cd4b5494be343d9b9d3dda037b9a3"
-
-[[package]]
-name = "unsafe-libyaml"
-version = "0.2.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "untrusted"
