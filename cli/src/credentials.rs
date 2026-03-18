@@ -80,7 +80,7 @@ impl Credentials {
 
         // Use keyring second (high priority)
         if let Ok(credentials) =
-            Keyring::get().inspect_err(|error| log::info!("Keyring error {error}"))
+            Self::get_from_keyring().inspect_err(|error| log::info!("Keyring error {error}"))
         {
             log::info!("Using credentials from keyring");
             return Ok(credentials);
@@ -131,7 +131,8 @@ impl Credentials {
         self.expires_at = credentials.expires_at;
 
         // Try writing to keyring first
-        if Keyring::save(self)
+        if self
+            .save_to_keyring()
             .inspect_err(|error| log::info!("keyring write error {error}"))
             .is_ok()
         {
@@ -147,12 +148,10 @@ impl Credentials {
 
         Ok(())
     }
-}
 
-struct Keyring;
-
-impl Keyring {
-    fn token_entry() -> eyre::Result<Entry> {
+    /// Pull an entry for kinetics token
+    /// from platform specific secure store
+    fn keyring_entry() -> eyre::Result<Entry> {
         let user = get_user_by_uid(get_current_uid()).ok_or_eyre("Failed getting current user")?;
         let username = user.name().to_str().ok_or_eyre("Invalid username")?;
         log::info!("Get token entry from secure store for user {username}");
@@ -160,15 +159,17 @@ impl Keyring {
         Ok(entry)
     }
 
-    pub fn save(credentials: &Credentials) -> eyre::Result<()> {
-        let entry = Self::token_entry()?;
+    /// Save credentials to platform specific secure store
+    pub fn save_to_keyring(self: &Credentials) -> eyre::Result<()> {
+        let entry = Self::keyring_entry()?;
         log::info!("Write token to secure store");
-        entry.set_password(&json!(credentials).to_string())?;
+        entry.set_password(&json!(self).to_string())?;
         Ok(())
     }
 
-    pub fn get() -> eyre::Result<Credentials> {
-        let entry = &Self::token_entry()?;
+    /// Get credentials from platform specific secure store
+    pub fn get_from_keyring() -> eyre::Result<Credentials> {
+        let entry = &Self::keyring_entry()?;
         log::info!("Get token from secure store");
         let credentials: Credentials = serde_json::from_str(&entry.get_password()?)?;
         Ok(credentials)
