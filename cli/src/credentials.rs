@@ -55,66 +55,24 @@ impl Credentials {
         let config = build_config()?;
         let path = Path::new(config.credentials_path);
 
-        // Check for environment variable first (highest priority)
-        let token = std::env::var(config.credentials_env).unwrap_or_default();
-
-        if !token.is_empty() {
-            log::info!("Using credentials from env {}", config.credentials_env);
-
-            // Fetch token info from backend
-            let info = Self::fetch_info(&token).await.wrap_err(Error::new(
-                "Failed to fetch auth info",
-                Some(&format!(
-                    "Check if your {} is valid.",
-                    config.credentials_env
-                )),
-            ))?;
-
-            return Ok(Credentials {
-                path: path.to_path_buf(),
-                email: info.email,
-                token,
-                expires_at: info.expires_at,
-            });
+        if let Ok(credentials) = Self::from_env().await.inspect_err(|error| {
+            log::info!("Failed to read credentials from env, skipping: {error}")
+        }) {
+            log::info!("Using credentials from env var");
+            return Ok(credentials);
         }
 
         // Use keyring second (high priority)
-        if let Ok(credentials) =
-            Self::get_from_keyring().inspect_err(|error| log::info!("Keyring error {error}"))
-        {
+        if let Ok(credentials) = Self::from_keyring().inspect_err(|error| {
+            log::info!("Failed to get credentials from keyring, , skipping: {error}")
+        }) {
             log::info!("Using credentials from keyring");
             return Ok(credentials);
         };
 
         // Fall back to reading from file
         log::info!("Using credentials from {}", path.to_string_lossy());
-
-        let mut credentials = serde_json::from_str::<crate::credentials::Credentials>(
-            &std::fs::read_to_string(path)
-                // Create credentials file with empty defaults if it's missing
-                .or_else(|_| {
-                    let default =
-                        json!({ "email": "", "token": "", "expires_at": "2000-01-01T00:00:00Z" })
-                            .to_string();
-                    if let Some(dir) = path.parent() {
-                        if !dir.exists() {
-                            std::fs::create_dir_all(dir).wrap_err(format!(
-                                "Failed to create dir \"{:?}\" to store credential file",
-                                dir
-                            ))?;
-                        }
-                    };
-
-                    std::fs::write(path, &default)?;
-                    eyre::Ok(default)
-                })
-                .unwrap_or_default(),
-        )
-        .wrap_err(Error::new(
-            "Could not parse credentials file",
-            Some(&format!("Delete {} and try again", path.display())),
-        ))?;
-
+        let mut credentials = Self::from_file()?;
         credentials.path = path.to_path_buf();
         Ok(credentials)
     }
@@ -167,11 +125,71 @@ impl Credentials {
         Ok(())
     }
 
-    /// Get credentials from platform specific secure store
-    pub fn get_from_keyring() -> eyre::Result<Credentials> {
+    /// Init credentials from platform specific secure store
+    pub fn from_keyring() -> eyre::Result<Credentials> {
         let entry = &Self::keyring_entry()?;
         log::info!("Get token from secure store");
         let credentials: Credentials = serde_json::from_str(&entry.get_password()?)?;
         Ok(credentials)
+    }
+
+    /// Init from API token set in the the env
+    pub async fn from_env() -> eyre::Result<Credentials> {
+        let config = build_config()?;
+        log::info!("Using credentials from env {}", config.credentials_env);
+        let path = Path::new(config.credentials_path);
+
+        let token = std::env::var(config.credentials_env).wrap_err(Error::new(
+            "Could not parse credentials file",
+            Some(&format!("Delete {} and try again", path.display())),
+        ))?;
+
+        // Fetch token info from backend
+        let info = Self::fetch_info(&token).await.wrap_err(Error::new(
+            "Failed to fetch auth info",
+            Some(&format!(
+                "Check if your {} is valid.",
+                config.credentials_env
+            )),
+        ))?;
+
+        return Ok(Credentials {
+            path: path.to_path_buf(),
+            email: info.email,
+            token,
+            expires_at: info.expires_at,
+        });
+    }
+
+    /// Init from json file
+    pub fn from_file() -> eyre::Result<Credentials> {
+        let config = build_config()?;
+        let path = Path::new(config.credentials_path);
+
+        serde_json::from_str::<crate::credentials::Credentials>(
+            &std::fs::read_to_string(path)
+                // Create credentials file with empty defaults if it's missing
+                .or_else(|_| {
+                    let default =
+                        json!({ "email": "", "token": "", "expires_at": "2000-01-01T00:00:00Z" })
+                            .to_string();
+                    if let Some(dir) = path.parent() {
+                        if !dir.exists() {
+                            std::fs::create_dir_all(dir).wrap_err(format!(
+                                "Failed to create dir \"{:?}\" to store credential file",
+                                dir
+                            ))?;
+                        }
+                    };
+
+                    std::fs::write(path, &default)?;
+                    eyre::Ok(default)
+                })
+                .unwrap_or_default(),
+        )
+        .wrap_err(Error::new(
+            "Could not parse credentials file",
+            Some(&format!("Delete {} and try again", path.display())),
+        ))
     }
 }
