@@ -182,7 +182,6 @@ impl Credentials {
                         }
                     };
 
-                    std::fs::write(path, &default)?;
                     eyre::Ok(default)
                 })
                 .unwrap_or_default(),
