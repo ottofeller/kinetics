@@ -155,7 +155,7 @@ impl Credentials {
         let user = get_user_by_uid(get_current_uid()).ok_or_eyre("Failed getting current user")?;
         let username = user.name().to_str().ok_or_eyre("Invalid username")?;
         log::info!("Get token entry from secure store for user {username}");
-        let entry = Entry::new("kinetics-token", username)?;
+        let entry = Entry::new("kinetics:api-token", username)?;
         Ok(entry)
     }
 
