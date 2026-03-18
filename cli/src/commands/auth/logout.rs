@@ -1,12 +1,10 @@
 use crate::api::auth;
-use crate::config::build_config;
 use crate::credentials::Credentials;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use eyre::Context;
 use serde_json::json;
-use std::path::Path;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct LogoutCommand {}
@@ -26,7 +24,6 @@ impl Runner for LogoutRunner<'_> {
     ///
     /// By cleaning up the local credentials file and voiding credentials on the backend
     async fn run(&mut self) -> Result<(), Error> {
-        let path = Path::new(&build_config()?.credentials_path);
         let credentials = Credentials::new().await?;
 
         if credentials.is_valid() {
@@ -35,9 +32,7 @@ impl Runner for LogoutRunner<'_> {
                 .wrap_err("Logout request failed")?;
         }
 
-        if path.exists() {
-            std::fs::remove_file(path).wrap_err("Failed to delete credentials file")?;
-        }
+        credentials.delete()?;
 
         self.writer.text(&format!(
             "{}\n",

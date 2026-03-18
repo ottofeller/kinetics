@@ -110,6 +110,21 @@ impl Credentials {
         Ok(())
     }
 
+    pub fn delete(&self) -> eyre::Result<()> {
+        log::info!("Delete token from secure store");
+        match Self::keyring_entry()?.delete_credential() {
+            Ok(_) | Err(keyring::Error::NoEntry) => Ok(()),
+            error => error,
+        }?;
+
+        log::info!("Delete token from file");
+        if self.path.exists() {
+            std::fs::remove_file(&self.path).wrap_err("Failed to delete credentials file")?;
+        }
+
+        Ok(())
+    }
+
     /// Pull an entry for kinetics token
     /// from platform specific secure store
     fn keyring_entry() -> eyre::Result<Entry> {
