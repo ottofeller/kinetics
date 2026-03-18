@@ -2,10 +2,12 @@ use crate::api::auth;
 use crate::config::{api_url, build_config};
 use crate::error::Error;
 use chrono::{DateTime, Utc};
-use eyre::Context;
+use eyre::{Context, OptionExt};
+use keyring::Entry;
 use reqwest::StatusCode;
 use serde_json::json;
 use std::path::{Path, PathBuf};
+use users::{get_current_uid, get_user_by_uid};
 
 /// Credentials to be used with API
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -53,8 +55,8 @@ impl Credentials {
         let config = build_config()?;
         let path = Path::new(config.credentials_path);
 
-        // Check for environment variable first (higher priority)
-        let token = std::env::var(config.credentials_env).unwrap_or("".into());
+        // Check for environment variable first (highest priority)
+        let token = std::env::var(config.credentials_env).unwrap_or_default();
 
         if !token.is_empty() {
             log::info!("Using credentials from env {}", config.credentials_env);
@@ -76,6 +78,14 @@ impl Credentials {
             });
         }
 
+        // Use keyring second (high priority)
+        if let Ok(credentials) =
+            Keyring::get().inspect_err(|error| log::info!("Keyring error {error}"))
+        {
+            log::info!("Using credentials from keyring");
+            return Ok(credentials);
+        };
+
         // Fall back to reading from file
         log::info!("Using credentials from {}", path.to_string_lossy());
 
@@ -89,7 +99,7 @@ impl Credentials {
                     if let Some(dir) = path.parent() {
                         if !dir.exists() {
                             std::fs::create_dir_all(dir).wrap_err(format!(
-                                "Failed to create dir \"{:?}\" to store credentail file",
+                                "Failed to create dir \"{:?}\" to store credential file",
                                 dir
                             ))?;
                         }
@@ -120,11 +130,47 @@ impl Credentials {
         self.token = credentials.token;
         self.expires_at = credentials.expires_at;
 
+        // Try writing to keyring first
+        if Keyring::save(self)
+            .inspect_err(|error| log::info!("keyring write error {error}"))
+            .is_ok()
+        {
+            return Ok(());
+        };
+
+        // Fallback to a file
+        log::info!("Write token to file");
         std::fs::write(self.path.clone(), json!(self).to_string()).wrap_err(Error::new(
             "Failed to store credentials",
             Some("File system issue, check the file permissions in ~/.kinetics/.credentials"),
         ))?;
 
         Ok(())
+    }
+}
+
+struct Keyring;
+
+impl Keyring {
+    fn token_entry() -> eyre::Result<Entry> {
+        let user = get_user_by_uid(get_current_uid()).ok_or_eyre("Failed getting current user")?;
+        let username = user.name().to_str().ok_or_eyre("Invalid username")?;
+        log::info!("Get token entry from secure store for user {username}");
+        let entry = Entry::new("kinetics-token", username)?;
+        Ok(entry)
+    }
+
+    pub fn save(credentials: &Credentials) -> eyre::Result<()> {
+        let entry = Self::token_entry()?;
+        log::info!("Write token to secure store");
+        entry.set_password(&json!(credentials).to_string())?;
+        Ok(())
+    }
+
+    pub fn get() -> eyre::Result<Credentials> {
+        let entry = &Self::token_entry()?;
+        log::info!("Get token from secure store");
+        let credentials: Credentials = serde_json::from_str(&entry.get_password()?)?;
+        Ok(credentials)
     }
 }
