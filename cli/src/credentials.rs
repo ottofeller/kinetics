@@ -121,7 +121,7 @@ impl Credentials {
     }
 
     /// Init credentials from platform specific secure store
-    pub fn from_keyring() -> eyre::Result<Credentials> {
+    fn from_keyring() -> eyre::Result<Credentials> {
         let entry = &Self::keyring_entry()?;
         log::info!("Get token from secure store");
         let credentials: Credentials = serde_json::from_str(&entry.get_password()?)?;
@@ -129,7 +129,7 @@ impl Credentials {
     }
 
     /// Init from API token set in the the env
-    pub async fn from_env() -> eyre::Result<Credentials> {
+    async fn from_env() -> eyre::Result<Credentials> {
         let config = build_config()?;
         log::info!("Using credentials from env {}", config.credentials_env);
         let path = Path::new(config.credentials_path);
@@ -157,7 +157,7 @@ impl Credentials {
     }
 
     /// Init from json file
-    pub fn from_file() -> eyre::Result<Credentials> {
+    fn from_file() -> eyre::Result<Credentials> {
         let config = build_config()?;
         let path = Path::new(config.credentials_path);
 
