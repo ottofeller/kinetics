@@ -148,12 +148,12 @@ impl Credentials {
             )),
         ))?;
 
-        return Ok(Credentials {
+        Ok(Credentials {
             path: path.to_path_buf(),
             email: info.email,
             token,
             expires_at: info.expires_at,
-        });
+        })
     }
 
     /// Init from json file
