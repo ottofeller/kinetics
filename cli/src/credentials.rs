@@ -89,19 +89,16 @@ impl Credentials {
         self.expires_at = credentials.expires_at;
 
         // Try writing to keyring first
-        if {
-            log::info!("Write token to secure store");
-            Self::keyring_entry()?.set_password(&json!(self).to_string())?;
-            Ok::<(), ()>(())
-        }
-        .is_ok()
+        if self
+            .save_to_keyring()
+            .inspect_err(|error| log::info!("keyring write error {error}"))
+            .is_ok()
         {
             return Ok(());
-        }
+        };
 
         // Fallback to a file
         log::info!("Write token to file");
-
         std::fs::write(self.path.clone(), json!(self).to_string()).wrap_err(Error::new(
             "Failed to store credentials",
             Some("File system issue, check the file permissions in ~/.kinetics/.credentials"),
@@ -133,6 +130,14 @@ impl Credentials {
         log::info!("Get token entry from secure store for user {username}");
         let entry = Entry::new("kinetics:api-token", username)?;
         Ok(entry)
+    }
+
+    /// Save credentials to platform specific secure store
+    pub fn save_to_keyring(self: &Credentials) -> eyre::Result<()> {
+        let entry = Self::keyring_entry()?;
+        log::info!("Write token to secure store");
+        entry.set_password(&json!(self).to_string())?;
+        Ok(())
     }
 
     /// Init credentials from platform specific secure store
