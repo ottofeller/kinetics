@@ -133,7 +133,7 @@ impl Credentials {
     }
 
     /// Save credentials to platform specific secure store
-    pub fn save_to_keyring(self: &Credentials) -> eyre::Result<()> {
+    fn save_to_keyring(self: &Credentials) -> eyre::Result<()> {
         let entry = Self::keyring_entry()?;
         log::info!("Write token to secure store");
         entry.set_password(&json!(self).to_string())?;
