@@ -55,7 +55,7 @@ impl Runner for DestroyRunner<'_> {
         // Ask for confirmation (skip in structured/JSON mode)
         if !self.writer.is_structured() {
             self.writer.text(&format!(
-                "You are destroying {} project.\n",
+                "You are destroying \"{}\" project.\n",
                 project.name.as_str().blue().bold()
             ))?;
             self.writer.text(&format!(
