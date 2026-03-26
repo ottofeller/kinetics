@@ -109,7 +109,7 @@ impl Runner for StatsRunner<'_> {
 
         if let Some(queue) = logs_response.queue {
             self.writer.text(&format!(
-                "\n{}\n  Wiating: {}\n  Oldest: {}\n  In flight: {}\n  Retries: {}\n  Failed: {}\n  Completed: {}\n",
+                "\n{}\n  Waiting: {}\n  Oldest: {}\n  In flight: {}\n  Retries: {}\n  Failed: {}\n  Completed: {}\n",
                 "Queue:".bold(),
                 queue.waiting,
                 humantime::format_duration(Duration::from_secs(queue.oldest.round() as u64)),
