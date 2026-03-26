@@ -13,7 +13,7 @@ sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio-rustls"] }
 matchit = "0.9.1"
 opentelemetry = { version = "0.31.0", features = [ "trace", "metrics", "logs" ] }
 opentelemetry_sdk = { version = "0.31.0", features = [ "trace", "metrics", "logs" ] }
-opentelemetry-otlp = { version = "0.31.0", features = [ "grpc-tonic", "trace", "metrics", "logs", "internal-logs", "http-proto", "opentelemetry-http", "http-json"] }
+opentelemetry-otlp = { version = "0.31.1", features = [ "grpc-tonic", "trace", "metrics", "logs", "internal-logs", "http-proto", "opentelemetry-http", "http-json"] }
 opentelemetry-appender-tracing = { version = "0.31.1" }
 tracing = { version = "0.1.44", features = [ "std" ] }
 tracing-subscriber = { version = "0.3.23", features = [ "env-filter", "registry", "std", "fmt", "tracing-log" ] }
