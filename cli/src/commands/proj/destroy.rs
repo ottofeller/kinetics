@@ -55,6 +55,10 @@ impl Runner for DestroyRunner<'_> {
         // Ask for confirmation (skip in structured/JSON mode)
         if !self.writer.is_structured() {
             self.writer.text(&format!(
+                "You are destroying \"{}\" project.\n",
+                project.name.as_str().blue().bold()
+            ))?;
+            self.writer.text(&format!(
                 "{} {}: ",
                 "Do you want to proceed?".bold(),
                 "[y/N]".dim()
@@ -85,7 +89,7 @@ impl Runner for DestroyRunner<'_> {
         project
             .destroy()
             .await
-            .wrap_err("Project destroy reqeust failed")
+            .wrap_err("Project destroy request failed")
             .map_err(|e| self.server_error(Some(e.into())))?;
 
         self.writer.text(&format!(
