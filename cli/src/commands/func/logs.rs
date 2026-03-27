@@ -56,7 +56,7 @@ impl Runner for LogsRunner<'_> {
 
         let function = Function::find_by_name(&all_functions, &self.command.name).map_err(|e| {
             self.error(
-                Some("Cound not find requested function"),
+                Some("Could not find requested function"),
                 None,
                 Some(e.into()),
             )
