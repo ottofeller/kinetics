@@ -11,6 +11,7 @@ pub struct Worker {
     pub concurrency: u32,
     pub fifo: bool,
     pub environment: Environment,
+    pub batch_size: Option<u32>,
 }
 
 impl Parse for Worker {
@@ -19,6 +20,7 @@ impl Parse for Worker {
         let mut concurrency = None;
         let mut fifo = None;
         let mut environment = None;
+        let mut batch_size = None;
 
         while !input.is_empty() {
             let ident_span = input.span();
@@ -61,6 +63,24 @@ impl Parse for Worker {
                         }
                     };
                 }
+                "batch_size" => {
+                    if batch_size.is_some() {
+                        return Err(syn::Error::new(
+                            ident_span,
+                            "Duplicate attribute `batch_size`",
+                        ));
+                    }
+
+                    let parsed = input.parse::<LitInt>()?.base10_parse::<u32>()?;
+
+                    if parsed == 0 || parsed > 10 {
+                        return Err(
+                            input.error("Batch size must be a positive integer between 1 and 10")
+                        );
+                    }
+
+                    batch_size = Some(parsed);
+                }
                 // Ignore unknown attributes
                 _ => {}
             }
@@ -75,6 +95,7 @@ impl Parse for Worker {
             concurrency: concurrency.unwrap_or(1),
             fifo: fifo.unwrap_or_default(),
             environment: environment.unwrap_or_default(),
+            batch_size,
         })
     }
 }
