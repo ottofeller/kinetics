@@ -73,7 +73,7 @@ impl Parse for Worker {
 
                     let parsed = input.parse::<LitInt>()?.base10_parse::<u32>()?;
 
-                    if parsed == 0 || parsed > 10 {
+                    if !(1..=10).contains(&parsed) {
                         return Err(
                             input.error("Batch size must be a positive integer between 1 and 10")
                         );
