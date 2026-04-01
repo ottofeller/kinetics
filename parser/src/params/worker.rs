@@ -11,6 +11,7 @@ pub struct Worker {
     pub concurrency: u32,
     pub fifo: bool,
     pub environment: Environment,
+    pub batch_size: Option<u32>,
 }
 
 impl Parse for Worker {
@@ -97,6 +98,7 @@ impl Parse for Worker {
             concurrency: concurrency.unwrap_or(1),
             fifo: fifo.unwrap_or_default(),
             environment: environment.unwrap_or_default(),
+            batch_size,
         })
     }
 }
