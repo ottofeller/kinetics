@@ -19,6 +19,7 @@ impl Parse for Worker {
         let mut concurrency = None;
         let mut fifo = None;
         let mut environment = None;
+        let mut batch_size = None;
 
         while !input.is_empty() {
             let ident_span = input.span();
@@ -61,6 +62,16 @@ impl Parse for Worker {
                         }
                     };
                 }
+                "batch_size" => {
+                    if batch_size.is_some() {
+                        return Err(syn::Error::new(
+                            ident_span,
+                            "Duplicate attribute `batch_size`",
+                        ));
+                    }
+
+                    batch_size = Some(input.parse::<LitInt>()?.base10_parse::<u32>()?);
+                }
                 // Ignore unknown attributes
                 _ => {}
             }
@@ -68,6 +79,17 @@ impl Parse for Worker {
             if !input.is_empty() {
                 input.parse::<token::Comma>()?;
             }
+        }
+
+        let max_batch = if fifo == Some(true) { 10 } else { 100 };
+
+        // Use hardcoded default value for batch_size to pass validation
+        // Default batch_size value managed by backend
+        if !(1..=max_batch).contains(&batch_size.unwrap_or(1)) {
+            return Err(syn::Error::new(
+                input.span(),
+                "Batch size must be 1..10 for FIFO queues and 1..100 for standard ones",
+            ));
         }
 
         Ok(Self {
