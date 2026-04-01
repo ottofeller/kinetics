@@ -71,15 +71,7 @@ impl Parse for Worker {
                         ));
                     }
 
-                    let parsed = input.parse::<LitInt>()?.base10_parse::<u32>()?;
-
-                    if !(1..=10).contains(&parsed) {
-                        return Err(
-                            input.error("Batch size must be a positive integer between 1 and 10")
-                        );
-                    }
-
-                    batch_size = Some(parsed);
+                    batch_size = Some(input.parse::<LitInt>()?.base10_parse::<u32>()?);
                 }
                 // Ignore unknown attributes
                 _ => {}
@@ -88,6 +80,17 @@ impl Parse for Worker {
             if !input.is_empty() {
                 input.parse::<token::Comma>()?;
             }
+        }
+
+        let max_batch = if fifo == Some(true) { 10 } else { 100 };
+
+        // Use hardcoded default value for batch_size to pass validation
+        // Default batch_size value managed by backend
+        if !(1..=max_batch).contains(&batch_size.unwrap_or(1)) {
+            return Err(syn::Error::new(
+                input.span(),
+                "Batch size must be 1..10 for FIFO queues and 1..100 for standard ones",
+            ));
         }
 
         Ok(Self {
