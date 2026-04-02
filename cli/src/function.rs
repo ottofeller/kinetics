@@ -87,6 +87,7 @@ impl Function {
         let mut digest = Digest::new(Crc64Nvme);
         digest.update(&data);
         let body = upload::Request {
+            project_name: self.project.name.clone(),
             name: self.name.clone(),
             checksum: base64::prelude::BASE64_STANDARD.encode(digest.finalize().to_be_bytes()),
         };
