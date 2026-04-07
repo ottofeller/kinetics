@@ -2,6 +2,7 @@ pub mod auth;
 pub mod build;
 pub mod cicd;
 pub mod deploy;
+pub mod domain;
 pub mod envs;
 pub mod func;
 pub mod init;
@@ -9,6 +10,7 @@ pub mod invoke;
 pub mod login;
 pub mod migrations;
 pub mod proj;
+
 use clap::Subcommand;
 
 #[derive(Subcommand)]
@@ -34,6 +36,10 @@ pub enum Commands {
     /// Manage projects
     #[clap(subcommand)]
     Proj(proj::ProjCommands),
+
+    /// Manage custom domains
+    #[clap(subcommand)]
+    Domain(domain::DomainCommands),
 
     /// Start new project from template
     Init(init::InitCommand),

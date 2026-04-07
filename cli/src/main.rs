@@ -122,6 +122,11 @@ async fn main() -> Result<(), Error> {
             commands::proj::ProjCommands::Versions(cmd) => cli.run(cmd).await,
         },
 
+        Commands::Domain(domain) => match domain {
+            commands::domain::DomainCommands::Add(cmd) => cli.run(cmd).await,
+            commands::domain::DomainCommands::Status(cmd) => cli.run(cmd).await,
+        },
+
         Commands::Init(cmd) => cli.run(cmd).await,
         Commands::Invoke(cmd) => cli.run(cmd).await,
         Commands::Deploy(cmd) => cli.run(cmd).await,
