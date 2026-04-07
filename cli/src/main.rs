@@ -7,6 +7,7 @@ mod error;
 mod function;
 mod logger;
 mod migrations;
+mod org;
 mod process;
 mod project;
 mod runner;
@@ -120,6 +121,10 @@ async fn main() -> Result<(), Error> {
             commands::proj::ProjCommands::Rollback(cmd) => cli.run(cmd).await,
             commands::proj::ProjCommands::List(cmd) => cli.run(cmd).await,
             commands::proj::ProjCommands::Versions(cmd) => cli.run(cmd).await,
+        },
+
+        Commands::Orgs(orgs) => match orgs {
+            commands::orgs::OrgsCommands::Create(cmd) => cli.run(cmd).await,
         },
 
         Commands::Init(cmd) => cli.run(cmd).await,
