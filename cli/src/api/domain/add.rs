@@ -7,7 +7,7 @@ pub struct Request {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Response {
     /// Domain name (e.g. example.com)
-    pub domain: String,
+    pub domain_name: String,
 
     pub status: DomainStatus,
 
@@ -20,11 +20,10 @@ pub struct Response {
 pub enum DomainStatus {
     /// Waiting for NS propagation
     Pending,
-    /// Domain is active and serving traffic
+    /// Domain is verified and ready to use in a new deployment
     Ready,
-    /// NS propagation timed out
+    /// NS propagation timed out (after 48 hours waiting for propagation)
     Error,
-
     /// Domain is being deleted
     Deleting,
 }

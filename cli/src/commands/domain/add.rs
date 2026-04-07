@@ -56,20 +56,23 @@ impl Runner for AddRunner<'_> {
             Update your domain's nameservers at your registrar:\n\n{}\n\n\
             DNS propagation may take up to 48 hours.\n\
             Run {} to check progress.\n\n",
-            console::style(format!("Domain {} added successfully.", response.domain))
-                .green()
-                .bold(),
+            console::style(format!(
+                "Domain {} added successfully.",
+                response.domain_name
+            ))
+            .green()
+            .bold(),
             response
                 .nameservers
                 .iter()
                 .map(|ns| format!("  {}", console::style(ns).bold()))
                 .collect::<Vec<_>>()
                 .join("\n"),
-            console::style(format!("kinetics domain status {}", response.domain)).cyan(),
+            console::style(format!("kinetics domain status {}", response.domain_name)).cyan(),
         ))?;
 
         self.writer.json(json!({
-            "domain": response.domain,
+            "domain": response.domain_name,
             "status": response.status,
             "nameservers": response.nameservers,
         }))?;
