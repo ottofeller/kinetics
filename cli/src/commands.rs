@@ -8,6 +8,7 @@ pub mod init;
 pub mod invoke;
 pub mod login;
 pub mod migrations;
+pub mod orgs;
 pub mod proj;
 use clap::Subcommand;
 
@@ -34,6 +35,10 @@ pub enum Commands {
     /// Manage projects
     #[clap(subcommand)]
     Proj(proj::ProjCommands),
+
+    /// Manage orgs
+    #[clap(subcommand)]
+    Orgs(orgs::OrgsCommands),
 
     /// Start new project from template
     Init(init::InitCommand),
