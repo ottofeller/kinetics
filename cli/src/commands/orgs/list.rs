@@ -19,6 +19,11 @@ struct ListRunner<'a> {
 
 impl Runner for ListRunner<'_> {
     async fn run(&mut self) -> Result<(), Error> {
+        self.writer.text(&format!(
+            "\n{}...\n\n",
+            console::style("Fetching orgs").bold().green()
+        ))?;
+
         let client = self.api_client().await?;
 
         let response: Response = client
