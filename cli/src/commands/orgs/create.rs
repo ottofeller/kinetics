@@ -2,7 +2,6 @@ use crate::error::Error;
 use crate::org::OrgBuilder;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
-use crossterm::style::Stylize;
 use serde_json::json;
 
 #[derive(clap::Args, Clone)]
@@ -29,8 +28,10 @@ impl Runner for CreateRunner<'_> {
     async fn run(&mut self) -> Result<(), Error> {
         let name = self.command.name.clone();
 
-        self.writer
-            .text(&format!("{}...\n", "Creating new org".bold()))?;
+        self.writer.text(&format!(
+            "{}...\n",
+            console::style("Creating new org").bold().green()
+        ))?;
 
         let org = OrgBuilder::create(&name)
             .await
