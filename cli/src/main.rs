@@ -7,7 +7,6 @@ mod error;
 mod function;
 mod logger;
 mod migrations;
-mod org;
 mod process;
 mod project;
 mod runner;
