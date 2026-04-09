@@ -21,6 +21,8 @@ pub enum DomainStatus {
     Pending,
     /// Domain is verified and ready to use in a new deployment
     Ready,
+    /// Domain is deployed and serving traffic
+    Deployed,
     /// NS propagation timed out (after 48 hours waiting for propagation)
     Error,
     /// Domain is being deleted
@@ -32,6 +34,7 @@ impl std::fmt::Display for DomainStatus {
         match self {
             Self::Pending => write!(f, "Pending"),
             Self::Ready => write!(f, "Ready"),
+            Self::Deployed => write!(f, "Deployed"),
             Self::Error => write!(f, "Error"),
             Self::Deleting => write!(f, "Deleting"),
         }

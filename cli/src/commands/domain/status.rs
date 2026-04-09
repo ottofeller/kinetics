@@ -113,7 +113,9 @@ impl Runner for StatusRunner<'_> {
 
 fn format_status(response: &domain::status::Response) -> String {
     let status_style = match response.status {
-        DomainStatus::Ready => console::style(response.status.to_string()).green(),
+        DomainStatus::Ready | DomainStatus::Deployed => {
+            console::style(response.status.to_string()).green()
+        }
         DomainStatus::Error => console::style(response.status.to_string()).red(),
         _ => console::style(response.status.to_string()).yellow(),
     };
