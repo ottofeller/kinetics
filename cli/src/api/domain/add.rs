@@ -15,7 +15,6 @@ pub struct Response {
     pub nameservers: Vec<String>,
 }
 
-/// Domain status.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Eq, PartialEq)]
 pub enum DomainStatus {
     /// Waiting for NS propagation
