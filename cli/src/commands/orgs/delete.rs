@@ -1,4 +1,5 @@
 use crate::api::orgs::delete::{Request, Response};
+use crate::api::orgs::list;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
@@ -37,6 +38,19 @@ impl Runner for DeleteRunner<'_> {
 
         let name = self.command.name.clone();
 
+        // Check if the org exists before attempting to delete
+        let list_response: list::Response = client
+            .request("/orgs/list", list::Request {})
+            .await
+            .map_err(|e| self.server_error(Some(e.into())))?;
+
+        if !list_response.orgs.iter().any(|org| org.name == name) {
+            return Err(Error::new(
+                "Wrong org name",
+                Some("The org does not exist, or you don't have permissions."),
+            ));
+        }
+
         // Ask for confirmation (skip in structured/JSON mode)
         if !self.writer.is_structured() {
             self.writer.text(&format!(
@@ -68,7 +82,7 @@ impl Runner for DeleteRunner<'_> {
             console::style("Deleting org").bold().green()
         ))?;
 
-        let response: Response = client
+        let delete_response: Response = client
             .request(
                 "/orgs/delete",
                 Request {
@@ -82,7 +96,7 @@ impl Runner for DeleteRunner<'_> {
             .text(&format!("\n{}\n", console::style("Done").green().bold()))?;
 
         self.writer
-            .json(json!({"success": true, "org": {"id": response.id, "name": name}}))?;
+            .json(json!({"success": true, "org": {"id": delete_response.id, "name": name}}))?;
 
         Ok(())
     }
