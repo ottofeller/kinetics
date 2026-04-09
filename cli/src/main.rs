@@ -124,6 +124,7 @@ async fn main() -> Result<(), Error> {
 
         Commands::Orgs(orgs) => match orgs {
             commands::orgs::OrgsCommands::Create(cmd) => cli.run(cmd).await,
+            commands::orgs::OrgsCommands::Delete(cmd) => cli.run(cmd).await,
             commands::orgs::OrgsCommands::List(cmd) => cli.run(cmd).await,
         },
 
