@@ -30,6 +30,7 @@ struct RemoveRunner<'a> {
 
 impl Runner for RemoveRunner<'_> {
     async fn run(&mut self) -> Result<(), Error> {
+        let client = self.api_client().await?;
         let project_name = self.project().await?.name;
 
         // Ask for confirmation (skip in structured/JSON mode)
@@ -70,8 +71,6 @@ impl Runner for RemoveRunner<'_> {
                 .green()
                 .bold()
         ))?;
-
-        let client = self.api_client().await?;
 
         let response: domain::remove::Response = client
             .request(

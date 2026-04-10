@@ -28,6 +28,7 @@ struct AddRunner<'a> {
 
 impl Runner for AddRunner<'_> {
     async fn run(&mut self) -> Result<(), Error> {
+        let client = self.api_client().await?;
         let project_name = self.project().await?.name;
 
         self.writer.text(&format!(
@@ -36,8 +37,6 @@ impl Runner for AddRunner<'_> {
                 .green()
                 .bold()
         ))?;
-
-        let client = self.api_client().await?;
 
         let response: domain::add::Response = client
             .request(

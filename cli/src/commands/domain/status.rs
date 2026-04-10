@@ -37,8 +37,8 @@ struct StatusRunner<'a> {
 
 impl Runner for StatusRunner<'_> {
     async fn run(&mut self) -> Result<(), Error> {
-        let project_name = self.project().await?.name;
         let client = self.api_client().await?;
+        let project_name = self.project().await?.name;
 
         let request = domain::status::Request {
             domain: self.command.domain.clone(),
