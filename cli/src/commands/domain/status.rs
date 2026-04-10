@@ -8,7 +8,7 @@ use eyre::Context;
 use serde_json::json;
 use std::time::Duration;
 
-const WATCH_INTERVAL: Duration = Duration::from_secs(30);
+const WATCH_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct StatusCommand {
