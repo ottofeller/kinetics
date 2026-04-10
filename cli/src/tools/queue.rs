@@ -42,16 +42,16 @@ impl Client {
     pub async fn send_with_delay(
         &self,
         message: impl ::std::convert::Into<::std::string::String>,
-        delay_seconds: i32,
+        delay_seconds: u32,
     ) -> eyre::Result<()> {
-        if !(0..=900).contains(&delay_seconds) {
+        if delay_seconds > 900 {
             return Err(eyre::eyre!("Delay must be between 0 and 900 seconds"));
         }
 
         self.queue
             .clone()
             .message_body(message)
-            .delay_seconds(delay_seconds)
+            .delay_seconds(delay_seconds as i32)
             .send()
             .await?;
 
