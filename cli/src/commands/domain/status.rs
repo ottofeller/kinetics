@@ -51,7 +51,7 @@ impl Runner for StatusRunner<'_> {
 
         if self.writer.is_structured() {
             self.writer.json(json!({
-                "domain": response.domain_name,
+                "domain": response.domain,
                 "status": response.status,
                 "last_checked_at": response.last_checked_at,
             }))?;
@@ -147,7 +147,7 @@ fn format_status(response: &domain::status::Response) -> String {
 
     format!(
         "\n  Domain:       {}\n  Status:       {}\n  Last checked: {}\n",
-        console::style(&response.domain_name).bold(),
+        console::style(&response.domain).bold(),
         status_style.bold(),
         last_checked,
     )

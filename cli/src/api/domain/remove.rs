@@ -9,7 +9,7 @@ pub struct Request {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Response {
     /// Domain name (e.g. example.com)
-    pub domain_name: String,
+    pub domain: String,
     /// Domain status (e.g. Pending)
     pub status: DomainStatus,
     /// Whether a deploy is needed to complete removal

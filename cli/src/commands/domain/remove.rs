@@ -91,13 +91,11 @@ impl Runner for RemoveRunner<'_> {
             "Domain removal initiated. The hosted zone and DNS records will be cleaned up shortly."
         };
 
-        self.writer.text(&format!(
-            "\n{}\n",
-            console::style(message).green().bold()
-        ))?;
+        self.writer
+            .text(&format!("\n{}\n", console::style(message).green().bold()))?;
 
         self.writer.json(json!({
-            "domain": response.domain_name,
+            "domain": response.domain,
             "status": response.status,
         }))?;
 
