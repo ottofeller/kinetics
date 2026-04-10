@@ -54,7 +54,7 @@ impl Runner for AddRunner<'_> {
             "\n{}\n\n\
             Update your domain's nameservers at your registrar:\n\n{}\n\n\
             DNS propagation may take up to 48 hours.\n\
-            Run {} to check progress.\n\n",
+            Run {} to check status.\n\n",
             console::style(format!("Domain {} added successfully.", response.domain))
                 .green()
                 .bold(),
