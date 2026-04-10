@@ -90,6 +90,12 @@ impl Runner for StatusRunner<'_> {
                         .bold()
                 ))?;
             }
+            DomainStatus::Deployed => {
+                self.writer.text(&format!(
+                    "\n{}\n",
+                    console::style("Domain is deployed!").green().bold()
+                ))?;
+            }
             DomainStatus::Error => {
                 self.writer.text(&format!(
                     "\n{}\n",
