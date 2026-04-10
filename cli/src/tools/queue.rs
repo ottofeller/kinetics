@@ -35,10 +35,10 @@ impl Client {
         Ok(())
     }
 
-    /// Send a message to the queue. Message becomes available for processing after
-    /// the delay period is finished. Valid values are 0 to 900 seconds (15 minutes)
+    /// Send a message to the queue and delayed processing
     ///
-    /// Return Ok(()) if the operation succeeds
+    /// Message becomes available for processing after the delay period is finished.
+    /// Valid values are 0 to 900 seconds (15 minutes).
     pub async fn send_with_delay(
         &self,
         message: impl ::std::convert::Into<::std::string::String>,
