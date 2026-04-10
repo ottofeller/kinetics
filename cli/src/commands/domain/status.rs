@@ -38,14 +38,6 @@ struct StatusRunner<'a> {
 impl Runner for StatusRunner<'_> {
     async fn run(&mut self) -> Result<(), Error> {
         let project_name = self.project().await?.name;
-
-        self.writer.text(&format!(
-            "\n{}...\n",
-            console::style(format!("Checking domain {}", self.command.domain))
-                .green()
-                .bold()
-        ))?;
-
         let client = self.api_client().await?;
 
         let request = domain::status::Request {
@@ -53,59 +45,88 @@ impl Runner for StatusRunner<'_> {
             project: project_name,
         };
 
-        let is_watching = self.command.watch;
-        let waiting_msg = format!(
-            "{}",
-            console::style("\nWaiting for DNS propagation... (Ctrl+C to stop)\n").dim()
-        );
-        let mut first = true;
-        let mut response;
-
-        loop {
-            response = check_status(&client, &request)
+        let response = if self.writer.is_structured() {
+            check_status(&client, &request)
                 .await
-                .map_err(|e| self.server_error(Some(e.into())))?;
+                .map_err(|e| self.server_error(Some(e.into())))?
+        } else {
+            self.writer.text(&format!(
+                "\n{}...\n",
+                console::style(format!("Checking domain {}", self.command.domain))
+                    .green()
+                    .bold()
+            ))?;
 
-            if !first {
-                self.writer.text("\x1b[6A\x1b[0J")?;
+            let is_watching = self.command.watch;
+            let waiting_msg = format!(
+                "{}",
+                console::style("\nWaiting for DNS propagation... (Ctrl+C to stop)\n").dim()
+            );
+            let mut first = true;
+            let mut response;
+
+            loop {
+                response = check_status(&client, &request)
+                    .await
+                    .map_err(|e| self.server_error(Some(e.into())))?;
+
+                if !first {
+                    self.writer.text("\x1b[6A\x1b[0J")?;
+                }
+
+                self.writer.text(&format_status(&response))?;
+
+                if !is_watching || response.status != DomainStatus::Pending {
+                    break;
+                }
+
+                self.writer.text(&waiting_msg)?;
+                first = false;
+                tokio::time::sleep(WATCH_INTERVAL).await;
             }
 
-            self.writer.text(&format_status(&response))?;
-
-            if !is_watching || response.status != DomainStatus::Pending {
-                break;
+            match response.status {
+                DomainStatus::Pending => {
+                    self.writer.text(&format!(
+                        "\n{}\n{}\n",
+                        console::style("Waiting for DNS propagation").yellow().bold(),
+                        console::style("Make sure your domain's nameservers are set to ns1-4.kineticscloud.com at your registrar.\
+                        ").dim()
+                    ))?;
+                }
+                DomainStatus::Ready => {
+                    self.writer.text(&format!(
+                        "\n{}\n{}\n",
+                        console::style("Domain is ready!").green().bold(),
+                        console::style("Run `kinetics deploy` to activate it").dim()
+                    ))?;
+                }
+                DomainStatus::Deployed => {
+                    self.writer.text(&format!(
+                        "\n{}\n",
+                        console::style("Domain is deployed and serving traffic")
+                            .green()
+                            .bold()
+                    ))?;
+                }
+                DomainStatus::Error => {
+                    self.writer.text(&format!(
+                        "\n{}\n{}\n",
+                        console::style("DNS propagation timed out").red().bold(),
+                        console::style("Verify nameservers at your registrar, then run `kinetics domain remove` and `kinetics domain add` to retry").dim()
+                    ))?;
+                }
+                DomainStatus::Deleting => {
+                    self.writer.text(&format!(
+                        "\n{}\n{}\n",
+                        console::style("Domain is being removed").yellow().bold(),
+                        console::style("Run `kinetics deploy` to complete the removal").dim()
+                    ))?;
+                }
             }
 
-            self.writer.text(&waiting_msg)?;
-            first = false;
-            tokio::time::sleep(WATCH_INTERVAL).await;
-        }
-
-        match response.status {
-            DomainStatus::Ready => {
-                self.writer.text(&format!(
-                    "\n{}\n",
-                    console::style("Domain is ready! You can now deploy with it.")
-                        .green()
-                        .bold()
-                ))?;
-            }
-            DomainStatus::Deployed => {
-                self.writer.text(&format!(
-                    "\n{}\n",
-                    console::style("Domain is deployed!").green().bold()
-                ))?;
-            }
-            DomainStatus::Error => {
-                self.writer.text(&format!(
-                    "\n{}\n",
-                    console::style("DNS propagation timed out. Check your nameserver settings and try again with `kinetics domain remove` then `kinetics domain add`.")
-                        .red()
-                        .bold()
-                ))?;
-            }
-            _ => {}
-        }
+            response
+        };
 
         self.writer.json(json!({
             "domain": response.domain_name,
