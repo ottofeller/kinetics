@@ -1,4 +1,4 @@
-use crate::api::domain::DomainStatus;
+use crate::api::domain::domain_status::DomainStatus;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Request {
