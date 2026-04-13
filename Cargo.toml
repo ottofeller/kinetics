@@ -2,7 +2,7 @@
 # Do not upgrade as TOML parsing fails
 toml = "=0.8.23"
 
-tokio = "1.50.0"
+tokio = "1.51.1"
 
 [workspace]
 resolver = "2"
