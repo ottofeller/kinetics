@@ -38,6 +38,26 @@ impl Validate for Request {
             }
         }
 
+        if let Some(domain) = &self.project.domain {
+            if domain.name.trim().is_empty() {
+                errors.push(
+                    "Domain name is missing in [domain] section of kinetics.toml".into(),
+                );
+            } else {
+                let fqdn_re = regex::Regex::new(
+                    r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$",
+                )
+                .unwrap();
+
+                if !fqdn_re.is_match(domain.name.trim()) {
+                    errors.push(format!(
+                        "Invalid domain format: {}",
+                        domain.name.trim()
+                    ));
+                }
+            }
+        }
+
         if !errors.is_empty() {
             return Some(errors);
         }
