@@ -5,29 +5,34 @@ use crate::writer::Writer;
 use serde_json::json;
 
 #[derive(clap::Args, Clone)]
-pub(crate) struct RemoveCommand {
-    /// Domain name (e.g. example.com)
-    #[arg()]
-    domain: String,
-}
+pub(crate) struct RemoveCommand {}
 
 impl Runnable for RemoveCommand {
     fn runner(&self, writer: &Writer) -> impl Runner {
-        RemoveRunner {
-            command: self.clone(),
-            writer,
-        }
+        RemoveRunner { writer }
     }
 }
 
 struct RemoveRunner<'a> {
-    command: RemoveCommand,
     writer: &'a Writer,
 }
 
 impl Runner for RemoveRunner<'_> {
     async fn run(&mut self) -> Result<(), Error> {
         let mut project = self.project().await?;
+
+        let domain_name = project
+            .domain
+            .as_ref()
+            .ok_or_else(|| {
+                self.error(
+                    Some("No domain configured"),
+                    Some("There is no domain to remove"),
+                    None,
+                )
+            })?
+            .name
+            .clone();
 
         let mut config = ConfigFile::from_path(project.path.clone())
             .map_err(|e| self.server_error(Some(e.into())))?;
@@ -37,7 +42,6 @@ impl Runner for RemoveRunner<'_> {
             .save()
             .map_err(|e| self.server_error(Some(e.into())))?;
 
-        // Remove domain from the project
         project.domain = None;
 
         let functions = project
@@ -48,7 +52,7 @@ impl Runner for RemoveRunner<'_> {
             "\n{} {} {}...",
             console::style("Removing domain").green().bold(),
             console::style("for").dim(),
-            console::style(&self.command.domain).bold(),
+            console::style(&domain_name).bold(),
         ))?;
 
         project
@@ -81,14 +85,14 @@ impl Runner for RemoveRunner<'_> {
 
         self.writer.text(&format!(
             "\n\n{}\n{}\n",
-            console::style(format!("Domain {} removed.", self.command.domain))
+            console::style(format!("Domain {} removed.", domain_name))
                 .green()
                 .bold(),
             console::style("DNS records and hosted zone have been cleaned up").dim(),
         ))?;
 
         self.writer.json(json!({
-            "domain": self.command.domain,
+            "domain": domain_name,
         }))?;
 
         Ok(())
