@@ -1,5 +1,5 @@
 mod cache;
-mod config_file;
+pub mod config_file;
 mod filehash;
 mod parse;
 
@@ -41,12 +41,20 @@ pub struct Project {
     pub kvdb: Vec<Kvdb>,
 
     pub observability: Option<Observability>,
+
+    /// Domain to be used for the project
+    pub domain: Option<Domain>,
 }
 
 /// Project's settings for observability
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Observability {
     pub dd_api_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Domain {
+    pub name: String,
 }
 
 impl Project {
@@ -57,11 +65,17 @@ impl Project {
             url: String::new(),
             kvdb: Vec::new(),
             observability: None,
+            domain: None,
         }
     }
 
     fn with_observability(mut self, dd_api_key: String) -> Self {
         self.observability = Some(Observability { dd_api_key });
+        self
+    }
+
+    pub fn with_domain(mut self, domain: String) -> Self {
+        self.domain = Some(Domain { name: domain });
         self
     }
 

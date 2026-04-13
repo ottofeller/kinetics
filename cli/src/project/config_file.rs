@@ -2,13 +2,13 @@ use crate::api::projects::Kvdb;
 use crate::error::Error;
 use crate::project::Project;
 use eyre::{ContextCompat, WrapErr};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 /// FileConfig is the structure of kinetics.toml
-#[derive(Debug, Clone, Default, Deserialize)]
-pub(super) struct ConfigFile {
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub struct ConfigFile {
     #[serde(default)]
     project: ProjectSection,
 
@@ -18,18 +18,26 @@ pub(super) struct ConfigFile {
     #[serde(default)]
     kvdb: Vec<Kvdb>,
 
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    domain: Option<DomainSection>,
+
     #[serde(skip)]
     path: PathBuf,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 struct ProjectSection {
     name: String,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 struct ObservabilitySection {
     dd_api_key_env: String,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+struct DomainSection {
+    name: String,
 }
 
 /// FileConfig is the structure of kinetics.toml
@@ -41,7 +49,7 @@ impl ConfigFile {
     /// configuration instead. Additionally, if the `kinetics.toml` file does not explicitly set
     /// the project name, the function will fallback to extracting the name from a `Cargo.toml`
     /// file in the same directory.
-    pub(super) fn from_path(path: PathBuf) -> eyre::Result<Self> {
+    pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
         let config_toml_path = path.join("kinetics.toml");
 
         let Ok(toml_string) = fs::read_to_string(&config_toml_path) else {
@@ -69,16 +77,26 @@ impl ConfigFile {
         // Set the path to the directory containing kinetics.toml
         config.path = path.clone();
 
-        match config.observability.clone() {
-            Some(observability) => {
-                if observability.dd_api_key_env.is_empty() {
-                    return Err(eyre::eyre!(
-                        "When [observability] section presented in kinetics.toml
-                        both dd_api_key and service_name properties must be specified"
-                    ));
-                }
-            }
-            None => {}
+        if config
+            .observability
+            .as_ref()
+            .is_some_and(|observability| observability.dd_api_key_env.is_empty())
+        {
+            return Err(eyre::eyre!(
+                "When [observability] section presented in kinetics.toml
+                both dd_api_key and service_name properties must be specified"
+            ));
+        }
+
+        if config
+            .domain
+            .as_ref()
+            .is_some_and(|domain| domain.name.is_empty())
+        {
+            return Err(eyre::eyre!(
+                "When [domain] section presented in kinetics.toml
+                name property must be specified"
+            ));
         }
 
         // If project name is explicitly set in kinetics.toml, return it right away
@@ -88,6 +106,23 @@ impl ConfigFile {
 
         config.project.name = Self::cargo_toml_name(path.as_path())?;
         Ok(config)
+    }
+
+    /// Update the domain section with a new name or remove it if name is None
+    pub fn update_domain(&mut self, name: Option<&str>) -> &mut Self {
+        if let Some(name) = name {
+            self.domain = Some(DomainSection {
+                name: name.to_string(),
+            });
+        } else {
+            self.domain = None;
+        }
+        self
+    }
+
+    pub fn save(&self) -> eyre::Result<()> {
+        fs::write(&self.path, toml::to_string_pretty(&self)?)?;
+        Ok(())
     }
 
     /// Reads Cargo.toml in a given directory and returns the name
@@ -127,13 +162,14 @@ impl TryFrom<ConfigFile> for Project {
     fn try_from(cfg: ConfigFile) -> eyre::Result<Self> {
         let mut project = Project::new(cfg.path, cfg.project.name).with_kvdb(cfg.kvdb);
 
-        if cfg.observability.is_some() {
-            let observability = cfg.observability.unwrap();
-
+        if let Some(observability) = cfg.observability {
             // Read DataDog API key from env, it's not safe to store it in kinetics config file
             let dd_api_key = std::env::var(&observability.dd_api_key_env).unwrap_or_default();
-
             project = project.with_observability(dd_api_key);
+        }
+
+        if let Some(domain) = cfg.domain {
+            project = project.with_domain(domain.name);
         }
 
         Ok(project)

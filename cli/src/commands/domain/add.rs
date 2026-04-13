@@ -1,15 +1,14 @@
-use crate::api::domain;
 use crate::error::Error;
+use crate::project::config_file::ConfigFile;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
-use eyre::Context;
 use serde_json::json;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct AddCommand {
     /// Domain name (e.g. example.com)
     #[arg()]
-    domain: String,
+    name: String,
 }
 
 impl Runnable for AddCommand {
@@ -28,49 +27,37 @@ struct AddRunner<'a> {
 
 impl Runner for AddRunner<'_> {
     async fn run(&mut self) -> Result<(), Error> {
-        let client = self.api_client().await?;
-        let project_name = self.project().await?.name;
+        let project = self.project().await?;
 
-        self.writer.text(&format!(
-            "\n{}...\n",
-            console::style(format!("Adding domain {}", self.command.domain))
-                .green()
-                .bold()
-        ))?;
+        let mut config = ConfigFile::from_path(project.path.clone())?;
+        config.update_domain(Some(&self.command.name)).save()?;
 
-        let response: domain::add::Response = client
-            .request(
-                "/domain/add",
-                domain::add::Request {
-                    domain: self.command.domain.clone(),
-                    project: project_name,
-                },
-            )
-            .await
-            .wrap_err("Failed to add domain")
-            .map_err(|e| self.server_error(Some(e.into())))?;
+        let nameservers: Vec<String> = (1..=4)
+            .map(|i| {
+                format!(
+                    "  {}",
+                    console::style(format!("ns{i}.kineticscloud.com")).bold()
+                )
+            })
+            .collect();
 
         self.writer.text(&format!(
             "\n{}\n\n\
             Update your domain's nameservers at your registrar:\n\n{}\n\n\
             DNS propagation may take up to 48 hours.\n\
-            Run {} to check status.\n\n",
-            console::style(format!("Domain {} added successfully.", response.domain))
-                .green()
-                .bold(),
-            response
-                .nameservers
-                .iter()
-                .map(|ns| format!("  {}", console::style(ns).bold()))
-                .collect::<Vec<_>>()
-                .join("\n"),
-            console::style(format!("kinetics domain status {}", response.domain)).cyan(),
+            The domain will be deployed on next {}.\n\n",
+            console::style(format!(
+                "Domain {} added to kinetics.toml.",
+                self.command.name
+            ))
+            .green()
+            .bold(),
+            nameservers.join("\n"),
+            console::style("kinetics deploy").cyan(),
         ))?;
 
         self.writer.json(json!({
-            "domain": response.domain,
-            "status": response.status,
-            "nameservers": response.nameservers,
+            "domain": self.command.name,
         }))?;
 
         Ok(())
