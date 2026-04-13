@@ -5,7 +5,6 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize as _;
 use eyre::Context;
-use kinetics_parser::Parser;
 use serde_json::json;
 use std::time::Duration;
 
@@ -48,12 +47,7 @@ impl Runner for StatsRunner<'_> {
         let project = self.project().await?;
 
         // Get all function names without any additional manipulations.
-        let all_functions = Parser::new(Some(&project.path))?
-            .functions
-            .into_iter()
-            .map(|f| Function::new(&project, &f))
-            .collect::<eyre::Result<Vec<Function>>>()?;
-
+        let all_functions = project.functions()?;
         let function = Function::find_by_name(&all_functions, &self.command.name)?;
         let client = self.api_client().await?;
 
@@ -85,7 +79,10 @@ impl Runner for StatsRunner<'_> {
                 error_text
             );
 
-            return Err(Error::new("Failed to fetch statistics", Some("Try again later.")).into());
+            return Err(Error::new(
+                "Failed to fetch statistics",
+                Some("Try again later."),
+            ));
         }
 
         let logs_response: func::stats::Response = response.json().await.wrap_err(Error::new(

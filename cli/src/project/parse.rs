@@ -8,7 +8,6 @@ use kinetics_parser::{Params, ParsedFunction, Parser, Role};
 use regex::Regex;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
-use std::str::FromStr;
 use walkdir::WalkDir;
 
 /// Code parsing methods
@@ -24,8 +23,6 @@ impl Project {
         // to mark the requested functions as requested for deployment
         deploy_functions: &[String],
     ) -> eyre::Result<Vec<Function>> {
-        // Parse functions from source code
-        let parsed_functions = Parser::new(Some(&self.path))?.functions;
         let src = &self.path;
         let dst = dst.join(&self.name);
         // Checksums of source files for preventing rewrite existing files
@@ -34,42 +31,73 @@ impl Project {
         // Clone user project into the build folder.
         self.clone(src, &dst, &mut checksum)?;
 
+        let mut all_functions = Vec::new();
+
         // Create lib.rs exporting a containing module of each parsed function.
-        self.create_lib(src, &dst, &parsed_functions, &mut checksum)?;
+        for package in &self.workspace.packages {
+            let parsed_functions = Parser::new(&self.workspace.root_path, Some(package))?.functions;
+            let relative_manifest_path = package.relative_path.join("Cargo.toml");
 
-        let relative_manifest_path = Path::new("Cargo.toml");
-        let mut manifest: toml_edit::DocumentMut =
-            fs::read_to_string(src.join(relative_manifest_path))?.parse()?;
-        let bin_dir = Path::new("src/bin");
-        fs::create_dir_all(dst.join(bin_dir)).wrap_err("Create dir failed")?;
-
-        for parsed_function in &parsed_functions {
-            for is_local in [false, true] {
-                // Create bin file for every parsed function
-                self.create_lambda_bin(&dst, bin_dir, parsed_function, is_local, &mut checksum)?;
-
-                // Add dependencies required to run a lambda to Cargo.toml
-                self.deps(parsed_function, is_local, &mut manifest)?;
+            if parsed_functions.is_empty() {
+                // Copy Cargo.toml, since we skipped copying it before.
+                self.clean_copy(
+                    &src.join(&relative_manifest_path),
+                    &dst,
+                    &relative_manifest_path,
+                    &mut checksum,
+                )?;
+                continue;
             }
-        }
 
-        let manifest_string = manifest.to_string();
-        if checksum.update(
-            relative_manifest_path.to_path_buf(),
-            &FileHash::hash_from_bytes(&manifest_string)
-                .wrap_err("Failed to calculate hash from bytes of Cargo.toml")?,
-        ) {
-            fs::write(dst.join(relative_manifest_path), &manifest_string)
-                .wrap_err("Failed to write Cargo.toml")?;
+            self.create_lib(
+                src,
+                &dst,
+                &package.relative_path,
+                &parsed_functions,
+                &mut checksum,
+            )?;
+
+            let mut manifest: toml_edit::DocumentMut =
+                fs::read_to_string(src.join(&relative_manifest_path))?.parse()?;
+
+            let bin_dir = package.relative_path.join("src/bin");
+            fs::create_dir_all(dst.join(&bin_dir)).wrap_err("Create dir failed")?;
+
+            for parsed_function in &parsed_functions {
+                for is_local in [false, true] {
+                    // Create bin file for every parsed function
+                    self.create_lambda_bin(
+                        &dst,
+                        &bin_dir,
+                        parsed_function,
+                        is_local,
+                        &mut checksum,
+                    )?;
+
+                    // Add dependencies required to run a lambda to Cargo.toml
+                    self.deps(parsed_function, is_local, &mut manifest)?;
+                }
+            }
+
+            let manifest_string = manifest.to_string();
+            if checksum.update(
+                relative_manifest_path.to_path_buf(),
+                &FileHash::hash_from_bytes(&manifest_string)
+                    .wrap_err("Failed to calculate hash from bytes of Cargo.toml")?,
+            ) {
+                fs::write(dst.join(relative_manifest_path), &manifest_string)
+                    .wrap_err("Failed to write Cargo.toml")?;
+            }
+
+            all_functions.extend(parsed_functions);
         }
 
         checksum.save().wrap_err("Failed to save checksums")?;
         self.clear_dir(&dst, &checksum)?;
 
         // Create a new project instance for the target build directory
-        let dst_project = Project::from_path(dst.to_path_buf())?;
-
-        parsed_functions
+        let dst_project = Project::from_path(dst)?;
+        all_functions
             .into_iter()
             .map(|f| {
                 let name = f.func_name(false)?;
@@ -88,14 +116,20 @@ impl Project {
     fn clone(&self, src: &Path, dst: &Path, checksum: &mut FileHash) -> eyre::Result<()> {
         fs::create_dir_all(dst).wrap_err("Failed to create dir to clone the project to")?;
 
-        let skip_paths = [
+        let mut skip_paths = vec![
             // Skip the target dir, cargo lambda use it (if exist) for incremental builds.
             src.join("target"),
             src.join(".git"),
             src.join(".github"),
-            // Skip project manifest, since we process it later.
-            src.join("Cargo.toml"),
         ];
+
+        // Skip package manifests, since we process them later.
+        skip_paths.extend(
+            self.workspace
+                .packages
+                .iter()
+                .map(|pkg| src.join(&pkg.relative_path).join("Cargo.toml")),
+        );
 
         for entry in WalkDir::new(src)
             .into_iter()
@@ -179,15 +213,16 @@ impl Project {
         &self,
         src: &Path,
         dst: &Path,
+        rel_pkg_path: &Path,
         functions: &[ParsedFunction],
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
-        let relative_lib_path = Path::new("src").join("lib.rs");
+        let relative_lib_path = rel_pkg_path.join("src/lib.rs");
         let src_lib_rs_path = src.join(&relative_lib_path);
 
         let modules = functions.iter().filter_map(|f| {
             // Take the first path component from each module in the src folder, and export it.
-            match Path::new(&f.relative_path)
+            match Path::new(&f.display_path())
                 .strip_prefix("src")
                 .ok()?
                 .with_extension("")
@@ -257,7 +292,7 @@ impl Project {
         let fn_import = self.import_statement(
             &parsed_function.relative_path,
             &parsed_function.rust_function_name,
-            &self.name,
+            &parsed_function.pkg_name,
         )?;
 
         let rust_function_name = parsed_function.rust_function_name.clone();
@@ -388,12 +423,11 @@ impl Project {
     /// which is being deployed as a lambda
     fn import_statement(
         &self,
-        relative_path: &str,
+        relative_path: &Path,
         rust_name: &str,
-        project_name: &str,
+        pkg_name: &str,
     ) -> eyre::Result<String> {
-        let relative_path =
-            PathBuf::from_str(relative_path.strip_prefix("src/").unwrap_or(relative_path))?;
+        let relative_path = relative_path.strip_prefix("src/").unwrap_or(relative_path);
 
         let mut module_path_parts = relative_path
             .components()
@@ -424,18 +458,18 @@ impl Project {
             module_path_parts.join("::")
         };
 
+        let pkg_name = pkg_name.replace('-', "_");
         // If module path is empty then the function is located in the lib.rs file
         let import_statement = if module_path.is_empty() {
-            format!("use {project_name}::{rust_name};")
+            format!("use {pkg_name}::{rust_name};")
         } else {
-            format!("use {project_name}::{module_path}::{rust_name};")
+            format!("use {pkg_name}::{module_path}::{rust_name};")
         };
 
         Ok(import_statement)
     }
 
-    /// Delete the macro attributes from a file
-    /// and copy it to the destination folder.
+    /// Copy a file to the destination folder.
     fn clean_copy(
         &self,
         src_path_full: &Path,
@@ -453,8 +487,8 @@ impl Project {
                 .map(|_| ());
         }
 
-        // Attempt kinetics macro replacements in .rs files.
-        let content = &fs::read_to_string(src_path_full)
+        // Update hash table for the file.
+        let content = fs::read_to_string(src_path_full)
             .wrap_err(format!("Failed to read file {src_path_full:?}"))?;
         if checksum.update(
             file_path_relative.to_path_buf(),
@@ -467,5 +501,29 @@ impl Project {
         }
 
         Ok(())
+    }
+
+    pub fn functions(&self) -> eyre::Result<Vec<Function>> {
+        self.workspace
+            .packages
+            .iter()
+            .map(|pkg| Parser::new(&self.workspace.root_path, Some(pkg)))
+            .try_fold(Vec::new(), |mut acc, parser| {
+                for f in parser?.functions {
+                    acc.push(Function::new(self, &f)?);
+                }
+                Ok(acc)
+            })
+    }
+
+    pub fn parsed_functions(&self) -> eyre::Result<Vec<ParsedFunction>> {
+        self.workspace
+            .packages
+            .iter()
+            .map(|pkg| Parser::new(&self.workspace.root_path, Some(pkg)))
+            .try_fold(Vec::new(), |mut acc, parser| {
+                acc.append(&mut parser?.functions);
+                Ok(acc)
+            })
     }
 }

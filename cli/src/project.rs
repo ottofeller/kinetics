@@ -16,12 +16,92 @@ use crate::error::Error;
 use crate::function::Function;
 use crate::secrets::Secrets;
 use cache::Cache;
+use cargo_metadata::MetadataCommand;
 use config_file::ConfigFile;
 use eyre::WrapErr;
 use http::StatusCode;
+use kinetics_parser::Package;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+// Workspace definition for a project.
+//
+// A non-workspace project would have one member
+// with it's path identical to workspace_root.
+//
+// Otherwise it's a real workspace.
+#[derive(Debug, Default, Clone)]
+pub struct Workspace {
+    pub root_path: PathBuf,
+    pub packages: Vec<Package>,
+}
+
+impl Workspace {
+    pub fn from_path(path: &Path) -> eyre::Result<Self> {
+        let metadata = MetadataCommand::new().current_dir(path).exec()?;
+
+        // Validate workspace rules for kinetics:
+        // 1. Workspace as a single kinetics project:
+        //  - the workspace root MUST contain kinetics.toml;
+        //  - workspace members cannot have kinetics.toml - throw an error.
+        // 2. Standalone kinetics project:
+        //  - the project can contain kinetics.toml;
+        //  - for the name fall back to Cargo.toml.
+        let root_config = metadata.workspace_root.join("kinetics.toml");
+        let member_configs: Vec<_> = metadata
+            .workspace_members
+            .iter()
+            .filter_map(|member| {
+                metadata
+                    .packages
+                    .iter()
+                    .find(|pkg| pkg.id == *member)
+                    .and_then(|pkg| pkg.manifest_path.parent())
+                    .and_then(|dir| {
+                        let config = dir.join("kinetics.toml");
+                        if config.exists() {
+                            Some(config)
+                        } else {
+                            None
+                        }
+                    })
+            })
+            .collect();
+
+        if root_config.exists() && !member_configs.is_empty() {
+            return Err(eyre::eyre!("Workspace is not allowed to have `kinetics.toml` within its root and within its members at the same time."));
+        }
+
+        Ok(Self {
+            packages: metadata
+                .workspace_members
+                .into_iter()
+                .filter_map(|member| {
+                    metadata
+                        .packages
+                        .iter()
+                        .find(|pkg| pkg.id == member)
+                        .and_then(|pkg| {
+                            Some(Package {
+                                name: ConfigFile::cargo_toml_name(
+                                    pkg.manifest_path.parent()?.as_std_path(),
+                                )
+                                .ok()?,
+                                relative_path: pkg
+                                    .manifest_path
+                                    .strip_prefix(&metadata.workspace_root)
+                                    .ok()?
+                                    .parent()? // Remove filename and keep only the dir name.
+                                    .into(),
+                            })
+                        })
+                })
+                .collect(),
+            root_path: metadata.workspace_root.into_std_path_buf(),
+        })
+    }
+}
 
 /// Managing user's project
 ///
@@ -30,6 +110,9 @@ use std::path::PathBuf;
 pub struct Project {
     #[serde(skip)]
     pub path: PathBuf,
+
+    #[serde(skip)]
+    pub workspace: Workspace,
 
     /// Project name (used as a prefix for all resources)
     pub name: String,
@@ -51,8 +134,11 @@ pub struct Observability {
 
 impl Project {
     fn new(path: PathBuf, name: String) -> Self {
+        let workspace = Workspace::from_path(&path).ok().unwrap_or_default();
+
         Self {
             path,
+            workspace,
             name,
             url: String::new(),
             kvdb: Vec::new(),
@@ -75,7 +161,7 @@ impl Project {
     /// Returns default config if kinetics.toml does not exist. In that case the name will be taken
     /// from the ` Cargo.toml ` file in the same path
     pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
-        Ok(ConfigFile::from_path(path)?.try_into()?)
+        ConfigFile::from_path(path)?.try_into()
     }
 
     /// Creates a new project instance from the current directory

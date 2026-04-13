@@ -6,7 +6,7 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
-use kinetics_parser::{Params, ParsedFunction, Parser, Role};
+use kinetics_parser::{Params, ParsedFunction, Role};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use tabled::settings::{peaker::Priority, style::Style, Settings, Width};
@@ -83,10 +83,10 @@ impl Runner for ListRunner<'_> {
         // If the method is called within other method, then the auth error won't be propogated
         let client = self.api_client().await?;
 
-        self.functions = Parser::new(Some(&project.path))
+        self.functions = project
+            .parsed_functions()
             .wrap_err("Failed to parse the project")
-            .map_err(|e| self.error(None, None, Some(e.into())))?
-            .functions;
+            .map_err(|e| self.error(None, None, Some(e.into())))?;
 
         if !self.command.verbose {
             return self
@@ -154,7 +154,7 @@ impl ListRunner<'_> {
             let mut entry = json!({
                 "name": f.func_name(false)?,
                 "role": format!("{:?}", f.role).to_lowercase(),
-                "path": &f.relative_path,
+                "path": f.display_path(),
             });
 
             if let Params::Cron(ref params) = f.params {
@@ -197,11 +197,11 @@ impl ListRunner<'_> {
             let function = Function::new(&project, &parsed_function)?;
 
             let last_modified = function
-                .status(&client)
+                .status(client)
                 .await?
                 .unwrap_or_else(|| "NA".into());
 
-            let func_path = parsed_function.relative_path;
+            let func_path = parsed_function.display_path();
 
             match parsed_function.params {
                 Params::Endpoint(params) => {
@@ -311,7 +311,7 @@ impl ListRunner<'_> {
             .text(&format!(
                 "{} {}\n",
                 function.func_name(false)?.bold(),
-                function.relative_path.dimmed(),
+                function.display_path().dimmed(),
             ))
             .map_err(|e| eyre::eyre!(e))?;
 

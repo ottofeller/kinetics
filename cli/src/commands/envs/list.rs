@@ -7,7 +7,7 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use crossterm::style::Stylize;
 use eyre::{eyre, WrapErr};
-use kinetics_parser::{ParsedFunction, Parser};
+use kinetics_parser::ParsedFunction;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -37,9 +37,9 @@ impl Runner for ListRunner<'_> {
     /// Lists all environment variables for all functions in the current crate
     async fn run(&mut self) -> Result<(), Error> {
         let project = self.project().await?;
-        let parsed_functions = Parser::new(Some(&project.path))
-            .map_err(|e| self.error(None, None, Some(e.into())))?
-            .functions;
+        let parsed_functions = project
+            .parsed_functions()
+            .map_err(|e| self.error(None, None, Some(e.into())))?;
 
         self.writer.text("\n")?;
 
@@ -87,8 +87,7 @@ impl Runner for ListRunner<'_> {
                 })
                 .ok_or(eyre!("Parsed artifact has no function name"))
                 .map_err(|e| self.error(None, None, Some(e.into())))?
-                .relative_path
-                .to_owned();
+                .display_path();
 
             self.writer.text(&format!(
                 "{} {}\n",

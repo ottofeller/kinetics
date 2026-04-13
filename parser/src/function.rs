@@ -1,7 +1,7 @@
 use crate::params::Params;
-use color_eyre::eyre;
+use color_eyre::eyre::{self, ContextCompat};
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+use std::{fmt::Display, path::PathBuf};
 
 /// The kind of function
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,7 +30,13 @@ pub struct ParsedFunction {
     pub rust_function_name: String,
 
     /// Path to the file where function is defined
-    pub relative_path: String,
+    pub relative_path: PathBuf,
+
+    /// Path to the package where function is defined
+    pub pkg_name: String,
+
+    /// Path to the package where function is defined
+    pub pkg_rel_path: PathBuf,
 
     /// The kind of function (endpoint, cron, or worker), without parameters
     pub role: Role,
@@ -40,16 +46,26 @@ pub struct ParsedFunction {
 }
 
 impl ParsedFunction {
+    pub fn display_path(&self) -> String {
+        self.pkg_rel_path
+            .join(&self.relative_path)
+            .to_string_lossy()
+            .to_string()
+    }
+
     /// Convert a path to CamelCase name
-    pub fn path_to_name(path: &str) -> String {
-        path.split(&['.', '/'])
-            .filter(|s| !s.eq(&"rs"))
-            .map(|s| match s.chars().next() {
-                Some(first) => first.to_uppercase().collect::<String>() + &s[1..],
-                None => String::new(),
+    pub fn path_to_name(paths: &[&str]) -> String {
+        paths
+            .iter()
+            .flat_map(|path| {
+                path.split(&['.', '/'])
+                    .filter(|s| !s.eq(&"rs"))
+                    .map(|s| match s.chars().next() {
+                        Some(first) => first.to_uppercase().collect::<String>() + &s[1..],
+                        None => String::new(),
+                    })
             })
             .collect::<String>()
-            .replacen("Src", "", 1)
     }
 
     /// Generate lambda function name out of Rust function name or macro attribute
@@ -59,8 +75,19 @@ impl ParsedFunction {
     /// function name requirements.
     pub fn func_name(&self, is_local: bool) -> eyre::Result<String> {
         let rust_name = &self.rust_function_name;
-        let full_path = format!("{}/{rust_name}", self.relative_path);
-        let default_func_name = Self::path_to_name(&full_path);
+        let default_func_name = Self::path_to_name(&[
+            &self.pkg_name,
+            self.relative_path
+                .strip_prefix("src")?
+                .to_str()
+                .wrap_err_with(|| {
+                    format!(
+                        "Failed converting func path to str: `{:?}`",
+                        self.relative_path
+                    )
+                })?,
+            rust_name,
+        ]);
         let name = self.params.name().unwrap_or(&default_func_name);
 
         if name.len() > 64 {

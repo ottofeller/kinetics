@@ -1,4 +1,4 @@
-use crate::project::Project;
+use crate::project::{Project, Workspace};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -23,6 +23,7 @@ impl From<ProjectInfo> for Project {
     fn from(value: ProjectInfo) -> Self {
         Self {
             path: PathBuf::new(),
+            workspace: Workspace::default(),
             name: value.name,
             url: value.url,
             kvdb: value.kvdb,

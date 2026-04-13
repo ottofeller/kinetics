@@ -1,35 +1,51 @@
 use crate::{
-    ParsedFunction, Role, params::{Cron, Endpoint, Params, Worker}
+    params::{Cron, Endpoint, Params, Worker},
+    ParsedFunction, Role,
 };
 use color_eyre::eyre;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use syn::{parse::Parse, visit::Visit, Attribute, ItemFn};
 use walkdir::WalkDir;
 
+/// For a workspace represents its member.
+/// For a standalone crate represents the crate itself.
+#[derive(Clone, Debug, Default)]
+pub struct Package {
+    /// The name of the package as defined in its Cargo.toml
+    pub name: String,
+
+    /// Absolute path to the package from workspace root
+    pub relative_path: PathBuf,
+}
+
 #[derive(Debug, Default)]
-pub struct Parser {
+pub struct Parser<'a> {
     /// All found functions in the source code
     pub functions: Vec<ParsedFunction>,
 
     /// Relative path to currently processing file
-    pub relative_path: String,
+    fn_rel_path: PathBuf,
+
+    /// The package being processed
+    pkg: Option<&'a Package>,
 }
 
-impl Parser {
+impl<'a> Parser<'a> {
     /// Init new Parser
     ///
     /// And optionally parse the requested dir
-    pub fn new(path: Option<&PathBuf>) -> eyre::Result<Self> {
+    pub fn new(root_path: &Path, pkg: Option<&'a Package>) -> eyre::Result<Self> {
         let mut parser: Parser = Default::default();
 
-        if let Some(path) = path {
-            parser.walk_dir(path)?;
+        if let Some(pkg) = pkg {
+            parser.set_pkg(Some(pkg));
+            parser.walk_dir(&root_path.join(&pkg.relative_path))?;
         }
 
         Ok(parser)
     }
 
-    pub fn walk_dir(&mut self, path: &PathBuf) -> eyre::Result<()> {
+    pub fn walk_dir(&mut self, path: &Path) -> eyre::Result<()> {
         for entry in WalkDir::new(path)
             .into_iter()
             .filter_map(|e| e.ok())
@@ -43,7 +59,7 @@ impl Parser {
 
             // Set current file relative path for further imports resolution
             // WARN It prevents to implement parallel parsing of files and requires rework in the future
-            self.set_relative_path(entry.path().strip_prefix(path)?.to_str());
+            self.set_fn_rel_path(Some(entry.path().strip_prefix(path)?));
 
             self.visit_file(&syntax);
         }
@@ -51,8 +67,12 @@ impl Parser {
         Ok(())
     }
 
-    pub fn set_relative_path(&mut self, file_path: Option<&str>) {
-        self.relative_path = file_path.map_or_else(|| "".to_string(), |s| s.to_string());
+    pub fn set_pkg(&mut self, pkg: Option<&'a Package>) {
+        self.pkg = pkg.to_owned();
+    }
+
+    pub fn set_fn_rel_path(&mut self, file_path: Option<&Path>) {
+        self.fn_rel_path = file_path.map(PathBuf::from).unwrap_or_default();
     }
 
     fn parse_endpoint(&mut self, attr: &Attribute) -> syn::Result<Endpoint> {
@@ -87,7 +107,7 @@ impl Parser {
     }
 }
 
-impl Visit<'_> for Parser {
+impl<'a> Visit<'_> for Parser<'a> {
     /// Visits function definitions
     fn visit_item_fn(&mut self, item: &ItemFn) {
         for attr in &item.attrs {
@@ -108,12 +128,16 @@ impl Visit<'_> for Parser {
                 _ => continue,
             };
 
-            self.functions.push(ParsedFunction {
-                role,
-                params,
-                rust_function_name: item.sig.ident.to_string(),
-                relative_path: self.relative_path.clone(),
-            });
+            if let Some(pkg) = self.pkg {
+                self.functions.push(ParsedFunction {
+                    role,
+                    params,
+                    rust_function_name: item.sig.ident.to_string(),
+                    relative_path: self.fn_rel_path.clone(),
+                    pkg_rel_path: pkg.relative_path.clone(),
+                    pkg_name: pkg.name.clone(),
+                });
+            }
         }
 
         // We don't need to parse the function body (in case nested functions), so just exit here
