@@ -117,7 +117,7 @@ impl ConfigFile {
     }
 
     pub fn save(&self) -> eyre::Result<()> {
-        fs::write(&self.path, toml::to_string_pretty(&self)?)?;
+        fs::write(self.path.join("kinetics.toml"), toml::to_string_pretty(&self)?)?;
         Ok(())
     }
 
