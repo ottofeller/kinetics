@@ -15,6 +15,7 @@ use crate::envs::Envs;
 use crate::error::Error;
 use crate::function::Function;
 use crate::secrets::Secrets;
+use kinetics_parser::Parser;
 use cache::Cache;
 use config_file::ConfigFile;
 use eyre::WrapErr;
@@ -237,6 +238,16 @@ impl Project {
     /// For example API Gateway are case sensitive.
     pub fn url(&self) -> String {
         self.url.to_lowercase()
+    }
+
+    /// Parses source to collect function metadata without building
+    pub fn functions(&self) -> eyre::Result<Vec<Function>> {
+        let parsed = Parser::new(Some(&self.path))?.functions;
+
+        parsed
+            .iter()
+            .map(|f| Function::new(self, f))
+            .collect()
     }
 
     /// Globally applied env vars sourced from .env file

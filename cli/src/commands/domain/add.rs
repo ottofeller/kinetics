@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::project::config_file::ConfigFile;
+use crate::project::Domain;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use serde_json::json;
@@ -27,33 +28,73 @@ struct AddRunner<'a> {
 
 impl Runner for AddRunner<'_> {
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project().await?;
+        let mut project = self.project().await?;
 
-        let mut config = ConfigFile::from_path(project.path.clone())?;
-        config.update_domain(Some(&self.command.name)).save()?;
+        if project
+            .domain
+            .as_ref()
+            .is_some_and(|d| d.name == self.command.name)
+        {
+            self.writer.text(&format!(
+                "\n{}\n{}\n\n",
+                console::style(format!(
+                    "Domain {} is already configured.",
+                    self.command.name
+                ))
+                .yellow()
+                .bold(),
+                console::style("Run `kinetics domain status` to check its state")
+                .dim(),
+            ))?;
+
+            return Ok(());
+        }
+
+        let mut config = ConfigFile::from_path(project.path.clone())
+            .map_err(|e| self.server_error(Some(e.into())))?;
+
+        config
+            .update_domain(Some(&self.command.name))
+            .save()
+            .map_err(|e| self.server_error(Some(e.into())))?;
+
+        project.domain = Some(Domain {
+            name: self.command.name.clone(),
+        });
+
+        let functions = project
+            .functions()
+            .map_err(|e| self.server_error(Some(e.into())))?;
+
+        self.writer.text(&format!(
+            "\n{} {} {}...",
+            console::style("Provisioning domain").green().bold(),
+            console::style("for").dim(),
+            console::style(&self.command.name).bold(),
+        ))?;
+
+        project
+            .deploy(&functions, false, None, None)
+            .await
+            .map_err(|e| self.server_error(Some(e.into())))?;
 
         let nameservers: Vec<String> = (1..=4)
-            .map(|i| {
-                format!(
-                    "  {}",
-                    console::style(format!("ns{i}.kineticscloud.com")).bold()
-                )
-            })
+            .map(|i| format!("  ns{i}.kineticscloud.com"))
             .collect();
 
         self.writer.text(&format!(
-            "\n{}\n\n\
-            Update your domain's nameservers at your registrar:\n\n{}\n\n\
-            DNS propagation may take up to 48 hours.\n\
-            The domain will be deployed on next {}.\n\n",
-            console::style(format!(
-                "Domain {} added to kinetics.toml.",
-                self.command.name
-            ))
-            .green()
-            .bold(),
-            nameservers.join("\n"),
-            console::style("kinetics deploy").cyan(),
+            "\n\n{}\n\n\
+            {}\n\n\
+            {}\n\n\
+            {}\n\
+            {}\n",
+            console::style(format!("Domain {} added.", self.command.name))
+                .green()
+                .bold(),
+            console::style("Update your domain's nameservers at your registrar:").dim(),
+            console::style(nameservers.join("\n")).bold(),
+            console::style("DNS propagation may take up to 48 hours").dim(),
+            console::style("Run `kinetics domain status --watch` to monitor progress").dim(),
         ))?;
 
         self.writer.json(json!({

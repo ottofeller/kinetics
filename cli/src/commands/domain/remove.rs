@@ -27,20 +27,64 @@ struct RemoveRunner<'a> {
 
 impl Runner for RemoveRunner<'_> {
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project().await?;
+        let mut project = self.project().await?;
 
-        let mut config = ConfigFile::from_path(project.path.clone())?;
-        config.update_domain(None).save()?;
+        let mut config = ConfigFile::from_path(project.path.clone())
+            .map_err(|e| self.server_error(Some(e.into())))?;
+
+        config
+            .update_domain(None)
+            .save()
+            .map_err(|e| self.server_error(Some(e.into())))?;
+
+        // Remove domain from the project
+        project.domain = None;
+
+        let functions = project
+            .functions()
+            .map_err(|e| self.server_error(Some(e.into())))?;
 
         self.writer.text(&format!(
-            "\n{}\nThe domain will be removed on next {}.\n\n",
-            console::style(format!(
-                "Domain {} removed from kinetics.toml.",
-                self.command.domain
-            ))
-            .green()
-            .bold(),
-            console::style("kinetics deploy").cyan(),
+            "\n{} {} {}...",
+            console::style("Removing domain").green().bold(),
+            console::style("for").dim(),
+            console::style(&self.command.domain).bold(),
+        ))?;
+
+        project
+            .deploy(&functions, false, None, None)
+            .await
+            .map_err(|e| self.server_error(Some(e.into())))?;
+
+        let mut status = project
+            .status()
+            .await
+            .map_err(|e| self.server_error(Some(e.into())))?;
+
+        while status.status == "IN_PROGRESS" {
+            tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+
+            status = project
+                .status()
+                .await
+                .map_err(|e| self.server_error(Some(e.into())))?;
+        }
+
+        if matches!(status.status.as_str(), "FAILED" | "FROZEN") {
+            let error_text = status
+                .errors
+                .map(|errors| errors.join("\n"))
+                .unwrap_or("Unknown error".into());
+
+            return Err(self.error(Some("Domain removal failed"), Some(&error_text), None));
+        }
+
+        self.writer.text(&format!(
+            "\n\n{}\n{}\n",
+            console::style(format!("Domain {} removed.", self.command.domain))
+                .green()
+                .bold(),
+            console::style("DNS records and hosted zone have been cleaned up").dim(),
         ))?;
 
         self.writer.json(json!({

@@ -12,10 +12,6 @@ const WATCH_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct StatusCommand {
-    /// Domain name (e.g. example.com)
-    #[arg()]
-    domain: String,
-
     /// Poll until the domain is ready or fails
     #[arg(long, default_value_t = false)]
     watch: bool,
@@ -37,12 +33,25 @@ struct StatusRunner<'a> {
 
 impl Runner for StatusRunner<'_> {
     async fn run(&mut self) -> Result<(), Error> {
+        let project = self.project().await?;
         let client = self.api_client().await?;
-        let project_name = self.project().await?.name;
+
+        let domain_name = project
+            .domain
+            .as_ref()
+            .ok_or_else(|| {
+                self.error(
+                    Some("No domain configured"),
+                    Some("Add a domain first with `kinetics domain add <domain>`"),
+                    None,
+                )
+            })?
+            .name
+            .clone();
 
         let request = domain::status::Request {
-            domain: self.command.domain.clone(),
-            project: project_name,
+            domain: domain_name,
+            project: project.name,
         };
 
         let response = check_status(&client, &request)
@@ -90,33 +99,35 @@ impl Runner for StatusRunner<'_> {
         match response.status {
             DomainStatus::Pending => {
                 self.writer.text(&format!(
-                        "\n{}\n{}\n",
-                        console::style("Waiting for DNS propagation").yellow().bold(),
-                        console::style("Make sure your domain's nameservers are set to ns1-4.kineticscloud.com at your registrar.\
-                        ").dim()
-                    ))?;
+                    "\n{}\n{}\n",
+                    console::style("Waiting for DNS propagation").yellow().bold(),
+                    console::style(
+                        "Make sure nameservers are set to ns1-4.kineticscloud.com at your registrar"
+                    )
+                    .dim()
+                ))?;
             }
             DomainStatus::Ready => {
                 self.writer.text(&format!(
                     "\n{}\n{}\n",
-                    console::style("Domain is ready!").green().bold(),
-                    console::style("Run `kinetics deploy` to activate it").dim()
+                    console::style("Nameservers verified").green().bold(),
+                    console::style("Run `kinetics deploy` to activate the domain").dim()
                 ))?;
             }
             DomainStatus::Deployed => {
                 self.writer.text(&format!(
                     "\n{}\n",
-                    console::style("Domain is deployed and serving traffic")
+                    console::style("Domain is live and serving traffic")
                         .green()
                         .bold()
                 ))?;
             }
             DomainStatus::Error => {
                 self.writer.text(&format!(
-                        "\n{}\n{}\n",
-                        console::style("DNS propagation timed out").red().bold(),
-                        console::style("Verify nameservers at your registrar, then run `kinetics domain remove` and `kinetics domain add` to retry").dim()
-                    ))?;
+                    "\n{}\n{}\n",
+                    console::style("DNS verification failed").red().bold(),
+                    console::style("Check nameservers at your registrar").dim()
+                ))?;
             }
             DomainStatus::Deleting => {
                 self.writer.text(&format!(
