@@ -43,8 +43,7 @@ impl Runner for AddRunner<'_> {
                 ))
                 .yellow()
                 .bold(),
-                console::style("Run `kinetics domain status` to check its state")
-                .dim(),
+                console::style("Run `kinetics domain status` to check its state").dim(),
             ))?;
 
             return Ok(());
@@ -94,7 +93,7 @@ impl Runner for AddRunner<'_> {
             console::style("Update your domain's nameservers at your registrar:").dim(),
             console::style(nameservers.join("\n")).bold(),
             console::style("DNS propagation may take up to 48 hours").dim(),
-            console::style("Run `kinetics domain status --watch` to monitor progress").dim(),
+            console::style("Run `kinetics domain status` to check or `--watch` to monitor").dim(),
         ))?;
 
         self.writer.json(json!({
