@@ -15,7 +15,7 @@ pub struct ConfigFile {
     #[serde(default)]
     observability: Option<ObservabilitySection>,
 
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     kvdb: Vec<Kvdb>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -117,7 +117,10 @@ impl ConfigFile {
     }
 
     pub fn save(&self) -> eyre::Result<()> {
-        fs::write(self.path.join("kinetics.toml"), toml::to_string_pretty(&self)?)?;
+        fs::write(
+            self.path.join("kinetics.toml"),
+            toml::to_string_pretty(&self)?,
+        )?;
         Ok(())
     }
 
