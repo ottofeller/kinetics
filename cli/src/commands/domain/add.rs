@@ -70,7 +70,12 @@ impl Runner for AddRunner<'_> {
         ))?;
 
         project
-            .deploy(&functions, false, None, None)
+            .deploy(
+                &functions,
+                false,
+                None,
+                Some("Applying custom domain".into()),
+            )
             .await
             .map_err(|e| self.server_error(Some(e.into())))?;
 
