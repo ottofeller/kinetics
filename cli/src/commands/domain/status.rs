@@ -1,6 +1,5 @@
 use crate::api::client::Client;
 use crate::api::domain;
-use crate::api::domain::status::DomainStatus;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
@@ -87,7 +86,7 @@ impl Runner for StatusRunner<'_> {
 
             self.writer.text(&format_status(&response))?;
 
-            if !is_watching || response.status != DomainStatus::Pending {
+            if !is_watching || response.status.is_pending() {
                 break;
             }
 
@@ -96,46 +95,50 @@ impl Runner for StatusRunner<'_> {
             tokio::time::sleep(WATCH_INTERVAL).await;
         }
 
-        match response.status {
-            DomainStatus::Pending => {
-                self.writer.text(&format!(
-                    "\n{}\n{}\n",
-                    console::style("Waiting for DNS propagation").yellow().bold(),
-                    console::style(
-                        "Make sure nameservers are set to ns1-4.kineticscloud.com at your registrar"
-                    )
-                    .dim()
-                ))?;
-            }
-            DomainStatus::Ready => {
-                self.writer.text(&format!(
-                    "\n{}\n{}\n",
-                    console::style("Nameservers verified").green().bold(),
-                    console::style("Run `kinetics deploy` to activate the domain").dim()
-                ))?;
-            }
-            DomainStatus::Deployed => {
-                self.writer.text(&format!(
-                    "\n{}\n",
-                    console::style("Domain is live and serving traffic")
-                        .green()
-                        .bold()
-                ))?;
-            }
-            DomainStatus::Error => {
-                self.writer.text(&format!(
-                    "\n{}\n{}\n",
-                    console::style("DNS verification failed").red().bold(),
-                    console::style("Check nameservers at your registrar").dim()
-                ))?;
-            }
-            DomainStatus::Deleting => {
-                self.writer.text(&format!(
-                    "\n{}\n{}\n",
-                    console::style("Domain is being removed").yellow().bold(),
-                    console::style("Run `kinetics deploy` to complete the removal").dim()
-                ))?;
-            }
+        if response.status.is_pending() {
+            self.writer.text(&format!(
+                "\n{}\n{}\n",
+                console::style("Waiting for DNS propagation")
+                    .yellow()
+                    .bold(),
+                console::style(
+                    "Make sure nameservers are set to ns1-4.kineticscloud.com at your registrar"
+                )
+                .dim()
+            ))?;
+        }
+
+        if response.status.is_ready() {
+            self.writer.text(&format!(
+                "\n{}\n{}\n",
+                console::style("Nameservers verified").green().bold(),
+                console::style("Run `kinetics deploy` to activate the domain").dim()
+            ))?;
+        }
+
+        if response.status.is_deployed() {
+            self.writer.text(&format!(
+                "\n{}\n",
+                console::style("Domain is live and serving traffic")
+                    .green()
+                    .bold()
+            ))?;
+        }
+
+        if response.status.is_error() {
+            self.writer.text(&format!(
+                "\n{}\n{}\n",
+                console::style("DNS verification failed").red().bold(),
+                console::style("Check nameservers at your registrar").dim()
+            ))?;
+        }
+
+        if response.status.is_deleting() {
+            self.writer.text(&format!(
+                "\n{}\n{}\n",
+                console::style("Domain is being removed").yellow().bold(),
+                console::style("Run `kinetics deploy` to complete the removal").dim()
+            ))?;
         }
 
         Ok(())
@@ -143,12 +146,12 @@ impl Runner for StatusRunner<'_> {
 }
 
 fn format_status(response: &domain::status::Response) -> String {
-    let status_style = match response.status {
-        DomainStatus::Ready | DomainStatus::Deployed => {
-            console::style(response.status.to_string()).green()
-        }
-        DomainStatus::Error => console::style(response.status.to_string()).red(),
-        _ => console::style(response.status.to_string()).yellow(),
+    let status_style = if response.status.is_ready() || response.status.is_deployed() {
+        console::style(response.status.to_string()).green()
+    } else if response.status.is_error() {
+        console::style(response.status.to_string()).red()
+    } else {
+        console::style(response.status.to_string()).yellow()
     };
 
     let last_checked = match response.last_checked_at {

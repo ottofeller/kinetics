@@ -24,6 +24,28 @@ impl std::fmt::Display for DomainStatus {
     }
 }
 
+impl DomainStatus {
+    pub fn is_pending(&self) -> bool {
+        matches!(self, Self::Pending)
+    }
+
+    pub fn is_ready(&self) -> bool {
+        matches!(self, Self::Ready)
+    }
+
+    pub fn is_deployed(&self) -> bool {
+        matches!(self, Self::Deployed)
+    }
+
+    pub fn is_error(&self) -> bool {
+        matches!(self, Self::Error)
+    }
+
+    pub fn is_deleting(&self) -> bool {
+        matches!(self, Self::Deleting)
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Request {
     pub domain: String,
