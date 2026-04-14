@@ -44,12 +44,16 @@ impl Runner for RemoveRunner<'_> {
 
         project.domain = None;
 
-        let functions = project
+        // Mark all functions as deploying to enable full deploy on backend
+        let functions: Vec<_> = project
             .functions()
-            .map_err(|e| self.server_error(Some(e.into())))?;
+            .map_err(|e| self.server_error(Some(e.into())))?
+            .into_iter()
+            .map(|f| f.set_is_deploying(true))
+            .collect();
 
         self.writer.text(&format!(
-            "\n{} {} {}...",
+            "\n{} {} {}...\n",
             console::style("Removing domain").green().bold(),
             console::style("for").dim(),
             console::style(&domain_name).bold(),
