@@ -70,7 +70,7 @@ impl Project {
         self
     }
 
-    pub fn with_domain(mut self, domain_name: String) -> Self {
+    pub fn set_domain_name(mut self, domain_name: String) -> Self {
         self.domain_name = Some(domain_name);
         self
     }

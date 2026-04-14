@@ -168,7 +168,7 @@ impl TryFrom<ConfigFile> for Project {
         }
 
         if let Some(domain) = cfg.domain {
-            project = project.with_domain(domain.name);
+            project = project.set_domain_name(domain.name);
         }
 
         Ok(project)
