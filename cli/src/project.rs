@@ -15,11 +15,11 @@ use crate::envs::Envs;
 use crate::error::Error;
 use crate::function::Function;
 use crate::secrets::Secrets;
-use kinetics_parser::Parser;
 use cache::Cache;
 use config_file::ConfigFile;
 use eyre::WrapErr;
 use http::StatusCode;
+use kinetics_parser::Parser;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -44,18 +44,13 @@ pub struct Project {
     pub observability: Option<Observability>,
 
     /// Domain to be used for the project
-    pub domain: Option<Domain>,
+    pub domain_name: Option<String>,
 }
 
 /// Project's settings for observability
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Observability {
     pub dd_api_key: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Domain {
-    pub name: String,
 }
 
 impl Project {
@@ -66,7 +61,7 @@ impl Project {
             url: String::new(),
             kvdb: Vec::new(),
             observability: None,
-            domain: None,
+            domain_name: None,
         }
     }
 
@@ -75,8 +70,8 @@ impl Project {
         self
     }
 
-    pub fn with_domain(mut self, domain: String) -> Self {
-        self.domain = Some(Domain { name: domain });
+    pub fn with_domain(mut self, domain_name: String) -> Self {
+        self.domain_name = Some(domain_name);
         self
     }
 
@@ -244,10 +239,7 @@ impl Project {
     pub fn functions(&self) -> eyre::Result<Vec<Function>> {
         let parsed = Parser::new(Some(&self.path))?.functions;
 
-        parsed
-            .iter()
-            .map(|f| Function::new(self, f))
-            .collect()
+        parsed.iter().map(|f| Function::new(self, f)).collect()
     }
 
     /// Globally applied env vars sourced from .env file

@@ -36,7 +36,7 @@ impl Runner for StatusRunner<'_> {
         let client = self.api_client().await?;
 
         let domain_name = project
-            .domain
+            .domain_name
             .as_ref()
             .ok_or_else(|| {
                 self.error(
@@ -45,7 +45,6 @@ impl Runner for StatusRunner<'_> {
                     None,
                 )
             })?
-            .name
             .clone();
 
         let request = domain::status::Request {

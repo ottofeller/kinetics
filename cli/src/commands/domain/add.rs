@@ -1,6 +1,5 @@
 use crate::error::Error;
 use crate::project::config_file::ConfigFile;
-use crate::project::Domain;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use serde_json::json;
@@ -31,9 +30,9 @@ impl Runner for AddRunner<'_> {
         let mut project = self.project().await?;
 
         if project
-            .domain
+            .domain_name
             .as_ref()
-            .is_some_and(|d| d.name == self.command.name)
+            .is_some_and(|d| d.eq(&self.command.name))
         {
             self.writer.text(&format!(
                 "\n{}\n{}\n\n",
@@ -57,9 +56,7 @@ impl Runner for AddRunner<'_> {
             .save()
             .map_err(|e| self.server_error(Some(e.into())))?;
 
-        project.domain = Some(Domain {
-            name: self.command.name.clone(),
-        });
+        project.domain_name = Some(self.command.name.clone());
 
         let functions = project
             .functions()

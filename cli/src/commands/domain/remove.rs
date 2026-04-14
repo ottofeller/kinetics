@@ -22,7 +22,7 @@ impl Runner for RemoveRunner<'_> {
         let mut project = self.project().await?;
 
         let domain_name = project
-            .domain
+            .domain_name
             .as_ref()
             .ok_or_else(|| {
                 self.error(
@@ -31,7 +31,6 @@ impl Runner for RemoveRunner<'_> {
                     None,
                 )
             })?
-            .name
             .clone();
 
         let mut config = ConfigFile::from_path(project.path.clone())
@@ -42,7 +41,7 @@ impl Runner for RemoveRunner<'_> {
             .save()
             .map_err(|e| self.server_error(Some(e.into())))?;
 
-        project.domain = None;
+        project.domain_name = None;
 
         // Mark all functions as deploying to enable full deploy on backend
         let functions: Vec<_> = project

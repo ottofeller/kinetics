@@ -38,8 +38,8 @@ impl Validate for Request {
             }
         }
 
-        if let Some(domain) = &self.project.domain {
-            if domain.name.trim().is_empty() {
+        if let Some(domain_name) = &self.project.domain_name {
+            if domain_name.trim().is_empty() {
                 errors.push(
                     "Domain name is missing in [domain] section of kinetics.toml".into(),
                 );
@@ -49,10 +49,10 @@ impl Validate for Request {
                 )
                 .unwrap();
 
-                if !fqdn_re.is_match(domain.name.trim()) {
+                if !fqdn_re.is_match(domain_name.trim()) {
                     errors.push(format!(
                         "Invalid domain format: {}",
-                        domain.name.trim()
+                        domain_name.trim()
                     ));
                 }
             }
