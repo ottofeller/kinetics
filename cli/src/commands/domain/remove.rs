@@ -37,7 +37,7 @@ impl Runner for RemoveRunner<'_> {
             .map_err(|e| self.server_error(Some(e.into())))?;
 
         config
-            .update_domain(None)
+            .set_domain_name(None)
             .save()
             .map_err(|e| self.server_error(Some(e.into())))?;
 

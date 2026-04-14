@@ -52,7 +52,7 @@ impl Runner for AddRunner<'_> {
             .map_err(|e| self.server_error(Some(e.into())))?;
 
         config
-            .update_domain(Some(&self.command.name))
+            .set_domain_name(Some(&self.command.name))
             .save()
             .map_err(|e| self.server_error(Some(e.into())))?;
 

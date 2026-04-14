@@ -105,7 +105,7 @@ impl ConfigFile {
     }
 
     /// Update the domain section with a new name or remove it if name is None
-    pub fn update_domain(&mut self, name: Option<&str>) -> &mut Self {
+    pub fn set_domain_name(&mut self, name: Option<&str>) -> &mut Self {
         if let Some(name) = name {
             self.domain = Some(DomainSection {
                 name: name.to_string(),
