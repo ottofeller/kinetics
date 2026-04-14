@@ -125,7 +125,7 @@ impl TryFrom<ConfigFile> for Project {
     type Error = eyre::Report;
 
     fn try_from(cfg: ConfigFile) -> eyre::Result<Self> {
-        let mut project = Project::new(cfg.path, cfg.project.name).with_kvdb(cfg.kvdb);
+        let mut project = Project::new(cfg.path, cfg.project.name).set_kvdb(cfg.kvdb);
 
         if cfg.observability.is_some() {
             let observability = cfg.observability.unwrap();
@@ -133,7 +133,7 @@ impl TryFrom<ConfigFile> for Project {
             // Read DataDog API key from env, it's not safe to store it in kinetics config file
             let dd_api_key = std::env::var(&observability.dd_api_key_env).unwrap_or_default();
 
-            project = project.with_observability(dd_api_key);
+            project = project.set_observability(dd_api_key);
         }
 
         Ok(project)

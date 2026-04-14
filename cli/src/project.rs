@@ -60,12 +60,12 @@ impl Project {
         }
     }
 
-    fn with_observability(mut self, dd_api_key: String) -> Self {
+    fn set_observability(mut self, dd_api_key: String) -> Self {
         self.observability = Some(Observability { dd_api_key });
         self
     }
 
-    fn with_kvdb(mut self, kvdb: Vec<Kvdb>) -> Self {
+    fn set_kvdb(mut self, kvdb: Vec<Kvdb>) -> Self {
         self.kvdb = kvdb;
         self
     }
