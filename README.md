@@ -82,6 +82,10 @@ Emit logs, metrics, and traces via the OpenTelemetry SDK — we spin up the coll
 
 The infrastructure is always provisioned automatically.
 
+🔌 **Vendor and framework agnostic**
+
+We work hard to build kinetics in a way that does not lock you in to kinetics or any Rust framework. We encourage you to use open source libs over kinetics-specific ones wherever possible.
+
 ## Getting started
 
 ```bash
