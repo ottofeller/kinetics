@@ -36,6 +36,7 @@ pub fn cron(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// - `name`: override the function name
 /// - `concurrency`: max number of concurrent workers
 /// - `fifo`: set to true to enable FIFO processing
+/// - `batch_size`: max number of records to process in a single batch (1..10)
 /// - `environment`: environment variables
 #[proc_macro_attribute]
 pub fn worker(attr: TokenStream, item: TokenStream) -> TokenStream {
