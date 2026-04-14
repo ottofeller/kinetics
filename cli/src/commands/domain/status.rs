@@ -1,6 +1,6 @@
 use crate::api::client::Client;
 use crate::api::domain;
-use crate::api::domain::domain_status::DomainStatus;
+use crate::api::domain::status::DomainStatus;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
