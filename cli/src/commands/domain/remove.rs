@@ -2,6 +2,7 @@ use crate::error::Error;
 use crate::project::config_file::ConfigFile;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
+use crossterm::style::Stylize;
 use serde_json::json;
 
 #[derive(clap::Args, Clone)]
@@ -32,6 +33,17 @@ impl Runner for RemoveRunner<'_> {
                 )
             })?
             .clone();
+
+        self.writer.text(&format!(
+            "You are removing \"{}\" from the project.\n",
+            domain_name.as_str().blue().bold()
+        ))?;
+
+        if !self.writer.confirm("Do you want to proceed?")? {
+            self.writer
+                .text(&format!("{}\n", console::style("Canceled").dim()))?;
+            return Ok(());
+        }
 
         let mut config = ConfigFile::from_path(project.path.clone())
             .map_err(|e| self.server_error(Some(e.into())))?;

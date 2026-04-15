@@ -6,7 +6,6 @@ use crate::writer::Writer;
 use crossterm::style::Stylize;
 use eyre::Context;
 use serde_json::json;
-use std::io::{stdin, stdout, Write};
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct DeleteCommand {
@@ -31,35 +30,12 @@ struct DeleteRunner<'a> {
 impl Runner for DeleteRunner<'_> {
     /// Deletes an access token
     async fn run(&mut self) -> Result<(), Error> {
-        let generic_error = Error::new(
-            "Failed to process the command",
-            Some("Please report a bug at support@deploykinetics.com"),
-        );
-
-        // Ask for confirmation (skip in structured/JSON mode)
-        if !self.writer.is_structured() {
-            self.writer.text(&format!(
-                "\nDelete access token {}? {} ",
-                self.command.name.clone().bold(),
-                "[y/N]".dim()
-            ))?;
-
-            let mut input = String::new();
-
-            stdout().flush().map_err(|e| {
-                log::error!("Failed to write to stdout: {e:?}");
-                generic_error.clone()
-            })?;
-
-            stdin().read_line(&mut input).map_err(|e| {
-                log::error!("Failed to read from stdin: {e:?}");
-                generic_error
-            })?;
-
-            if !matches!(input.trim().to_lowercase().as_ref(), "y" | "yes") {
-                self.writer.text(&format!("{}\n", "Canceled".yellow()))?;
-                return std::result::Result::Ok(());
-            }
+        if !self
+            .writer
+            .confirm(&format!("Delete access token {}?", self.command.name))?
+        {
+            self.writer.text(&format!("{}\n", "Canceled".yellow()))?;
+            return Ok(());
         }
 
         self.writer.text(&format!(

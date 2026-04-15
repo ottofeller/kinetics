@@ -5,7 +5,6 @@ use crate::writer::Writer;
 use crossterm::style::Stylize;
 use eyre::Context;
 use serde_json::json;
-use std::io::{self, Write};
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct DestroyCommand {
@@ -52,35 +51,15 @@ impl Runner for DestroyRunner<'_> {
             }
         };
 
-        // Ask for confirmation (skip in structured/JSON mode)
-        if !self.writer.is_structured() {
-            self.writer.text(&format!(
-                "You are destroying \"{}\" project.\n",
-                project.name.as_str().blue().bold()
-            ))?;
-            self.writer.text(&format!(
-                "{} {}: ",
-                "Do you want to proceed?".bold(),
-                "[y/N]".dim()
-            ))?;
+        self.writer.text(&format!(
+            "You are destroying \"{}\" project.\n",
+            project.name.as_str().blue().bold()
+        ))?;
 
-            io::stdout()
-                .flush()
-                .wrap_err("Failed to process stdout")
-                .map_err(|e| self.error(None, None, Some(e.into())))?;
-
-            let mut input = String::new();
-
-            io::stdin()
-                .read_line(&mut input)
-                .wrap_err("Failed to read user's input")
-                .map_err(|e| self.error(None, None, Some(e.into())))?;
-
-            if !matches!(input.trim().to_lowercase().as_ref(), "y" | "yes") {
-                self.writer
-                    .text(&format!("{}\n", "Destroying canceled".dim().bold()))?;
-                return Ok(());
-            }
+        if !self.writer.confirm("Do you want to proceed?")? {
+            self.writer
+                .text(&format!("{}\n", "Destroying canceled".dim().bold()))?;
+            return Ok(());
         }
 
         self.writer
