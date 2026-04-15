@@ -63,7 +63,7 @@ impl Runner for AddRunner<'_> {
             .map_err(|e| self.server_error(Some(e.into())))?;
 
         self.writer.text(&format!(
-            "\n{} {} {}...",
+            "\n{} {} {}...\n",
             console::style("Provisioning domain").green().bold(),
             console::style("for").dim(),
             console::style(&self.command.name).bold(),
@@ -84,7 +84,7 @@ impl Runner for AddRunner<'_> {
             .collect();
 
         self.writer.text(&format!(
-            "\n\n{}\n\n\
+            "\n{}\n\n\
             {}\n\n\
             {}\n\n\
             {}\n\
