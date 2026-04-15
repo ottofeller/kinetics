@@ -1,8 +1,10 @@
+use crate::config::build_config;
 use crate::error::Error;
 use crate::project::config_file::ConfigFile;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use serde_json::json;
+use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct AddCommand {
@@ -59,7 +61,7 @@ impl Runner for AddRunner<'_> {
         project.domain_name = Some(self.command.name.clone());
 
         let functions = project
-            .functions()
+            .parse(PathBuf::from(build_config()?.kinetics_path), &[])
             .map_err(|e| self.server_error(Some(e.into())))?;
 
         self.writer.text(&format!(

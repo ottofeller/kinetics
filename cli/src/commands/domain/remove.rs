@@ -1,9 +1,11 @@
+use crate::config::build_config;
 use crate::error::Error;
 use crate::project::config_file::ConfigFile;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use crossterm::style::Stylize;
 use serde_json::json;
+use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct RemoveCommand;
@@ -57,7 +59,7 @@ impl Runner for RemoveRunner<'_> {
 
         // Mark all functions as deploying to enable full deploy on backend
         let functions: Vec<_> = project
-            .functions()
+            .parse(PathBuf::from(build_config()?.kinetics_path), &[])
             .map_err(|e| self.server_error(Some(e.into())))?
             .into_iter()
             .map(|f| f.set_is_deploying(true))
