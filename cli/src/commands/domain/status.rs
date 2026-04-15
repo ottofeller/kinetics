@@ -1,32 +1,20 @@
-use crate::api::client::Client;
 use crate::api::domain;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
-use eyre::Context;
+use eyre::WrapErr;
 use serde_json::json;
-use std::time::Duration;
-
-const WATCH_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(clap::Args, Clone)]
-pub(crate) struct StatusCommand {
-    /// Poll until the domain is ready or fails
-    #[arg(long, default_value_t = false)]
-    watch: bool,
-}
+pub(crate) struct StatusCommand;
 
 impl Runnable for StatusCommand {
     fn runner(&self, writer: &Writer) -> impl Runner {
-        StatusRunner {
-            command: self.clone(),
-            writer,
-        }
+        StatusRunner { writer }
     }
 }
 
 struct StatusRunner<'a> {
-    command: StatusCommand,
     writer: &'a Writer,
 }
 
@@ -52,8 +40,10 @@ impl Runner for StatusRunner<'_> {
             project: project.name,
         };
 
-        let response = check_status(&client, &request)
+        let response = client
+            .request::<_, domain::status::Response>("/domain/status", request)
             .await
+            .wrap_err("Failed to get domain status")
             .map_err(|e| self.server_error(Some(e.into())))?;
 
         if self.writer.is_structured() {
@@ -64,34 +54,6 @@ impl Runner for StatusRunner<'_> {
             }))?;
 
             return Ok(());
-        }
-
-        let is_watching = self.command.watch;
-        let waiting_msg = format!(
-            "{}",
-            console::style("\nWaiting for DNS propagation... (Ctrl+C to stop)\n").dim()
-        );
-        let mut first = true;
-        let mut response;
-
-        loop {
-            response = check_status(&client, &request)
-                .await
-                .map_err(|e| self.server_error(Some(e.into())))?;
-
-            if !first {
-                self.writer.text("\x1b[6A\x1b[0J")?;
-            }
-
-            self.writer.text(&format_status(&response))?;
-
-            if !is_watching || response.status.is_pending() {
-                break;
-            }
-
-            self.writer.text(&waiting_msg)?;
-            first = false;
-            tokio::time::sleep(WATCH_INTERVAL).await;
         }
 
         if response.status.is_pending() {
@@ -142,36 +104,4 @@ impl Runner for StatusRunner<'_> {
 
         Ok(())
     }
-}
-
-fn format_status(response: &domain::status::Response) -> String {
-    let status_style = if response.status.is_ready() || response.status.is_deployed() {
-        console::style(response.status.to_string()).green()
-    } else if response.status.is_error() {
-        console::style(response.status.to_string()).red()
-    } else {
-        console::style(response.status.to_string()).yellow()
-    };
-
-    let last_checked = match response.last_checked_at {
-        Some(t) => t.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
-        None => "Not checked yet".to_string(),
-    };
-
-    format!(
-        "\n  Domain:       {}\n  Status:       {}\n  Last checked: {}\n",
-        console::style(&response.domain).bold(),
-        status_style.bold(),
-        last_checked,
-    )
-}
-
-async fn check_status(
-    client: &Client,
-    request: &domain::status::Request,
-) -> eyre::Result<domain::status::Response> {
-    client
-        .request("/domain/status", request.clone())
-        .await
-        .wrap_err("Failed to get domain status")
 }

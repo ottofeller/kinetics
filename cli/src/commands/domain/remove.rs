@@ -5,7 +5,7 @@ use crate::writer::Writer;
 use serde_json::json;
 
 #[derive(clap::Args, Clone)]
-pub(crate) struct RemoveCommand {}
+pub(crate) struct RemoveCommand;
 
 impl Runnable for RemoveCommand {
     fn runner(&self, writer: &Writer) -> impl Runner {
