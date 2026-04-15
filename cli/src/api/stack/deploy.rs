@@ -1,8 +1,10 @@
 use crate::api::request::Validate;
+use crate::config::build_config;
 use crate::{function::Function, project::Project};
 use kinetics_parser::{Params, Role};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
 pub mod envs;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -39,6 +41,10 @@ impl Validate for Request {
         }
 
         if let Some(domain_name) = &self.project.domain_name {
+            if domain_name.is_empty() {
+                errors.push("Domain cannot be empty".into());
+            }
+
             let fqdn_re = regex::Regex::new(
                 r"^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$",
             )
@@ -46,6 +52,19 @@ impl Validate for Request {
 
             if !fqdn_re.is_match(domain_name.trim()) {
                 errors.push(format!("Invalid domain format: {}", domain_name.trim()));
+            }
+
+            // Check if the domain is different from the service domain
+            if let Ok(config) = build_config() {
+                let service_domain = config.domain_name;
+
+                if domain_name == service_domain
+                    || domain_name.ends_with(&format!(".{service_domain}"))
+                {
+                    errors.push(format!("Cannot use {service_domain} or its subdomains"));
+                }
+            } else {
+                errors.push("Failed to get build config".into());
             }
         }
 

@@ -4,6 +4,7 @@ use std::sync::OnceLock;
 
 #[derive(Debug)]
 pub(crate) struct BuildConfig<'a> {
+    pub(crate) domain_name: &'a str,
     pub(crate) api_base: &'a str,
     pub(crate) kinetics_path: &'a str,
     pub(crate) credentials_path: &'a str,
@@ -23,9 +24,8 @@ pub(crate) fn build_config() -> Result<&'static BuildConfig<'static>, Error> {
     })?;
 
     Ok(BUILD_CONFIG.get_or_init(|| {
-        let api_base =
-            option_env!("KINETICS_API_BASE").unwrap_or("https://backend.kineticscloud.com/");
-
+        let domain_name = option_env!("KINETICS_DOMAIN").unwrap_or("kineticscloud.com");
+        let api_base = Box::leak(format!("https://backend.{}", domain_name).into_boxed_str());
         let build_path_raw = Path::new(&home_dir).join(".kinetics");
 
         // Create a static string to avoid referencing temporary value
@@ -46,6 +46,7 @@ pub(crate) fn build_config() -> Result<&'static BuildConfig<'static>, Error> {
         );
 
         BuildConfig {
+            domain_name,
             api_base,
             kinetics_path: build_path,
             credentials_path,
