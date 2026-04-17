@@ -1,5 +1,4 @@
 use crate::api::request::Validate;
-use crate::config::build_config;
 use crate::{function::Function, project::Project};
 use kinetics_parser::{Params, Role};
 use serde::{Deserialize, Serialize};
@@ -17,6 +16,9 @@ pub struct Request {
 }
 
 const MAX_MESSAGE_LENGTH: usize = 100;
+
+/// The domain name of the service
+const SERVICE_DOMAIN: &str = "kineticscloud.com";
 
 impl Validate for Request {
     fn validate(&self) -> Option<Vec<String>> {
@@ -55,16 +57,9 @@ impl Validate for Request {
             }
 
             // Check if the domain is different from the service domain
-            if let Ok(config) = build_config() {
-                let service_domain = config.domain_name;
-
-                if domain_name == service_domain
-                    || domain_name.ends_with(&format!(".{service_domain}"))
-                {
-                    errors.push(format!("Cannot use {service_domain} or its subdomains"));
-                }
-            } else {
-                errors.push("Failed to get build config".into());
+            if domain_name == SERVICE_DOMAIN || domain_name.ends_with(&format!(".{SERVICE_DOMAIN}"))
+            {
+                errors.push(format!("Cannot use {SERVICE_DOMAIN} or its subdomains"));
             }
         }
 

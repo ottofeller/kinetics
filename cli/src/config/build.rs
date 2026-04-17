@@ -4,7 +4,6 @@ use std::sync::OnceLock;
 
 #[derive(Debug)]
 pub(crate) struct BuildConfig<'a> {
-    pub(crate) domain_name: &'a str,
     pub(crate) api_base: &'a str,
     pub(crate) kinetics_path: &'a str,
     pub(crate) credentials_path: &'a str,
@@ -46,7 +45,6 @@ pub(crate) fn build_config() -> Result<&'static BuildConfig<'static>, Error> {
         );
 
         BuildConfig {
-            domain_name,
             api_base,
             kinetics_path: build_path,
             credentials_path,
