@@ -32,7 +32,7 @@ pub struct ParsedFunction {
     /// Path to the file where function is defined
     pub relative_path: PathBuf,
 
-    /// Path to the package where function is defined
+    /// The name of the package where function is defined
     pub pkg_name: String,
 
     /// Path to the package where function is defined

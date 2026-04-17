@@ -14,7 +14,7 @@ pub struct Package {
     /// The name of the package as defined in its Cargo.toml
     pub name: String,
 
-    /// Absolute path to the package from workspace root
+    /// Relative path to the package from workspace root
     pub relative_path: PathBuf,
 }
 
