@@ -49,7 +49,7 @@ impl Workspace {
         //  - the project can contain kinetics.toml;
         //  - for the name fall back to Cargo.toml.
         let root_config = metadata.workspace_root.join("kinetics.toml");
-        let member_configs: Vec<_> = metadata
+        let members_configs: Vec<_> = metadata
             .workspace_members
             .iter()
             .filter_map(|member| {
@@ -69,7 +69,7 @@ impl Workspace {
             })
             .collect();
 
-        if root_config.exists() && !member_configs.is_empty() {
+        if root_config.exists() && !members_configs.is_empty() {
             return Err(eyre::eyre!("Workspace is not allowed to have `kinetics.toml` within its root and within its members at the same time."));
         }
 
