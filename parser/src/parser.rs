@@ -11,7 +11,7 @@ use walkdir::WalkDir;
 /// For a standalone crate represents the crate itself.
 #[derive(Clone, Debug, Default)]
 pub struct Package {
-    /// The name of the package as defined in its Cargo.toml
+    /// Name from Cargo.toml
     pub name: String,
 
     /// Relative path to the package from workspace root
