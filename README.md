@@ -54,6 +54,10 @@ Deploy REST API endpoints, queue workers, and cron jobs.
 
 Run your functions locally, with no connection to the internet. Requests to DB and queues are served locally as well.
 
+🌐 **Custom domains**
+
+Connect your own domain to any project. Kinetics provisions the TLS certificate, configures DNS.
+
 💿 **Comes with SQL database**
 
 For every project we provision a SQL DB, with connection string being added to function config automatically.
@@ -160,6 +164,29 @@ Store secrets in `.env.secrets` file in the root directory of your crate. Kineti
 Alternatively store the secrets in environment variables starting with `KINETICS_SECRET_`. This way might be more suitable for CI/CD environments.
 
 [Example](https://github.com/ottofeller/kinetics/blob/main/examples/src/secrets.rs).
+
+#### Custom Domain
+
+Connect your own domain to a Kinetics project. The CLI writes the domain into `kinetics.toml`. Kinetics verifies your
+domain, requests an SSL certificate, and wires everything up automatically.
+
+```sh
+# Add a domain — triggers a deploy that creates the hosted zone
+kinetics domain add example.com
+
+# Update nameservers at your registrar to ns1-4.kineticscloud.com,
+# then check propagation status
+kinetics domain status
+
+# Once status is Ready, deploy to activate the domain
+kinetics deploy
+
+# Remove the domain (cleans up DNS records, certificate, and hosted zone)
+kinetics domain remove
+```
+
+Domain status flow: **Pending** → **Ready** (nameservers verified) → **Deployed** (serving traffic).
+If NS records don't propagate within 48 hours the status moves to **Error**.
 
 #### Database
 
