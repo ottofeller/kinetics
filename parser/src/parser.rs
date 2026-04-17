@@ -67,11 +67,11 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    pub fn set_pkg(&mut self, pkg: Option<&'a Package>) {
+    fn set_pkg(&mut self, pkg: Option<&'a Package>) {
         self.pkg = pkg.to_owned();
     }
 
-    pub fn set_fn_rel_path(&mut self, file_path: Option<&Path>) {
+    fn set_fn_rel_path(&mut self, file_path: Option<&Path>) {
         self.fn_rel_path = file_path.map(PathBuf::from).unwrap_or_default();
     }
 
