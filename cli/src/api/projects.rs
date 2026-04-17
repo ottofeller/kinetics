@@ -1,6 +1,4 @@
-use crate::project::{Project, Workspace};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Response {
@@ -17,17 +15,4 @@ pub struct ProjectInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Kvdb {
     pub name: String,
-}
-
-impl From<ProjectInfo> for Project {
-    fn from(value: ProjectInfo) -> Self {
-        Self {
-            path: PathBuf::new(),
-            workspace: Workspace::default(),
-            name: value.name,
-            url: value.url,
-            kvdb: value.kvdb,
-            observability: None,
-        }
-    }
 }
