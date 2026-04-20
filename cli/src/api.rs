@@ -3,7 +3,7 @@ pub mod auth;
 // Export Client type for use with other public interfaces.
 pub mod client;
 
-pub mod domain;
+pub mod domains;
 pub mod envs;
 pub mod func;
 pub mod project;
