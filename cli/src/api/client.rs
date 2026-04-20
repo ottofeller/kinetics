@@ -69,7 +69,22 @@ impl Client {
         log::info!("Got response from {path}: {text}");
 
         if status != StatusCode::OK {
-            return Err(Error::new("Request failed", Some("Try again in a few seconds.")).into());
+            let response: serde_json::Value = serde_json::from_str(&text).wrap_err(Error::new(
+                "Invalid response from server",
+                Some("Try again later."),
+            ))?;
+
+            return Err(Error::new(
+                "Failed to invite member",
+                Some(
+                    response
+                        .get("error")
+                        .unwrap_or(&serde_json::Value::Null)
+                        .as_str()
+                        .unwrap_or("Unknown error"),
+                ),
+            )
+            .into());
         }
 
         Ok(serde_json::from_str(&text).wrap_err("Could not parse")?)
