@@ -222,7 +222,7 @@ impl Project {
 
         let modules = functions.iter().filter_map(|f| {
             // Take the first path component from each module in the src folder, and export it.
-            match Path::new(&f.display_path())
+            match Path::new(&f.to_string())
                 .strip_prefix("src")
                 .ok()?
                 .with_extension("")

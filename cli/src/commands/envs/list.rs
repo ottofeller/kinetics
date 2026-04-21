@@ -87,7 +87,7 @@ impl Runner for ListRunner<'_> {
                 })
                 .ok_or(eyre!("Parsed artifact has no function name"))
                 .map_err(|e| self.error(None, None, Some(e.into())))?
-                .display_path();
+                .to_string();
 
             self.writer.text(&format!(
                 "{} {}\n",

@@ -45,14 +45,19 @@ pub struct ParsedFunction {
     pub params: Params,
 }
 
-impl ParsedFunction {
-    pub fn display_path(&self) -> String {
-        self.pkg_rel_path
-            .join(&self.relative_path)
-            .to_string_lossy()
-            .to_string()
+impl Display for ParsedFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.pkg_rel_path
+                .join(&self.relative_path)
+                .to_string_lossy()
+        )
     }
+}
 
+impl ParsedFunction {
     /// Convert a path to CamelCase name
     pub fn to_local_name(paths: &[&str]) -> String {
         paths

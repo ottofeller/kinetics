@@ -154,7 +154,7 @@ impl ListRunner<'_> {
             let mut entry = json!({
                 "name": f.func_name(false)?,
                 "role": format!("{:?}", f.role).to_lowercase(),
-                "path": f.display_path(),
+                "path": f.to_string(),
             });
 
             if let Params::Cron(ref params) = f.params {
@@ -201,7 +201,7 @@ impl ListRunner<'_> {
                 .await?
                 .unwrap_or_else(|| "NA".into());
 
-            let func_path = parsed_function.display_path();
+            let func_path = parsed_function.to_string();
 
             match parsed_function.params {
                 Params::Endpoint(params) => {
@@ -311,7 +311,7 @@ impl ListRunner<'_> {
             .text(&format!(
                 "{} {}\n",
                 function.func_name(false)?.bold(),
-                function.display_path().dimmed(),
+                function.to_string().dimmed(),
             ))
             .map_err(|e| eyre::eyre!(e))?;
 
