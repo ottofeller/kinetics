@@ -75,7 +75,7 @@ impl Client {
             ))?;
 
             return Err(Error::new(
-                "Failed to invite member",
+                "Request failed",
                 Some(
                     response
                         .get("error")
