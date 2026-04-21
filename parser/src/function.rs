@@ -58,7 +58,8 @@ impl Display for ParsedFunction {
 }
 
 impl ParsedFunction {
-    /// Convert a path to CamelCase name
+    /// Convert a collection of path segments
+    /// to CamelCase name
     pub fn to_local_name(paths: &[&str]) -> String {
         paths
             .iter()
