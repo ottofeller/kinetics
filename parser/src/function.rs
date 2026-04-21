@@ -54,7 +54,7 @@ impl ParsedFunction {
     }
 
     /// Convert a path to CamelCase name
-    pub fn path_to_name(paths: &[&str]) -> String {
+    pub fn to_local_name(paths: &[&str]) -> String {
         paths
             .iter()
             .flat_map(|path| {
@@ -75,7 +75,7 @@ impl ParsedFunction {
     /// function name requirements.
     pub fn func_name(&self, is_local: bool) -> eyre::Result<String> {
         let rust_name = &self.rust_function_name;
-        let default_func_name = Self::path_to_name(&[
+        let default_func_name = Self::to_local_name(&[
             &self.pkg_name,
             self.relative_path
                 .strip_prefix("src")?
