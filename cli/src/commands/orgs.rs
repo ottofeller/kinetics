@@ -1,8 +1,10 @@
 pub mod create;
 pub mod delete;
+pub mod invite;
 pub mod list;
 use crate::commands::orgs::create::CreateCommand;
 use crate::commands::orgs::delete::DeleteCommand;
+use crate::commands::orgs::invite::InviteCommand;
 use crate::commands::orgs::list::ListCommand;
 use clap::Subcommand;
 
@@ -13,6 +15,9 @@ pub(crate) enum OrgsCommands {
 
     /// Delete an org
     Delete(DeleteCommand),
+
+    /// Invite a member to an org (sends an email)
+    Invite(InviteCommand),
 
     /// List all orgs you belong to
     List(ListCommand),
