@@ -16,8 +16,8 @@ impl Validate for Request {
             errors.push("Invalid \"project\". Must not be empty.".into());
         }
 
-        if !validators::Domain::validate(&self.domain_name) {
-            errors.push(validators::Domain::message());
+        if !validators::Name::validate(&self.domain_name) {
+            errors.push(validators::Name::message());
         }
 
         if !errors.is_empty() {
