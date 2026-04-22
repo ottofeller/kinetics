@@ -5,7 +5,6 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use chrono::{DateTime, Utc};
 use eyre::Context;
-use kinetics_parser::Parser;
 use serde_json::json;
 
 #[derive(clap::Args, Clone)]
@@ -46,12 +45,8 @@ impl Runner for LogsRunner<'_> {
         let project = self.project().await?;
 
         // Get all function names without any additional manipulations.
-        let all_functions = Parser::new(Some(&project.path))
-            .map_err(|e| self.error(None, None, Some(e.into())))?
-            .functions
-            .into_iter()
-            .map(|f| Function::new(&project, &f))
-            .collect::<eyre::Result<Vec<Function>>>()
+        let all_functions = project
+            .functions()
             .map_err(|e| self.error(None, None, Some(e.into())))?;
 
         let function = Function::find_by_name(&all_functions, &self.command.name).map_err(|e| {
