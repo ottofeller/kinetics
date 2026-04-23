@@ -6,6 +6,7 @@ pub struct Request {}
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Member {
     pub email: String,
+    pub is_owner: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

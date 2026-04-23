@@ -40,18 +40,19 @@ impl Runner for ListRunner<'_> {
         }
 
         for org in &response.orgs {
-            self.writer.text(&format!(
-                "{}{}",
-                console::style(&org.name).white().bold(),
-                if org.is_owner {
-                    format!("{}", console::style(" (owner)").dim())
-                } else {
-                    "".into()
-                },
-            ))?;
+            self.writer
+                .text(&format!("{}", console::style(&org.name).white().bold(),))?;
 
             for member in &org.members {
-                self.writer.text(&format!("\n{}", member.email))?;
+                self.writer.text(&format!(
+                    "\n{}{}",
+                    member.email,
+                    if member.is_owner {
+                        format!("{}", console::style(" (owner)").dim())
+                    } else {
+                        "".into()
+                    }
+                ))?;
             }
 
             self.writer.text("\n\n")?;
