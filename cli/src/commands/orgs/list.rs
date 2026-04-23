@@ -33,7 +33,7 @@ impl Runner for ListRunner<'_> {
 
         if response.orgs.is_empty() {
             self.writer
-                .text(&format!("{}", console::style("No orgs found").yellow()))?;
+                .text(&format!("{}\n", console::style("No orgs found").yellow()))?;
 
             self.writer.json(json!({"success": true, "orgs": []}))?;
             return Ok(());
