@@ -19,6 +19,18 @@ pub struct Workspace {
 impl Workspace {
     pub fn from_path(path: &Path) -> eyre::Result<Self> {
         let metadata = MetadataCommand::new().current_dir(path).exec()?;
+        let convert_package = |pkg: &cargo_metadata::Package| -> Option<Package> {
+            Some(Package {
+                name: ConfigFile::cargo_toml_name(pkg.manifest_path.parent()?.as_std_path())
+                    .ok()?,
+                relative_path: pkg
+                    .manifest_path
+                    .strip_prefix(&metadata.workspace_root)
+                    .ok()?
+                    .parent()? // Remove filename and keep only the dir name.
+                    .into(),
+            })
+        };
 
         // Validate workspace rules for kinetics:
         // 1. Workspace as a single kinetics project:
@@ -27,7 +39,43 @@ impl Workspace {
         // 2. Standalone kinetics project:
         //  - the project can contain kinetics.toml;
         //  - for the name fall back to Cargo.toml.
+        // 3. Workspace member is a kinetics project:
+        //  - workspace member from where the command is called MUST have kinetics.toml.
+        //  - the workspace root cannot have kinetics.toml - throw an error.
         let root_config = metadata.workspace_root.join("kinetics.toml");
+
+        // Option 3. A call within a workspace member which is a kinetics project
+        if metadata.workspace_root != path && path.join("kinetics.toml").exists() {
+            if root_config.exists() {
+                eyre::bail!("Workspace is not allowed to have `kinetics.toml` within its root and within its members at the same time.");
+            }
+
+            let cwd_manifest = path.join("Cargo.toml");
+            return Ok(Self {
+                packages: metadata
+                    .workspace_members
+                    .into_iter()
+                    .filter_map(|member| {
+                        metadata
+                            .packages
+                            .iter()
+                            .find(|pkg| pkg.id == member)
+                            .and_then(|pkg| {
+                                // Take only the member corresponding to cwd - current project
+                                // and discard all other members.
+                                if pkg.manifest_path == cwd_manifest {
+                                    convert_package(pkg)
+                                } else {
+                                    None
+                                }
+                            })
+                    })
+                    .collect(),
+                root_path: metadata.workspace_root.into_std_path_buf(),
+            });
+        }
+
+        // Options 1 and 2. A call from root.
         let members_configs: Vec<_> = metadata
             .workspace_members
             .iter()
@@ -49,7 +97,7 @@ impl Workspace {
             .collect();
 
         if root_config.exists() && !members_configs.is_empty() {
-            return Err(eyre::eyre!("Workspace is not allowed to have `kinetics.toml` within its root and within its members at the same time."));
+            eyre::bail!("Workspace is not allowed to have `kinetics.toml` within its root and within its members at the same time.");
         }
 
         Ok(Self {
@@ -61,20 +109,7 @@ impl Workspace {
                         .packages
                         .iter()
                         .find(|pkg| pkg.id == member)
-                        .and_then(|pkg| {
-                            Some(Package {
-                                name: ConfigFile::cargo_toml_name(
-                                    pkg.manifest_path.parent()?.as_std_path(),
-                                )
-                                .ok()?,
-                                relative_path: pkg
-                                    .manifest_path
-                                    .strip_prefix(&metadata.workspace_root)
-                                    .ok()?
-                                    .parent()? // Remove filename and keep only the dir name.
-                                    .into(),
-                            })
-                        })
+                        .and_then(convert_package)
                 })
                 .collect(),
             root_path: metadata.workspace_root.into_std_path_buf(),

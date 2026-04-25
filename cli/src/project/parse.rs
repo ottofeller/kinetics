@@ -23,7 +23,7 @@ impl Project {
         // to mark the requested functions as requested for deployment
         deploy_functions: &[String],
     ) -> eyre::Result<Vec<Function>> {
-        let src = &self.path;
+        let src = &self.workspace.root_path;
         let dst = dst.join(&self.name);
         // Checksums of source files for preventing rewrite existing files
         let mut checksum = FileHash::new(dst.to_path_buf());
@@ -96,7 +96,8 @@ impl Project {
         self.clear_dir(&dst, &checksum)?;
 
         // Create a new project instance for the target build directory
-        let dst_project = Project::from_path(dst)?;
+        let rel_path = self.path.strip_prefix(&self.workspace.root_path)?;
+        let dst_project = Project::from_path(dst.join(rel_path))?;
         all_functions
             .into_iter()
             .map(|f| {
