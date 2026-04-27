@@ -50,6 +50,7 @@ impl Workspace {
                 eyre::bail!("Workspace is not allowed to have `kinetics.toml` within its root and within its members at the same time.");
             }
 
+            // Return `Workspace` with only one package in the `packages` list - current project.
             let cwd_manifest = path.join("Cargo.toml");
             return Ok(Self {
                 packages: metadata
