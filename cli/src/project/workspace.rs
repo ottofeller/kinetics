@@ -42,11 +42,11 @@ impl Workspace {
         // 3. Workspace member is a kinetics project:
         //  - workspace member from where the command is called MUST have kinetics.toml.
         //  - the workspace root cannot have kinetics.toml - throw an error.
-        let root_config = metadata.workspace_root.join("kinetics.toml");
+        let workspace_config = metadata.workspace_root.join("kinetics.toml");
 
         // Option 3. A call within a workspace member which is a kinetics project
         if metadata.workspace_root != path && path.join("kinetics.toml").exists() {
-            if root_config.exists() {
+            if workspace_config.exists() {
                 eyre::bail!("Workspace is not allowed to have `kinetics.toml` within its root and within its members at the same time.");
             }
 
@@ -96,7 +96,7 @@ impl Workspace {
             })
             .collect();
 
-        if root_config.exists() && !members_configs.is_empty() {
+        if workspace_config.exists() && !members_configs.is_empty() {
             eyre::bail!("Workspace is not allowed to have `kinetics.toml` within its root and within its members at the same time.");
         }
 
