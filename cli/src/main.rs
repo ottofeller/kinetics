@@ -125,8 +125,11 @@ async fn main() -> Result<(), Error> {
         Commands::Orgs(orgs) => match orgs {
             commands::orgs::OrgsCommands::Create(cmd) => cli.run(cmd).await,
             commands::orgs::OrgsCommands::Delete(cmd) => cli.run(cmd).await,
-            commands::orgs::OrgsCommands::Invite(cmd) => cli.run(cmd).await,
             commands::orgs::OrgsCommands::List(cmd) => cli.run(cmd).await,
+            commands::orgs::OrgsCommands::Members(members) => match members {
+                commands::orgs::members::MembersCommands::Invite(cmd) => cli.run(cmd).await,
+                commands::orgs::members::MembersCommands::Delete(cmd) => cli.run(cmd).await,
+            },
         },
 
         Commands::Init(cmd) => cli.run(cmd).await,

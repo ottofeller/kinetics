@@ -1,11 +1,11 @@
-use crate::api::orgs::invite::{Request, Response};
+use crate::api::orgs::members::invite::{Request, Response};
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use serde_json::json;
 
 #[derive(clap::Args, Clone)]
-pub(crate) struct InviteCommand {
+pub(crate) struct InviteMemberCommand {
     /// Email of the person to invite
     email: String,
 
@@ -14,21 +14,21 @@ pub(crate) struct InviteCommand {
     org: String,
 }
 
-impl Runnable for InviteCommand {
+impl Runnable for InviteMemberCommand {
     fn runner(&self, writer: &Writer) -> impl Runner {
-        InviteRunner {
+        InviteMemberRunner {
             command: self.clone(),
             writer,
         }
     }
 }
 
-struct InviteRunner<'a> {
-    command: InviteCommand,
+struct InviteMemberRunner<'a> {
+    command: InviteMemberCommand,
     writer: &'a Writer,
 }
 
-impl Runner for InviteRunner<'_> {
+impl Runner for InviteMemberRunner<'_> {
     async fn run(&mut self) -> Result<(), Error> {
         let org = self.command.org.clone();
         let email = self.command.email.clone();
