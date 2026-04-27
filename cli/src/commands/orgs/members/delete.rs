@@ -82,8 +82,7 @@ impl Runner for DeleteMemberRunner<'_> {
                     username: username.clone(),
                 },
             )
-            .await
-            .map_err(|e| self.server_error(Some(e.into())))?;
+            .await?;
 
         self.writer
             .text(&format!("\n{}\n", console::style("Done").green().bold()))?;
