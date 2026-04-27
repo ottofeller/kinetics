@@ -19,7 +19,7 @@ impl Name {
     }
 
     pub fn message() -> String {
-        "Invalid \"name\". Must be 2-32 characters long and contain only letters (a-z, A-Z), hyphens (-), and underscores (_).".into()
+        "Invalid org name. Must be 2-32 characters long and contain only letters (a-z, A-Z), hyphens (-), and underscores (_).".into()
     }
 }
 

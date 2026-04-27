@@ -1,5 +1,5 @@
 pub mod create;
 pub mod delete;
-pub mod invite;
+pub mod members;
 pub mod list;
 pub mod validators;
