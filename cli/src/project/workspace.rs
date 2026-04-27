@@ -20,9 +20,12 @@ impl Workspace {
     pub fn from_path(path: &Path) -> eyre::Result<Self> {
         let metadata = MetadataCommand::new().current_dir(path).exec()?;
         // Convert [cargo_metadata::Package] into a simpler representation
-        // keeping only necessary data:
+        // keeping only necessary data (in order to avoid these transforms at consuming code):
         // - the name from Cargo.toml
         // - the relative path from workspace root to the package dir.
+        //
+        // The closure is used instead of impl From
+        // in order to access metadata from outer scope.
         let convert_package = |pkg: &cargo_metadata::Package| -> Option<Package> {
             Some(Package {
                 name: ConfigFile::cargo_toml_name(pkg.manifest_path.parent()?.as_std_path())
