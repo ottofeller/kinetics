@@ -19,17 +19,8 @@ pub(crate) trait Runner {
 
     /// Current working project
     async fn project(&self) -> Result<Project, Error> {
-        let project = Project::from_current_dir();
-
-        if project.is_err() {
-            return Err(self.error(
-                Some("Project error"),
-                Some(&project.err().unwrap().to_string()),
-                None,
-            ));
-        }
-
-        Ok(project?)
+        Project::from_current_dir()
+            .map_err(|e| self.error(Some("Project error"), Some(&e.to_string()), None))
     }
 
     /// Run the command
