@@ -3,6 +3,7 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use clap::ArgAction;
 use runner::DeployRunner;
+use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct DeployCommand {
@@ -25,6 +26,10 @@ pub(crate) struct DeployCommand {
     /// Message to include in the deployment (max 100 characters)
     #[arg(short, long)]
     message: Option<String>,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    pub(crate) project: Option<PathBuf>,
 }
 
 impl Runnable for DeployCommand {

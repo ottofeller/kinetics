@@ -3,6 +3,7 @@ use crate::migrations::Migrations;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use serde_json::json;
+use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct CreateCommand {
@@ -13,6 +14,10 @@ pub(crate) struct CreateCommand {
     /// Relative path to migrations directory
     #[arg(short, long, value_name = "PATH", default_value = "migrations")]
     path: String,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
 }
 
 impl Runnable for CreateCommand {
@@ -32,7 +37,7 @@ struct CreateRunner<'a> {
 impl Runner for CreateRunner<'_> {
     /// Creates a new database migration file
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project().await?;
+        let project = self.project(&self.command.project).await?;
         let migrations_path = project.path.join(&self.command.path);
 
         // Create migrations directory if it doesn't exist

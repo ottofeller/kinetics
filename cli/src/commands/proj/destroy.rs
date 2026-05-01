@@ -6,12 +6,17 @@ use crossterm::style::Stylize;
 use eyre::Context;
 use serde_json::json;
 use std::io::{self, Write};
+use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct DestroyCommand {
     /// Name of the project to destroy (optional, defaults to current project name)
     #[arg(short, long)]
     name: Option<String>,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
 }
 
 impl Runnable for DestroyCommand {
@@ -31,7 +36,7 @@ struct DestroyRunner<'a> {
 impl Runner for DestroyRunner<'_> {
     /// Destroys a project after user confirmation
     async fn run(&mut self) -> Result<(), Error> {
-        let current_project = self.project().await?;
+        let current_project = self.project(&self.command.project).await?;
 
         let project_name = match &self.command.name {
             Some(name) => name.as_str(),

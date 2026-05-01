@@ -86,11 +86,6 @@ impl Project {
         ConfigFile::from_path(path)?.try_into()
     }
 
-    /// Creates a new project instance from the current directory
-    pub fn from_current_dir() -> eyre::Result<Self> {
-        Self::from_path(std::env::current_dir().wrap_err("Failed to get current dir")?)
-    }
-
     /// Get project by name, with automatic cache management.
     ///
     /// Returns an error if the API request fails or if there are filesystem issues

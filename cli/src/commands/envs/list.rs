@@ -17,6 +17,10 @@ pub(crate) struct ListCommand {
     /// When passed shows env vars used by deployed functions
     #[arg(short, long, action = clap::ArgAction::SetTrue)]
     remote: bool,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
 }
 
 impl Runnable for ListCommand {
@@ -36,7 +40,7 @@ struct ListRunner<'a> {
 impl Runner for ListRunner<'_> {
     /// Lists all environment variables for all functions in the current crate
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project().await?;
+        let project = self.project(&self.command.project).await?;
         let parsed_functions = project
             .parsed_functions()
             .map_err(|e| self.error(None, None, Some(e.into())))?;

@@ -6,6 +6,7 @@ use crate::writer::Writer;
 use chrono::{DateTime, Utc};
 use eyre::Context;
 use serde_json::json;
+use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct LogsCommand {
@@ -23,6 +24,10 @@ pub(crate) struct LogsCommand {
     ///
     #[arg(short, long)]
     period: Option<String>,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
 }
 
 impl Runnable for LogsCommand {
@@ -42,7 +47,7 @@ struct LogsRunner<'a> {
 impl Runner for LogsRunner<'_> {
     /// Retrieves and displays logs for a specific function
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project().await?;
+        let project = self.project(&self.command.project).await?;
 
         // Get all function names without any additional manipulations.
         let all_functions = project

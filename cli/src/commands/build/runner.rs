@@ -14,7 +14,7 @@ pub(crate) struct BuildRunner<'a> {
 impl Runner for BuildRunner<'_> {
     /// Build one or more functions
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project().await?;
+        let project = self.project(&self.command.project).await?;
 
         Pipeline::builder(self.writer)
             .with_deploy_enabled(false)
