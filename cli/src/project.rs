@@ -226,7 +226,7 @@ impl Project {
         serde_json::from_str(&text).wrap_err("Failed to parse response")
     }
 
-    /// Make sure URL is properly foramtted
+    /// Make sure URL is properly formatted
     ///
     /// For example API Gateway are case sensitive.
     pub fn url(&self) -> String {
