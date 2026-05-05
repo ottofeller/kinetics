@@ -6,8 +6,8 @@ use serde_json::json;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct AddOwnerCommand {
-    /// Email of the person to add as an owner
-    email: String,
+    /// Username of the person to add as an owner
+    username: String,
 
     /// Name of the org to add the owner to
     #[arg(long)]
@@ -31,13 +31,13 @@ struct AddOwnerRunner<'a> {
 impl Runner for AddOwnerRunner<'_> {
     async fn run(&mut self) -> Result<(), Error> {
         let org = self.command.org.clone();
-        let email = self.command.email.clone();
+        let username = self.command.username.clone();
         let client = self.api_client().await?;
 
         self.writer.text(&format!(
             "\n{} {} {} {}...\n",
             console::style("Adding").bold().green(),
-            console::style(&email).bold(),
+            console::style(&username).bold(),
             console::style("as an owner of").bold().green(),
             console::style(&org).bold()
         ))?;
@@ -47,7 +47,7 @@ impl Runner for AddOwnerRunner<'_> {
                 "/orgs/owners/add",
                 Request {
                     org: org.to_owned(),
-                    email: email.to_owned(),
+                    username: username.to_owned(),
                 },
             )
             .await?;
@@ -56,7 +56,7 @@ impl Runner for AddOwnerRunner<'_> {
             .text(&format!("\n{}\n", console::style("Done").green().bold()))?;
 
         self.writer
-            .json(json!({"success": true, "org": org, "email": email}))?;
+            .json(json!({"success": true, "org": org, "email": username}))?;
 
         Ok(())
     }
