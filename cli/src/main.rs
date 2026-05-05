@@ -130,6 +130,9 @@ async fn main() -> Result<(), Error> {
                 commands::orgs::members::MembersCommands::Invite(cmd) => cli.run(cmd).await,
                 commands::orgs::members::MembersCommands::Delete(cmd) => cli.run(cmd).await,
             },
+            commands::orgs::OrgsCommands::Owners(owners) => match owners {
+                commands::orgs::owners::OwnersCommands::Add(cmd) => cli.run(cmd).await,
+            },
         },
 
         Commands::Init(cmd) => cli.run(cmd).await,
