@@ -21,7 +21,7 @@ pub(crate) struct DeployRunner<'a> {
 impl Runner for DeployRunner<'_> {
     /// Invoke the function either locally or remotely
     async fn run(&mut self) -> Result<(), Error> {
-        let project = Project::from_current_dir()?;
+        let project = self.project(&self.command.project).await?;
 
         // DataDog API key only needed during deployment, to send it to the backend
         if project

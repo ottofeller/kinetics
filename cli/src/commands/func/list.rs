@@ -9,6 +9,7 @@ use eyre::Context;
 use kinetics_parser::{Params, ParsedFunction, Role};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use tabled::settings::{peaker::Priority, style::Style, Settings, Width};
 use tabled::{Table, Tabled};
 use terminal_size::{terminal_size, Height as TerminalHeight, Width as TerminalWidth};
@@ -56,6 +57,10 @@ pub(crate) struct ListCommand {
     /// Show detailed information for each function
     #[arg(short, long)]
     verbose: bool,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
 }
 
 impl Runnable for ListCommand {
@@ -77,7 +82,7 @@ struct ListRunner<'a> {
 impl Runner for ListRunner<'_> {
     /// Prints out the list of all functions with some extra information
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project().await?;
+        let project = self.project(&self.command.project).await?;
 
         // Initialize client early and fail with clear error if user's logged out
         // If the method is called within other method, then the auth error won't be propogated
@@ -172,7 +177,7 @@ impl ListRunner<'_> {
     }
 
     async fn verbose(&mut self, client: &Client) -> eyre::Result<()> {
-        let project = self.project().await?;
+        let project = self.project(&self.command.project).await?;
         let project_base_url = Project::fetch_one(&project.name).await?.url;
         let mut endpoint_rows = Vec::new();
         let mut cron_rows = Vec::new();

@@ -6,12 +6,17 @@ use crate::writer::Writer;
 use eyre::Context;
 use http::StatusCode;
 use serde_json::json;
+use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct StopCommand {
     /// Function name to stop
     #[arg()]
     name: String,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
 }
 
 impl Runnable for StopCommand {
@@ -19,6 +24,7 @@ impl Runnable for StopCommand {
         ToggleRunner {
             name: self.name.clone(),
             op: func::toggle::Op::Stop,
+            project: self.project.clone(),
             writer,
         }
     }
@@ -29,6 +35,10 @@ pub(crate) struct StartCommand {
     /// Function name to start
     #[arg()]
     name: String,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
 }
 
 impl Runnable for StartCommand {
@@ -36,6 +46,7 @@ impl Runnable for StartCommand {
         ToggleRunner {
             name: self.name.clone(),
             op: func::toggle::Op::Start,
+            project: self.project.clone(),
             writer,
         }
     }
@@ -44,6 +55,7 @@ impl Runnable for StartCommand {
 struct ToggleRunner<'a> {
     name: String,
     op: func::toggle::Op,
+    project: Option<PathBuf>,
     writer: &'a Writer,
 }
 
@@ -54,7 +66,7 @@ impl Runner for ToggleRunner<'_> {
     /// - For stop operation the function stops receiving requests
     ///   and the endpoint starts responding "Service Unavailable".
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project().await?;
+        let project = self.project(&self.project).await?;
 
         // Get all function names without any additional manipulations.
         let all_functions = project
