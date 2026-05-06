@@ -132,6 +132,7 @@ async fn main() -> Result<(), Error> {
             },
             commands::orgs::OrgsCommands::Owners(owners) => match owners {
                 commands::orgs::owners::OwnersCommands::Add(cmd) => cli.run(cmd).await,
+                commands::orgs::owners::OwnersCommands::Delete(cmd) => cli.run(cmd).await,
             },
         },
 
