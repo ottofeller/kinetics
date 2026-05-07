@@ -55,4 +55,7 @@ impl Display for Status {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Response {
     pub status: Status,
+
+    /// Nameservers to be added to the domain configuration at registrar
+    pub nameservers: Vec<String>,
 }
