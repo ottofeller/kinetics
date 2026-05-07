@@ -1,6 +1,7 @@
 use crate::api::domains::validators;
 use crate::api::request::Validate;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
@@ -29,19 +30,26 @@ impl Validate for Request {
 }
 
 /// Status of domain creation process
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub enum Status {
     /// Domain creation is not yet started
     Pending,
-
-    /// Domain creation is in progress
-    InProgress,
 
     /// Domain creation completed successfully
     Provisioned,
 
     /// Domain creation failed
     Failed,
+}
+
+impl Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Pending => write!(f, "Pending"),
+            Self::Provisioned => write!(f, "Provisioned"),
+            Self::Failed => write!(f, "Failed"),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
