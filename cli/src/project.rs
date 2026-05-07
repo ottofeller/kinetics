@@ -41,6 +41,9 @@ pub struct Project {
     pub kvdb: Vec<Kvdb>,
 
     pub observability: Option<Observability>,
+
+    /// Custom domain name for the project
+    pub domain_name: Option<String>,
 }
 
 /// Project's settings for observability
@@ -57,6 +60,7 @@ impl Project {
             url: String::new(),
             kvdb: Vec::new(),
             observability: None,
+            domain_name: None,
         }
     }
 
