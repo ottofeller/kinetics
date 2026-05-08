@@ -48,8 +48,7 @@ impl Cli {
     pub(crate) async fn run(&self, command: &impl Runnable) {
         let run = command.runner(&self.writer).run().await;
 
-        if run.is_err() {
-            let error = run.unwrap_err();
+        if let Err(error) = run {
             log::error!("{error:?}");
 
             self.writer

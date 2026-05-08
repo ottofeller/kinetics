@@ -96,13 +96,13 @@ impl<'a> Runner for InitRunner<'a> {
 
         let unpack_result = self.unpack(response).await;
 
-        if unpack_result.is_err() {
+        if let Err(error) = unpack_result {
             self.cleanup();
 
             return Err(self.error(
                 Some("Failed to unpack template archive"),
                 Some("Check if tar is installed and you have enough FS permissions."),
-                Some(unpack_result.err().unwrap().into()),
+                Some(error.into()),
             ));
         };
 
