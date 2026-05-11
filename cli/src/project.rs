@@ -75,7 +75,23 @@ impl Project {
     /// Returns default config if kinetics.toml does not exist. In that case the name will be taken
     /// from the ` Cargo.toml ` file in the same path
     pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
-        Ok(ConfigFile::from_path(path)?.try_into()?)
+        let cfg = ConfigFile::from_path(path)?;
+        let mut project = Project::new(cfg.path, cfg.project.name).with_kvdb(cfg.kvdb);
+
+        if cfg.observability.is_some() {
+            let observability = cfg.observability.unwrap();
+
+            // Read DataDog API key from env, it's not safe to store it in kinetics config file
+            let dd_api_key = std::env::var(&observability.dd_api_key_env).unwrap_or_default();
+
+            project = project.with_observability(dd_api_key);
+        }
+
+        if cfg.project.org.is_some() {
+            project = project.with_org(&cfg.project.org.unwrap());
+        }
+
+        Ok(project)
     }
 
     /// Creates a new project instance from the current directory
