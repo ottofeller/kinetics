@@ -19,7 +19,7 @@ impl Runner for InvokeRunner<'_> {
         // Get function names as well as pull all updates from the code.
         let all_functions = project.parse(
             PathBuf::from(build_config()?.kinetics_path),
-            &[self.command.name.clone().into()],
+            std::slice::from_ref(&self.command.name),
         )?;
 
         let function = Function::find_by_name(&all_functions, &self.command.name)?;
