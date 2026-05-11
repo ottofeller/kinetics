@@ -21,7 +21,9 @@ use eyre::WrapErr;
 use http::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
 use std::path::PathBuf;
+use toml_edit::{value, DocumentMut, Table};
 
 /// Managing user's project
 ///
@@ -74,8 +76,8 @@ impl Project {
         self
     }
 
-    fn with_org(mut self, org: &str) -> Self {
-        self.org = Some(org.to_string());
+    pub fn with_org(mut self, org: Option<&str>) -> Self {
+        self.org = org.map(|o| o.to_string());
         self
     }
 
@@ -97,7 +99,7 @@ impl Project {
         }
 
         if cfg.project.org.is_some() {
-            project = project.with_org(&cfg.project.org.unwrap());
+            project = project.with_org(cfg.project.org.as_deref());
         }
 
         Ok(project)
@@ -255,5 +257,44 @@ impl Project {
     /// No need to store it in Project props, it's not going to be loaded frequently
     pub fn environment(&self) -> HashMap<String, String> {
         Envs::load()
+    }
+
+    /// Write the current project config to config file
+    pub fn write_config(&self) -> eyre::Result<()> {
+        let config_path = self.path.join("kinetics.toml");
+
+        let mut doc = if config_path.exists() {
+            fs::read_to_string(&config_path)
+                .wrap_err("Failed to read kinetics.toml")?
+                .parse::<DocumentMut>()
+                .wrap_err("Failed to parse kinetics.toml")?
+        } else {
+            DocumentMut::new()
+        };
+
+        // Ensure [project] table exists
+        if doc.get("project").is_none() {
+            doc["project"] = toml_edit::Item::Table(Table::new());
+        }
+
+        // Always write the name
+        if !self.name.is_empty() {
+            doc["project"]["name"] = value(&self.name);
+        }
+
+        // Set or remove org
+        match &self.org {
+            Some(org) => {
+                doc["project"]["org"] = value(org);
+            }
+            None => {
+                if let Some(project) = doc.get_mut("project").and_then(|p| p.as_table_mut()) {
+                    project.remove("org");
+                }
+            }
+        }
+
+        fs::write(&config_path, doc.to_string()).wrap_err("Failed to write kinetics.toml")?;
+        Ok(())
     }
 }
