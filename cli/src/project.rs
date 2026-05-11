@@ -41,6 +41,9 @@ pub struct Project {
     pub kvdb: Vec<Kvdb>,
 
     pub observability: Option<Observability>,
+
+    /// Org is optional and set in kinetics.toml
+    pub org: Option<String>,
 }
 
 /// Project's settings for observability
@@ -57,6 +60,7 @@ impl Project {
             url: String::new(),
             kvdb: Vec::new(),
             observability: None,
+            org: None,
         }
     }
 
@@ -67,6 +71,11 @@ impl Project {
 
     fn with_kvdb(mut self, kvdb: Vec<Kvdb>) -> Self {
         self.kvdb = kvdb;
+        self
+    }
+
+    fn with_org(mut self, org: &str) -> Self {
+        self.org = Some(org.to_string());
         self
     }
 

@@ -10,6 +10,7 @@ pub struct Response {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectInfo {
     pub name: String,
+    pub org: Option<String>,
     pub url: String,
     pub kvdb: Vec<Kvdb>,
 }
@@ -24,6 +25,7 @@ impl From<ProjectInfo> for Project {
         Self {
             path: PathBuf::new(),
             name: value.name,
+            org: value.org,
             url: value.url,
             kvdb: value.kvdb,
             observability: None,
