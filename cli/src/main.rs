@@ -119,6 +119,7 @@ async fn main() -> Result<(), Error> {
             commands::proj::ProjCommands::Destroy(cmd) => cli.run(cmd).await,
             commands::proj::ProjCommands::Rollback(cmd) => cli.run(cmd).await,
             commands::proj::ProjCommands::List(cmd) => cli.run(cmd).await,
+            commands::proj::ProjCommands::Org(cmd) => cli.run(cmd).await,
             commands::proj::ProjCommands::Versions(cmd) => cli.run(cmd).await,
         },
 
