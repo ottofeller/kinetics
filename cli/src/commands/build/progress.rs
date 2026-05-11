@@ -61,7 +61,7 @@ impl<'a> PipelineProgress<'a> {
 
     pub(super) fn new_progress(&self, resource_name: &str) -> Progress {
         Progress::new(
-            &self.multi_progress,
+            self.multi_progress,
             &self.total_progress_bar,
             resource_name,
             self.is_disabled,

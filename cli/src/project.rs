@@ -5,15 +5,17 @@ mod parse;
 
 /// Runtime templates for different workloads
 mod templates;
+mod workspace;
 
 use crate::api::client::Client;
-use crate::api::projects::Kvdb;
+use crate::api::projects::{Kvdb, ProjectInfo};
 use crate::api::request::Validate;
 use crate::api::stack;
 use crate::config::deploy::DeployConfig;
 use crate::envs::Envs;
 use crate::error::Error;
 use crate::function::Function;
+use crate::project::workspace::Workspace;
 use crate::secrets::Secrets;
 use cache::Cache;
 use config_file::ConfigFile;
@@ -30,6 +32,9 @@ use std::path::PathBuf;
 pub struct Project {
     #[serde(skip)]
     pub path: PathBuf,
+
+    #[serde(skip)]
+    pub workspace: Workspace,
 
     /// Project name (used as a prefix for all resources)
     pub name: String,
@@ -54,8 +59,11 @@ pub struct Observability {
 
 impl Project {
     fn new(path: PathBuf, name: String) -> Self {
+        let workspace = Workspace::from_path(&path).ok().unwrap_or_default();
+
         Self {
             path,
+            workspace,
             name,
             url: String::new(),
             kvdb: Vec::new(),
@@ -79,12 +87,7 @@ impl Project {
     /// Returns default config if kinetics.toml does not exist. In that case the name will be taken
     /// from the ` Cargo.toml ` file in the same path
     pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
-        Ok(ConfigFile::from_path(path)?.try_into()?)
-    }
-
-    /// Creates a new project instance from the current directory
-    pub fn from_current_dir() -> eyre::Result<Self> {
-        Self::from_path(std::env::current_dir().wrap_err("Failed to get current dir")?)
+        ConfigFile::from_path(path)?.try_into()
     }
 
     /// Get project by name, with automatic cache management.
@@ -222,7 +225,7 @@ impl Project {
         serde_json::from_str(&text).wrap_err("Failed to parse response")
     }
 
-    /// Make sure URL is properly foramtted
+    /// Make sure URL is properly formatted
     ///
     /// For example API Gateway are case sensitive.
     pub fn url(&self) -> String {
@@ -234,5 +237,18 @@ impl Project {
     /// No need to store it in Project props, it's not going to be loaded frequently
     pub fn environment(&self) -> HashMap<String, String> {
         Envs::load()
+    }
+}
+
+impl From<ProjectInfo> for Project {
+    fn from(value: ProjectInfo) -> Self {
+        Self {
+            path: PathBuf::new(),
+            workspace: Workspace::default(),
+            name: value.name,
+            url: value.url,
+            kvdb: value.kvdb,
+            observability: None,
+        }
     }
 }

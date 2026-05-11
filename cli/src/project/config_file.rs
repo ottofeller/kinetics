@@ -84,7 +84,7 @@ impl ConfigFile {
     }
 
     /// Reads Cargo.toml in a given directory and returns the name
-    fn cargo_toml_name(path: &Path) -> eyre::Result<String> {
+    pub fn cargo_toml_name(path: &Path) -> eyre::Result<String> {
         let cargo_toml_path = path.join("Cargo.toml");
 
         let cargo_toml_string = fs::read_to_string(&cargo_toml_path).wrap_err(Error::new(

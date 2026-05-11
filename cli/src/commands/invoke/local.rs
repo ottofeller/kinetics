@@ -21,7 +21,7 @@ impl InvokeRunner<'_> {
         function: &Function,
         migrations_path: Option<&str>,
     ) -> eyre::Result<()> {
-        let project = self.project().await?;
+        let project = self.project(&self.command.project).await?;
         let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
         let mut secrets_envs = HashMap::new();
 

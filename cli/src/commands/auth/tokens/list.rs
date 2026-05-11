@@ -45,7 +45,10 @@ impl Runner for ListRunner<'_> {
                 error_text
             );
 
-            return Err(Error::new("Failed to fetch tokens", Some("Try again later.")).into());
+            return Err(Error::new(
+                "Failed to fetch tokens",
+                Some("Try again later."),
+            ));
         }
 
         let tokens = response
