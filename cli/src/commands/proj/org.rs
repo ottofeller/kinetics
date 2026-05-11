@@ -1,77 +1,84 @@
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
+use clap::ArgAction;
 use serde_json::json;
-use std::fs;
-use toml_edit::{value, DocumentMut, Table};
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct OrgCommand {
     /// The organization name to set
-    name: String,
+    org: Option<String>,
+
+    /// Remove the organization from the project
+    #[arg(long, action = ArgAction::SetTrue)]
+    unset: bool,
 }
 
 impl Runnable for OrgCommand {
     fn runner(&self, writer: &Writer) -> impl Runner {
         OrgRunner {
-            name: self.name.clone(),
+            command: self.clone(),
             writer,
         }
     }
 }
 
 struct OrgRunner<'a> {
-    name: String,
+    command: OrgCommand,
     writer: &'a Writer,
 }
 
 impl Runner for OrgRunner<'_> {
     async fn run(&mut self) -> Result<(), Error> {
-        let path = "kinetics.toml";
+        if self.command.unset && self.command.org.is_some() {
+            return Err(self.error(
+                Some("Conflicting arguments"),
+                Some("Provide either an org name or --unset, not both."),
+                None,
+            ));
+        }
 
-        let content = if fs::metadata(path).is_ok() {
-            let existing = fs::read_to_string(path).map_err(|e| {
-                self.error(
-                    Some("Failed to read kinetics.toml"),
-                    Some("Check file permissions."),
-                    Some(e.into()),
-                )
-            })?;
+        if !self.command.unset && self.command.org.is_none() {
+            return Err(self.error(
+                Some("Missing argument"),
+                Some("Provide an org name or use --unset to remove it."),
+                None,
+            ));
+        }
 
-            let mut doc = existing.parse::<DocumentMut>().map_err(|e| {
-                self.error(
-                    Some("Failed to parse kinetics.toml"),
-                    Some("The file contains invalid TOML."),
-                    Some(e.into()),
-                )
-            })?;
+        let project = self
+            .project()
+            .await?
+            .with_org(self.command.org.as_ref().map(|o| o.as_str()));
 
-            if doc.get("project").is_none() {
-                doc["project"] = toml_edit::Item::Table(Table::new());
-            }
-
-            doc["project"]["org"] = value(&self.name);
-            doc.to_string()
-        } else {
-            format!("[project]\norg = \"{}\"\n", self.name)
-        };
-
-        fs::write(path, &content).map_err(|e| {
+        project.write_config().map_err(|e| {
             self.error(
-                Some("Failed to write kinetics.toml"),
-                Some("Check file permissions."),
+                Some("Failed to write config file"),
+                Some(&e.to_string()),
                 Some(e.into()),
             )
         })?;
 
-        self.writer.text(&format!(
-            "{} {}\n",
-            console::style("Organization set to").green().bold(),
-            console::style(&self.name).bold()
-        ))?;
+        match self.command.org.clone() {
+            Some(org) => {
+                self.writer.text(&format!(
+                    "{} {}\n",
+                    console::style("Project org set to").green().bold(),
+                    console::style(&org).bold()
+                ))?;
 
-        self.writer
-            .json(json!({"success": true, "org": self.name}))?;
+                self.writer.json(json!({"success": true, "org": org}))?;
+            }
+            None => {
+                self.writer.text(&format!(
+                    "{} {}\n",
+                    console::style("Project org unset").green().bold(),
+                    console::style("").bold()
+                ))?;
+
+                self.writer.json(json!({"success": true}))?;
+            }
+        }
 
         Ok(())
     }
