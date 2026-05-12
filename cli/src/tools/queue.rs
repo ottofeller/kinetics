@@ -87,7 +87,10 @@ impl Client {
                             &std::env::var("KINETICS_USERNAME")
                                 .expect("KINETICS_USERNAME is not set"),
                             project_name,
-                            &ParsedFunction::to_local_name(&[&function_path.replace("::", "/")]),
+                            &ParsedFunction::to_local_name(&[
+                                &project_name,
+                                &function_path.replace("::", "/"),
+                            ]),
                         ))
                     })
                     .expect("Queue name is not set");
