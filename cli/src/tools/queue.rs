@@ -72,6 +72,7 @@ impl Client {
                 let config = if std::env::var("KINETICS_IS_LOCAL").is_ok() {
                     // Redefine endpoint in local mode
                     aws_config::defaults(aws_config::BehaviorVersion::latest())
+                        .region(aws_config::Region::new(region.clone()))
                         .endpoint_url(&queue_endpoint_url)
                         .load()
                         .await
