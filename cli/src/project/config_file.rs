@@ -2,13 +2,13 @@ use crate::api::projects::Kvdb;
 use crate::error::Error;
 use crate::project::Project;
 use eyre::{ContextCompat, WrapErr};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 /// FileConfig is the structure of kinetics.toml
-#[derive(Debug, Clone, Default, Deserialize)]
-pub(super) struct ConfigFile {
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+pub(crate) struct ConfigFile {
     #[serde(default)]
     project: ProjectSection,
 
@@ -18,16 +18,19 @@ pub(super) struct ConfigFile {
     #[serde(default)]
     kvdb: Vec<Kvdb>,
 
+    #[serde(default)]
+    domain: Option<String>,
+
     #[serde(skip)]
     path: PathBuf,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 struct ProjectSection {
     name: String,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 struct ObservabilitySection {
     dd_api_key_env: String,
 }
@@ -41,7 +44,7 @@ impl ConfigFile {
     /// configuration instead. Additionally, if the `kinetics.toml` file does not explicitly set
     /// the project name, the function will fallback to extracting the name from a `Cargo.toml`
     /// file in the same directory.
-    pub(super) fn from_path(path: PathBuf) -> eyre::Result<Self> {
+    pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
         let config_toml_path = path.join("kinetics.toml");
 
         let Ok(toml_string) = fs::read_to_string(&config_toml_path) else {
@@ -112,6 +115,23 @@ impl ConfigFile {
 
         Ok(name)
     }
+
+    /// Save the domain name to the kinetics.toml file
+    ///
+    /// Suppressed: called from binary via commands/domains/create.rs, but cargo treats
+    /// lib and bin as separate compilation units within the same crate, so the lib
+    /// doesn't see this method being used at the binary's entry point.
+    #[allow(dead_code)]
+    pub fn save_domain(&mut self, domain: String) -> eyre::Result<()> {
+        self.domain = Some(domain);
+        let config_path = self.path.join("kinetics.toml");
+        let content = toml::to_string_pretty(self).wrap_err("Failed to serialize config")?;
+        fs::write(&config_path, content).wrap_err(Error::new(
+            &format!("Failed to write to {}", config_path.display()),
+            None,
+        ))?;
+        Ok(())
+    }
 }
 
 impl TryFrom<ConfigFile> for Project {
@@ -125,6 +145,10 @@ impl TryFrom<ConfigFile> for Project {
             let dd_api_key = std::env::var(&observability.dd_api_key_env).unwrap_or_default();
 
             project = project.set_observability(dd_api_key);
+        }
+
+        if let Some(domain) = cfg.domain {
+            project.domain_name = Some(domain);
         }
 
         Ok(project)

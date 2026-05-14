@@ -1,5 +1,5 @@
 mod cache;
-mod config_file;
+pub(super) mod config_file;
 mod filehash;
 mod parse;
 
