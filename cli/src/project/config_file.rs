@@ -2,13 +2,13 @@ use crate::api::projects::Kvdb;
 use crate::error::Error;
 use crate::project::Project;
 use eyre::{ContextCompat, WrapErr};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 /// FileConfig is the structure of kinetics.toml
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-pub(crate) struct ConfigFile {
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(super) struct ConfigFile {
     #[serde(default)]
     project: ProjectSection,
 
@@ -25,12 +25,12 @@ pub(crate) struct ConfigFile {
     path: PathBuf,
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 struct ProjectSection {
     name: String,
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 struct ObservabilitySection {
     dd_api_key_env: String,
 }
@@ -44,7 +44,7 @@ impl ConfigFile {
     /// configuration instead. Additionally, if the `kinetics.toml` file does not explicitly set
     /// the project name, the function will fallback to extracting the name from a `Cargo.toml`
     /// file in the same directory.
-    pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
+    pub(super) fn from_path(path: PathBuf) -> eyre::Result<Self> {
         let config_toml_path = path.join("kinetics.toml");
 
         let Ok(toml_string) = fs::read_to_string(&config_toml_path) else {
@@ -114,23 +114,6 @@ impl ConfigFile {
             .to_string();
 
         Ok(name)
-    }
-
-    /// Save the domain name to the kinetics.toml file
-    ///
-    /// Suppressed: called from binary via commands/domains/create.rs, but cargo treats
-    /// lib and bin as separate compilation units within the same crate, so the lib
-    /// doesn't see this method being used at the binary's entry point.
-    #[allow(dead_code)]
-    pub fn save_domain(&mut self, domain: String) -> eyre::Result<()> {
-        self.domain = Some(domain);
-        let config_path = self.path.join("kinetics.toml");
-        let content = toml::to_string_pretty(self).wrap_err("Failed to serialize config")?;
-        fs::write(&config_path, content).wrap_err(Error::new(
-            &format!("Failed to write to {}", config_path.display()),
-            None,
-        ))?;
-        Ok(())
     }
 }
 
