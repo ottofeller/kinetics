@@ -24,13 +24,11 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
                     Err(_) => \"{{}}\".into(),
                 }};
 
-                let sqs_event = SqsEvent {{
-                    records: vec![SqsMessage {{
-                        message_id: Some(\"test\".into()),
-                        body: Some(payload),
-                        ..Default::default()
-                    }}],
-                }};
+                let mut sqs_message = SqsMessage::default();
+                sqs_message.message_id = Some(\"test\".into());
+                sqs_message.body = Some(payload);
+                let mut sqs_event = SqsEvent::default();
+                sqs_event.records = vec![sqs_message];
 
                 // Convert SqsEvent to LambdaEvent<SqsEvent>
                 let context = lambda_runtime::Context::default();
