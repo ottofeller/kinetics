@@ -8,7 +8,7 @@ use eyre::Context as _;
 use serde_json::json;
 use std::fs;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use toml_edit::{value, DocumentMut};
 
 #[derive(clap::Args, Clone)]
@@ -99,7 +99,7 @@ impl Runner for AddRunner<'_> {
                 .text(&format!("  {}\n", console::style(ns).bold()))?;
         }
 
-        save_domain(&project, &self.command.domain_name)
+        Self::save_domain(&project, &self.command.domain_name)
             .map_err(|e| self.error(None, None, Some(e.into())))?;
 
         self.writer.json(json!({
@@ -112,45 +112,50 @@ impl Runner for AddRunner<'_> {
     }
 }
 
-fn save_domain(project: &Project, domain: &str) -> eyre::Result<()> {
-    let config_path = project.path.join("kinetics.toml");
-    let config_content = match fs::read_to_string(&config_path) {
-        Ok(content) => content,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            format!("[project]\nname = \"{}\"\n", project.name)
-        }
-        Err(error) => {
-            return Err(error).wrap_err(Error::new(
-                &format!("Failed to read {}", config_path.display()),
+impl AddRunner<'_> {
+    /// Saves the domain name to the project's configuration file
+    ///
+    /// It ONLY appends or updates the `domain_name` field in the `[domain]` section
+    fn save_domain(project: &Project, domain: &str) -> eyre::Result<()> {
+        let config_path = project.path.join("kinetics.toml");
+
+        let config_content = match fs::read_to_string(&config_path) {
+            Ok(content) => content,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                format!("[project]\nname = \"{}\"\n", project.name)
+            }
+            Err(error) => {
+                return Err(error).wrap_err(Error::new(
+                    &format!("Failed to read {}", config_path.display()),
+                    None,
+                ));
+            }
+        };
+
+        let mut doc = config_content
+            .parse::<DocumentMut>()
+            .wrap_err("Failed to parse kinetics.toml")?;
+
+        doc["domain"] = value(domain);
+
+        let config_path_str = config_path.display().to_string();
+
+        let mut file = fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(config_path)
+            .wrap_err(Error::new(
+                &format!("Failed to open {}", &config_path_str),
                 None,
-            ));
-        }
-    };
+            ))?;
 
-    let mut doc = config_content
-        .parse::<DocumentMut>()
-        .wrap_err("Failed to parse kinetics.toml")?;
+        file.write_all(doc.to_string().as_bytes())
+            .wrap_err(Error::new(
+                &format!("Failed to write to {}", &config_path_str),
+                None,
+            ))?;
 
-    doc["domain"] = value(domain);
-
-    write_config(&config_path, &doc.to_string())
-}
-
-fn write_config(config_path: &Path, content: &str) -> eyre::Result<()> {
-    let mut file = fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(config_path)
-        .wrap_err(Error::new(
-            &format!("Failed to open {}", config_path.display()),
-            None,
-        ))?;
-
-    file.write_all(content.as_bytes()).wrap_err(Error::new(
-        &format!("Failed to write to {}", config_path.display()),
-        None,
-    ))?;
-
-    Ok(())
+        Ok(())
+    }
 }
