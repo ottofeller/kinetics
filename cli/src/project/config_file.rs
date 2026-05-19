@@ -129,6 +129,10 @@ impl TryFrom<ConfigFile> for Project {
             project = project.set_observability(dd_api_key);
         }
 
+        if cfg.project.org.is_some() {
+            project = project.with_org(cfg.project.org.as_deref());
+        }
+
         Ok(project)
     }
 }
