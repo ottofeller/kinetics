@@ -8,6 +8,7 @@ pub struct Response {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectInfo {
     pub name: String,
+    pub org: Option<String>,
     pub url: String,
     pub kvdb: Vec<Kvdb>,
 }
