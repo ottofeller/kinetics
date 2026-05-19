@@ -65,6 +65,41 @@ impl Writer {
         self.write(output, true)
     }
 
+    /// Prompt for y/N confirmation
+    ///
+    /// Returns true if confirmed and always returns true in structured mode.
+    pub(crate) fn confirm(&self, prompt: &str) -> Result<bool, Error> {
+        if self.is_structured {
+            return Ok(true);
+        }
+
+        self.text(&format!(
+            "{} {} ",
+            console::style(prompt).bold(),
+            console::style("[y/N]").dim(),
+        ))?;
+
+        std::io::stdout().flush().map_err(|e| {
+            log::error!("Failed to flush stdout: {e:?}");
+            Error::new(
+                "Output error",
+                Some("Please report a bug at support@deploykinetics.com"),
+            )
+        })?;
+
+        let mut input = String::new();
+
+        std::io::stdin().read_line(&mut input).map_err(|e| {
+            log::error!("Failed to read from stdin: {e:?}");
+            Error::new(
+                "Input error",
+                Some("Please report a bug at support@deploykinetics.com"),
+            )
+        })?;
+
+        Ok(matches!(input.trim().to_lowercase().as_ref(), "y" | "yes"))
+    }
+
     /// General method for writing to stdout/stderr
     fn write(&self, output: &str, is_error: bool) -> Result<(), Error> {
         let mut stderr: Stderr = std::io::stderr();

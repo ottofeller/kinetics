@@ -48,8 +48,7 @@ impl Cli {
     pub(crate) async fn run(&self, command: &impl Runnable) {
         let run = command.runner(&self.writer).run().await;
 
-        if run.is_err() {
-            let error = run.unwrap_err();
+        if let Err(error) = run {
             log::error!("{error:?}");
 
             self.writer
@@ -100,6 +99,7 @@ async fn main() -> Result<(), Error> {
 
         Commands::Domains(domains) => match domains {
             commands::domains::DomainsCommands::Add(cmd) => cli.run(cmd).await,
+            commands::domains::DomainsCommands::Remove(cmd) => cli.run(cmd).await,
         },
 
         Commands::Envs(envs) => match envs {
