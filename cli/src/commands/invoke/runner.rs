@@ -14,12 +14,12 @@ pub(crate) struct InvokeRunner<'a> {
 impl Runner for InvokeRunner<'_> {
     /// Invoke the function either locally or remotely
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project().await?;
+        let project = self.project(&self.command.project).await?;
 
         // Get function names as well as pull all updates from the code.
         let all_functions = project.parse(
             PathBuf::from(build_config()?.kinetics_path),
-            &[self.command.name.clone().into()],
+            std::slice::from_ref(&self.command.name),
         )?;
 
         let function = Function::find_by_name(&all_functions, &self.command.name)?;

@@ -1,5 +1,6 @@
 use crate::api::projects::Kvdb;
 use crate::error::Error;
+use crate::project::Project;
 use eyre::{ContextCompat, WrapErr};
 use serde::Deserialize;
 use std::fs;
@@ -58,28 +59,21 @@ impl ConfigFile {
 
         let result: Result<ConfigFile, toml::de::Error> = toml::from_str(&toml_string);
 
-        let mut config = if result.is_err() {
-            return Err(eyre::eyre!(
-                "Failed to parse kinetics.toml: {}\nCheck docs at https://github.com/ottofeller/kinetics",
-                result.err().unwrap().message().to_string()
-            ));
-        } else {
-            result.unwrap()
-        };
+        let mut config = result.map_err(|error| eyre::eyre!(
+            "Failed to parse kinetics.toml: {}\nCheck docs at https://github.com/ottofeller/kinetics",
+            error.message().to_string()
+        ))?;
 
         // Set the path to the directory containing kinetics.toml
         config.path = path.clone();
 
-        match config.observability.clone() {
-            Some(observability) => {
-                if observability.dd_api_key_env.is_empty() {
-                    return Err(eyre::eyre!(
-                        "When [observability] section presented in kinetics.toml
+        if let Some(observability) = config.observability.as_ref() {
+            if observability.dd_api_key_env.is_empty() {
+                return Err(eyre::eyre!(
+                    "When [observability] section presented in kinetics.toml
                         both dd_api_key and service_name properties must be specified"
-                    ));
-                }
+                ));
             }
-            None => {}
         }
 
         // If project name is explicitly set in kinetics.toml, return it right away
@@ -92,7 +86,7 @@ impl ConfigFile {
     }
 
     /// Reads Cargo.toml in a given directory and returns the name
-    fn cargo_toml_name(path: &Path) -> eyre::Result<String> {
+    pub fn cargo_toml_name(path: &Path) -> eyre::Result<String> {
         let cargo_toml_path = path.join("Cargo.toml");
 
         let cargo_toml_string = fs::read_to_string(&cargo_toml_path).wrap_err(Error::new(
@@ -119,5 +113,22 @@ impl ConfigFile {
             .to_string();
 
         Ok(name)
+    }
+}
+
+impl TryFrom<ConfigFile> for Project {
+    type Error = eyre::Report;
+
+    fn try_from(cfg: ConfigFile) -> eyre::Result<Self> {
+        let mut project = Project::new(cfg.path, cfg.project.name).set_kvdb(cfg.kvdb);
+
+        if let Some(observability) = cfg.observability {
+            // Read DataDog API key from env, it's not safe to store it in kinetics config file
+            let dd_api_key = std::env::var(&observability.dd_api_key_env).unwrap_or_default();
+
+            project = project.set_observability(dd_api_key);
+        }
+
+        Ok(project)
     }
 }

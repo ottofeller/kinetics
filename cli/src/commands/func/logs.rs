@@ -5,8 +5,8 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use chrono::{DateTime, Utc};
 use eyre::Context;
-use kinetics_parser::Parser;
 use serde_json::json;
+use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct LogsCommand {
@@ -24,6 +24,10 @@ pub(crate) struct LogsCommand {
     ///
     #[arg(short, long)]
     period: Option<String>,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
 }
 
 impl Runnable for LogsCommand {
@@ -43,15 +47,11 @@ struct LogsRunner<'a> {
 impl Runner for LogsRunner<'_> {
     /// Retrieves and displays logs for a specific function
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project().await?;
+        let project = self.project(&self.command.project).await?;
 
         // Get all function names without any additional manipulations.
-        let all_functions = Parser::new(Some(&project.path))
-            .map_err(|e| self.error(None, None, Some(e.into())))?
-            .functions
-            .into_iter()
-            .map(|f| Function::new(&project, &f))
-            .collect::<eyre::Result<Vec<Function>>>()
+        let all_functions = project
+            .functions()
             .map_err(|e| self.error(None, None, Some(e.into())))?;
 
         let function = Function::find_by_name(&all_functions, &self.command.name).map_err(|e| {

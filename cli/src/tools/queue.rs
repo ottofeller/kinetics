@@ -72,6 +72,7 @@ impl Client {
                 let config = if std::env::var("KINETICS_IS_LOCAL").is_ok() {
                     // Redefine endpoint in local mode
                     aws_config::defaults(aws_config::BehaviorVersion::latest())
+                        .region(aws_config::Region::new(region.clone()))
                         .endpoint_url(&queue_endpoint_url)
                         .load()
                         .await
@@ -87,7 +88,10 @@ impl Client {
                             &std::env::var("KINETICS_USERNAME")
                                 .expect("KINETICS_USERNAME is not set"),
                             project_name,
-                            &ParsedFunction::path_to_name(&function_path.replace("::", "/")),
+                            &ParsedFunction::to_local_name(&[
+                                &project_name,
+                                &function_path.replace("::", "/"),
+                            ]),
                         ))
                     })
                     .expect("Queue name is not set");

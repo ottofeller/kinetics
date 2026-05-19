@@ -3,12 +3,17 @@ use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use serde_json::json;
+use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct InitCommand {
     /// Create a GitHub workflow file.
     #[arg(short, long, action = clap::ArgAction::SetTrue, required = false)]
     github: bool,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
 }
 
 impl Runnable for InitCommand {
@@ -30,7 +35,7 @@ impl Runner for InitRunner<'_> {
     ///
     /// Currently only supports GitHub, but expected to expand in the future.
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project().await?;
+        let project = self.project(&self.command.project).await?;
 
         self.writer.text(&format!(
             "{}\n",

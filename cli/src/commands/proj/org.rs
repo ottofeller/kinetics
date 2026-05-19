@@ -47,7 +47,7 @@ impl Runner for OrgRunner<'_> {
         }
 
         let project = self
-            .project()
+            .project(&self.command.project)
             .await?
             .with_org(self.command.org.as_ref().map(|o| o.as_str()));
 

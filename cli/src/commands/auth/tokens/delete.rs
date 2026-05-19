@@ -74,7 +74,7 @@ impl Runner for DeleteRunner<'_> {
         };
 
         if let Some(errors) = request.validate() {
-            return Err(Error::new("Validation failed", Some(&errors.join("\n"))).into());
+            return Err(Error::new("Validation failed", Some(&errors.join("\n"))));
         }
 
         let response = client
@@ -99,8 +99,7 @@ impl Runner for DeleteRunner<'_> {
                         .as_str()
                         .unwrap_or("Unknown error"),
                 ),
-            )
-            .into());
+            ));
         }
 
         self.writer

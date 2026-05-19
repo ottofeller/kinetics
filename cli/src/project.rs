@@ -5,15 +5,17 @@ mod parse;
 
 /// Runtime templates for different workloads
 mod templates;
+mod workspace;
 
 use crate::api::client::Client;
-use crate::api::projects::Kvdb;
+use crate::api::projects::{Kvdb, ProjectInfo};
 use crate::api::request::Validate;
 use crate::api::stack;
 use crate::config::deploy::DeployConfig;
 use crate::envs::Envs;
 use crate::error::Error;
 use crate::function::Function;
+use crate::project::workspace::Workspace;
 use crate::secrets::Secrets;
 use cache::Cache;
 use config_file::ConfigFile;
@@ -32,6 +34,9 @@ use toml_edit::{value, DocumentMut, Table};
 pub struct Project {
     #[serde(skip)]
     pub path: PathBuf,
+
+    #[serde(skip)]
+    pub workspace: Workspace,
 
     /// Project name (used as a prefix for all resources)
     pub name: String,
@@ -56,8 +61,11 @@ pub struct Observability {
 
 impl Project {
     fn new(path: PathBuf, name: String) -> Self {
+        let workspace = Workspace::from_path(&path).ok().unwrap_or_default();
+
         Self {
             path,
+            workspace,
             name,
             url: String::new(),
             kvdb: Vec::new(),
@@ -66,12 +74,12 @@ impl Project {
         }
     }
 
-    fn with_observability(mut self, dd_api_key: String) -> Self {
+    fn set_observability(mut self, dd_api_key: String) -> Self {
         self.observability = Some(Observability { dd_api_key });
         self
     }
 
-    fn with_kvdb(mut self, kvdb: Vec<Kvdb>) -> Self {
+    fn set_kvdb(mut self, kvdb: Vec<Kvdb>) -> Self {
         self.kvdb = kvdb;
         self
     }
@@ -87,7 +95,7 @@ impl Project {
     /// from the ` Cargo.toml ` file in the same path
     pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
         let cfg = ConfigFile::from_path(path)?;
-        let mut project = Project::new(cfg.path, cfg.project.name).with_kvdb(cfg.kvdb);
+        let mut project = Project::new(cfg.path, cfg.project.name).set_kvdb(cfg.kvdb);
 
         if cfg.observability.is_some() {
             let observability = cfg.observability.unwrap();
@@ -95,7 +103,7 @@ impl Project {
             // Read DataDog API key from env, it's not safe to store it in kinetics config file
             let dd_api_key = std::env::var(&observability.dd_api_key_env).unwrap_or_default();
 
-            project = project.with_observability(dd_api_key);
+            project = project.set_observability(dd_api_key);
         }
 
         if cfg.project.org.is_some() {
@@ -103,11 +111,6 @@ impl Project {
         }
 
         Ok(project)
-    }
-
-    /// Creates a new project instance from the current directory
-    pub fn from_current_dir() -> eyre::Result<Self> {
-        Self::from_path(std::env::current_dir().wrap_err("Failed to get current dir")?)
     }
 
     /// Get project by name, with automatic cache management.
@@ -245,7 +248,7 @@ impl Project {
         serde_json::from_str(&text).wrap_err("Failed to parse response")
     }
 
-    /// Make sure URL is properly foramtted
+    /// Make sure URL is properly formatted
     ///
     /// For example API Gateway are case sensitive.
     pub fn url(&self) -> String {
@@ -296,5 +299,19 @@ impl Project {
 
         fs::write(&config_path, doc.to_string()).wrap_err("Failed to write kinetics.toml")?;
         Ok(())
+    }
+}
+
+impl From<ProjectInfo> for Project {
+    fn from(value: ProjectInfo) -> Self {
+        Self {
+            path: PathBuf::new(),
+            workspace: Workspace::default(),
+            name: value.name,
+            url: value.url,
+            kvdb: value.kvdb,
+            org: value.org,
+            observability: None,
+        }
     }
 }

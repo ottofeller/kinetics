@@ -4,12 +4,17 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use eyre::Context;
 use serde_json::json;
+use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct RollbackCommand {
     /// Specific version to rollback to (optional)
     #[arg(short, long)]
     version: Option<u32>,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
 }
 
 impl Runnable for RollbackCommand {
@@ -32,7 +37,7 @@ impl Runner for RollbackRunner<'_> {
     /// Consequent rollbacks are possible and will revert one version at a time
     /// If version is specified, rollback to that specific version
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project().await?;
+        let project = self.project(&self.command.project).await?;
         let client = self.api_client().await?;
 
         let versions: stack::versions::Response = client
