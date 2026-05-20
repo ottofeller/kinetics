@@ -217,16 +217,13 @@ impl Project {
     }
 
     pub async fn status(&self) -> eyre::Result<stack::status::Response> {
-        Self::status_by_name(&self.name).await
-    }
-
-    pub async fn status_by_name(name: &str) -> eyre::Result<stack::status::Response> {
         let client = Client::new(false).await?;
 
         let result = client
             .post("/stack/status")
             .json(&stack::status::Request {
-                name: name.to_owned(),
+                name: self.name.to_owned(),
+                project: self.clone(),
             })
             .send()
             .await

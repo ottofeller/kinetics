@@ -81,7 +81,7 @@ impl Runner for DeleteOwnerRunner<'_> {
         };
 
         if let Some(errors) = request.validate() {
-            return Err(Error::new("Validation failed", Some(&errors.join("\n"))).into());
+            return Err(Error::new("Validation failed", Some(&errors.join("\n"))));
         }
 
         client

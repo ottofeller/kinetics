@@ -89,7 +89,7 @@ impl Client {
                                 .expect("KINETICS_USERNAME is not set"),
                             project_name,
                             &ParsedFunction::to_local_name(&[
-                                &project_name,
+                                project_name,
                                 &function_path.replace("::", "/"),
                             ]),
                         ))
