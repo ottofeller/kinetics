@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
@@ -12,6 +14,9 @@ pub(crate) struct OrgCommand {
     /// Remove the organization from the project
     #[arg(long, action = ArgAction::SetTrue)]
     unset: bool,
+
+    #[arg(long)]
+    project: Option<PathBuf>,
 }
 
 impl Runnable for OrgCommand {
@@ -47,9 +52,9 @@ impl Runner for OrgRunner<'_> {
         }
 
         let project = self
-            .project()
+            .project(&self.command.project)
             .await?
-            .with_org(self.command.org.as_ref().map(|o| o.as_str()));
+            .with_org(self.command.org.as_deref());
 
         project.write_config().map_err(|e| {
             self.error(

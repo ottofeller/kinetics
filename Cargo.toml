@@ -1,10 +1,10 @@
-[workspace.dependencies]
-# Do not upgrade as TOML parsing fails
-toml = "=0.8.23"
-
-tokio = "1.50.0"
-
 [workspace]
 resolver = "2"
 
 members = ["cli", "examples", "macro", "parser"]
+
+[workspace.dependencies]
+# Do not upgrade as TOML parsing fails
+toml = "=0.8.23"
+
+tokio = "1.51.1"

@@ -48,7 +48,7 @@ impl Runner for CreateRunner<'_> {
         };
 
         if let Some(errors) = request.validate() {
-            return Err(Error::new("Validation failed", Some(&errors.join("\n"))).into());
+            return Err(Error::new("Validation failed", Some(&errors.join("\n"))));
         }
 
         let response = client
@@ -68,7 +68,10 @@ impl Runner for CreateRunner<'_> {
                 error_text
             );
 
-            return Err(Error::new("Failed to create token", Some("Try again later.")).into());
+            return Err(Error::new(
+                "Failed to create token",
+                Some("Try again later."),
+            ));
         }
 
         let token = response

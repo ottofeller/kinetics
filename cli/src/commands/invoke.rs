@@ -7,6 +7,7 @@ use crate::{
     runner::{Runnable, Runner},
     writer::Writer,
 };
+use std::path::PathBuf;
 use runner::InvokeRunner;
 
 #[derive(clap::Args, Clone)]
@@ -58,6 +59,10 @@ pub(crate) struct InvokeCommand {
     /// Provision a queue. Helpful when you test a function which sends something to queue. Not available when called with --remote flag.
     #[arg(long="with-queue", visible_aliases=["queue"])]
     with_queue: bool,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    pub(crate) project: Option<PathBuf>,
 }
 
 impl Runnable for InvokeCommand {
