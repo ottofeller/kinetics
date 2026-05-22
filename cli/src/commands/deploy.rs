@@ -25,6 +25,10 @@ pub(crate) struct DeployCommand {
     /// Message to include in the deployment (max 100 characters)
     #[arg(short, long)]
     message: Option<String>,
+
+    /// Organization to deploy the project under
+    #[arg(long)]
+    org: Option<String>,
 }
 
 impl Runnable for DeployCommand {
