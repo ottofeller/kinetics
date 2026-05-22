@@ -6,7 +6,6 @@ use color_eyre::owo_colors::OwoColorize;
 use eyre::WrapErr;
 use serde_json::json;
 use std::collections::HashMap;
-use std::path::Path;
 use std::str::FromStr;
 
 impl InvokeRunner<'_> {
@@ -14,9 +13,12 @@ impl InvokeRunner<'_> {
     #[allow(clippy::too_many_arguments)]
     pub async fn remote(&self, function: &Function) -> eyre::Result<()> {
         let project = self.project(&self.command.project).await?;
-        let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
-        let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", project.name));
-        let display_path = format!("{}/src/bin/{}.rs", invoke_dir.display(), function.name);
+        let display_path = format!(
+            "{}/{}/src/bin/{}.rs",
+            project.build_path()?.display(),
+            function.name,
+            function.name
+        );
 
         self.writer
             .text(&format!(

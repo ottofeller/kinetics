@@ -1,10 +1,8 @@
 use crate::commands::invoke::InvokeCommand;
-use crate::config::build_config;
 use crate::error::Error;
 use crate::function::Function;
 use crate::runner::Runner;
 use crate::writer::Writer;
-use std::path::PathBuf;
 
 pub(crate) struct InvokeRunner<'a> {
     pub(crate) command: InvokeCommand,
@@ -17,10 +15,7 @@ impl Runner for InvokeRunner<'_> {
         let project = self.project(&self.command.project).await?;
 
         // Get function names as well as pull all updates from the code.
-        let all_functions = project.parse(
-            PathBuf::from(build_config()?.kinetics_path),
-            std::slice::from_ref(&self.command.name),
-        )?;
+        let all_functions = project.parse(std::slice::from_ref(&self.command.name))?;
 
         let function = Function::find_by_name(&all_functions, &self.command.name)?;
 

@@ -1,13 +1,11 @@
 use super::progress::{PipelineProgress, ProgressStatus};
 use crate::api::client::Client;
-use crate::config::build_config;
 use crate::config::deploy::DeployConfig;
 use crate::function::{build, Function};
 use crate::project::Project;
 use crate::writer::Writer;
 use eyre::{eyre, OptionExt, Report};
 use futures::future;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Semaphore;
@@ -55,10 +53,7 @@ impl<'a> Pipeline<'a> {
         ))?;
 
         // All functions to add to the template
-        let all_functions = self.project.parse(
-            PathBuf::from(build_config()?.kinetics_path),
-            deploy_functions,
-        )?;
+        let all_functions = self.project.parse(deploy_functions)?;
 
         // Clear the previous line, the "Preparing..." step is not a part of the build pipeline
         self.writer.text("\r\x1B[K")?;
@@ -138,7 +133,7 @@ impl<'a> Pipeline<'a> {
 
                 pipeline_progress.increase_current_function_position();
 
-                if let Err(error) = tokio::fs::remove_file(function.bundle_path()).await {
+                if let Err(error) = tokio::fs::remove_file(function.bundle_path()?).await {
                     log::error!(
                         "Failed to remove file {:?} with error {}",
                         function.bundle_path(),

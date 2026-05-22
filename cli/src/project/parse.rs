@@ -3,7 +3,7 @@ use super::templates;
 use super::Project;
 use crate::function::Function;
 use crate::tools::config::EndpointConfig;
-use eyre::Context;
+use eyre::{Context, ContextCompat};
 use kinetics_parser::{Params, ParsedFunction, Parser, Role};
 use regex::Regex;
 use std::fs;
@@ -14,96 +14,137 @@ use walkdir::WalkDir;
 impl Project {
     /// Parses source code and prepares project for deployment
     ///
-    /// Stores rust crate inside target_directory and returns list of encountered functions
+    /// Stores rust crate inside target_directory and returns list of encountered functions.
+    /// Creates a workspace in the build directory where:
+    /// - all existing packages are retained as workspace members unmodified;
+    /// - each parsed function populates a new workspace member as a separate build target.
     pub fn parse(
         &self,
-        dst: PathBuf,
 
         // This method always returns all functions defined in the project, but relies on this input param
         // to mark the requested functions as requested for deployment
         deploy_functions: &[String],
     ) -> eyre::Result<Vec<Function>> {
         let src = &self.workspace.root_path;
-        let dst = dst.join(&self.name);
+        let dst = self.build_path()?;
         // Checksums of source files for preventing rewrite existing files
         let mut checksum = FileHash::new(dst.to_path_buf());
 
-        // Clone user project into the build folder.
-        self.clone(src, &dst, &mut checksum)?;
-
         let mut all_functions = Vec::new();
 
-        // Create lib.rs exporting a containing module of each parsed function.
+        // Clone user project into the build folder.
+        self.clone(
+            src,
+            &dst,
+            &PathBuf::new(),
+            // Ignore all workspace members - we copy them later
+            &self
+                .workspace
+                .packages
+                .iter()
+                .map(|pkg| pkg.relative_path.clone())
+                // Skip the root Cargo.toml, since we populate it ourselves.
+                .chain([PathBuf::from("Cargo.toml")])
+                .collect::<Vec<_>>(),
+            &mut checksum,
+        )?;
+
+        // Build the workspace manifest document.
+        // If the project is a single package at the workspace root,
+        // create a new manifest with [workspace] section.
+        // Otherwise, read and update the existing workspace manifest.
+        let is_plain_crate = self.workspace.packages.len() == 1
+            && self.workspace.packages[0]
+                .relative_path
+                .to_str()
+                .is_some_and(|p| p.is_empty());
+        let mut workspace_doc = if is_plain_crate {
+            toml_edit::DocumentMut::from(toml_edit::Table::from_iter([(
+                "workspace",
+                toml_edit::Table::new(),
+            )]))
+        } else {
+            fs::read_to_string(src.join("Cargo.toml"))?.parse()?
+        };
+
+        // Collect existing member paths for the workspace manifest
+        let mut member_paths: Vec<String> = self
+            .workspace
+            .packages
+            .iter()
+            .map(|pkg| {
+                let path = pkg.relative_path.to_string_lossy();
+                if path.is_empty() {
+                    pkg.name.clone()
+                } else {
+                    path.to_string()
+                }
+            })
+            .collect();
+
         for package in &self.workspace.packages {
-            let parsed_functions = Parser::new(&self.workspace.root_path, Some(package))?.functions;
-            let relative_manifest_path = package.relative_path.join("Cargo.toml");
-
-            if parsed_functions.is_empty() {
-                // Copy Cargo.toml, since we skipped copying it before.
-                self.clean_copy(
-                    &src.join(&relative_manifest_path),
-                    &dst,
-                    &relative_manifest_path,
-                    &mut checksum,
-                )?;
-                continue;
-            }
-
-            self.create_lib(
-                src,
+            // Copy the initially present workspace member.
+            // For standalone crates create a dst workspace member with the same name.
+            let pkg_path = if package.relative_path.to_string_lossy().is_empty() {
+                &PathBuf::from(&package.name)
+            } else {
+                &package.relative_path
+            };
+            self.clone(
+                &src.join(&package.relative_path),
                 &dst,
-                &package.relative_path,
-                &parsed_functions,
+                pkg_path,
+                &[],
                 &mut checksum,
             )?;
 
-            let mut manifest: toml_edit::DocumentMut =
-                fs::read_to_string(src.join(&relative_manifest_path))?.parse()?;
-
-            let bin_dir = package.relative_path.join("src/bin");
-            fs::create_dir_all(dst.join(&bin_dir)).wrap_err("Create dir failed")?;
-
-            for parsed_function in &parsed_functions {
-                for is_local in [false, true] {
-                    // Create bin file for every parsed function
-                    self.create_lambda_bin(
-                        &dst,
-                        &bin_dir,
-                        parsed_function,
-                        is_local,
-                        &mut checksum,
-                    )?;
-
-                    // Add dependencies required to run a lambda to Cargo.toml
-                    self.deps(parsed_function, is_local, &mut manifest)?;
-                }
+            let parsed_functions = Parser::new(&self.workspace.root_path, Some(package))?.functions;
+            if parsed_functions.is_empty() {
+                continue;
             }
 
-            let manifest_string = manifest.to_string();
-            if checksum.update(
-                relative_manifest_path.to_path_buf(),
-                &FileHash::hash_from_bytes(&manifest_string)
-                    .wrap_err("Failed to calculate hash from bytes of Cargo.toml")?,
-            ) {
-                fs::write(dst.join(relative_manifest_path), &manifest_string)
-                    .wrap_err("Failed to write Cargo.toml")?;
+            for parsed_function in &parsed_functions {
+                let function_name = parsed_function.func_name(false)?;
+
+                // Create a new workspace member for this function
+                self.create_function_member(
+                    src,
+                    &dst,
+                    &function_name,
+                    parsed_function,
+                    &mut checksum,
+                )?;
+
+                member_paths.push(function_name);
             }
 
             all_functions.extend(parsed_functions);
         }
 
+        // Update the workspace manifest with all member paths
+        workspace_doc["workspace"]["members"] =
+            toml_edit::Array::from_iter(member_paths.iter()).into();
+
+        let workspace_manifest_path = PathBuf::from("Cargo.toml");
+        let manifest_string = workspace_doc.to_string();
+        if checksum.update(
+            workspace_manifest_path.clone(),
+            &FileHash::hash_from_bytes(&manifest_string)
+                .wrap_err("Failed to calculate hash from bytes of workspace Cargo.toml")?,
+        ) {
+            fs::write(dst.join(&workspace_manifest_path), &manifest_string)
+                .wrap_err("Failed to write workspace Cargo.toml")?;
+        }
+
         checksum.save().wrap_err("Failed to save checksums")?;
         self.clear_dir(&dst, &checksum)?;
 
-        // Create a new project instance for the target build directory
-        let rel_path = self.path.strip_prefix(&self.workspace.root_path)?;
-        let dst_project = Project::from_path(dst.join(rel_path))?;
         all_functions
             .into_iter()
             .map(|f| {
                 let name = f.func_name(false)?;
 
-                Function::new(&dst_project, &f).map(|f| {
+                Function::new(&self, &f).map(|f| {
                     // Mark function as requested (or not) for deployment
                     f.set_is_deploying(
                         deploy_functions.is_empty() || deploy_functions.contains(&name),
@@ -113,24 +154,27 @@ impl Project {
             .collect::<eyre::Result<Vec<_>>>()
     }
 
-    /// Clone the project dir to a new directory
-    fn clone(&self, src: &Path, dst: &Path, checksum: &mut FileHash) -> eyre::Result<()> {
-        fs::create_dir_all(dst).wrap_err("Failed to create dir to clone the project to")?;
+    /// Clone the package dir to a new directory
+    fn clone(
+        &self,
+        src: &Path,
+        dst_dir: &Path,
+        dst_rel_path: &Path,
+        skip_more: &[PathBuf],
+        checksum: &mut FileHash,
+    ) -> eyre::Result<()> {
+        let dst_pkg = dst_dir.join(dst_rel_path);
+        fs::create_dir_all(&dst_pkg).wrap_err("Failed to create dir to clone the project to")?;
 
-        let mut skip_paths = vec![
+        let skip_paths = [
             // Skip the target dir, cargo lambda use it (if exist) for incremental builds.
             src.join("target"),
             src.join(".git"),
             src.join(".github"),
-        ];
-
-        // Skip package manifests, since we process them later.
-        skip_paths.extend(
-            self.workspace
-                .packages
-                .iter()
-                .map(|pkg| src.join(&pkg.relative_path).join("Cargo.toml")),
-        );
+        ]
+        .into_iter()
+        .chain(skip_more.iter().map(|p| src.join(p)))
+        .collect::<Vec<_>>();
 
         for entry in WalkDir::new(src)
             .into_iter()
@@ -144,20 +188,22 @@ impl Project {
             let src_path = entry.path();
 
             // Strip leading path from source to create relative path in destination
-            let src_relative = entry
-                .path()
-                .strip_prefix(src)
-                .unwrap_or_else(|_| entry.path());
-
-            let dst_path = dst.join(src_relative);
+            let src_relative = src_path.strip_prefix(src).unwrap_or_else(|_| entry.path());
+            let dst_path = dst_pkg.join(src_relative);
 
             if src_path.is_dir() {
+                log::debug!("Create dir {dst_path:?}");
                 fs::create_dir_all(&dst_path).wrap_err("Create dir failed")?;
                 continue;
             }
 
             // If src file has been modified, copy it to the destination
-            self.clean_copy(src_path, dst, src_relative, checksum)?;
+            self.clean_copy(
+                src_path,
+                dst_dir,
+                &dst_rel_path.join(src_relative),
+                checksum,
+            )?;
         }
 
         Ok(())
@@ -208,67 +254,145 @@ impl Project {
         Ok(())
     }
 
-    /// Create lib.rs file for the cloned crate.
-    /// The file is used as an export point for all the functions.
+    /// Create lib.rs file for the function crate.
+    /// The file is used as an export point for the function.
     fn create_lib(
         &self,
         src: &Path,
+        src_pkg_path: &Path,
         dst: &Path,
-        rel_pkg_path: &Path,
-        functions: &[ParsedFunction],
+        dst_pkg_path: &Path,
+        function: &ParsedFunction,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
-        let relative_lib_path = rel_pkg_path.join("src/lib.rs");
-        let src_lib_rs_path = src.join(&relative_lib_path);
+        let src_lib_rs_path = src.join(src_pkg_path).join("src/lib.rs");
 
-        let modules = functions.iter().filter_map(|f| {
-            // Take the first path component from each module in the src folder, and export it.
-            match Path::new(&f.to_string())
-                .strip_prefix("src")
-                .ok()?
-                .with_extension("")
-                .components()
-                .next()
-            {
-                Some(Component::Normal(comp)) => comp.to_str().map(String::from),
-                _ => None,
-            }
-        });
+        // Take the first path component from function module in the src folder, and export it.
+        let fn_path = function.to_string();
+        let module = match Path::new(&fn_path)
+            .strip_prefix(src_pkg_path)?
+            .strip_prefix("src")?
+            .with_extension("")
+            .components()
+            .next()
+        {
+            Some(Component::Normal(comp)) => comp.to_str().map(String::from),
+            _ => None,
+        }
+        .wrap_err(format!("Invalid path format for {fn_path}"))?;
 
         let lib = if src_lib_rs_path.exists() {
             // Make sure all modules with functions are exported.
             let mut lib =
                 fs::read_to_string(src_lib_rs_path).wrap_err("Failed to read src/lib.rs")?;
 
-            for module in modules {
-                if module != "lib" {
-                    let re_module_pub = Regex::new(&format!(r"(?m)^\s*pub\s*mod\s+{module};$"))?;
-                    if re_module_pub.find(&lib).is_some() {
-                        // Leave already public modules as is.
-                        continue;
-                    };
-
-                    let re_module = Regex::new(&format!(r"(?m)^\s*mod\s+{module};$"))?;
-                    let export = format!("pub mod {module};");
-                    // Delete any existing declaration and append new one
-                    lib = format!("{export}\n{}", re_module.replace(&lib, ""));
-                }
-            }
+            if module != "lib"
+                && Regex::new(&format!(r"(?m)^\s*pub\s*mod\s+{module};$"))?
+                    .find(&lib)
+                    .is_none()
+            {
+                let re_module = Regex::new(&format!(r"(?m)^\s*mod\s+{module};$"))?;
+                let export = format!("pub mod {module};");
+                // Delete any existing declaration and append new one
+                lib = format!("{export}\n{}", re_module.replace(&lib, ""));
+            };
 
             lib
         } else {
             // Create lib.rs file with required exports.
-            modules
-                .map(|module| format!("pub mod {module};\n"))
-                .collect::<String>()
+            format!("pub mod {module};\n")
         };
 
+        let relative_lib_path = dst_pkg_path.join("src/lib.rs");
         if checksum.update(
-            relative_lib_path.to_path_buf(),
+            relative_lib_path.clone(),
             &FileHash::hash_from_bytes(&lib)
                 .wrap_err("Failed to calculate hash from bytes of src/lib.rs")?,
         ) {
             fs::write(dst.join(&relative_lib_path), lib).wrap_err("Failed to write src/lib.rs")?;
+        }
+
+        Ok(())
+    }
+
+    /// Create a new workspace member for a function.
+    ///
+    /// Each function gets its own package in the workspace with:
+    /// - a full copy of the original package's source files;
+    /// - `Cargo.toml` based on the original package's manifest with name changed and deps added;
+    /// - remote and local lambda bins for the function.
+    fn create_function_member(
+        &self,
+        src: &Path,
+        dst: &Path,
+        function_name: &str,
+        parsed_function: &ParsedFunction,
+        checksum: &mut FileHash,
+    ) -> eyre::Result<()> {
+        let member_dir = PathBuf::from(function_name);
+        let pkg_rel_path = &parsed_function.pkg_rel_path;
+
+        self.clone(
+            &src.join(pkg_rel_path),
+            &dst,
+            &member_dir,
+            &[PathBuf::from("Cargo.toml"), PathBuf::from("src/lib.rs")],
+            checksum,
+        )?;
+        self.create_function_manifest(dst, &member_dir, function_name, parsed_function, checksum)?;
+        self.create_lib(
+            src,
+            &pkg_rel_path,
+            &dst,
+            &member_dir,
+            &parsed_function,
+            checksum,
+        )?;
+
+        let bin_dir = member_dir.join("src/bin");
+        fs::create_dir_all(dst.join(&bin_dir)).wrap_err(format!(
+            "Failed to create dir for function member {function_name}"
+        ))?;
+
+        // Create src/bin/<func_name>.rs for the remote and local function
+        self.create_lambda_bin(dst, &bin_dir, parsed_function, false, checksum)?;
+        self.create_lambda_bin(dst, &bin_dir, parsed_function, true, checksum)?;
+
+        Ok(())
+    }
+
+    /// Create Cargo.toml for a function workspace member.
+    ///
+    /// Based on the original package's manifest, with:
+    /// - package name changed to the function name;
+    /// - lambda runtime dependencies added.
+    fn create_function_manifest(
+        &self,
+        dst: &Path,
+        member_dir: &Path,
+        function_name: &str,
+        parsed_function: &ParsedFunction,
+        checksum: &mut FileHash,
+    ) -> eyre::Result<()> {
+        let manifest_path = member_dir.join("Cargo.toml");
+        let src_manifest_path = self
+            .workspace
+            .root_path
+            .join(&parsed_function.pkg_rel_path)
+            .join("Cargo.toml");
+
+        let mut doc: toml_edit::DocumentMut = fs::read_to_string(&src_manifest_path)?.parse()?;
+        doc["package"]["name"] = toml_edit::value(function_name);
+        self.deps(parsed_function, &mut doc)?;
+
+        let manifest_string = doc.to_string();
+        if checksum.update(
+            manifest_path.to_path_buf(),
+            &FileHash::hash_from_bytes(&manifest_string)
+                .wrap_err("Failed to calculate hash from bytes of function Cargo.toml")?,
+        ) {
+            fs::write(dst.join(&manifest_path), &manifest_string)
+                .wrap_err("Failed to write function Cargo.toml")?;
         }
 
         Ok(())
@@ -293,7 +417,7 @@ impl Project {
         let fn_import = self.import_statement(
             &parsed_function.relative_path,
             &parsed_function.rust_function_name,
-            &parsed_function.pkg_name,
+            &parsed_function.func_name(false)?,
         )?;
 
         let rust_function_name = parsed_function.rust_function_name.clone();
@@ -323,30 +447,25 @@ impl Project {
     fn deps(
         &self,
         parsed_function: &ParsedFunction,
-        is_local: bool,
         doc: &mut toml_edit::DocumentMut,
     ) -> eyre::Result<()> {
-        if matches!(parsed_function.role, Role::Cron | Role::Worker)
-            || (matches!(parsed_function.role, Role::Endpoint) && is_local)
+        if let Some(serde_json) = doc["dependencies"]["serde_json"]
+            .or_insert(toml_edit::Table::new().into())
+            .as_table_mut()
         {
-            if let Some(serde_json) = doc["dependencies"]["serde_json"]
-                .or_insert(toml_edit::Table::new().into())
-                .as_table_mut()
-            {
-                serde_json.insert("version", toml_edit::value("1.0.149"));
-            }
+            serde_json.insert("version", toml_edit::value("1.0.149"));
+        }
 
-            if let Some(reqwest) = doc["dependencies"]["reqwest"]
-                .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
-                .as_table_mut()
-            {
-                reqwest.insert("version", toml_edit::value("0.13.1"));
-                reqwest.insert("default-features", toml_edit::value(false));
-                reqwest.insert(
-                    "features",
-                    toml_edit::Array::from_iter(["default-tls"]).into(),
-                );
-            }
+        if let Some(reqwest) = doc["dependencies"]["reqwest"]
+            .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+            .as_table_mut()
+        {
+            reqwest.insert("version", toml_edit::value("0.13.1"));
+            reqwest.insert("default-features", toml_edit::value(false));
+            reqwest.insert(
+                "features",
+                toml_edit::Array::from_iter(["default-tls"]).into(),
+            );
         }
 
         match parsed_function.role {
@@ -473,30 +592,28 @@ impl Project {
     /// Copy a file to the destination folder.
     fn clean_copy(
         &self,
-        src_path_full: &Path,
+        src: &Path,
         dst_dir: &Path,
-        file_path_relative: &Path,
+        dst_rel_path: &Path,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
-        let dst_path_full = dst_dir.join(file_path_relative);
+        let dst_path_full = dst_dir.join(dst_rel_path);
         // For all non .rs files just copy it.
-        if src_path_full.extension().is_some_and(|ext| ext != "rs") {
-            return fs::copy(src_path_full, &dst_path_full)
-                .wrap_err_with(|| {
-                    format!("Failed to copy file {src_path_full:?} -> {dst_path_full:?}")
-                })
+        if src.extension().is_some_and(|ext| ext != "rs") {
+            log::debug!("Copy without checksum {dst_path_full:?}");
+            return fs::copy(src, &dst_path_full)
+                .wrap_err_with(|| format!("Failed to copy file {src:?} -> {dst_path_full:?}"))
                 .map(|_| ());
         }
 
         // Update hash table for the file.
-        let content = fs::read_to_string(src_path_full)
-            .wrap_err(format!("Failed to read file {src_path_full:?}"))?;
+        let content = fs::read_to_string(&src).wrap_err(format!("Failed to read file {src:?}"))?;
         if checksum.update(
-            file_path_relative.to_path_buf(),
-            &FileHash::hash_from_bytes(&content).wrap_err_with(|| {
-                format!("Failed to calculate hash from bytes of {src_path_full:?}")
-            })?,
+            dst_rel_path.to_path_buf(),
+            &FileHash::hash_from_bytes(&content)
+                .wrap_err_with(|| format!("Failed to calculate hash from bytes of {src:?}"))?,
         ) {
+            log::debug!("Copy with changed checksum {dst_path_full:?}");
             fs::write(&dst_path_full, &content)
                 .wrap_err_with(|| format!("Failed to write {dst_path_full:?}"))?;
         }
