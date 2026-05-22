@@ -35,6 +35,29 @@ impl Client {
         Ok(())
     }
 
+    /// Send a message to the queue and delayed processing
+    ///
+    /// Message becomes available for processing after the delay period is finished.
+    /// Valid values are 0 to 900 seconds (15 minutes).
+    pub async fn send_with_delay(
+        &self,
+        message: impl ::std::convert::Into<::std::string::String>,
+        delay_seconds: u32,
+    ) -> eyre::Result<()> {
+        if delay_seconds > 900 {
+            return Err(eyre::eyre!("Delay must be between 0 and 900 seconds"));
+        }
+
+        self.queue
+            .clone()
+            .message_body(message)
+            .delay_seconds(delay_seconds as i32)
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
     /// Init the client from the reference to worker function
     ///
     /// The client is initialised just once and than reused.
