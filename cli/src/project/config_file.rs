@@ -10,26 +10,27 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Default, Deserialize)]
 pub(super) struct ConfigFile {
     #[serde(default)]
-    project: ProjectSection,
+    pub(super) project: ProjectSection,
 
     #[serde(default)]
-    observability: Option<ObservabilitySection>,
+    pub(super) observability: Option<ObservabilitySection>,
 
     #[serde(default)]
-    kvdb: Vec<Kvdb>,
+    pub(super) kvdb: Vec<Kvdb>,
 
     #[serde(skip)]
-    path: PathBuf,
+    pub(super) path: PathBuf,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-struct ProjectSection {
-    name: String,
+pub(super) struct ProjectSection {
+    pub(super) name: String,
+    pub(super) org: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-struct ObservabilitySection {
-    dd_api_key_env: String,
+pub(super) struct ObservabilitySection {
+    pub(super) dd_api_key_env: String,
 }
 
 /// FileConfig is the structure of kinetics.toml
@@ -49,6 +50,7 @@ impl ConfigFile {
             return Ok(Self {
                 project: ProjectSection {
                     name: Self::cargo_toml_name(path.as_path())?,
+                    org: None,
                 },
                 path,
                 ..Default::default()
@@ -125,6 +127,10 @@ impl TryFrom<ConfigFile> for Project {
             let dd_api_key = std::env::var(&observability.dd_api_key_env).unwrap_or_default();
 
             project = project.set_observability(dd_api_key);
+        }
+
+        if cfg.project.org.is_some() {
+            project = project.with_org(cfg.project.org.as_deref());
         }
 
         Ok(project)

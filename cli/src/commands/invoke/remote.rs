@@ -30,15 +30,18 @@ impl InvokeRunner<'_> {
         // `url_path` arg is optional,
         // thus fall back to the url_path from macro
         // in order to call correct function.
-        let url = if self.command.url_path.clone().is_none_or(|p| p.is_empty()) {
-            // Replace templating characters as they are not a part of a URL.
-            function.url().await?.replace(['{', '}', '+', '*'], "")
-        } else {
-            format!(
-                "{}/{}",
-                Project::fetch_one(&function.project.name).await?.url(),
-                self.command.url_path.clone().unwrap()
-            )
+        let url = match self.command.url_path.as_ref() {
+            Some(url_path) if !url_path.is_empty() => {
+                format!(
+                    "{}/{}",
+                    Project::fetch_one(&function.project.name).await?.url(),
+                    url_path
+                )
+            }
+            _ => {
+                // Replace templating characters as they are not a part of a URL.
+                function.url().await?.replace(['{', '}', '+', '*'], "")
+            }
         };
 
         self.writer
