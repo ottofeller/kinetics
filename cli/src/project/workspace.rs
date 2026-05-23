@@ -104,7 +104,12 @@ impl Workspace {
             })
             .collect();
 
-        if workspace_config.exists() && !members_configs.is_empty() {
+        let is_standalone_crate = members_configs.len() == 1
+            && members_configs
+                .first()
+                .is_some_and(|c| *c == workspace_config);
+
+        if !is_standalone_crate && workspace_config.exists() && !members_configs.is_empty() {
             eyre::bail!("Workspace is not allowed to have `kinetics.toml` within its root and within its members at the same time.");
         }
 
