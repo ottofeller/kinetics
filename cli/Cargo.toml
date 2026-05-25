@@ -1,6 +1,6 @@
 [package]
 name = "kinetics"
-version = "0.15.4"
+version = "0.15.5"
 edition = "2021"
 description = "Kinetics is a hosting platform for Rust applications that allows you to deploy all types of workloads by writing **only Rust code**."
 readme = "../README.md"
@@ -43,8 +43,8 @@ keyring = { version = "3.6.3", features = [
   "vendored",
   "windows-native"
 ] }
-kinetics-macro = { path = "../macro", version = "0.15.4" }
-kinetics-parser = { path = "../parser", version = "0.15.4" }
+kinetics-macro = { path = "../macro", version = "0.15.5" }
+kinetics-parser = { path = "../parser", version = "0.15.5" }
 lambda_http = "^1.0"
 lambda_runtime = "^1.0"
 log = "0.4.29"
