@@ -104,6 +104,9 @@ impl Workspace {
             })
             .collect();
 
+        // For a standalone crate workspace construct errors if kinetics.toml exists.
+        // The reason is that in this case the config is present at root and in the member
+        // (since they are the same entity), and a check for no config conflicts fails.
         let is_standalone_crate = members_configs.len() == 1
             && members_configs
                 .first()
