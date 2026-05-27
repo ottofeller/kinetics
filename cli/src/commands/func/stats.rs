@@ -66,7 +66,7 @@ impl Runner for StatsRunner<'_> {
         let response = client
             .post("/function/stats")
             .json(&func::stats::Request {
-                project_name: project.name.to_owned(),
+                project,
                 function_name: function.name,
                 period: self.command.period.to_owned(),
             })
