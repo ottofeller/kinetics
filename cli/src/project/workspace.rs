@@ -104,7 +104,15 @@ impl Workspace {
             })
             .collect();
 
-        if workspace_config.exists() && !members_configs.is_empty() {
+        // For a standalone crate workspace construct errors if kinetics.toml exists.
+        // The reason is that in this case the config is present at root and in the member
+        // (since they are the same entity), and a check for no config conflicts fails.
+        let is_standalone_crate = members_configs.len() == 1
+            && members_configs
+                .first()
+                .is_some_and(|c| *c == workspace_config);
+
+        if !is_standalone_crate && workspace_config.exists() && !members_configs.is_empty() {
             eyre::bail!("Workspace is not allowed to have `kinetics.toml` within its root and within its members at the same time.");
         }
 

@@ -388,7 +388,7 @@ impl Project {
         doc["dependencies"]["aws_lambda_events"]
             .or_insert(toml_edit::Table::new().into())
             .as_table_mut()
-            .map(|t| t.insert("version", toml_edit::value("0.18.0")));
+            .map(|t| t.insert("version", toml_edit::value("1.1.2")));
 
         doc["dependencies"]["aws-config"]
             .or_insert(toml_edit::Table::new().into())

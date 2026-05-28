@@ -23,7 +23,9 @@ use eyre::WrapErr;
 use http::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
 use std::path::PathBuf;
+use toml_edit::{value, DocumentMut, Table};
 
 /// Managing user's project
 ///
@@ -49,6 +51,8 @@ pub struct Project {
 
     /// Custom domain name for the project
     pub domain_name: Option<String>,
+    /// Org is optional and set in kinetics.toml
+    pub org: Option<String>,
 }
 
 /// Project's settings for observability
@@ -69,6 +73,7 @@ impl Project {
             kvdb: Vec::new(),
             observability: None,
             domain_name: None,
+            org: None,
         }
     }
 
@@ -82,12 +87,33 @@ impl Project {
         self
     }
 
+    pub fn with_org(mut self, org: Option<&str>) -> Self {
+        self.org = org.map(|o| o.to_string());
+        self
+    }
+
     /// Creates a new project instance by reading `kinetics.toml` from a given file `path`
     ///
     /// Returns default config if kinetics.toml does not exist. In that case the name will be taken
     /// from the ` Cargo.toml ` file in the same path
     pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
-        ConfigFile::from_path(path)?.try_into()
+        let cfg = ConfigFile::from_path(path)?;
+        let mut project = Project::new(cfg.path, cfg.project.name).set_kvdb(cfg.kvdb);
+
+        if cfg.observability.is_some() {
+            let observability = cfg.observability.unwrap();
+
+            // Read DataDog API key from env, it's not safe to store it in kinetics config file
+            let dd_api_key = std::env::var(&observability.dd_api_key_env).unwrap_or_default();
+
+            project = project.set_observability(dd_api_key);
+        }
+
+        if cfg.project.org.is_some() {
+            project = project.with_org(cfg.project.org.as_deref());
+        }
+
+        Ok(project)
     }
 
     /// Get project by name, with automatic cache management.
@@ -123,7 +149,7 @@ impl Project {
             .wrap_err("Failed to create client")?
             .post("/stack/destroy")
             .json(&stack::destroy::Request {
-                project_name: self.name.to_owned(),
+                project: self.clone(),
             })
             .send()
             .await?;
@@ -194,16 +220,13 @@ impl Project {
     }
 
     pub async fn status(&self) -> eyre::Result<stack::status::Response> {
-        Self::status_by_name(&self.name).await
-    }
-
-    pub async fn status_by_name(name: &str) -> eyre::Result<stack::status::Response> {
         let client = Client::new(false).await?;
 
         let result = client
             .post("/stack/status")
             .json(&stack::status::Request {
-                name: name.to_owned(),
+                name: self.name.to_owned(),
+                project: self.clone(),
             })
             .send()
             .await
@@ -238,6 +261,45 @@ impl Project {
     pub fn environment(&self) -> HashMap<String, String> {
         Envs::load()
     }
+
+    /// Write the current project config to config file
+    pub fn write_config(&self) -> eyre::Result<()> {
+        let config_path = self.path.join("kinetics.toml");
+
+        let mut doc = if config_path.exists() {
+            fs::read_to_string(&config_path)
+                .wrap_err("Failed to read kinetics.toml")?
+                .parse::<DocumentMut>()
+                .wrap_err("Failed to parse kinetics.toml")?
+        } else {
+            DocumentMut::new()
+        };
+
+        // Ensure [project] table exists
+        if doc.get("project").is_none() {
+            doc["project"] = toml_edit::Item::Table(Table::new());
+        }
+
+        // Always write the name
+        if !self.name.is_empty() {
+            doc["project"]["name"] = value(&self.name);
+        }
+
+        // Set or remove org
+        match &self.org {
+            Some(org) => {
+                doc["project"]["org"] = value(org);
+            }
+            None => {
+                if let Some(project) = doc.get_mut("project").and_then(|p| p.as_table_mut()) {
+                    project.remove("org");
+                }
+            }
+        }
+
+        fs::write(&config_path, doc.to_string()).wrap_err("Failed to write kinetics.toml")?;
+        Ok(())
+    }
 }
 
 impl From<ProjectInfo> for Project {
@@ -248,6 +310,7 @@ impl From<ProjectInfo> for Project {
             name: value.name,
             url: value.url,
             kvdb: value.kvdb,
+            org: value.org,
             observability: None,
             domain_name: None,
         }

@@ -2,10 +2,9 @@ pub mod add;
 mod config;
 pub mod remove;
 
-use clap::Subcommand;
-
 use crate::commands::domains::add::AddCommand;
 use crate::commands::domains::remove::RemoveCommand;
+use clap::Subcommand;
 
 #[derive(Subcommand)]
 pub enum DomainsCommands {

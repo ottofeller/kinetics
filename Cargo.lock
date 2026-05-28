@@ -1333,7 +1333,7 @@ name = "examples"
 version = "0.9.2"
 dependencies = [
  "http 1.4.0",
- "kinetics 0.15.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kinetics",
  "matchit",
  "opentelemetry",
  "opentelemetry-appender-tracing",
@@ -2185,7 +2185,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics"
-version = "0.15.1"
+version = "0.15.8"
 dependencies = [
  "async-trait",
  "aws-config",
@@ -2211,8 +2211,8 @@ dependencies = [
  "indicatif",
  "indicatif-log-bridge",
  "keyring",
- "kinetics-macro 0.15.1",
- "kinetics-parser 0.15.1",
+ "kinetics-macro",
+ "kinetics-parser",
  "lambda_http",
  "lambda_runtime",
  "log",
@@ -2223,66 +2223,7 @@ dependencies = [
  "reqwest 0.13.2",
  "rust_dotenv",
  "serde",
- "serde-saphyr 0.0.23",
- "serde_json",
- "sha256",
- "sqlparser",
- "sqlx",
- "syn",
- "tabled",
- "terminal_size",
- "tokio",
- "toml",
- "toml_edit 0.25.11+spec-1.1.0",
- "tower",
- "twox-hash",
- "url",
- "users",
- "walkdir",
-]
-
-[[package]]
-name = "kinetics"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe5dc174953e3b536dc74f3153248820632ed673ddd06d7ffba9f76a81fe20e8"
-dependencies = [
- "async-trait",
- "aws-config",
- "aws-sdk-dsql",
- "aws-sdk-dynamodb",
- "aws-sdk-sqs",
- "aws_lambda_events",
- "base64 0.22.1",
- "bytes",
- "chrono",
- "clap",
- "color-eyre",
- "console",
- "crc-fast",
- "crossterm",
- "env_logger",
- "eyre",
- "futures",
- "http 1.4.0",
- "http-body 1.0.1",
- "humantime",
- "indicatif",
- "indicatif-log-bridge",
- "keyring",
- "kinetics-macro 0.15.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "kinetics-parser 0.15.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "lambda_http",
- "lambda_runtime",
- "log",
- "once_cell",
- "percent-encoding",
- "prettyplease",
- "regex",
- "reqwest 0.13.2",
- "rust_dotenv",
- "serde",
- "serde-saphyr 0.0.22",
+ "serde-saphyr",
  "serde_json",
  "sha256",
  "sqlparser",
@@ -2302,38 +2243,15 @@ dependencies = [
 
 [[package]]
 name = "kinetics-macro"
-version = "0.15.1"
+version = "0.15.8"
 dependencies = [
- "kinetics-parser 0.15.1",
- "syn",
-]
-
-[[package]]
-name = "kinetics-macro"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2fbdcaa49c1daa4aa1f51e293548e354c645c77b29186a5235e6dfce6c17f98"
-dependencies = [
- "kinetics-parser 0.15.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kinetics-parser",
  "syn",
 ]
 
 [[package]]
 name = "kinetics-parser"
-version = "0.15.1"
-dependencies = [
- "color-eyre",
- "http 1.4.0",
- "serde",
- "syn",
- "walkdir",
-]
-
-[[package]]
-name = "kinetics-parser"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d43177b680b06f2fca9a15b2735871e5cd5d055ca814c0686bd533d3ca7d45f"
+version = "0.15.8"
 dependencies = [
  "color-eyre",
  "http 1.4.0",
@@ -3566,17 +3484,6 @@ dependencies = [
 
 [[package]]
 name = "saphyr-parser-bw"
-version = "0.0.610"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d643f5e972f17219245b82f038c22cd3c74320bb17c6e8f7e8537de268b1bc6"
-dependencies = [
- "arraydeque",
- "smallvec",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "saphyr-parser-bw"
 version = "0.0.611"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67dec0c833db75dc98957956b303fe447ffc5eb13f2325ef4c2350f7f3aa69e3"
@@ -3693,26 +3600,6 @@ dependencies = [
 
 [[package]]
 name = "serde-saphyr"
-version = "0.0.22"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "546b4da4f679832602a8f8ab8ddc10b6b1d2e1a13b4f9dddcaee499436fa06ad"
-dependencies = [
- "ahash",
- "annotate-snippets",
- "base64 0.22.1",
- "encoding_rs_io",
- "getrandom 0.3.4",
- "nohash-hasher",
- "num-traits",
- "regex",
- "saphyr-parser-bw 0.0.610",
- "serde",
- "smallvec",
- "zmij",
-]
-
-[[package]]
-name = "serde-saphyr"
 version = "0.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09fbdfe7a27a1b1633dfc0c4c8e65940b8d819c5ddb9cca48ebc3223b00c8b14"
@@ -3725,7 +3612,7 @@ dependencies = [
  "nohash-hasher",
  "num-traits",
  "regex",
- "saphyr-parser-bw 0.0.611",
+ "saphyr-parser-bw",
  "serde",
  "smallvec",
  "zmij",

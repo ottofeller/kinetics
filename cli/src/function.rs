@@ -160,7 +160,7 @@ impl Function {
         let result = client
             .post("/function/status")
             .json(&func::status::Request {
-                project_name: self.project.name.clone(),
+                project: self.project.clone(),
                 function_name: self.name.clone(),
             })
             .send()

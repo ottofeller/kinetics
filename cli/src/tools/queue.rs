@@ -35,6 +35,29 @@ impl Client {
         Ok(())
     }
 
+    /// Send a message to the queue and delayed processing
+    ///
+    /// Message becomes available for processing after the delay period is finished.
+    /// Valid values are 0 to 900 seconds (15 minutes).
+    pub async fn send_with_delay(
+        &self,
+        message: impl ::std::convert::Into<::std::string::String>,
+        delay_seconds: u32,
+    ) -> eyre::Result<()> {
+        if delay_seconds > 900 {
+            return Err(eyre::eyre!("Delay must be between 0 and 900 seconds"));
+        }
+
+        self.queue
+            .clone()
+            .message_body(message)
+            .delay_seconds(delay_seconds as i32)
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
     /// Init the client from the reference to worker function
     ///
     /// The client is initialised just once and than reused.
@@ -72,6 +95,7 @@ impl Client {
                 let config = if std::env::var("KINETICS_IS_LOCAL").is_ok() {
                     // Redefine endpoint in local mode
                     aws_config::defaults(aws_config::BehaviorVersion::latest())
+                        .region(aws_config::Region::new(region.clone()))
                         .endpoint_url(&queue_endpoint_url)
                         .load()
                         .await
@@ -87,7 +111,10 @@ impl Client {
                             &std::env::var("KINETICS_USERNAME")
                                 .expect("KINETICS_USERNAME is not set"),
                             project_name,
-                            &ParsedFunction::to_local_name(&[&function_path.replace("::", "/")]),
+                            &ParsedFunction::to_local_name(&[
+                                project_name,
+                                &function_path.replace("::", "/"),
+                            ]),
                         ))
                     })
                     .expect("Queue name is not set");

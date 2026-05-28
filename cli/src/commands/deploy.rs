@@ -27,6 +27,10 @@ pub(crate) struct DeployCommand {
     #[arg(short, long)]
     message: Option<String>,
 
+    /// Organization to deploy the project under
+    #[arg(long)]
+    org: Option<String>,
+
     /// Relative path to the project directory
     #[arg(long)]
     pub(crate) project: Option<PathBuf>,
