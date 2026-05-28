@@ -86,6 +86,7 @@ impl InvokeRunner<'_> {
             aws_credentials.insert("AWS_ENDPOINT_URL", "http://localhost:8000");
             aws_credentials.insert("AWS_ACCESS_KEY_ID", "key");
             aws_credentials.insert("AWS_SECRET_ACCESS_KEY", "secret");
+            aws_credentials.insert("AWS_REGION", "us-east-1");
         }
 
         // Start the command with piped stdout and stderr

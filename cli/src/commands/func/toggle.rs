@@ -92,7 +92,7 @@ impl Runner for ToggleRunner<'_> {
         let response = client
             .post("/function/toggle")
             .json(&func::toggle::Request {
-                project_name: project.name.clone(),
+                project,
                 function_name: function.name,
                 operation: self.op.clone(),
             })

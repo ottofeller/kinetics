@@ -74,7 +74,7 @@ impl Runner for LogsRunner<'_> {
         let response = client
             .post("/function/logs")
             .json(&func::logs::Request {
-                project_name: project.name.clone(),
+                project,
                 function_name: function.name.clone(),
                 period: self.command.period.to_owned(),
             })

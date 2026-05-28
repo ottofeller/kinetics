@@ -48,8 +48,7 @@ impl Cli {
     pub(crate) async fn run(&self, command: &impl Runnable) {
         let run = command.runner(&self.writer).run().await;
 
-        if run.is_err() {
-            let error = run.unwrap_err();
+        if let Err(error) = run {
             log::error!("{error:?}");
 
             self.writer
@@ -123,7 +122,23 @@ async fn main() -> Result<(), Error> {
             commands::proj::ProjCommands::Destroy(cmd) => cli.run(cmd).await,
             commands::proj::ProjCommands::Rollback(cmd) => cli.run(cmd).await,
             commands::proj::ProjCommands::List(cmd) => cli.run(cmd).await,
+            commands::proj::ProjCommands::Org(cmd) => cli.run(cmd).await,
             commands::proj::ProjCommands::Versions(cmd) => cli.run(cmd).await,
+        },
+
+        Commands::Orgs(orgs) => match orgs {
+            commands::orgs::OrgsCommands::Create(cmd) => cli.run(cmd).await,
+            commands::orgs::OrgsCommands::Delete(cmd) => cli.run(cmd).await,
+            commands::orgs::OrgsCommands::Leave(cmd) => cli.run(cmd).await,
+            commands::orgs::OrgsCommands::List(cmd) => cli.run(cmd).await,
+            commands::orgs::OrgsCommands::Members(members) => match members {
+                commands::orgs::members::MembersCommands::Invite(cmd) => cli.run(cmd).await,
+                commands::orgs::members::MembersCommands::Delete(cmd) => cli.run(cmd).await,
+            },
+            commands::orgs::OrgsCommands::Owners(owners) => match owners {
+                commands::orgs::owners::OwnersCommands::Add(cmd) => cli.run(cmd).await,
+                commands::orgs::owners::OwnersCommands::Delete(cmd) => cli.run(cmd).await,
+            },
         },
 
         Commands::Init(cmd) => cli.run(cmd).await,
