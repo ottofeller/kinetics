@@ -40,7 +40,7 @@ impl Runner for AddRunner<'_> {
         let client = self.api_client().await?;
 
         let request = Request {
-            project_name: project.name.clone(),
+            project: project.clone(),
             domain_name: self.command.domain_name.clone(),
         };
 

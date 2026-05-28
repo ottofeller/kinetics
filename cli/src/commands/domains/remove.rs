@@ -40,7 +40,7 @@ impl Runner for RemoveRunner<'_> {
         })?;
 
         let request = Request {
-            project_name: project.name.clone(),
+            project: project.clone(),
             domain_name: domain_name.clone(),
         };
 
