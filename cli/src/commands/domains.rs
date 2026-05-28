@@ -1,5 +1,4 @@
 pub mod add;
-mod config;
 pub mod remove;
 
 use crate::commands::domains::add::AddCommand;

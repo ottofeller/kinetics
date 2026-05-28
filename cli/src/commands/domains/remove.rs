@@ -30,7 +30,7 @@ struct RemoveRunner<'a> {
 
 impl Runner for RemoveRunner<'_> {
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project(&self.command.project).await?;
+        let mut project = self.project(&self.command.project).await?;
         let client = self.api_client().await?;
         let domain_name = project.domain_name.clone().ok_or_else(|| {
             Error::new(
@@ -81,7 +81,9 @@ impl Runner for RemoveRunner<'_> {
             return Err(self.server_error(None));
         }
 
-        super::config::remove_domain(&project)
+        project.domain_name = None;
+        project
+            .write_config()
             .map_err(|e| self.error(None, None, Some(e.into())))?;
 
         self.writer.text(&format!(

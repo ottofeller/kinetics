@@ -36,7 +36,7 @@ impl Runner for AddRunner<'_> {
     /// Attaches a custom domain to the project
     /// Prints domain status and the nameservers to set at the registrar
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project(&self.command.project).await?;
+        let mut project = self.project(&self.command.project).await?;
         let client = self.api_client().await?;
 
         let request = Request {
@@ -95,7 +95,9 @@ impl Runner for AddRunner<'_> {
                 .text(&format!("  {}\n", console::style(ns).bold()))?;
         }
 
-        super::config::save_domain(&project, &self.command.domain_name)
+        project.domain_name = Some(self.command.domain_name.clone());
+        project
+            .write_config()
             .map_err(|e| self.error(None, None, Some(e.into())))?;
 
         self.writer.json(json!({
