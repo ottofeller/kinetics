@@ -1,8 +1,9 @@
+use crate::project::Project;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Request {
-    pub project_name: String,
+    pub project: Project,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

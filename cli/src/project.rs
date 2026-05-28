@@ -146,7 +146,7 @@ impl Project {
             .wrap_err("Failed to create client")?
             .post("/stack/destroy")
             .json(&stack::destroy::Request {
-                project_name: self.name.to_owned(),
+                project: self.clone(),
             })
             .send()
             .await?;
