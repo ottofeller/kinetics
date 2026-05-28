@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use crate::project::Project;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Response {
@@ -7,5 +8,5 @@ pub struct Response {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Request {
-    pub project: String,
+    pub project: Project,
 }

@@ -109,7 +109,7 @@ impl DeployRunner<'_> {
         let result = client
             .post("/stack/deploy/envs")
             .json(&stack::deploy::envs::Request {
-                project_name: project.name,
+                project,
                 functions: envs,
             })
             .send()

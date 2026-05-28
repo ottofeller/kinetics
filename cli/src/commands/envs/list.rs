@@ -128,7 +128,7 @@ async fn remote(
         .await?
         .post("/envs/list")
         .json(&envs::list::Request {
-            project_name: project.name.to_owned(),
+            project: project.clone(),
             functions_names: functions
                 .iter()
                 .map(|f| f.func_name(false))

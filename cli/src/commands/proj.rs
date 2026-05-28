@@ -21,7 +21,7 @@ pub(crate) enum ProjCommands {
     /// List projects
     List(ListCommand),
 
-    /// Set the organization for the project
+    /// Set the organization for the project. Only modifies local config file. Run "kinetics deploy" to actually deploy to the org.
     Org(OrgCommand),
 
     /// List all available versions
