@@ -3,7 +3,7 @@ use crate::api::request::Validate;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
-use eyre::Context as _;
+use eyre::Context;
 use serde_json::json;
 use std::path::PathBuf;
 
