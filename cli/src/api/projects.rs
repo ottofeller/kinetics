@@ -1,8 +1,14 @@
+use crate::project::Project;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Response {
     pub projects: Vec<ProjectInfo>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Request {
+    pub project: Project,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
