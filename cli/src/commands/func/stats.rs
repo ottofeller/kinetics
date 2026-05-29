@@ -5,8 +5,8 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize as _;
 use eyre::Context;
-use kinetics_parser::Parser;
 use serde_json::json;
+use std::path::PathBuf;
 use std::time::Duration;
 
 #[derive(clap::Args, Clone)]
@@ -26,6 +26,10 @@ pub(crate) struct StatsCommand {
     ///
     #[arg(short, long)]
     period: Option<String>,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
 }
 
 impl Runnable for StatsCommand {
@@ -45,15 +49,10 @@ struct StatsRunner<'a> {
 impl Runner for StatsRunner<'_> {
     /// Retrieves and displays run statistics for a specific function
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project().await?;
+        let project = self.project(&self.command.project).await?;
 
         // Get all function names without any additional manipulations.
-        let all_functions = Parser::new(Some(&project.path))?
-            .functions
-            .into_iter()
-            .map(|f| Function::new(&project, &f))
-            .collect::<eyre::Result<Vec<Function>>>()?;
-
+        let all_functions = project.functions()?;
         let function = Function::find_by_name(&all_functions, &self.command.name)?;
         let client = self.api_client().await?;
 
@@ -67,7 +66,7 @@ impl Runner for StatsRunner<'_> {
         let response = client
             .post("/function/stats")
             .json(&func::stats::Request {
-                project_name: project.name.to_owned(),
+                project,
                 function_name: function.name,
                 period: self.command.period.to_owned(),
             })
@@ -85,7 +84,10 @@ impl Runner for StatsRunner<'_> {
                 error_text
             );
 
-            return Err(Error::new("Failed to fetch statistics", Some("Try again later.")).into());
+            return Err(Error::new(
+                "Failed to fetch statistics",
+                Some("Try again later."),
+            ));
         }
 
         let logs_response: func::stats::Response = response.json().await.wrap_err(Error::new(

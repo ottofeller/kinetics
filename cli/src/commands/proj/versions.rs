@@ -6,17 +6,26 @@ use color_eyre::owo_colors::OwoColorize;
 use crossterm::style::Stylize;
 use eyre::Context;
 use serde_json::{json, Value};
+use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
-pub(crate) struct VersionsCommand {}
+pub(crate) struct VersionsCommand {
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
+}
 
 impl Runnable for VersionsCommand {
     fn runner(&self, writer: &Writer) -> impl Runner {
-        VersionsRunner { writer }
+        VersionsRunner {
+            command: self.clone(),
+            writer,
+        }
     }
 }
 
 struct VersionsRunner<'a> {
+    command: VersionsCommand,
     writer: &'a Writer,
 }
 
@@ -30,7 +39,7 @@ impl Runner for VersionsRunner<'_> {
             console::style("Fetching versions").green().bold()
         ))?;
 
-        let project = self.project().await?;
+        let project = self.project(&self.command.project).await?;
 
         let mut versions = client
             .request::<_, stack::versions::Response>(

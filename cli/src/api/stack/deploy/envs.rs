@@ -1,9 +1,10 @@
+use crate::project::Project;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
-    pub project_name: String,
+    pub project: Project,
     pub functions: HashMap<String, HashMap<String, String>>,
 }
 

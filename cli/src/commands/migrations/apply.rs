@@ -6,12 +6,21 @@ use crate::writer::Writer;
 use eyre::Context;
 use project::sqldb::connect::Request;
 use serde_json::json;
+use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct ApplyCommand {
     /// Relative path to migrations directory
     #[arg(short, long, value_name = "PATH", default_value = "migrations")]
     path: String,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
+
+    /// Name of the org to apply migrations in
+    #[arg(long)]
+    org: Option<String>,
 }
 
 impl Runnable for ApplyCommand {
@@ -31,9 +40,13 @@ struct ApplyRunner<'a> {
 impl<'a> Runner for ApplyRunner<'a> {
     /// Applies migrations to the database
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project().await?;
+        let mut project = self.project(&self.command.project).await?;
         let client = self.api_client().await?;
         let migrations_path = project.path.join(&self.command.path);
+
+        if self.command.org.is_some() {
+            project = project.with_org(self.command.org.as_deref());
+        }
 
         self.writer.text(&format!(
             "{} {} {}...\n\n",
@@ -47,9 +60,7 @@ impl<'a> Runner for ApplyRunner<'a> {
         let response = client
             .request::<_, project::sqldb::connect::Response>(
                 "/stack/sqldb/connect",
-                Request {
-                    project: project.name.clone(),
-                },
+                Request { project },
             )
             .await
             .wrap_err("Failed to get SQL DB connection string")

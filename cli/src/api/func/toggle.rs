@@ -1,3 +1,4 @@
+use crate::project::Project;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::*;
@@ -19,7 +20,7 @@ impl fmt::Display for Op {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
-    pub project_name: String,
+    pub project: Project,
     pub function_name: String,
     pub operation: Op,
 }

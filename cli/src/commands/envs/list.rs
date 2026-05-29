@@ -7,7 +7,7 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use crossterm::style::Stylize;
 use eyre::{eyre, WrapErr};
-use kinetics_parser::{ParsedFunction, Parser};
+use kinetics_parser::ParsedFunction;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -17,6 +17,10 @@ pub(crate) struct ListCommand {
     /// When passed shows env vars used by deployed functions
     #[arg(short, long, action = clap::ArgAction::SetTrue)]
     remote: bool,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
 }
 
 impl Runnable for ListCommand {
@@ -36,10 +40,10 @@ struct ListRunner<'a> {
 impl Runner for ListRunner<'_> {
     /// Lists all environment variables for all functions in the current crate
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project().await?;
-        let parsed_functions = Parser::new(Some(&project.path))
-            .map_err(|e| self.error(None, None, Some(e.into())))?
-            .functions;
+        let project = self.project(&self.command.project).await?;
+        let parsed_functions = project
+            .parsed_functions()
+            .map_err(|e| self.error(None, None, Some(e.into())))?;
 
         self.writer.text("\n")?;
 
@@ -87,8 +91,7 @@ impl Runner for ListRunner<'_> {
                 })
                 .ok_or(eyre!("Parsed artifact has no function name"))
                 .map_err(|e| self.error(None, None, Some(e.into())))?
-                .relative_path
-                .to_owned();
+                .to_string();
 
             self.writer.text(&format!(
                 "{} {}\n",
@@ -125,7 +128,7 @@ async fn remote(
         .await?
         .post("/envs/list")
         .json(&envs::list::Request {
-            project_name: project.name.to_owned(),
+            project: project.clone(),
             functions_names: functions
                 .iter()
                 .map(|f| f.func_name(false))

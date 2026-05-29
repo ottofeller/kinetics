@@ -5,14 +5,18 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use eyre::Context;
 use http::StatusCode;
-use kinetics_parser::Parser;
 use serde_json::json;
+use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct StopCommand {
     /// Function name to stop
     #[arg()]
     name: String,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
 }
 
 impl Runnable for StopCommand {
@@ -20,6 +24,7 @@ impl Runnable for StopCommand {
         ToggleRunner {
             name: self.name.clone(),
             op: func::toggle::Op::Stop,
+            project: self.project.clone(),
             writer,
         }
     }
@@ -30,6 +35,10 @@ pub(crate) struct StartCommand {
     /// Function name to start
     #[arg()]
     name: String,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
 }
 
 impl Runnable for StartCommand {
@@ -37,6 +46,7 @@ impl Runnable for StartCommand {
         ToggleRunner {
             name: self.name.clone(),
             op: func::toggle::Op::Start,
+            project: self.project.clone(),
             writer,
         }
     }
@@ -45,6 +55,7 @@ impl Runnable for StartCommand {
 struct ToggleRunner<'a> {
     name: String,
     op: func::toggle::Op,
+    project: Option<PathBuf>,
     writer: &'a Writer,
 }
 
@@ -55,20 +66,16 @@ impl Runner for ToggleRunner<'_> {
     /// - For stop operation the function stops receiving requests
     ///   and the endpoint starts responding "Service Unavailable".
     async fn run(&mut self) -> Result<(), Error> {
-        let project = self.project().await?;
+        let project = self.project(&self.project).await?;
 
         // Get all function names without any additional manipulations.
-        let all_functions = Parser::new(Some(&project.path))
-            .map_err(|e| self.error(None, None, Some(e.into())))?
-            .functions
-            .into_iter()
-            .map(|f| Function::new(&project, &f))
-            .collect::<eyre::Result<Vec<Function>>>()
+        let all_functions = project
+            .functions()
             .map_err(|e| self.error(None, None, Some(e.into())))?;
 
         let function = Function::find_by_name(&all_functions, &self.name).map_err(|e| {
             self.error(
-                Some("Cound not find requested function"),
+                Some("Could not find requested function"),
                 None,
                 Some(e.into()),
             )
@@ -85,7 +92,7 @@ impl Runner for ToggleRunner<'_> {
         let response = client
             .post("/function/toggle")
             .json(&func::toggle::Request {
-                project_name: project.name.clone(),
+                project,
                 function_name: function.name,
                 operation: self.op.clone(),
             })

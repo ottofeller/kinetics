@@ -117,7 +117,7 @@ impl<'a> Process<'a> {
     /// Print the full output
     pub fn print(&self) -> eyre::Result<()> {
         if let Ok(lines) = self.stdout_lines.lock() {
-            self.writer.text(&format!("{}", lines.join("\n")))?;
+            self.writer.text(&lines.join("\n").to_string())?;
         }
 
         Ok(())

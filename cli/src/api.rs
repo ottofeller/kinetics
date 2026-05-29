@@ -5,6 +5,7 @@ pub mod client;
 
 pub mod envs;
 pub mod func;
+pub mod orgs;
 pub mod project;
 pub mod projects;
 pub mod request;

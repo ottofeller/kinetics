@@ -96,13 +96,13 @@ impl<'a> Runner for InitRunner<'a> {
 
         let unpack_result = self.unpack(response).await;
 
-        if unpack_result.is_err() {
+        if let Err(error) = unpack_result {
             self.cleanup();
 
             return Err(self.error(
                 Some("Failed to unpack template archive"),
                 Some("Check if tar is installed and you have enough FS permissions."),
-                Some(unpack_result.err().unwrap().into()),
+                Some(error.into()),
             ));
         };
 
@@ -156,7 +156,7 @@ impl<'a> Runner for InitRunner<'a> {
                 Some(e.into())
             ))?;
 
-        self.writer.text(&format!("\r\x1B[K"))?;
+        self.writer.text("\r\x1B[K")?;
 
         if is_git_enabled {
             self.init_git().map_err(|e| {
@@ -194,7 +194,7 @@ impl<'a> InitRunner<'a> {
     }
 
     /// Clean up by deleting the dir with the new project
-    fn cleanup(&self) -> () {
+    fn cleanup(&self) {
         fs::remove_dir_all(&self.dir).unwrap_or(())
     }
 
@@ -321,10 +321,6 @@ impl<'a> InitRunner<'a> {
             ))?;
 
         // Add a github CD workflow
-        github::workflow(
-            &Project::from_path(self.dir.clone().into())?,
-            true,
-            self.writer,
-        )
+        github::workflow(&Project::from_path(self.dir.clone())?, true, self.writer)
     }
 }

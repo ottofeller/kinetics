@@ -48,8 +48,7 @@ impl Cli {
     pub(crate) async fn run(&self, command: &impl Runnable) {
         let run = command.runner(&self.writer).run().await;
 
-        if run.is_err() {
-            let error = run.unwrap_err();
+        if let Err(error) = run {
             log::error!("{error:?}");
 
             self.writer
@@ -71,7 +70,7 @@ impl Cli {
         }
     }
 
-    pub(crate) fn set_writer(&mut self, writer: Writer) -> () {
+    pub(crate) fn set_writer(&mut self, writer: Writer) {
         self.writer = writer;
     }
 }
@@ -84,7 +83,7 @@ async fn main() -> Result<(), Error> {
     cli.set_writer(writer);
 
     // Match all commands here, in one place
-    Ok(match cli.command.as_ref().unwrap() {
+    match cli.command.as_ref().unwrap() {
         Commands::Auth(auth) => match auth {
             commands::auth::AuthCommands::Logout(cmd) => cli.run(cmd).await,
             commands::auth::AuthCommands::Tokens(cmd) => match cmd {
@@ -119,7 +118,23 @@ async fn main() -> Result<(), Error> {
             commands::proj::ProjCommands::Destroy(cmd) => cli.run(cmd).await,
             commands::proj::ProjCommands::Rollback(cmd) => cli.run(cmd).await,
             commands::proj::ProjCommands::List(cmd) => cli.run(cmd).await,
+            commands::proj::ProjCommands::Org(cmd) => cli.run(cmd).await,
             commands::proj::ProjCommands::Versions(cmd) => cli.run(cmd).await,
+        },
+
+        Commands::Orgs(orgs) => match orgs {
+            commands::orgs::OrgsCommands::Create(cmd) => cli.run(cmd).await,
+            commands::orgs::OrgsCommands::Delete(cmd) => cli.run(cmd).await,
+            commands::orgs::OrgsCommands::Leave(cmd) => cli.run(cmd).await,
+            commands::orgs::OrgsCommands::List(cmd) => cli.run(cmd).await,
+            commands::orgs::OrgsCommands::Members(members) => match members {
+                commands::orgs::members::MembersCommands::Invite(cmd) => cli.run(cmd).await,
+                commands::orgs::members::MembersCommands::Delete(cmd) => cli.run(cmd).await,
+            },
+            commands::orgs::OrgsCommands::Owners(owners) => match owners {
+                commands::orgs::owners::OwnersCommands::Add(cmd) => cli.run(cmd).await,
+                commands::orgs::owners::OwnersCommands::Delete(cmd) => cli.run(cmd).await,
+            },
         },
 
         Commands::Init(cmd) => cli.run(cmd).await,
@@ -127,5 +142,6 @@ async fn main() -> Result<(), Error> {
         Commands::Deploy(cmd) => cli.run(cmd).await,
         Commands::Build(cmd) => cli.run(cmd).await,
         Commands::Login(cmd) => cli.run(cmd).await,
-    })
+    };
+    Ok(())
 }

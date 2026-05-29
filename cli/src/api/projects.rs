@@ -1,15 +1,20 @@
 use crate::project::Project;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Response {
     pub projects: Vec<ProjectInfo>,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Request {
+    pub project: Project,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectInfo {
     pub name: String,
+    pub org: Option<String>,
     pub url: String,
     pub kvdb: Vec<Kvdb>,
 }
@@ -17,16 +22,4 @@ pub struct ProjectInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Kvdb {
     pub name: String,
-}
-
-impl From<ProjectInfo> for Project {
-    fn from(value: ProjectInfo) -> Self {
-        Self {
-            path: PathBuf::new(),
-            name: value.name,
-            url: value.url,
-            kvdb: value.kvdb,
-            observability: None,
-        }
-    }
 }
