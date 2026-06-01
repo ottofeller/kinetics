@@ -98,7 +98,7 @@ impl Runner for RollbackRunner<'_> {
         client
             .post("/stack/rollback")
             .json(&stack::rollback::Request {
-                project,
+                project: project.clone(),
                 version: self.command.version,
             })
             .send()
