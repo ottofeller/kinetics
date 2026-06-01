@@ -1,11 +1,11 @@
-use crate::api::domains::validators;
 use crate::api::request::Validate;
+use crate::{api::domains::validators, project::Project};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
-    pub project: crate::project::Project,
+    pub project: Project,
     pub domain_name: String,
 }
 
