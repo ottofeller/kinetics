@@ -44,9 +44,7 @@ impl Runner for VersionsRunner<'_> {
         let mut versions = client
             .request::<_, stack::versions::Response>(
                 "/stack/versions",
-                stack::versions::Request {
-                    name: project.name.clone(),
-                },
+                stack::versions::Request { project },
             )
             .await
             .inspect_err(|e| log::error!("Failed to fetch versions: {e:?}"))

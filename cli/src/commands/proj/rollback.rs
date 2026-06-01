@@ -44,7 +44,7 @@ impl Runner for RollbackRunner<'_> {
             .request(
                 "/stack/versions",
                 stack::versions::Request {
-                    name: project.name.to_string(),
+                    project: project.clone(),
                 },
             )
             .await
