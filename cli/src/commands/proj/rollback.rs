@@ -44,6 +44,7 @@ impl Runner for RollbackRunner<'_> {
             .request(
                 "/stack/versions",
                 stack::versions::Request {
+                    project: project.clone(),
                     name: project.name.to_string(),
                 },
             )
@@ -98,6 +99,7 @@ impl Runner for RollbackRunner<'_> {
         client
             .post("/stack/rollback")
             .json(&stack::rollback::Request {
+                project: project.clone(),
                 name: project.name.to_string(),
                 version: self.command.version,
             })

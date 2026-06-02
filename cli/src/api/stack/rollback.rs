@@ -1,3 +1,4 @@
+use crate::project::Project;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5,6 +6,7 @@ pub struct Request {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<u32>,
+    pub project: Project,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

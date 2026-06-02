@@ -45,6 +45,7 @@ impl Runner for VersionsRunner<'_> {
             .request::<_, stack::versions::Response>(
                 "/stack/versions",
                 stack::versions::Request {
+                    project: project.clone(),
                     name: project.name.clone(),
                 },
             )
