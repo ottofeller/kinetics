@@ -49,6 +49,8 @@ pub struct Project {
 
     pub observability: Option<Observability>,
 
+    /// Custom domain name for the project
+    pub domain_name: Option<String>,
     /// Org is optional and set in kinetics.toml
     pub org: Option<String>,
 }
@@ -70,6 +72,7 @@ impl Project {
             url: String::new(),
             kvdb: Vec::new(),
             observability: None,
+            domain_name: None,
             org: None,
         }
     }
@@ -95,22 +98,8 @@ impl Project {
     /// from the ` Cargo.toml ` file in the same path
     pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
         let cfg = ConfigFile::from_path(path)?;
-        let mut project = Project::new(cfg.path, cfg.project.name).set_kvdb(cfg.kvdb);
-
-        if cfg.observability.is_some() {
-            let observability = cfg.observability.unwrap();
-
-            // Read DataDog API key from env, it's not safe to store it in kinetics config file
-            let dd_api_key = std::env::var(&observability.dd_api_key_env).unwrap_or_default();
-
-            project = project.set_observability(dd_api_key);
-        }
-
-        if cfg.project.org.is_some() {
-            project = project.with_org(cfg.project.org.as_deref());
-        }
-
-        Ok(project)
+        // Convert the config file to a Project instance with existing trait
+        cfg.try_into()
     }
 
     /// Get project by name, with automatic cache management.
@@ -294,6 +283,15 @@ impl Project {
             }
         }
 
+        match &self.domain_name {
+            Some(domain) => {
+                doc["domain"] = value(domain);
+            }
+            None => {
+                doc.remove("domain");
+            }
+        }
+
         fs::write(&config_path, doc.to_string()).wrap_err("Failed to write kinetics.toml")?;
         Ok(())
     }
@@ -309,6 +307,7 @@ impl From<ProjectInfo> for Project {
             kvdb: value.kvdb,
             org: value.org,
             observability: None,
+            domain_name: None,
         }
     }
 }

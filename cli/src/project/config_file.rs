@@ -18,6 +18,9 @@ pub(super) struct ConfigFile {
     #[serde(default)]
     pub(super) kvdb: Vec<Kvdb>,
 
+    #[serde(default)]
+    domain: Option<String>,
+
     #[serde(skip)]
     pub(super) path: PathBuf,
 }
@@ -127,6 +130,10 @@ impl TryFrom<ConfigFile> for Project {
             let dd_api_key = std::env::var(&observability.dd_api_key_env).unwrap_or_default();
 
             project = project.set_observability(dd_api_key);
+        }
+
+        if let Some(domain) = cfg.domain {
+            project.domain_name = Some(domain);
         }
 
         if cfg.project.org.is_some() {

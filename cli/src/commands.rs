@@ -2,6 +2,7 @@ pub mod auth;
 pub mod build;
 pub mod cicd;
 pub mod deploy;
+pub mod domains;
 pub mod envs;
 pub mod func;
 pub mod init;
@@ -20,6 +21,10 @@ pub enum Commands {
     /// Manage GitHub (and other providers') workflows
     #[clap(subcommand)]
     Cicd(cicd::CicdCommands),
+
+    /// Custom domains for projects
+    #[clap(subcommand)]
+    Domains(domains::DomainsCommands),
 
     /// Environment variables for functions
     #[clap(subcommand)]

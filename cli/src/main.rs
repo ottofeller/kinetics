@@ -97,6 +97,11 @@ async fn main() -> Result<(), Error> {
             commands::cicd::CicdCommands::Init(cmd) => cli.run(cmd).await,
         },
 
+        Commands::Domains(domains) => match domains {
+            commands::domains::DomainsCommands::Add(cmd) => cli.run(cmd).await,
+            commands::domains::DomainsCommands::Remove(cmd) => cli.run(cmd).await,
+        },
+
         Commands::Envs(envs) => match envs {
             commands::envs::EnvsCommands::List(cmd) => cli.run(cmd).await,
         },
