@@ -36,6 +36,8 @@ impl<'a> Pipeline<'a> {
         // Only selected functions are built and uploaded
         deploy_functions: &[String],
     ) -> eyre::Result<()> {
+        let client = Client::new(self.deploy_config.is_some()).await?;
+
         if self.deploy_config.is_some() {
             self.writer.text(&format!(
                 "    {} `{}` {}",
