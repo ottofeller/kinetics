@@ -103,8 +103,6 @@ impl<'a> Pipeline<'a> {
 
         let deploy_functions_len = deploy_functions.len();
 
-        let client = Client::new(self.deploy_config.is_some()).await?;
-
         let handles = deploy_functions.into_iter().map(|mut function| {
             let client = client.clone();
             let sem = Arc::clone(&semaphore);
