@@ -95,12 +95,14 @@ impl Cache {
             let entry = entry
                 .inspect_err(|e| log::error!("Failed to read cache entry in {cache_dir:?}: {e:?}"))
                 .wrap_err("Failed to clear the projects cache")?;
+
             let path = entry.path();
             let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
                 continue;
             };
 
-            if file_name == ".projects" || file_name.starts_with(".projects.") {
+            // Project caches include `.projects` and org-scoped `.projects.<org>` files.
+            if file_name.starts_with(".projects") {
                 fs::remove_file(&path)
                     .inspect_err(|e| log::error!("Failed to remove cache file {path:?}: {e:?}"))
                     .wrap_err("Failed to clear the projects cache")?;
