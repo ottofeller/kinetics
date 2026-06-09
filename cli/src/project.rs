@@ -106,8 +106,8 @@ impl Project {
     ///
     /// Returns an error if the API request fails or if there are filesystem issues
     /// with reading/writing the cache.
-    pub async fn fetch_one(name: &str) -> eyre::Result<Self> {
-        let cache = Cache::new().await?;
+    pub async fn fetch_one(name: &str, org: Option<&str>) -> eyre::Result<Self> {
+        let cache = Cache::new(org).await?;
 
         cache
             .get(name)
@@ -118,8 +118,8 @@ impl Project {
     ///
     /// Returns an error if the API request fails or if there are filesystem issues
     /// with reading/writing the cache.
-    pub async fn fetch_all() -> eyre::Result<Vec<Self>> {
-        Cache::new()
+    pub async fn fetch_all(org: Option<&str>) -> eyre::Result<Vec<Self>> {
+        Cache::new(org)
             .await
             .map(|cache| cache.projects.into_values().collect())
     }
