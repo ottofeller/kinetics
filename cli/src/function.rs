@@ -150,7 +150,9 @@ impl Function {
 
         Ok(format!(
             "{}{}",
-            Project::fetch_one(&self.project.name).await?.url(),
+            Project::fetch_one(&self.project.name, self.project.org.as_deref())
+                .await?
+                .url(),
             url_path
         ))
     }

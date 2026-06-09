@@ -4,18 +4,33 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize;
 use serde_json::{json, Value};
+use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
-pub(crate) struct ListCommand;
+pub(crate) struct ListCommand {
+    /// Organization to list projects for. Defaults to the current project's org from kinetics.toml.
+    #[arg(long)]
+    org: Option<String>,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
+}
 
 impl Runnable for ListCommand {
     fn runner(&self, writer: &Writer) -> impl Runner {
-        ListRunner { writer }
+        ListRunner {
+            writer,
+            org: self.org.clone(),
+            project: self.project.clone(),
+        }
     }
 }
 
 struct ListRunner<'a> {
     writer: &'a Writer,
+    org: Option<String>,
+    project: Option<PathBuf>,
 }
 
 impl Runner for ListRunner<'_> {
@@ -29,7 +44,10 @@ impl Runner for ListRunner<'_> {
             console::style("Fetching projects").green().bold()
         ))?;
 
-        let projects = Project::fetch_all()
+        let current_project = self.project(&self.project).await?;
+        let org = self.org.as_deref().or(current_project.org.as_deref());
+
+        let projects = Project::fetch_all(org)
             .await
             .map_err(|e| self.server_error(Some(e.into())))?;
 

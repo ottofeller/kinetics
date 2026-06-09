@@ -178,7 +178,9 @@ impl ListRunner<'_> {
 
     async fn verbose(&mut self, client: &Client) -> eyre::Result<()> {
         let project = self.project(&self.command.project).await?;
-        let project_base_url = Project::fetch_one(&project.name).await?.url;
+        let project_base_url = Project::fetch_one(&project.name, project.org.as_deref())
+            .await?
+            .url;
         let mut endpoint_rows = Vec::new();
         let mut cron_rows = Vec::new();
         let mut worker_rows = Vec::new();

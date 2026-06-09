@@ -46,6 +46,14 @@ impl Runner for DeployRunner<'_> {
             self.deploy_all(project).await?;
         }
 
+        Project::clear_cache().map_err(|e| {
+            self.error(
+                Some("Failed to clear project cache"),
+                Some(&e.to_string()),
+                Some(e.into()),
+            )
+        })?;
+
         self.writer.json(json!({"success": true}))?;
         Ok(())
     }
