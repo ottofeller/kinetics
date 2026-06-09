@@ -102,6 +102,14 @@ impl Runner for DestroyRunner<'_> {
             console::style("Project destroyed").green()
         ))?;
 
+        Project::clear_cache().map_err(|e| {
+            self.error(
+                Some("Failed to clear project cache"),
+                Some(&e.to_string()),
+                Some(e.into()),
+            )
+        })?;
+
         self.writer.json(json!({"success": true}))?;
         Ok(())
     }
