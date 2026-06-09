@@ -6,16 +6,23 @@ use color_eyre::owo_colors::OwoColorize;
 use serde_json::{json, Value};
 
 #[derive(clap::Args, Clone)]
-pub(crate) struct ListCommand;
+pub(crate) struct ListCommand {
+    #[arg(long)]
+    org: Option<String>,
+}
 
 impl Runnable for ListCommand {
     fn runner(&self, writer: &Writer) -> impl Runner {
-        ListRunner { writer }
+        ListRunner {
+            writer,
+            org: self.org.clone(),
+        }
     }
 }
 
 struct ListRunner<'a> {
     writer: &'a Writer,
+    org: Option<String>,
 }
 
 impl Runner for ListRunner<'_> {
@@ -29,7 +36,7 @@ impl Runner for ListRunner<'_> {
             console::style("Fetching projects").green().bold()
         ))?;
 
-        let projects = Project::fetch_all()
+        let projects = Project::fetch_all(self.org.as_deref())
             .await
             .map_err(|e| self.server_error(Some(e.into())))?;
 

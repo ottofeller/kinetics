@@ -1,4 +1,5 @@
 use crate::api::client::Client;
+use crate::api::orgs::validators;
 use crate::api::projects;
 use crate::config::build_config;
 use crate::error::Error;
@@ -23,8 +24,8 @@ pub(super) struct Cache {
 
 impl Cache {
     /// Load the project cache from disk with automatic refresh logic
-    pub(super) async fn new() -> eyre::Result<Self> {
-        let cache_path = Self::path()?;
+    pub(super) async fn new(org: Option<&str>) -> eyre::Result<Self> {
+        let cache_path = Self::path(org)?;
 
         let cache: Option<Self> = if !cache_path.exists() {
             // Create the cache directory if it doesn't exist
@@ -55,7 +56,7 @@ impl Cache {
         // Load projects and populate cache if failed to read from disk
         let cache = match cache {
             Some(x) => x,
-            None => Self::load().await?,
+            None => Self::load(org).await?,
         };
 
         // Save cache to the file
@@ -63,7 +64,7 @@ impl Cache {
             .inspect_err(|e| log::error!("Failed to serialize project cache: {e:?}"))
             .wrap_err("Failed to process cache")?;
 
-        let cache_path = Self::path()?;
+        let cache_path = Self::path(org)?;
 
         fs::write(&cache_path, cache_json)
             .inspect_err(|e| log::error!("Failed to write cache file {cache_path:?}: {e:?}"))
@@ -81,26 +82,59 @@ impl Cache {
     }
 
     pub(super) fn clear() -> eyre::Result<()> {
-        let cache_path = Self::path()?;
+        let cache_dir = PathBuf::from(build_config()?.kinetics_path);
 
-        if cache_path.exists() {
-            fs::remove_file(&cache_path)
-                .inspect_err(|e| log::error!("Failed to remove cache file {cache_path:?}: {e:?}"))
+        if !cache_dir.exists() {
+            return Ok(());
+        }
+
+        for entry in fs::read_dir(&cache_dir)
+            .inspect_err(|e| log::error!("Failed to read cache directory {cache_dir:?}: {e:?}"))
+            .wrap_err("Failed to clear the projects cache")?
+        {
+            let entry = entry
+                .inspect_err(|e| log::error!("Failed to read cache entry in {cache_dir:?}: {e:?}"))
                 .wrap_err("Failed to clear the projects cache")?;
+            let path = entry.path();
+            let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+                continue;
+            };
+
+            if file_name == ".projects" || file_name.starts_with(".projects.") {
+                fs::remove_file(&path)
+                    .inspect_err(|e| log::error!("Failed to remove cache file {path:?}: {e:?}"))
+                    .wrap_err("Failed to clear the projects cache")?;
+            }
         }
 
         Ok(())
     }
 
     /// Get the static cache path for storing project information.
-    fn path() -> eyre::Result<PathBuf> {
-        Ok(PathBuf::from(build_config()?.kinetics_path).join(".projects"))
+    fn path(org: Option<&str>) -> eyre::Result<PathBuf> {
+        let file_name = match org {
+            Some(org) => {
+                if !validators::Name::validate(org) {
+                    return Err(eyre::eyre!(validators::Name::message()));
+                }
+
+                format!(".projects.{org}")
+            }
+            None => ".projects".to_string(),
+        };
+
+        Ok(PathBuf::from(build_config()?.kinetics_path).join(file_name))
     }
 
-    async fn load() -> eyre::Result<Self> {
+    async fn load(org: Option<&str>) -> eyre::Result<Self> {
         let response = Client::new(false)
             .await?
-            .request::<(), projects::Response>("/projects", ())
+            .request::<projects::Request, projects::Response>(
+                "/projects",
+                projects::Request {
+                    org: org.map(str::to_owned),
+                },
+            )
             .await
             .wrap_err(Error::new(
                 "Failed to fetch project information",

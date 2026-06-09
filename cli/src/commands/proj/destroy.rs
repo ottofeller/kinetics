@@ -43,7 +43,7 @@ impl Runner for DestroyRunner<'_> {
             None => current_project.name.as_str(),
         };
 
-        let project = match Project::fetch_one(project_name).await {
+        let project = match Project::fetch_one(project_name, current_project.org.as_deref()).await {
             Ok(project) => project,
 
             Err(_) => {

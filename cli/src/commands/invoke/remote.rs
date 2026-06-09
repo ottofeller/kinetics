@@ -34,7 +34,9 @@ impl InvokeRunner<'_> {
             Some(url_path) if !url_path.is_empty() => {
                 format!(
                     "{}/{}",
-                    Project::fetch_one(&function.project.name).await?.url(),
+                    Project::fetch_one(&function.project.name, function.project.org.as_deref())
+                        .await?
+                        .url(),
                     url_path
                 )
             }
