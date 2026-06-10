@@ -173,7 +173,20 @@ impl Function {
                 Some("Try again in a few seconds."),
             ))?;
 
-        if result.status() != StatusCode::OK {
+        let status_code = result.status();
+
+        // If the status code is 404, the function is not found or not deployed yet
+        if status_code == StatusCode::NOT_FOUND {
+            log::debug!(
+                "Function not found or not deployed yet: {}/{}",
+                self.project.name,
+                self.name
+            );
+
+            return Ok(None);
+        }
+
+        if status_code != StatusCode::OK {
             return Err(Error::new(
                 &format!(
                     "Function status request failed for {}/{}",
