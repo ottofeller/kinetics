@@ -87,6 +87,7 @@ impl Client {
                     .split_once("::")
                     .ok_or_eyre("Failed to get the project name from a worker")?;
 
+                // Use type_path_project_name as a fallback for the project name
                 let project_name =
                     std::env::var("KINETICS_PROJECT_NAME").unwrap_or(type_path_project_name.into());
 
@@ -121,6 +122,8 @@ impl Client {
                         ))
                     })
                     .expect("Queue name is not set");
+
+                eprintln!("Queue cache_key={cache_key}, queue_name={queue_name}");
 
                 let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
                     .expect("KINETICS_CLOUD_ACCOUNT_ID is not set");
