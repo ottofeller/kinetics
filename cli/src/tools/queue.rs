@@ -83,9 +83,13 @@ impl Client {
 
         let client = Client {
             queue: {
-                let (project_name, function_path) = cache_key
+                let (type_path_project_name, function_path) = cache_key
                     .split_once("::")
                     .ok_or_eyre("Failed to get the project name from a worker")?;
+
+                // Use type_path_project_name as a fallback for the project name
+                let project_name =
+                    std::env::var("KINETICS_PROJECT_NAME").unwrap_or(type_path_project_name.into());
 
                 let region = std::env::var("AWS_REGION").unwrap_or("us-east-1".to_string());
 
@@ -110,14 +114,16 @@ impl Client {
                         Ok::<String, std::env::VarError>(resource_name(
                             &std::env::var("KINETICS_USERNAME")
                                 .expect("KINETICS_USERNAME is not set"),
-                            project_name,
+                            &project_name,
                             &ParsedFunction::to_local_name(&[
-                                project_name,
+                                type_path_project_name,
                                 &function_path.replace("::", "/"),
                             ]),
                         ))
                     })
                     .expect("Queue name is not set");
+
+                eprintln!("Queue cache_key={cache_key}, queue_name={queue_name}");
 
                 let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
                     .expect("KINETICS_CLOUD_ACCOUNT_ID is not set");
