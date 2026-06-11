@@ -144,7 +144,7 @@ impl Project {
             .map(|f| {
                 let name = f.func_name(false)?;
 
-                Function::new(&self, &f).map(|f| {
+                Function::new(self, &f).map(|f| {
                     // Mark function as requested (or not) for deployment
                     f.set_is_deploying(
                         deploy_functions.is_empty() || deploy_functions.contains(&name),
@@ -334,7 +334,7 @@ impl Project {
 
         self.clone(
             &src.join(pkg_rel_path),
-            &dst,
+            dst,
             &member_dir,
             &[PathBuf::from("Cargo.toml"), PathBuf::from("src/lib.rs")],
             checksum,
@@ -342,10 +342,10 @@ impl Project {
         self.create_function_manifest(dst, &member_dir, function_name, parsed_function, checksum)?;
         self.create_lib(
             src,
-            &pkg_rel_path,
-            &dst,
+            pkg_rel_path,
+            dst,
             &member_dir,
-            &parsed_function,
+            parsed_function,
             checksum,
         )?;
 
@@ -607,7 +607,7 @@ impl Project {
         }
 
         // Update hash table for the file.
-        let content = fs::read_to_string(&src).wrap_err(format!("Failed to read file {src:?}"))?;
+        let content = fs::read_to_string(src).wrap_err(format!("Failed to read file {src:?}"))?;
         if checksum.update(
             dst_rel_path.to_path_buf(),
             &FileHash::hash_from_bytes(&content)
