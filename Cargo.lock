@@ -2326,7 +2326,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics"
-version = "0.16.7"
+version = "0.16.8"
 dependencies = [
  "async-trait",
  "aws-config",
@@ -2385,7 +2385,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics-macro"
-version = "0.16.7"
+version = "0.16.8"
 dependencies = [
  "kinetics-parser",
  "syn",
@@ -2393,7 +2393,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics-parser"
-version = "0.16.7"
+version = "0.16.8"
 dependencies = [
  "color-eyre",
  "http 1.4.2",
