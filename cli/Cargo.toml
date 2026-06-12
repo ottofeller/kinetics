@@ -20,6 +20,7 @@ aws_lambda_events = "1.1.2"
 aws-sdk-dsql = "1.54.0"
 aws-sdk-dynamodb = "1.110.0"
 aws-sdk-sqs = "1.97.0"
+aws-smithy-types = "=1.4.7" # Avoid aws-smithy-types 1.5.0 trait conflict with recent `time` releases
 base64 = "0.22.1"
 bytes = "^1.0"
 cargo_metadata = "0.23.1"
