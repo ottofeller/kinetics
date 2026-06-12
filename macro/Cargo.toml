@@ -1,6 +1,6 @@
 [package]
 name = "kinetics-macro"
-version = "0.16.6"
+version = "0.16.7"
 edition = "2021"
 description = "A set of macros used in Kinetics project."
 repository = "https://github.com/ottofeller/kinetics"
@@ -12,5 +12,5 @@ categories = ["parsing"]
 proc-macro = true
 
 [dependencies]
-kinetics-parser = { path = "../parser", version = "0.16.6" }
+kinetics-parser = { path = "../parser", version = "0.16.7" }
 syn = "2.0.117"
