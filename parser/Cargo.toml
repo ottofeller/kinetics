@@ -1,6 +1,6 @@
 [package]
 name = "kinetics-parser"
-version = "0.16.4"
+version = "0.16.5"
 edition = "2021"
 description = "A parser used for Kinetics project."
 repository = "https://github.com/ottofeller/kinetics"
