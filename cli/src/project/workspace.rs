@@ -17,27 +17,29 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    pub fn from_path(path: &Path) -> eyre::Result<Self> {
+    pub fn from_path(path: &Path, project_name: &str) -> eyre::Result<Self> {
         let metadata = MetadataCommand::new().current_dir(path).exec()?;
         // Convert [cargo_metadata::Package] into a simpler representation
         // keeping only necessary data (in order to avoid these transforms at consuming code):
-        // - the name from Cargo.toml
+        // - the name from Cargo.toml or the resolved project name for standalone/member projects
         // - the relative path from workspace root to the package dir.
         //
         // The closure is used instead of impl From
         // in order to access metadata from outer scope.
-        let convert_package = |pkg: &cargo_metadata::Package| -> Option<Package> {
-            Some(Package {
-                name: ConfigFile::cargo_toml_name(pkg.manifest_path.parent()?.as_std_path())
-                    .ok()?,
-                relative_path: pkg
-                    .manifest_path
-                    .strip_prefix(&metadata.workspace_root)
-                    .ok()?
-                    .parent()? // Remove filename and keep only the dir name.
-                    .into(),
-            })
-        };
+        let convert_package =
+            |pkg: &cargo_metadata::Package, name: Option<&str>| -> Option<Package> {
+                Some(Package {
+                    name: name.map(String::from).or_else(|| {
+                        ConfigFile::cargo_toml_name(pkg.manifest_path.parent()?.as_std_path()).ok()
+                    })?,
+                    relative_path: pkg
+                        .manifest_path
+                        .strip_prefix(&metadata.workspace_root)
+                        .ok()?
+                        .parent()? // Remove filename and keep only the dir name.
+                        .into(),
+                })
+            };
 
         // Validate workspace rules for kinetics:
         // 1. Workspace as a single kinetics project:
@@ -72,7 +74,7 @@ impl Workspace {
                                 // Take only the member corresponding to cwd - current project
                                 // and discard all other members.
                                 if pkg.manifest_path == cwd_manifest {
-                                    convert_package(pkg)
+                                    convert_package(pkg, Some(project_name))
                                 } else {
                                     None
                                 }
@@ -125,7 +127,9 @@ impl Workspace {
                         .packages
                         .iter()
                         .find(|pkg| pkg.id == member)
-                        .and_then(convert_package)
+                        .and_then(|pkg| {
+                            convert_package(pkg, is_standalone_crate.then_some(project_name))
+                        })
                 })
                 .collect(),
             root_path: metadata.workspace_root.into_std_path_buf(),

@@ -65,7 +65,7 @@ pub struct Observability {
 
 impl Project {
     fn new(path: PathBuf, name: String) -> Self {
-        let workspace = Workspace::from_path(&path).ok().unwrap_or_default();
+        let workspace = Workspace::from_path(&path, &name).ok().unwrap_or_default();
 
         Self {
             path,
