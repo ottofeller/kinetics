@@ -1,5 +1,6 @@
 mod cache;
 mod config_file;
+mod dependencies;
 mod filehash;
 mod parse;
 
