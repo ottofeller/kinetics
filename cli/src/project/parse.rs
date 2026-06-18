@@ -3,6 +3,7 @@ use super::templates;
 use super::Project;
 use crate::function::Function;
 use crate::project::dependencies::insert_lambda_dependency_group;
+use crate::project::treeshake::TreeShaker;
 use eyre::{Context, ContextCompat};
 use kinetics::tools::config::EndpointConfig;
 use kinetics_parser::{Params, ParsedFunction, Parser, Role};
@@ -327,6 +328,10 @@ impl Project {
     ) -> eyre::Result<()> {
         let member_dir = PathBuf::from(function_name);
         let pkg_rel_path = &parsed_function.pkg_rel_path;
+
+        let mut shaker = TreeShaker::new();
+        shaker.initialize(src)?;
+        log::debug!("TreeShaker initialized for project");
 
         self.clone(
             &src.join(pkg_rel_path),

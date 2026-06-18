@@ -6,6 +6,7 @@ mod parse;
 
 /// Runtime templates for different workloads
 mod templates;
+mod treeshake;
 mod workspace;
 
 use crate::api::client::Client;
