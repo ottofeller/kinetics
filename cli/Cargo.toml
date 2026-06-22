@@ -80,3 +80,20 @@ twox-hash = "2.1.2"
 url = "2.5.8"
 users = "0.11.0"
 walkdir = "2.5.0"
+
+[package.metadata.kinetics.dependencies.common]
+aws-config = { version = "1.8.15" }
+aws-sdk-sqs = { version = "1.97.0" }
+aws-sdk-ssm = { version = "1.59.0" }
+aws_lambda_events = { version = "1.1.2" }
+reqwest = { version = "0.13.2", default-features = false, features = ["default-tls"] }
+serde_json = { version = "1.0.149" }
+tokio = { version = "1.51.1", features = ["full"] }
+tower = { version = "^0" }
+
+[package.metadata.kinetics.dependencies.endpoint]
+http = { version = "^1.0" }
+lambda_http = { version = "^1.0" }
+
+[package.metadata.kinetics.dependencies.cron]
+lambda_runtime = { version = "^1.0" }
