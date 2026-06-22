@@ -81,7 +81,6 @@ url = "2.5.8"
 users = "0.11.0"
 walkdir = "2.5.0"
 
-# Keep in sync with CLI dependencies manually.
 [package.metadata.kinetics.dependencies.common]
 aws-config = { version = "1.8.15" }
 aws-sdk-sqs = { version = "1.97.0" }
