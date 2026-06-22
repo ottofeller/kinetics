@@ -328,13 +328,18 @@ impl Project {
     ) -> eyre::Result<()> {
         let member_dir = PathBuf::from(function_name);
         let pkg_rel_path = &parsed_function.pkg_rel_path;
+        let pkg_abs_path = src.join(pkg_rel_path);
 
+        log::debug!("create TreeShaker");
         let mut shaker = TreeShaker::new();
-        shaker.initialize(src)?;
-        log::debug!("TreeShaker initialized for project");
+        log::debug!("init TreeShaker");
+        shaker.initialize(&pkg_abs_path)?;
+        log::debug!("create DependencyGraph");
+        let graph = shaker.into_dependency_graph(parsed_function)?;
+        log::debug!("DependencyGraph initialized for project: {graph:#?}");
 
         self.clone(
-            &src.join(pkg_rel_path),
+            &pkg_abs_path,
             dst,
             &member_dir,
             &[PathBuf::from("Cargo.toml"), PathBuf::from("src/lib.rs")],
