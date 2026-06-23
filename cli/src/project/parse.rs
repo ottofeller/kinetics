@@ -336,7 +336,8 @@ impl Project {
         shaker.initialize(&pkg_abs_path)?;
         log::debug!("create DependencyGraph");
         let graph = shaker.into_dependency_graph(parsed_function)?;
-        log::debug!("DependencyGraph initialized for project: {graph:#?}");
+        let pruned = graph.prune();
+        log::debug!("PrunedGraph for fn {function_name:#?}: {pruned:#?}");
 
         self.clone(
             &pkg_abs_path,
