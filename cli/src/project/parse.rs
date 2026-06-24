@@ -3,7 +3,7 @@ use super::templates;
 use super::Project;
 use crate::function::Function;
 use crate::project::dependencies::insert_lambda_dependency_group;
-use crate::project::treeshake::TreeShaker;
+use crate::project::treeshake::{PrunedGraph, TreeShaker};
 use eyre::{Context, ContextCompat};
 use kinetics::tools::config::EndpointConfig;
 use kinetics_parser::{Params, ParsedFunction, Parser, Role};
@@ -48,6 +48,7 @@ impl Project {
                 // Skip the root Cargo.toml, since we populate it ourselves.
                 .chain([PathBuf::from("Cargo.toml")])
                 .collect::<Vec<_>>(),
+            None,
             &mut checksum,
         )?;
 
@@ -92,6 +93,7 @@ impl Project {
                 &dst,
                 pkg_path,
                 &[],
+                None,
                 &mut checksum,
             )?;
 
@@ -151,13 +153,17 @@ impl Project {
             .collect::<eyre::Result<Vec<_>>>()
     }
 
-    /// Clone the package dir to a new directory
+    /// Clone the package dir to a new directory.
+    ///
+    /// `skip_more` — additional paths (relative to `src`) to skip entirely.
+    /// `graph` — module graph that can decide whether to shake the module or retain.
     fn clone(
         &self,
         src: &Path,
         dst_dir: &Path,
         dst_rel_path: &Path,
         skip_more: &[PathBuf],
+        graph: Option<&PrunedGraph>,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
         let dst_pkg = dst_dir.join(dst_rel_path);
@@ -177,9 +183,21 @@ impl Project {
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|entry| {
-                !skip_paths
-                    .iter()
-                    .any(|prefix| entry.path().starts_with(prefix))
+                let p = entry.path();
+                if skip_paths.iter().any(|prefix| p.starts_with(prefix)) {
+                    return false;
+                }
+                // Directories always pass — they'll be created below.
+                if p.is_dir() {
+                    return true;
+                }
+                if let Some(graph) = graph {
+                    if p.extension().is_some_and(|ext| ext == "rs") && !graph.should_keep(p) {
+                        log::debug!("  pruning unreached file: {p:?}");
+                        return false;
+                    }
+                }
+                true
             })
         {
             let src_path = entry.path();
@@ -194,11 +212,11 @@ impl Project {
                 continue;
             }
 
-            // If src file has been modified, copy it to the destination
             self.clean_copy(
                 src_path,
                 dst_dir,
                 &dst_rel_path.join(src_relative),
+                graph,
                 checksum,
             )?;
         }
@@ -260,6 +278,7 @@ impl Project {
         dst: &Path,
         dst_pkg_path: &Path,
         function: &ParsedFunction,
+        graph: Option<&PrunedGraph>,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
         let src_lib_rs_path = src.join(src_pkg_path).join("src/lib.rs");
@@ -279,9 +298,13 @@ impl Project {
         .wrap_err(format!("Invalid path format for {fn_path}"))?;
 
         let lib = if src_lib_rs_path.exists() {
-            // Make sure all modules with functions are exported.
-            let mut lib =
-                fs::read_to_string(src_lib_rs_path).wrap_err("Failed to read src/lib.rs")?;
+            // Start from the tree-shaken content (strips orphan mods)
+            // and then ensure the target module is exported.
+            let lib = if let Some(graph) = graph {
+                graph.emit_file_content(&src_lib_rs_path)?
+            } else {
+                fs::read_to_string(&src_lib_rs_path).wrap_err("Failed to read src/lib.rs")?
+            };
 
             if module != "lib"
                 && Regex::new(&format!(r"(?m)^\s*pub\s*mod\s+{module};$"))?
@@ -291,10 +314,10 @@ impl Project {
                 let re_module = Regex::new(&format!(r"(?m)^\s*mod\s+{module};$"))?;
                 let export = format!("pub mod {module};");
                 // Delete any existing declaration and append new one
-                lib = format!("{export}\n{}", re_module.replace(&lib, ""));
-            };
-
-            lib
+                format!("{export}\n{}", re_module.replace(&lib, ""))
+            } else {
+                lib
+            }
         } else {
             // Create lib.rs file with required exports.
             format!("pub mod {module};\n")
@@ -330,22 +353,20 @@ impl Project {
         let pkg_rel_path = &parsed_function.pkg_rel_path;
         let pkg_abs_path = src.join(pkg_rel_path);
 
-        log::debug!("create TreeShaker");
         let mut shaker = TreeShaker::new();
-        log::debug!("init TreeShaker");
         shaker.initialize(&pkg_abs_path)?;
-        log::debug!("create DependencyGraph");
         let graph = shaker.into_dependency_graph(parsed_function)?;
         let pruned = graph.prune();
-        log::debug!("PrunedGraph for fn {function_name:#?}: {pruned:#?}");
 
         self.clone(
             &pkg_abs_path,
             dst,
             &member_dir,
             &[PathBuf::from("Cargo.toml"), PathBuf::from("src/lib.rs")],
+            Some(&pruned),
             checksum,
         )?;
+
         self.create_function_manifest(dst, &member_dir, function_name, parsed_function, checksum)?;
         self.create_lib(
             src,
@@ -353,6 +374,7 @@ impl Project {
             dst,
             &member_dir,
             parsed_function,
+            Some(&pruned),
             checksum,
         )?;
 
@@ -543,6 +565,7 @@ impl Project {
         src: &Path,
         dst_dir: &Path,
         dst_rel_path: &Path,
+        graph: Option<&PrunedGraph>,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
         let dst_path_full = dst_dir.join(dst_rel_path);
@@ -555,7 +578,11 @@ impl Project {
         }
 
         // Update hash table for the file.
-        let content = fs::read_to_string(src).wrap_err(format!("Failed to read file {src:?}"))?;
+        let content = if let Some(graph) = graph {
+            graph.emit_file_content(src)?
+        } else {
+            fs::read_to_string(src).wrap_err(format!("Failed to read file {src:?}"))?
+        };
         if checksum.update(
             dst_rel_path.to_path_buf(),
             &FileHash::hash_from_bytes(&content)
