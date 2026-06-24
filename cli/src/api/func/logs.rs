@@ -11,6 +11,7 @@ pub struct Request {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Response {
     pub events: Vec<Event>,
+    pub period: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

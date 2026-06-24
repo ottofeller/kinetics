@@ -16,7 +16,7 @@ pub(crate) struct LogsCommand {
 
     /// Time period to get logs for.
     ///
-    /// The period object (e.g. `1day 3hours`) is a concatenation of time spans.
+    /// The period (e.g. `1day 3hours`) is a concatenation of time spans.
     /// Where each time span is an integer number and a suffix representing time units.
     ///
     /// Maximum available period is 1 month.
@@ -96,19 +96,30 @@ impl Runner for LogsRunner<'_> {
             .wrap_err("Invalid response from server")
             .map_err(|e| self.error(None, None, Some(e.into())))?;
 
+        // Period returned by the API in human-readable format
+        let period = logs_response.period.clone();
+
         if logs_response.events.is_empty() {
             self.writer.text(&format!(
                 "{}\n",
                 console::style(format!(
                     "No logs found for this function in the last {}.",
-                    self.command.period.clone().unwrap_or("1 hour".into())
+                    period
                 ))
                 .yellow(),
             ))?;
 
-            self.writer.json(json!({"success": true, "logs": []}))?;
+            self.writer
+                .json(json!({"success": true, "logs": [], "period": period}))?;
+
             return Ok(());
         }
+
+        self.writer.text(&format!(
+            "{} {}\n",
+            console::style("Period:").bold(),
+            period
+        ))?;
 
         let mut events_json: Vec<String> = vec![];
 
@@ -129,7 +140,7 @@ impl Runner for LogsRunner<'_> {
         }
 
         self.writer
-            .json(json!({"success": true, "logs": events_json}))?;
+            .json(json!({"success": true, "logs": events_json, "period": period}))?;
 
         Ok(())
     }

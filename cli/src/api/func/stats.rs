@@ -12,6 +12,7 @@ pub struct Request {
 pub struct Response {
     pub runs: Runs,
     pub queue: Option<Queue>,
+    pub period: String,
 }
 
 /// General stats about function runs
