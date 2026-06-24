@@ -223,7 +223,8 @@ pub async fn build(
         .arg("--output-format")
         .arg("zip")
         .current_dir(&project.workspace.root_path)
-        .stdout(Stdio::piped())
+        // Null stdout avoids an unread pipe when cargo-lambda inherits verbose RUST_LOG.
+        .stdout(Stdio::null())
         .stderr(Stdio::piped());
 
     for function in functions {
