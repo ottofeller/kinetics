@@ -52,7 +52,7 @@ impl TreeShaker {
         for entry in WalkDir::new(src_dir)
             .into_iter()
             .filter_map(|e| e.ok())
-            .filter(|entry| entry.path().extension().map_or(false, |ext| ext == "rs"))
+            .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "rs"))
         {
             let path = entry.path();
             if let Ok(content) = fs::read_to_string(path) {
@@ -382,7 +382,7 @@ impl DependencyGraph {
         // Without this, a parent module file (e.g. `src/utils/mod.rs`)
         // whose only content is `mod child;` would be dropped even though
         // items inside the child module are reached.
-        for (&module, _) in &module_to_fid {
+        for &module in module_to_fid.keys() {
             let has_reached = module
                 .declarations(db)
                 .iter()
