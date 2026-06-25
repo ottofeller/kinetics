@@ -3,7 +3,7 @@ use super::templates;
 use super::Project;
 use crate::function::Function;
 use crate::project::dependencies::insert_lambda_dependency_group;
-use crate::project::treeshake::{PrunedGraph, TreeShaker};
+use crate::project::treeshake::{PrunedGraph, TreeShakerBuilder};
 use eyre::{Context, ContextCompat};
 use kinetics::tools::config::EndpointConfig;
 use kinetics_parser::{Params, ParsedFunction, Parser, Role};
@@ -353,8 +353,7 @@ impl Project {
         let pkg_rel_path = &parsed_function.pkg_rel_path;
         let pkg_abs_path = src.join(pkg_rel_path);
 
-        let mut shaker = TreeShaker::new();
-        shaker.initialize(&pkg_abs_path)?;
+        let shaker = TreeShakerBuilder::new().build(&pkg_abs_path)?;
         let graph = shaker.into_dependency_graph(parsed_function)?;
         let pruned = graph.prune();
 

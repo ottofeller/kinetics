@@ -20,30 +20,24 @@ use triomphe::Arc;
 use walkdir::WalkDir;
 
 #[derive(Debug)]
-pub struct TreeShaker {
-    source_root: Option<SourceRoot>,
+pub(crate) struct TreeShakerBuilder {
     file_set: FileSet,
     id_to_path: HashMap<FileId, PathBuf>,
-    host: Option<AnalysisHost>,
 }
 
-impl TreeShaker {
+impl TreeShakerBuilder {
     pub fn new() -> Self {
         Self {
-            source_root: None,
             file_set: FileSet::default(),
             id_to_path: HashMap::new(),
-            host: None,
         }
     }
 
-    /// Initialize the dependency graph by
+    /// Build the dependency graph by
     /// - scanning the source directory;
     /// - apply all files as changes to register their content within the graph.
-    pub fn initialize(&mut self, src_dir: &Path) -> eyre::Result<()> {
+    pub fn build(mut self, src_dir: &Path) -> eyre::Result<TreeShaker> {
         let mut file_id_counter = 0u32;
-        let mut file_set = FileSet::default();
-        let mut id_to_path = HashMap::new();
         let mut file_contents = HashMap::new();
 
         log::debug!("walk with TreeShaker: {src_dir:?}");
@@ -60,8 +54,8 @@ impl TreeShaker {
                 let vfs_path = VfsPath::new_virtual_path(path.to_string_lossy().into_owned());
 
                 let fid = FileId::from_raw(file_id_counter);
-                file_set.insert(fid, vfs_path);
-                id_to_path.insert(fid, path.to_path_buf());
+                self.file_set.insert(fid, vfs_path);
+                self.id_to_path.insert(fid, path.to_path_buf());
                 file_contents.insert(fid, content);
 
                 file_id_counter += 1;
@@ -71,11 +65,11 @@ impl TreeShaker {
         log::debug!("TreeShaker: found {file_count} .rs files");
 
         // 2. Build SourceRoot and CrateGraph
-        let source_root = SourceRoot::new_local(file_set.clone());
+        let source_root = SourceRoot::new_local(self.file_set.clone());
         let mut crate_graph = CrateGraphBuilder::default();
 
         // Find the root of the package (src/lib.rs or src/main.rs)
-        let root_file_id = id_to_path.iter().find_map(|(&id, path)| {
+        let root_file_id = self.id_to_path.iter().find_map(|(&id, path)| {
             if path.ends_with("src/lib.rs") || path.ends_with("src/main.rs") {
                 Some(id)
             } else {
@@ -84,7 +78,6 @@ impl TreeShaker {
         });
 
         if let Some(fid) = root_file_id {
-            log::debug!("add root: {fid:?}");
             let proc_macro_cwd =
                 Arc::new(AbsPathBuf::assert_utf8(std::env::current_dir().unwrap()));
             crate_graph.add_crate_root(
@@ -108,7 +101,6 @@ impl TreeShaker {
             );
         }
 
-        log::debug!("create AnalysisHost");
         // 3. Create AnalysisHost and apply changes
         let mut host = AnalysisHost::new(None);
         let mut change = ChangeWithProcMacros::default();
@@ -118,30 +110,33 @@ impl TreeShaker {
         }
         change.set_crate_graph(crate_graph);
 
-        log::debug!("apply_change to AnalysisHost");
         host.apply_change(change);
-        log::debug!("change applied");
-        self.host = Some(host);
-        self.source_root = Some(source_root);
-        self.file_set = file_set;
-        self.id_to_path = id_to_path;
 
-        Ok(())
+        Ok(TreeShaker {
+            id_to_path: self.id_to_path,
+            host,
+        })
     }
+}
 
+#[derive(Debug)]
+pub struct TreeShaker {
+    id_to_path: HashMap<FileId, PathBuf>,
+    host: AnalysisHost,
+}
+
+impl TreeShaker {
     /// Consume the TreeShaker and build a DependencyGraph from the given entry point.
+    /// TODO: Maybe we want to reuse it between functions to save on recomputation.
     pub fn into_dependency_graph(
-        mut self,
+        self,
         parsed_function: &ParsedFunction,
     ) -> eyre::Result<DependencyGraph> {
-        let host = self
-            .host
-            .take()
-            .ok_or_else(|| eyre::eyre!("TreeShaker not initialized"))?;
-        let id_to_path = std::mem::take(&mut self.id_to_path);
-        log::debug!("new DependencyGraph");
-        let mut graph = DependencyGraph::new(host, id_to_path);
-        log::debug!("build DependencyGraph");
+        let mut graph = DependencyGraph {
+            host: self.host,
+            id_to_path: self.id_to_path,
+            reached: HashSet::new(),
+        };
         graph.build_from(parsed_function)?;
         Ok(graph)
     }
@@ -158,14 +153,6 @@ pub struct DependencyGraph {
 }
 
 impl DependencyGraph {
-    pub fn new(host: AnalysisHost, id_to_path: HashMap<FileId, PathBuf>) -> Self {
-        Self {
-            host,
-            id_to_path,
-            reached: HashSet::new(),
-        }
-    }
-
     fn db(&self) -> &dyn HirDatabase {
         self.host.raw_database()
     }
