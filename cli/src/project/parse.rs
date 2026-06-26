@@ -1,9 +1,9 @@
 use super::filehash::{FileHash, CHECKSUMS_FILENAME};
 use super::templates;
+use super::treeshake::{PrunedGraph, TreeShaker, TreeShakerBuilder};
 use super::Project;
 use crate::function::Function;
 use crate::project::dependencies::insert_lambda_dependency_group;
-use crate::project::treeshake::{PrunedGraph, TreeShakerBuilder};
 use eyre::{Context, ContextCompat};
 use kinetics::tools::config::EndpointConfig;
 use kinetics_parser::{Params, ParsedFunction, Parser, Role};
@@ -102,6 +102,8 @@ impl Project {
                 continue;
             }
 
+            let shaker = TreeShakerBuilder::new().build(&src.join(&package.relative_path))?;
+
             for parsed_function in &parsed_functions {
                 let function_name = parsed_function.func_name(false)?;
 
@@ -111,6 +113,7 @@ impl Project {
                     &dst,
                     &function_name,
                     parsed_function,
+                    &shaker,
                     &mut checksum,
                 )?;
 
@@ -347,18 +350,16 @@ impl Project {
         dst: &Path,
         function_name: &str,
         parsed_function: &ParsedFunction,
+        shaker: &TreeShaker,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
         let member_dir = PathBuf::from(function_name);
         let pkg_rel_path = &parsed_function.pkg_rel_path;
-        let pkg_abs_path = src.join(pkg_rel_path);
-
-        let shaker = TreeShakerBuilder::new().build(&pkg_abs_path)?;
-        let graph = shaker.into_dependency_graph(parsed_function)?;
+        let graph = shaker.dependency_graph(parsed_function)?;
         let pruned = graph.prune();
 
         self.clone(
-            &pkg_abs_path,
+            &src.join(pkg_rel_path),
             dst,
             &member_dir,
             &[PathBuf::from("Cargo.toml"), PathBuf::from("src/lib.rs")],

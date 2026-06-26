@@ -126,15 +126,14 @@ pub struct TreeShaker {
 }
 
 impl TreeShaker {
-    /// Consume the TreeShaker and build a DependencyGraph from the given entry point.
-    /// TODO: Maybe we want to reuse it between functions to save on recomputation.
-    pub fn into_dependency_graph(
-        self,
+    /// Build a DependencyGraph for the given function, referencing this TreeShaker.
+    pub fn dependency_graph(
+        &self,
         parsed_function: &ParsedFunction,
-    ) -> eyre::Result<DependencyGraph> {
+    ) -> eyre::Result<DependencyGraph<'_>> {
         let mut graph = DependencyGraph {
-            host: self.host,
-            id_to_path: self.id_to_path,
+            host: &self.host,
+            id_to_path: &self.id_to_path,
             reached: HashSet::new(),
         };
         graph.build_from(parsed_function)?;
@@ -145,14 +144,14 @@ impl TreeShaker {
 /// Wraps the `rust-analyzer` `Analysis` snapshot and provides recursive
 /// reachability analysis starting from a `ParsedFunction`.
 #[derive(Debug)]
-pub struct DependencyGraph {
-    host: AnalysisHost,
-    id_to_path: HashMap<FileId, PathBuf>,
+pub struct DependencyGraph<'a> {
+    host: &'a AnalysisHost,
+    id_to_path: &'a HashMap<FileId, PathBuf>,
     /// Set of reached `ModuleDef`s discovered during traversal.
     reached: HashSet<ModuleDef>,
 }
 
-impl DependencyGraph {
+impl<'a> DependencyGraph<'a> {
     fn db(&self) -> &dyn HirDatabase {
         self.host.raw_database()
     }
@@ -298,7 +297,7 @@ impl DependencyGraph {
         let mut file_to_items: HashMap<PathBuf, HashSet<String>> = HashMap::new();
 
         log::debug!("prune: id_to_path has {} entries", self.id_to_path.len());
-        for (fid, p) in &self.id_to_path {
+        for (fid, p) in self.id_to_path {
             log::debug!("  id_to_path[{fid:?}] = {:?}", p);
         }
 
