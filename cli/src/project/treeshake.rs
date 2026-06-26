@@ -40,7 +40,7 @@ impl TreeShakerBuilder {
         let mut file_id_counter = 0u32;
         let mut file_contents = HashMap::new();
 
-        log::debug!("walk with TreeShaker: {src_dir:?}");
+        log::debug!("walk with TreeShakerBuilder: {src_dir:?}");
         // 1. Recursively scan for .rs files and collect contents
         let mut file_count = 0usize;
         for entry in WalkDir::new(src_dir)
@@ -50,7 +50,6 @@ impl TreeShakerBuilder {
         {
             let path = entry.path();
             if let Ok(content) = fs::read_to_string(path) {
-                // let relative_path = path.strip_prefix(src_dir).unwrap_or(path);
                 let vfs_path = VfsPath::new_virtual_path(path.to_string_lossy().into_owned());
 
                 let fid = FileId::from_raw(file_id_counter);
@@ -62,7 +61,7 @@ impl TreeShakerBuilder {
                 file_count += 1;
             }
         }
-        log::debug!("TreeShaker: found {file_count} .rs files");
+        log::debug!("TreeShakerBuilder: found {file_count} .rs files");
 
         // 2. Build SourceRoot and CrateGraph
         let source_root = SourceRoot::new_local(self.file_set.clone());
@@ -160,7 +159,7 @@ impl<'a> DependencyGraph<'a> {
     /// referenced items.
     pub fn build_from(&mut self, parsed_function: &ParsedFunction) -> eyre::Result<()> {
         log::debug!(
-            "build_from: relative_path={:?}, rust_function_name={}",
+            "build from relative_path {:?} and rust_function_name {}",
             parsed_function.relative_path,
             parsed_function.rust_function_name
         );
@@ -181,24 +180,19 @@ impl<'a> DependencyGraph<'a> {
 
     fn find_function(&self, parsed_function: &ParsedFunction) -> eyre::Result<Function> {
         let db = self.db();
-
-        log::debug!("find_function: all crates: {:?}", Crate::all(db).len());
-        for c in Crate::all(db) {
-            log::debug!("  crate origin: {:?}", c.origin(db));
-        }
+        let all_krates = Crate::all(db);
+        log::debug!("try find function in {} crates", all_krates.len());
 
         // Find the local crate (the one we loaded from disk).
-        let krate = Crate::all(db)
+        let krate = all_krates
             .into_iter()
             .find(|c| matches!(c.origin(db), ra_ap_base_db::CrateOrigin::Local { .. }))
             .ok_or_else(|| eyre::eyre!("No local crate found in the analysis database"))?;
 
-        log::debug!("find_function: found local crate");
+        log::debug!("found local crate {:?}", krate.origin(db));
 
         // Walk the module tree to find the module containing the function.
         let module = self.resolve_module(krate, &parsed_function.relative_path)?;
-
-        log::debug!("find_function: resolved module");
 
         // Look up the function name in the module's scope.
         let func_name = &parsed_function.rust_function_name;
@@ -210,7 +204,7 @@ impl<'a> DependencyGraph<'a> {
             );
             if name.as_str() == *func_name {
                 if let ScopeDef::ModuleDef(ModuleDef::Function(f)) = scope_def {
-                    log::debug!("find_function: FOUND function");
+                    log::debug!("found function {:?}", f.name(db));
                     return Ok(f);
                 }
             }
@@ -229,8 +223,6 @@ impl<'a> DependencyGraph<'a> {
         let db = self.db();
         let root = krate.root_module();
 
-        log::debug!("resolve_module: relative_path={relative_path:?}");
-
         let path_str = relative_path.to_string_lossy();
         let stem = path_str
             .strip_prefix("src/")
@@ -238,11 +230,11 @@ impl<'a> DependencyGraph<'a> {
             .map(|p| p.strip_suffix(".rs").unwrap_or(p))
             .unwrap_or("");
 
-        log::debug!("resolve_module: path_str={path_str}, stem={stem}");
+        log::debug!("resolve module for path {path_str}, stem={stem}");
 
         // If the stem is empty, "lib", or "main", we're at the crate root.
         if stem.is_empty() || stem == "lib" || stem == "main" {
-            log::debug!("resolve_module: returning root module");
+            log::debug!("resolve root module");
             return Ok(root);
         }
 
@@ -260,7 +252,7 @@ impl<'a> DependencyGraph<'a> {
             .filter(|s| !s.is_empty())
             .collect();
 
-        log::debug!("resolve_module: segments={segments:?}");
+        log::debug!("resolve module via segments {segments:?}");
 
         let mut module = root;
         for segment in &segments {
@@ -284,7 +276,6 @@ impl<'a> DependencyGraph<'a> {
             }
         }
 
-        log::debug!("resolve_module: resolved successfully");
         Ok(module)
     }
 
@@ -296,21 +287,16 @@ impl<'a> DependencyGraph<'a> {
         let db = self.db();
         let mut file_to_items: HashMap<PathBuf, HashSet<String>> = HashMap::new();
 
-        log::debug!("prune: id_to_path has {} entries", self.id_to_path.len());
-        for (fid, p) in self.id_to_path {
-            log::debug!("  id_to_path[{fid:?}] = {:?}", p);
-        }
-
         // Find the local crate.
         let Some(krate) = Crate::all(db)
             .into_iter()
             .find(|c| matches!(c.origin(db), CrateOrigin::Local { .. }))
         else {
-            log::debug!("prune: no local crate found");
+            log::debug!("no local crate found");
             return PrunedGraph { file_to_items };
         };
 
-        log::debug!("prune: found local crate, root_module");
+        log::debug!("found local crate, root_module");
 
         // Walk all modules and build a mapping from Module → FileId.
         // Only file-backed modules that exist in our id_to_path map are
@@ -337,18 +323,12 @@ impl<'a> DependencyGraph<'a> {
             }
         }
         log::debug!(
-            "prune: {} modules total, {} in module_to_fid",
+            "{} modules total, {} in module_to_fid",
             module_count,
             module_to_fid.len()
         );
 
-        log::debug!("prune: reached set has {} items", self.reached.len());
-        for (i, r) in self.reached.iter().enumerate() {
-            log::debug!("  reached[{i}]: {r:?}");
-        }
-
-        // Phase 1: collect the FileIds of files that contain at least one
-        // reached item.
+        // Collect the FileIds of files that contain at least one reached item.
         let mut reached_files: HashSet<FileId> = HashSet::new();
         for (&module, &fid) in &module_to_fid {
             let decls: Vec<ModuleDef> = module.declarations(db);
@@ -361,7 +341,7 @@ impl<'a> DependencyGraph<'a> {
                 }
             }
         }
-        log::debug!("prune: phase1 reached_files: {} files", reached_files.len());
+        log::debug!("reached files: {} files", reached_files.len());
 
         // Ancestor propagation: for every module whose file is kept, walk
         // up the parent chain and also keep all ancestor module files.
@@ -387,10 +367,7 @@ impl<'a> DependencyGraph<'a> {
                 }
             }
         }
-        log::debug!(
-            "prune: after ancestor propagation: {} files",
-            reached_files.len()
-        );
+        log::debug!("after ancestor propagation: {} files", reached_files.len());
 
         // Build the output map: kept files get an empty item set (Phase 1
         // keeps the entire file).
@@ -415,7 +392,7 @@ fn traverse_function(
     if !reached.insert(def) {
         return;
     }
-    log::debug!("traverse_function: reached {def:?}");
+    log::debug!("reached {def:?}");
 
     // `Semantics::source` (unlike `HasSource::source`) caches the parsed
     // file's root node in the semantics' `root_to_file_cache`, which is a
@@ -423,7 +400,7 @@ fn traverse_function(
     if let Some(in_file) = semantics.source(func) {
         traverse_syntax_node(reached, in_file.value.syntax(), semantics);
     } else {
-        log::debug!("  traverse_function: semantics.source returned None");
+        log::debug!("semantics.source returned None");
     }
 }
 
@@ -444,7 +421,7 @@ fn traverse_syntax_node(
             traverse_module_def(reached, module_def, semantics);
         }
     }
-    log::debug!("  traverse_syntax_node: resolved {resolved_count} paths");
+    log::debug!("resolved {resolved_count} paths");
 }
 
 /// Mark a `ModuleDef` as reached and, if it has a body or contains
@@ -457,7 +434,7 @@ fn traverse_module_def(
     if !reached.insert(module_def) {
         return;
     }
-    log::debug!("traverse_module_def: reached {module_def:?}");
+    log::debug!("reached {module_def:?}");
 
     match module_def {
         ModuleDef::Function(func) => {
