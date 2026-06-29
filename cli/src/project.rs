@@ -10,7 +10,7 @@ mod workspace;
 
 use crate::api::client::Client;
 use crate::api::projects::{Kvdb, ProjectInfo};
-use crate::api::request::Validate;
+use crate::api::request::{to_log_safe_string_pretty, Validate};
 use crate::api::stack;
 use crate::config::deploy::DeployConfig;
 use crate::envs::Envs;
@@ -177,7 +177,7 @@ impl Project {
 
         log::debug!(
             "Sending request to deploy:\n{}",
-            serde_json::to_string_pretty(&request)?
+            to_log_safe_string_pretty(&request)?
         );
 
         let result = client
