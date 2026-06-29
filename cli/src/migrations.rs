@@ -197,7 +197,7 @@ impl<'a> Migrations<'a> {
         for (path, content) in migrations {
             // Strip ASYNC keyword before parsing — sqlparser doesn't support
             // CREATE ASYNC INDEX (DSQL syntax) but it's need DDL/DML classification only
-            let sanitized = content.replace("CREATE ASYNC INDEX", "CREATE INDEX");
+            let sanitized = content.replace("CREATE INDEX ASYNC", "CREATE INDEX");
             let statements = Parser::parse_sql(&PostgreSqlDialect {}, &sanitized)
                 .wrap_err("Failed to parse migration SQL")?;
 
