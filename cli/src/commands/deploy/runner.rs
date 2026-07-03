@@ -1,7 +1,6 @@
 use crate::api::stack;
 use crate::commands::build::pipeline::Pipeline;
 use crate::commands::deploy::DeployCommand;
-use crate::config::build_config;
 use crate::error::Error;
 use crate::function::Function;
 use crate::project::Project;
@@ -11,7 +10,6 @@ use eyre::Context;
 use reqwest::StatusCode;
 use serde_json::json;
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 pub(crate) struct DeployRunner<'a> {
     pub(crate) command: DeployCommand,
@@ -70,10 +68,7 @@ impl DeployRunner<'_> {
         let client = self.api_client().await?;
 
         let functions: Vec<Function> = project
-            .parse(
-                PathBuf::from(build_config()?.kinetics_path),
-                &self.command.functions,
-            )?
+            .parse(&self.command.functions)?
             .iter()
             .filter(|f| f.is_deploying)
             .cloned()

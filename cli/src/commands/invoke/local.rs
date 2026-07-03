@@ -10,7 +10,7 @@ use color_eyre::owo_colors::OwoColorize;
 use eyre::WrapErr;
 use serde_json::json;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 impl InvokeRunner<'_> {
@@ -22,7 +22,6 @@ impl InvokeRunner<'_> {
         migrations_path: Option<&str>,
     ) -> eyre::Result<()> {
         let project = self.project(&self.command.project).await?;
-        let home = std::env::var("HOME").wrap_err("Can not read HOME env var")?;
         let mut secrets_envs = HashMap::new();
 
         // Envs with the prefix are then processed and provisioned as secrets
@@ -30,8 +29,13 @@ impl InvokeRunner<'_> {
             secrets_envs.insert(format!("KINETICS_SECRET_{}", name.clone()), value);
         }
 
-        let invoke_dir = Path::new(&home).join(format!(".kinetics/{}", project.name));
-        let display_path = format!("{}/src/bin/{}Local.rs", invoke_dir.display(), function.name);
+        let invoke_dir = project.build_path()?;
+        let display_path = format!(
+            "{}/{}/src/bin/{}Local.rs",
+            invoke_dir.display(),
+            function.name,
+            function.name
+        );
 
         self.writer
             .text(&format!(

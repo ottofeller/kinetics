@@ -12,6 +12,7 @@ use crate::api::client::Client;
 use crate::api::projects::{Kvdb, ProjectInfo};
 use crate::api::request::{to_log_safe_string_pretty, Validate};
 use crate::api::stack;
+use crate::config::build_config;
 use crate::config::deploy::DeployConfig;
 use crate::envs::Envs;
 use crate::error::Error;
@@ -64,7 +65,7 @@ pub struct Observability {
 
 impl Project {
     fn new(path: PathBuf, name: String) -> Self {
-        let workspace = Workspace::from_path(&path).ok().unwrap_or_default();
+        let workspace = Workspace::from_path(&path, &name).ok().unwrap_or_default();
 
         Self {
             path,
@@ -295,6 +296,10 @@ impl Project {
 
         fs::write(&config_path, doc.to_string()).wrap_err("Failed to write kinetics.toml")?;
         Ok(())
+    }
+
+    pub fn build_path(&self) -> eyre::Result<PathBuf> {
+        Ok(PathBuf::from(build_config()?.kinetics_path).join(&self.name))
     }
 }
 
