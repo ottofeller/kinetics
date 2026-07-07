@@ -23,7 +23,7 @@ pub trait Validate {
 }
 
 /// Serializes a value as pretty JSON with sensitive fields redacted for logs
-pub(crate) fn to_log_safe_string_pretty<T: Serialize>(value: &T) -> serde_json::Result<String> {
+pub fn to_log_safe_string_pretty<T: Serialize>(value: &T) -> serde_json::Result<String> {
     let mut value = serde_json::to_value(value)?;
     redact_matching(&mut value);
     serde_json::to_string_pretty(&value)

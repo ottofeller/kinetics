@@ -1,9 +1,9 @@
-use crate::api::domains::delete::Request;
-use crate::api::request::Validate;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use eyre::Context;
+use kinetics_api::domains::delete::Request;
+use kinetics_api::request::Validate;
 use serde_json::json;
 use std::path::PathBuf;
 
@@ -40,7 +40,7 @@ impl Runner for RemoveRunner<'_> {
         })?;
 
         let request = Request {
-            project: project.clone(),
+            project: (&project).into(),
             domain_name: domain_name.clone(),
         };
 

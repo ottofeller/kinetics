@@ -1,12 +1,12 @@
 use crate::api::client::Client;
-use crate::api::orgs::validators;
-use crate::api::projects;
 use crate::config::build_config;
 use crate::error::Error;
 use crate::project::Project;
 use chrono::Duration;
 use chrono::{DateTime, Utc};
 use eyre::{ContextCompat, WrapErr};
+use kinetics_api::orgs::validators;
+use kinetics_api::projects;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;

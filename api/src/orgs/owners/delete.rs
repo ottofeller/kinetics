@@ -1,10 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::api::{orgs::validators, request::Validate};
+use crate::{orgs::validators, request::Validate};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Request {
     pub org: String,
+    pub username: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -19,6 +20,10 @@ impl Validate for Request {
         // Org name
         if !validators::Name::validate(&self.org) {
             errors.push(validators::Name::message());
+        }
+
+        if !validators::Email::validate(&self.username) {
+            errors.push(validators::Email::message());
         }
 
         if !errors.is_empty() {

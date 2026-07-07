@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 
-members = ["cli", "examples", "macro", "parser"]
+members = ["api", "cli", "examples", "macro", "parser"]
 
 [workspace.dependencies]
 # Do not upgrade as TOML parsing fails

@@ -1,10 +1,10 @@
-use crate::api::func;
 use crate::error::Error;
 use crate::function::Function;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use chrono::{DateTime, Utc};
 use eyre::Context;
+use kinetics_api::func;
 use serde_json::json;
 use std::path::PathBuf;
 
@@ -74,7 +74,7 @@ impl Runner for LogsRunner<'_> {
         let response = client
             .post("/function/logs")
             .json(&func::logs::Request {
-                project,
+                project: (&project).into(),
                 function_name: function.name.clone(),
                 period: self.command.period.to_owned(),
             })

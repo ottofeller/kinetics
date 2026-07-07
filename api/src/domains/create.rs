@@ -1,5 +1,5 @@
-use crate::api::request::Validate;
-use crate::{api::domains::validators, project::Project};
+use crate::request::Validate;
+use crate::{domains::validators, project::Project};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 

@@ -1,9 +1,9 @@
-use crate::api::orgs::owners::delete::{Request, Response};
-use crate::api::request::Validate;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use crossterm::style::Stylize;
+use kinetics_api::orgs::owners::delete::{Request, Response};
+use kinetics_api::request::Validate;
 use serde_json::json;
 use std::io::{stdin, stdout, Write};
 

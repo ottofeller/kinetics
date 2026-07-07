@@ -1,10 +1,10 @@
-use crate::api::auth::tokens::delete::Request;
-use crate::api::request::Validate;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use crossterm::style::Stylize;
 use eyre::Context;
+use kinetics_api::auth::tokens::delete::Request;
+use kinetics_api::request::Validate;
 use serde_json::json;
 use std::io::{stdin, stdout, Write};
 

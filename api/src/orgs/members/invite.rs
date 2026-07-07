@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::api::{orgs::validators, request::Validate};
+use crate::{orgs::validators, request::Validate};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Request {

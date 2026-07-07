@@ -1,5 +1,5 @@
-use crate::api::auth::tokens::validators;
-use crate::api::request::Validate;
+use crate::auth::tokens::validators;
+use crate::request::Validate;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

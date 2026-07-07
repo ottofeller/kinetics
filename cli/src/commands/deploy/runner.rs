@@ -1,4 +1,3 @@
-use crate::api::stack;
 use crate::commands::build::pipeline::Pipeline;
 use crate::commands::deploy::DeployCommand;
 use crate::error::Error;
@@ -7,6 +6,7 @@ use crate::project::Project;
 use crate::runner::Runner;
 use crate::writer::Writer;
 use eyre::Context;
+use kinetics_api::stack;
 use reqwest::StatusCode;
 use serde_json::json;
 use std::collections::HashMap;
@@ -112,7 +112,7 @@ impl DeployRunner<'_> {
         let result = client
             .post("/stack/deploy/envs")
             .json(&stack::deploy::envs::Request {
-                project,
+                project: (&project).into(),
                 functions: envs,
             })
             .send()

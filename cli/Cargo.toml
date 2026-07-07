@@ -45,6 +45,7 @@ keyring = { version = "3.6.3", features = [
   "windows-native"
 ] }
 kinetics-macro = { path = "../macro", version = "0.16.10" }
+kinetics-api = { path = "../api", version = "0.16.10" }
 kinetics-parser = { path = "../parser", version = "0.16.10" }
 lambda_http = "^1.0"
 lambda_runtime = "^1.0"

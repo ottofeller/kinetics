@@ -9,9 +9,6 @@ mod templates;
 mod workspace;
 
 use crate::api::client::Client;
-use crate::api::projects::{Kvdb, ProjectInfo};
-use crate::api::request::{to_log_safe_string_pretty, Validate};
-use crate::api::stack;
 use crate::config::build_config;
 use crate::config::deploy::DeployConfig;
 use crate::envs::Envs;
@@ -23,6 +20,9 @@ use cache::Cache;
 use config_file::ConfigFile;
 use eyre::WrapErr;
 use http::StatusCode;
+use kinetics_api::projects::{Kvdb, ProjectInfo};
+use kinetics_api::request::{to_log_safe_string_pretty, Validate};
+use kinetics_api::stack;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -137,7 +137,7 @@ impl Project {
             .wrap_err("Failed to create client")?
             .post("/stack/destroy")
             .json(&stack::destroy::Request {
-                project: self.clone(),
+                project: self.into(),
             })
             .send()
             .await?;
@@ -169,7 +169,7 @@ impl Project {
                 .iter()
                 .map(|f| f.into())
                 .collect::<Vec<stack::deploy::FunctionRequest>>(),
-            project: self.clone(),
+            project: self.into(),
         };
 
         if let Some(errors) = request.validate() {
@@ -214,7 +214,7 @@ impl Project {
             .post("/stack/status")
             .json(&stack::status::Request {
                 name: self.name.to_owned(),
-                project: self.clone(),
+                project: self.into(),
             })
             .send()
             .await
@@ -315,5 +315,28 @@ impl From<ProjectInfo> for Project {
             observability: None,
             domain_name: None,
         }
+    }
+}
+
+impl From<&Project> for kinetics_api::project::Project {
+    fn from(project: &Project) -> Self {
+        Self {
+            name: project.name.clone(),
+            url: project.url.clone(),
+            kvdb: project.kvdb.clone(),
+            observability: project.observability.as_ref().map(|observability| {
+                kinetics_api::project::Observability {
+                    dd_api_key: observability.dd_api_key.clone(),
+                }
+            }),
+            domain_name: project.domain_name.clone(),
+            org: project.org.clone(),
+        }
+    }
+}
+
+impl From<Project> for kinetics_api::project::Project {
+    fn from(project: Project) -> Self {
+        Self::from(&project)
     }
 }

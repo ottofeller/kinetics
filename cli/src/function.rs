@@ -1,11 +1,11 @@
-use crate::api::upload;
-use crate::api::{client::Client, func};
+use crate::api::client::Client;
 use crate::config::deploy::DeployConfig;
 use crate::error::Error;
 use crate::project::Project;
 use base64::Engine as _;
 use crc_fast::{CrcAlgorithm::Crc64Nvme, Digest};
 use eyre::{eyre, ContextCompat, WrapErr};
+use kinetics_api::{func, upload};
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -162,7 +162,7 @@ impl Function {
         let result = client
             .post("/function/status")
             .json(&func::status::Request {
-                project: self.project.clone(),
+                project: (&self.project).into(),
                 function_name: self.name.clone(),
             })
             .send()
@@ -260,4 +260,16 @@ pub async fn build(
     }
 
     Ok(())
+}
+
+impl From<&Function> for kinetics_api::stack::deploy::FunctionRequest {
+    fn from(function: &Function) -> Self {
+        Self {
+            name: function.name.clone(),
+            is_deploying: function.is_deploying,
+            params: function.params.clone(),
+            role: function.role.clone(),
+            environment: function.environment(),
+        }
+    }
 }

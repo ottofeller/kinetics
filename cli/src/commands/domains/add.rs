@@ -1,9 +1,9 @@
-use crate::api::domains::create::{Request, Response};
-use crate::api::request::Validate;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use eyre::Context;
+use kinetics_api::domains::create::{Request, Response};
+use kinetics_api::request::Validate;
 use serde_json::json;
 use std::path::PathBuf;
 
@@ -40,7 +40,7 @@ impl Runner for AddRunner<'_> {
         let client = self.api_client().await?;
 
         let request = Request {
-            project: project.clone(),
+            project: (&project).into(),
             domain_name: self.command.domain_name.clone(),
         };
 

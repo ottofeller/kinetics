@@ -1,7 +1,7 @@
-use crate::api::projects::Kvdb;
 use crate::error::Error;
 use crate::project::Project;
 use eyre::{ContextCompat, WrapErr};
+use kinetics_api::projects::Kvdb;
 use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -2352,6 +2352,7 @@ dependencies = [
  "indicatif",
  "indicatif-log-bridge",
  "keyring",
+ "kinetics-api",
  "kinetics-macro",
  "kinetics-parser",
  "lambda_http",
@@ -2381,6 +2382,19 @@ dependencies = [
  "url",
  "users",
  "walkdir",
+]
+
+[[package]]
+name = "kinetics-api"
+version = "0.16.10"
+dependencies = [
+ "chrono",
+ "humantime",
+ "kinetics-parser",
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
