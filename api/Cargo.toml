@@ -1,6 +1,6 @@
 [package]
 name = "kinetics-api"
-version = "0.16.10"
+version = "0.16.11"
 edition = "2021"
 description = "Shared API request and response types for Kinetics."
 repository = "https://github.com/ottofeller/kinetics"
