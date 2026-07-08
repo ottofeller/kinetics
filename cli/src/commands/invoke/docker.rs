@@ -142,7 +142,7 @@ impl<'a> Docker<'a> {
     }
 
     pub fn with_sqldb(&mut self, sqldb: LocalSqlDB<'a>) {
-        self.services.push(Service::SqlDB(Box::new(sqldb)));
+        self.services.push(Service::SqlDB(sqldb));
     }
 
     pub fn with_queue(&mut self, queue: LocalQueue) {

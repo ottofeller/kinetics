@@ -7,6 +7,6 @@ pub use sqldb::LocalSqlDB;
 
 pub enum Service<'a> {
     DynamoDB(LocalDynamoDB),
-    SqlDB(Box<LocalSqlDB<'a>>),
+    SqlDB(LocalSqlDB<'a>),
     Queue(LocalQueue),
 }
