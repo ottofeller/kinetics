@@ -68,7 +68,18 @@ impl Client {
         Fut:
             std::future::Future<Output = Result<Retries, Box<dyn std::error::Error + Send + Sync>>>,
     {
-        let cache_key = std::any::type_name_of_val(&worker);
+        let type_path = std::any::type_name_of_val(&worker);
+
+        let (crate_name, module_path) = type_path
+            .split_once("::")
+            .ok_or_eyre("Failed to get the project name from a worker")?;
+
+        Self::from_name(crate_name, module_path).await
+    }
+
+    /// Init the client from the crate name and module path of the worker fn
+    pub async fn from_name(crate_name: &str, module_path: &str) -> eyre::Result<Self> {
+        let cache_key = format!("{crate_name}::{module_path}");
 
         let cache = SQS_CLIENT_CACHE
             .get_or_init(|| async { Arc::new(RwLock::new(HashMap::new())) })
@@ -77,19 +88,15 @@ impl Client {
         // Check if the client is already initialized
         let mut write_guard = cache.write().await;
 
-        if let Some(client) = write_guard.get(cache_key) {
+        if let Some(client) = write_guard.get(&cache_key) {
             return Ok(client.clone());
         }
 
         let client = Client {
             queue: {
-                let (type_path_project_name, function_path) = cache_key
-                    .split_once("::")
-                    .ok_or_eyre("Failed to get the project name from a worker")?;
-
-                // Use type_path_project_name as a fallback for the project name
+                // Use crate_name as a fallback for the project name
                 let project_name =
-                    std::env::var("KINETICS_PROJECT_NAME").unwrap_or(type_path_project_name.into());
+                    std::env::var("KINETICS_PROJECT_NAME").unwrap_or(crate_name.into());
 
                 let region = std::env::var("AWS_REGION").unwrap_or("us-east-1".to_string());
 
@@ -116,8 +123,8 @@ impl Client {
                                 .expect("KINETICS_USERNAME is not set"),
                             &project_name,
                             &ParsedFunction::to_local_name(&[
-                                type_path_project_name,
-                                &function_path.replace("::", "/"),
+                                crate_name,
+                                &module_path.replace("::", "/"),
                             ]),
                         ))
                     })
@@ -136,7 +143,7 @@ impl Client {
             },
         };
 
-        write_guard.insert(cache_key.to_string(), client.clone());
+        write_guard.insert(cache_key, client.clone());
         Ok(client)
     }
 }
