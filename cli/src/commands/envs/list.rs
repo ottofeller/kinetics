@@ -1,11 +1,11 @@
 use crate::api::client::Client;
-use crate::api::envs;
 use crate::error::Error;
 use crate::project::Project;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use crossterm::style::Stylize;
 use eyre::{eyre, WrapErr};
+use kinetics_api::envs;
 use kinetics_parser::ParsedFunction;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -127,7 +127,7 @@ async fn remote(
         .await?
         .post("/envs/list")
         .json(&envs::list::Request {
-            project: project.clone(),
+            project: project.into(),
             functions_names: functions
                 .iter()
                 .map(|f| f.func_name(false))

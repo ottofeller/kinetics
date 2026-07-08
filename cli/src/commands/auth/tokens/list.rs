@@ -1,9 +1,9 @@
-use crate::api::auth::tokens::list::Response;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use chrono::{DateTime, Local};
 use eyre::Context;
+use kinetics_api::auth::tokens::list::Response;
 use serde_json::{json, Value};
 
 #[derive(clap::Args, Clone)]

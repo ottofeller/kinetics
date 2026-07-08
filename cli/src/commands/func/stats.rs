@@ -1,10 +1,10 @@
-use crate::api::func;
 use crate::error::Error;
 use crate::function::Function;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize as _;
 use eyre::Context;
+use kinetics_api::func;
 use serde_json::json;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -66,7 +66,7 @@ impl Runner for StatsRunner<'_> {
         let response = client
             .post("/function/stats")
             .json(&func::stats::Request {
-                project,
+                project: (&project).into(),
                 function_name: function.name,
                 period: self.command.period.to_owned(),
             })

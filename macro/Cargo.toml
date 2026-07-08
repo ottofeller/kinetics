@@ -1,6 +1,6 @@
 [package]
 name = "kinetics-macro"
-version = "0.16.10"
+version = "0.16.11"
 edition = "2021"
 description = "A set of macros used in Kinetics project."
 repository = "https://github.com/ottofeller/kinetics"

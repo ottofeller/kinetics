@@ -1,9 +1,9 @@
-use crate::api::auth;
 use crate::config::{api_url, build_config};
 use crate::error::Error;
 use chrono::{DateTime, Utc};
 use eyre::{Context, OptionExt};
 use keyring::Entry;
+use kinetics_api::auth;
 use reqwest::StatusCode;
 use serde_json::json;
 use std::path::{Path, PathBuf};
@@ -205,5 +205,16 @@ impl Credentials {
             "Could not parse credentials file",
             Some(&format!("Delete {} and try again", path.display())),
         ))
+    }
+}
+
+impl From<auth::code::exchange::Response> for Credentials {
+    fn from(value: auth::code::exchange::Response) -> Self {
+        Self {
+            path: PathBuf::new(),
+            email: value.email,
+            token: value.token,
+            expires_at: value.expires_at,
+        }
     }
 }

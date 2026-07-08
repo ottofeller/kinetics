@@ -1,9 +1,9 @@
-use crate::api::project;
 use crate::error::Error;
 use crate::migrations::Migrations;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use eyre::Context;
+use kinetics_api::project;
 use project::sqldb::connect::Request;
 use serde_json::json;
 use std::path::PathBuf;
@@ -60,7 +60,9 @@ impl<'a> Runner for ApplyRunner<'a> {
         let response = client
             .request::<_, project::sqldb::connect::Response>(
                 "/stack/sqldb/connect",
-                Request { project },
+                Request {
+                    project: project.into(),
+                },
             )
             .await
             .wrap_err("Failed to get SQL DB connection string")

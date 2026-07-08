@@ -1,5 +1,4 @@
-use crate::api::request::Validate;
-use crate::{function::Function, project::Project};
+use crate::{project::Project, request::Validate};
 use kinetics_parser::{Params, Role, Worker};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -151,18 +150,6 @@ pub struct FunctionRequest {
     pub role: Role,
     pub params: Params,
     pub environment: HashMap<String, String>,
-}
-
-impl From<&Function> for FunctionRequest {
-    fn from(f: &Function) -> Self {
-        Self {
-            name: f.name.clone(),
-            is_deploying: f.is_deploying,
-            params: f.params.clone(),
-            role: f.role.clone(),
-            environment: f.environment(),
-        }
-    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]

@@ -1,22 +1,18 @@
-use crate::api::request::Validate;
-use crate::{api::domains::validators, project::Project};
+use crate::auth::tokens::validators;
+use crate::request::Validate;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Request {
-    pub project: Project,
-    pub domain_name: String,
+    pub name: String,
 }
 
 impl Validate for Request {
     fn validate(&self) -> Option<Vec<String>> {
         let mut errors = Vec::new();
 
-        if self.project.name.trim().is_empty() {
-            errors.push("Invalid \"project\". Must not be empty.".into());
-        }
-
-        if !validators::Name::validate(&self.domain_name) {
+        // Name
+        if !validators::Name::validate(&self.name) {
             errors.push(validators::Name::message());
         }
 
@@ -29,4 +25,6 @@ impl Validate for Request {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Response {}
+pub struct Response {
+    pub success: bool,
+}

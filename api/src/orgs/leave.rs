@@ -1,18 +1,23 @@
-use crate::api::auth::tokens::validators;
-use crate::api::request::Validate;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
+use crate::{orgs::validators, request::Validate};
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Request {
-    pub name: String,
+    pub org: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Response {
+    pub success: bool,
 }
 
 impl Validate for Request {
     fn validate(&self) -> Option<Vec<String>> {
         let mut errors = Vec::new();
 
-        // Name
-        if !validators::Name::validate(&self.name) {
+        // Org name
+        if !validators::Name::validate(&self.org) {
             errors.push(validators::Name::message());
         }
 
@@ -22,9 +27,4 @@ impl Validate for Request {
 
         None
     }
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Response {
-    pub success: bool,
 }
