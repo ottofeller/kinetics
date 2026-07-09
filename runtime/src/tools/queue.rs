@@ -73,7 +73,12 @@ impl Client {
             .split_once("::")
             .ok_or_eyre("Failed to get the project name from a worker")?;
 
-        Self::from_name(crate_name, module_path).await
+        // Generated Lambda crates are named after the function. Use the original
+        // Cargo package name to reconstruct the canonical worker function name.
+        let package_name =
+            std::env::var("KINETICS_PACKAGE_NAME").unwrap_or_else(|_| crate_name.to_string());
+
+        Self::from_name(&package_name, module_path).await
     }
 
     /// Init the client from the crate name and module path of the worker fn
@@ -129,7 +134,9 @@ impl Client {
                     })
                     .expect("Queue name is not set");
 
-                eprintln!("Queue cache_key={cache_key}, queue_name={queue_name}");
+                log::info!(
+                    "Resolved queue cache_key={cache_key}, crate_name={crate_name}, module_path={module_path}, project_name={project_name}, queue_name={queue_name}"
+                );
 
                 let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
                     .expect("KINETICS_CLOUD_ACCOUNT_ID is not set");

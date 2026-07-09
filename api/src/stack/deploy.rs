@@ -147,6 +147,7 @@ fn validate_worker(function: &FunctionRequest, worker: &Worker) -> Vec<String> {
 pub struct FunctionRequest {
     pub is_deploying: bool,
     pub name: String,
+    pub package_name: String,
     pub role: Role,
     pub params: Params,
     pub environment: HashMap<String, String>,
