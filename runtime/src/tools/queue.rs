@@ -73,8 +73,8 @@ impl Client {
             .split_once("::")
             .ok_or_eyre("Failed to get the project name from a worker")?;
 
-        // Generated Lambda crates are named after the function. Use the original
-        // Cargo package name to reconstruct the canonical worker function name.
+        // Use the original Cargo package name so from_worker derives the same worker name
+        // that was used when provisioning the queue
         let package_name =
             std::env::var("KINETICS_PACKAGE_NAME").unwrap_or_else(|_| crate_name.to_string());
 
