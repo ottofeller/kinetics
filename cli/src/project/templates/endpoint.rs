@@ -1,4 +1,4 @@
-use crate::tools::config::EndpointConfig;
+use kinetics::tools::config::EndpointConfig;
 
 pub fn endpoint(
     import_statement: &str,

@@ -3,8 +3,8 @@ use super::templates;
 use super::Project;
 use crate::function::Function;
 use crate::project::dependencies::insert_lambda_dependency_group;
-use crate::tools::config::EndpointConfig;
 use eyre::{Context, ContextCompat};
+use kinetics::tools::config::EndpointConfig;
 use kinetics_parser::{Params, ParsedFunction, Parser, Role};
 use regex::Regex;
 use std::fs;
@@ -463,11 +463,9 @@ impl Project {
 
         let kinetics_version = env!("CARGO_PKG_VERSION");
         if doc["dependencies"]["kinetics"].as_str().is_some() {
-            // Discard string version and write an object
             doc["dependencies"]["kinetics"] =
                 toml_edit::Table::from_iter([("version", kinetics_version)]).into();
         } else {
-            // For an object overwrite only the version field
             doc["dependencies"]["kinetics"]
                 .or_insert(toml_edit::Table::new().into())
                 .as_table_mut()

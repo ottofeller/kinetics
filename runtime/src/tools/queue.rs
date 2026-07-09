@@ -2,7 +2,6 @@ use crate::tools::{config::Config as KineticsConfig, resource_name};
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use eyre::OptionExt;
-use kinetics_parser::ParsedFunction;
 use lambda_runtime::LambdaEvent;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -122,7 +121,7 @@ impl Client {
                             &std::env::var("KINETICS_USERNAME")
                                 .expect("KINETICS_USERNAME is not set"),
                             &project_name,
-                            &ParsedFunction::to_local_name(&[
+                            &kinetics_parser::ParsedFunction::to_local_name(&[
                                 crate_name,
                                 &module_path.replace("::", "/"),
                             ]),
