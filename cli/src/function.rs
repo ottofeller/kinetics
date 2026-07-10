@@ -21,6 +21,9 @@ pub struct Function {
     /// The name of the function
     pub name: String,
 
+    /// The original Cargo package where the function is defined
+    pub package_name: String,
+
     /// Whether the function is requested for deployment
     pub is_deploying: bool,
 
@@ -39,6 +42,7 @@ impl Function {
     pub fn new(project: &Project, function: &ParsedFunction) -> eyre::Result<Self> {
         Ok(Function {
             name: function.func_name(false)?,
+            package_name: function.pkg_name.clone(),
             is_deploying: false,
             project: project.clone(),
             params: function.params.clone(),
@@ -266,6 +270,7 @@ impl From<&Function> for kinetics_api::stack::deploy::FunctionRequest {
     fn from(function: &Function) -> Self {
         Self {
             name: function.name.clone(),
+            package_name: function.package_name.clone(),
             is_deploying: function.is_deploying,
             params: function.params.clone(),
             role: function.role.clone(),

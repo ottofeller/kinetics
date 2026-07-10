@@ -2,7 +2,6 @@ use crate::tools::{config::Config as KineticsConfig, resource_name};
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use eyre::OptionExt;
-use kinetics_parser::ParsedFunction;
 use lambda_runtime::LambdaEvent;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -74,7 +73,12 @@ impl Client {
             .split_once("::")
             .ok_or_eyre("Failed to get the project name from a worker")?;
 
-        Self::from_name(crate_name, module_path).await
+        // Use the original Cargo package name so from_worker derives the same worker name
+        // that was used when provisioning the queue
+        let package_name =
+            std::env::var("KINETICS_PACKAGE_NAME").unwrap_or_else(|_| crate_name.to_string());
+
+        Self::from_name(&package_name, module_path).await
     }
 
     /// Init the client from the crate name and module path of the worker fn
@@ -122,7 +126,7 @@ impl Client {
                             &std::env::var("KINETICS_USERNAME")
                                 .expect("KINETICS_USERNAME is not set"),
                             &project_name,
-                            &ParsedFunction::to_local_name(&[
+                            &kinetics_parser::ParsedFunction::to_local_name(&[
                                 crate_name,
                                 &module_path.replace("::", "/"),
                             ]),
@@ -130,7 +134,7 @@ impl Client {
                     })
                     .expect("Queue name is not set");
 
-                eprintln!("Queue cache_key={cache_key}, queue_name={queue_name}");
+                eprintln!("Resolved Queue cache_key={cache_key}, queue_name={queue_name}");
 
                 let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
                     .expect("KINETICS_CLOUD_ACCOUNT_ID is not set");
