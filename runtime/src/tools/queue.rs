@@ -134,7 +134,7 @@ impl Client {
                     })
                     .expect("Queue name is not set");
 
-                eprintln!("Queue cache_key={cache_key}, queue_name={queue_name}");
+                eprintln!("Resolved Queue cache_key={cache_key}, queue_name={queue_name}");
 
                 let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
                     .expect("KINETICS_CLOUD_ACCOUNT_ID is not set");
