@@ -462,16 +462,21 @@ impl Project {
         };
 
         let kinetics_version = env!("CARGO_PKG_VERSION");
-        let dependencies = doc["dependencies"]
-            .as_table_mut()
-            .wrap_err("Cargo.toml dependencies must be a table")?;
+        if doc["dependencies"]["kinetics-lib"].as_str().is_some() {
+            // Discard string version and write an object
+            doc["dependencies"]["kinetics-lib"] =
+                toml_edit::Table::from_iter([("version", kinetics_version)]).into();
+        } else {
+            // For an object overwrite only the version field
+            doc["dependencies"]["kinetics-lib"]
+                .or_insert(toml_edit::Table::new().into())
+                .as_table_mut()
+                .map(|t| t.insert("version", kinetics_version.into()));
+        }
 
-        dependencies.remove("kinetics");
-        // Always use the published runtime crate instead of local or Git overrides.
-        dependencies["kinetics-lib"] =
-            toml_edit::Table::from_iter([("version", kinetics_version)]).into();
-
-        dependencies.remove("kinetics-macro");
+        if let Some(deps_table) = doc["dependencies"].as_table_mut() {
+            deps_table.remove("kinetics-macro");
+        }
 
         Ok(())
     }
