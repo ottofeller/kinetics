@@ -1,6 +1,5 @@
 use crate::api::projects::Kvdb;
 use crate::error::Error;
-use crate::project::Project;
 use eyre::{ContextCompat, WrapErr};
 use serde::Deserialize;
 use std::fs;
@@ -19,7 +18,7 @@ pub(super) struct ConfigFile {
     pub(super) kvdb: Vec<Kvdb>,
 
     #[serde(default)]
-    domain: Option<String>,
+    pub(super) domain: Option<String>,
 
     #[serde(skip)]
     pub(super) path: PathBuf,
@@ -38,6 +37,14 @@ pub(super) struct ObservabilitySection {
 
 /// FileConfig is the structure of kinetics.toml
 impl ConfigFile {
+    pub(super) fn path(dir: &Path) -> PathBuf {
+        dir.join("kinetics.toml")
+    }
+
+    pub(super) fn exists(dir: &Path) -> bool {
+        Self::path(dir).exists()
+    }
+
     /// Reads a `FileConfig` instance from a given directory path
     ///
     /// This function looks for a `kinetics.toml` file in the specified directory.
@@ -45,17 +52,15 @@ impl ConfigFile {
     /// configuration instead. Additionally, if the `kinetics.toml` file does not explicitly set
     /// the project name, the function will fallback to extracting the name from a `Cargo.toml`
     /// file in the same directory.
-    pub(super) fn from_path(path: PathBuf) -> eyre::Result<Self> {
-        let config_toml_path = path.join("kinetics.toml");
-
-        let Ok(toml_string) = fs::read_to_string(&config_toml_path) else {
+    pub(super) fn from_path(dir: &Path) -> eyre::Result<Self> {
+        let Ok(toml_string) = fs::read_to_string(Self::path(dir)) else {
             // Return default config if kinetics.toml is not found
             return Ok(Self {
                 project: ProjectSection {
-                    name: Self::cargo_toml_name(path.as_path())?,
+                    name: Self::cargo_toml_name(dir)?,
                     org: None,
                 },
-                path,
+                path: dir.to_owned(),
                 ..Default::default()
             });
         };
@@ -68,7 +73,7 @@ impl ConfigFile {
         ))?;
 
         // Set the path to the directory containing kinetics.toml
-        config.path = path.clone();
+        config.path = dir.to_path_buf();
 
         if let Some(observability) = config.observability.as_ref() {
             if observability.dd_api_key_env.is_empty() {
@@ -84,7 +89,7 @@ impl ConfigFile {
             return Ok(config);
         }
 
-        config.project.name = Self::cargo_toml_name(path.as_path())?;
+        config.project.name = Self::cargo_toml_name(dir)?;
         Ok(config)
     }
 
@@ -116,30 +121,5 @@ impl ConfigFile {
             .to_string();
 
         Ok(name)
-    }
-}
-
-impl TryFrom<ConfigFile> for Project {
-    type Error = eyre::Report;
-
-    fn try_from(cfg: ConfigFile) -> eyre::Result<Self> {
-        let mut project = Project::new(cfg.path, cfg.project.name).set_kvdb(cfg.kvdb);
-
-        if let Some(observability) = cfg.observability {
-            // Read DataDog API key from env, it's not safe to store it in kinetics config file
-            let dd_api_key = std::env::var(&observability.dd_api_key_env).unwrap_or_default();
-
-            project = project.set_observability(dd_api_key);
-        }
-
-        if let Some(domain) = cfg.domain {
-            project.domain_name = Some(domain);
-        }
-
-        if cfg.project.org.is_some() {
-            project = project.with_org(cfg.project.org.as_deref());
-        }
-
-        Ok(project)
     }
 }

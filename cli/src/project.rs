@@ -26,7 +26,7 @@ use http::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use toml_edit::{value, DocumentMut, Table};
 
 /// Managing user's project
@@ -64,34 +64,64 @@ pub struct Observability {
 }
 
 impl Project {
-    fn new(path: PathBuf, name: String) -> Self {
-        let workspace = Workspace::from_path(&path, &name).ok().unwrap_or_default();
-
-        Self {
-            path,
-            workspace,
-            name,
-            url: String::new(),
-            kvdb: Vec::new(),
-            observability: None,
-            domain_name: None,
-            org: None,
-        }
-    }
-
-    fn set_observability(mut self, dd_api_key: String) -> Self {
-        self.observability = Some(Observability { dd_api_key });
-        self
-    }
-
-    fn set_kvdb(mut self, kvdb: Vec<Kvdb>) -> Self {
-        self.kvdb = kvdb;
-        self
-    }
-
     pub fn with_org(mut self, org: Option<&str>) -> Self {
         self.org = org.map(|o| o.to_string());
         self
+    }
+
+    /// Validate workspace rules for kinetics and returns relevant config.
+    ///
+    /// 1️⃣ Special case - standalone crate - deploy it anyway (with config or without).
+    ///
+    /// | root config | cwd config | other members | cwd == root? | result
+    /// |-------------|------------|---------------|--------------|-------
+    /// | 2️⃣ yes      | yes        | no            | no           | error, no config in root and members at the same time
+    /// | 2️⃣ yes      | yes        | yes           | yes          | error, no config in root and members at the same time
+    /// | 2️⃣ yes      | yes        | yes           | no           | error, no config in root and members at the same time
+    /// | 2️⃣ yes      | no         | yes           | no           | error, no config in root and members at the same time
+    /// | 3️⃣ yes      | no         | no            | yes          | deploy workspace, root config
+    /// | 3️⃣ yes      | no         | no            | no           | deploy workspace, root config
+    /// | 4️⃣ no       | no         | no            | yes          | ok, but this path eventually fails on pulling name from root Cargo.toml
+    /// | 4️⃣ no       | no         | no            | no           | deploy member, Cargo.toml name
+    /// | 5️⃣ no       | no         | yes           | yes          | error, use --project
+    /// | 5️⃣ no       | no         | yes           | no           | error, use --project
+    /// | 6️⃣ no       | yes        | no            | no           | deploy member, cwd config
+    /// | 6️⃣ no       | yes        | yes           | no           | deploy member, cwd config
+    fn config(ws: &Workspace, path: &Path) -> eyre::Result<ConfigFile> {
+        // 1. Standalone crate
+        if ws.is_standalone_crate {
+            return ConfigFile::from_path(path);
+        }
+
+        let workspace_config_exists = ConfigFile::exists(&ws.root_path);
+        let no_member_configs = ws
+            .packages
+            .iter()
+            .filter(|pkg| ConfigFile::exists(&ws.root_path.join(&pkg.relative_path)))
+            .count()
+            == 0;
+        // 2. Error on config present in root and members
+        if workspace_config_exists && !no_member_configs {
+            eyre::bail!("Workspace is not allowed to have `kinetics.toml` within its root and within its members at the same time.");
+        }
+
+        // 3. Root config
+        if workspace_config_exists {
+            return ConfigFile::from_path(&ws.root_path);
+        }
+
+        // 4. No configs - deploy the cwd crate (either root or member)
+        if no_member_configs {
+            return ConfigFile::from_path(path);
+        }
+
+        // 5. Call from root or member without config
+        if ws.root_path == path || !ConfigFile::exists(path) {
+            eyre::bail!("Current folder is not a kinetics project. From the workspace root point to a folder with kinetics.toml with --project argument");
+        }
+
+        // 6. Call from member with config
+        ConfigFile::from_path(path)
     }
 
     /// Creates a new project instance by reading `kinetics.toml` from a given file `path`
@@ -99,9 +129,23 @@ impl Project {
     /// Returns default config if kinetics.toml does not exist. In that case the name will be taken
     /// from the ` Cargo.toml ` file in the same path
     pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
-        let cfg = ConfigFile::from_path(path)?;
-        // Convert the config file to a Project instance with existing trait
-        cfg.try_into()
+        let workspace = Workspace::from_path(&path)?;
+        let config = Self::config(&workspace, &path)?;
+
+        Ok(Self {
+            path: config.path,
+            name: config.project.name.clone(),
+            url: String::new(),
+            kvdb: config.kvdb.clone(),
+            observability: config.observability.as_ref().map(|observability| {
+                // Read DataDog API key from env, it's not safe to store it in kinetics config file
+                let dd_api_key = std::env::var(&observability.dd_api_key_env).unwrap_or_default();
+                Observability { dd_api_key }
+            }),
+            domain_name: config.domain.clone(),
+            org: config.project.org.clone(),
+            workspace,
+        })
     }
 
     /// Get project by name, with automatic cache management.
@@ -252,7 +296,7 @@ impl Project {
 
     /// Write the current project config to config file
     pub fn write_config(&self) -> eyre::Result<()> {
-        let config_path = self.path.join("kinetics.toml");
+        let config_path = ConfigFile::path(&self.path);
 
         let mut doc = if config_path.exists() {
             fs::read_to_string(&config_path)
