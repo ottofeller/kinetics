@@ -12,5 +12,5 @@ categories = ["parsing"]
 proc-macro = true
 
 [dependencies]
-kinetics-parser.workspace = true
+kinetics-parser = { workspace = true }
 syn = "2.0.117"

@@ -17,8 +17,8 @@ aws-sdk-sqs = "1.97.0"
 bytes = "^1.0"
 eyre = "0.6.12"
 http-body = "^1.0"
-kinetics-macro.workspace = true
-kinetics-parser.workspace = true
+kinetics-macro = { workspace = true }
+kinetics-parser = { workspace = true }
 lambda_http = "^1.0"
 lambda_runtime = "^1.0"
 log = "0.4.29"
