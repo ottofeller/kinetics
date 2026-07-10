@@ -1439,7 +1439,7 @@ name = "examples"
 version = "0.9.2"
 dependencies = [
  "http 1.4.2",
- "kinetics",
+ "kinetics-lib",
  "matchit",
  "opentelemetry",
  "opentelemetry-appender-tracing",
@@ -2328,43 +2328,6 @@ dependencies = [
 name = "kinetics"
 version = "0.16.15"
 dependencies = [
- "aws-config",
- "aws-sdk-dsql",
- "aws-sdk-sqs",
- "aws_lambda_events",
- "bytes",
- "eyre",
- "http-body 1.0.1",
- "kinetics-macro",
- "kinetics-parser",
- "lambda_http",
- "lambda_runtime",
- "log",
- "percent-encoding",
- "serde",
- "sha256",
- "tokio",
- "tower",
- "url",
-]
-
-[[package]]
-name = "kinetics-api"
-version = "0.16.15"
-dependencies = [
- "chrono",
- "humantime",
- "kinetics-parser",
- "once_cell",
- "regex",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "kinetics-cli"
-version = "0.16.15"
-dependencies = [
  "async-trait",
  "aws-config",
  "aws-sdk-dynamodb",
@@ -2385,8 +2348,8 @@ dependencies = [
  "indicatif",
  "indicatif-log-bridge",
  "keyring",
- "kinetics",
  "kinetics-api",
+ "kinetics-lib",
  "kinetics-parser",
  "log",
  "once_cell",
@@ -2410,6 +2373,43 @@ dependencies = [
  "url",
  "users",
  "walkdir",
+]
+
+[[package]]
+name = "kinetics-api"
+version = "0.16.15"
+dependencies = [
+ "chrono",
+ "humantime",
+ "kinetics-parser",
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "kinetics-lib"
+version = "0.16.15"
+dependencies = [
+ "aws-config",
+ "aws-sdk-dsql",
+ "aws-sdk-sqs",
+ "aws_lambda_events",
+ "bytes",
+ "eyre",
+ "http-body 1.0.1",
+ "kinetics-macro",
+ "kinetics-parser",
+ "lambda_http",
+ "lambda_runtime",
+ "log",
+ "percent-encoding",
+ "serde",
+ "sha256",
+ "tokio",
+ "tower",
+ "url",
 ]
 
 [[package]]

@@ -3,7 +3,7 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
     if is_local {
         format!(
             "{import_statement}
-            use kinetics::tools::config::Config as KineticsConfig;
+            use kinetics_lib::tools::config::Config as KineticsConfig;
             #[tokio::main]\n\
             async fn main() -> Result<(), tower::BoxError> {{\n\
                 let user_function = {rust_function_name};
@@ -25,7 +25,7 @@ pub fn cron(import_statement: &str, rust_function_name: &str, is_local: bool) ->
     } else {
         format!(
             "{import_statement}
-            use kinetics::tools::config::Config as KineticsConfig;
+            use kinetics_lib::tools::config::Config as KineticsConfig;
             use lambda_runtime::{{LambdaEvent, Error, run, service_fn}};\n\
             use aws_lambda_events::eventbridge::EventBridgeEvent;\n\
             #[tokio::main]\n\

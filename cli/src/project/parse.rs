@@ -4,7 +4,7 @@ use super::Project;
 use crate::function::Function;
 use crate::project::dependencies::insert_lambda_dependency_group;
 use eyre::{Context, ContextCompat};
-use kinetics::tools::config::EndpointConfig;
+use kinetics_lib::tools::config::EndpointConfig;
 use kinetics_parser::{Params, ParsedFunction, Parser, Role};
 use regex::Regex;
 use std::fs;
@@ -462,21 +462,16 @@ impl Project {
         };
 
         let kinetics_version = env!("CARGO_PKG_VERSION");
-        if doc["dependencies"]["kinetics"].as_str().is_some() {
-            // Discard string version and write an object
-            doc["dependencies"]["kinetics"] =
-                toml_edit::Table::from_iter([("version", kinetics_version)]).into();
-        } else {
-            // For an object overwrite only the version field
-            doc["dependencies"]["kinetics"]
-                .or_insert(toml_edit::Table::new().into())
-                .as_table_mut()
-                .map(|t| t.insert("version", kinetics_version.into()));
-        }
+        let dependencies = doc["dependencies"]
+            .as_table_mut()
+            .wrap_err("Cargo.toml dependencies must be a table")?;
 
-        if let Some(deps_table) = doc["dependencies"].as_table_mut() {
-            deps_table.remove("kinetics-macro");
-        }
+        dependencies.remove("kinetics");
+        // Always use the published runtime crate instead of local or Git overrides.
+        dependencies["kinetics-lib"] =
+            toml_edit::Table::from_iter([("version", kinetics_version)]).into();
+
+        dependencies.remove("kinetics-macro");
 
         Ok(())
     }

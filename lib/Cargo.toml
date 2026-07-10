@@ -1,5 +1,5 @@
 [package]
-name = "kinetics"
+name = "kinetics-lib"
 version.workspace = true
 edition = "2021"
 description = "Runtime helpers and macros for Kinetics applications."

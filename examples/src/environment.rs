@@ -1,6 +1,6 @@
 use http::{Request, Response};
-use kinetics::macros::endpoint;
-use kinetics::tools::config::Config as KineticsConfig;
+use kinetics_lib::macros::endpoint;
+use kinetics_lib::tools::config::Config as KineticsConfig;
 use serde_json::json;
 use std::collections::HashMap;
 // As an example use a general-purpose type-erased error from tower.
