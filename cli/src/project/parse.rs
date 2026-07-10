@@ -463,9 +463,11 @@ impl Project {
 
         let kinetics_version = env!("CARGO_PKG_VERSION");
         if doc["dependencies"]["kinetics"].as_str().is_some() {
+            // Discard string version and write an object
             doc["dependencies"]["kinetics"] =
                 toml_edit::Table::from_iter([("version", kinetics_version)]).into();
         } else {
+            // For an object overwrite only the version field
             doc["dependencies"]["kinetics"]
                 .or_insert(toml_edit::Table::new().into())
                 .as_table_mut()
