@@ -11,8 +11,6 @@ mod process;
 mod project;
 mod runner;
 mod secrets;
-mod sqldb;
-pub mod tools;
 mod writer;
 use crate::commands::Commands;
 use crate::error::Error;
@@ -95,6 +93,11 @@ async fn main() -> Result<(), Error> {
 
         Commands::Cicd(cicd) => match cicd {
             commands::cicd::CicdCommands::Init(cmd) => cli.run(cmd).await,
+        },
+
+        Commands::Domains(domains) => match domains {
+            commands::domains::DomainsCommands::Add(cmd) => cli.run(cmd).await,
+            commands::domains::DomainsCommands::Remove(cmd) => cli.run(cmd).await,
         },
 
         Commands::Envs(envs) => match envs {

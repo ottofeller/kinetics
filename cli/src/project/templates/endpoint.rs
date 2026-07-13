@@ -1,4 +1,4 @@
-use crate::tools::config::EndpointConfig;
+use kinetics_lib::tools::config::EndpointConfig;
 
 pub fn endpoint(
     import_statement: &str,
@@ -12,7 +12,7 @@ pub fn endpoint(
             use http::request::Builder;
             use reqwest::header::{{HeaderName, HeaderValue}};
             use std::str::FromStr;
-            use kinetics::tools::config::{{Config as KineticsConfig, EndpointConfig}};
+            use kinetics_lib::tools::config::{{Config as KineticsConfig, EndpointConfig}};
             #[tokio::main]
             async fn main() -> Result<(), tower::BoxError> {{\n\
                 let user_function = {rust_function_name};
@@ -62,7 +62,7 @@ pub fn endpoint(
 
                 let event = event_builder
                     .uri(url_path)
-                    .body(kinetics::tools::http::Body::from(payload).try_into()?)?;
+                    .body(kinetics_lib::tools::http::Body::from(payload).try_into()?)?;
                 match user_function(event, &secrets, &kinetics_config).await {{
                     Ok(response) => {{
                         println!(\"{{response:?}}\");
@@ -79,7 +79,7 @@ pub fn endpoint(
     } else {
         format!(
             "{import_statement}
-            use kinetics::tools::config::{{Config as KineticsConfig, EndpointConfig}};
+            use kinetics_lib::tools::config::{{Config as KineticsConfig, EndpointConfig}};
             use lambda_http::{{run, service_fn, Request}};\n\
             #[tokio::main]\n\
             async fn main() -> Result<(), lambda_http::Error> {{\n\
@@ -136,7 +136,7 @@ pub fn endpoint(
 
                 run(service_fn(|event: Request| async {{
                     let (head, body) = event.into_parts();
-                    let event = http::Request::from_parts(head, kinetics::tools::http::Body::from(body).try_into()?);
+                    let event = http::Request::from_parts(head, kinetics_lib::tools::http::Body::from(body).try_into()?);
                     match user_function(event, &secrets, &kinetics_config).await {{
                         Ok(response) => Ok(response),
                         Err(err) => {{

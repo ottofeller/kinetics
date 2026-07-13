@@ -1,8 +1,8 @@
-use crate::api::orgs::leave::{Request, Response};
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use crossterm::style::Stylize;
+use kinetics_api::orgs::leave::{Request, Response};
 use serde_json::json;
 use std::io::{stdin, stdout, Write};
 

@@ -1,13 +1,11 @@
 use super::progress::{PipelineProgress, ProgressStatus};
 use crate::api::client::Client;
-use crate::config::build_config;
 use crate::config::deploy::DeployConfig;
 use crate::function::{build, Function};
 use crate::project::Project;
 use crate::writer::Writer;
 use eyre::{eyre, OptionExt, Report};
 use futures::future;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Semaphore;
@@ -36,6 +34,12 @@ impl<'a> Pipeline<'a> {
         // Only selected functions are built and uploaded
         deploy_functions: &[String],
     ) -> eyre::Result<()> {
+        let client = if self.is_deploy_enabled {
+            Some(Client::new(self.deploy_config.is_some()).await?)
+        } else {
+            None
+        };
+
         if self.deploy_config.is_some() {
             self.writer.text(&format!(
                 "    {} `{}` {}",
@@ -53,10 +57,7 @@ impl<'a> Pipeline<'a> {
         ))?;
 
         // All functions to add to the template
-        let all_functions = self.project.parse(
-            PathBuf::from(build_config()?.kinetics_path),
-            deploy_functions,
-        )?;
+        let all_functions = self.project.parse(deploy_functions)?;
 
         // Clear the previous line, the "Preparing..." step is not a part of the build pipeline
         self.writer.text("\r\x1B[K")?;
@@ -82,7 +83,7 @@ impl<'a> Pipeline<'a> {
         build(&deploy_functions, &pipeline_progress.total_progress_bar).await?;
         pipeline_progress.increase_current_function_position();
 
-        if !self.is_deploy_enabled {
+        let Some(client) = client else {
             pipeline_progress.increase_current_function_position();
             pipeline_progress.total_progress_bar.finish_and_clear();
 
@@ -94,14 +95,12 @@ impl<'a> Pipeline<'a> {
             ))?;
 
             return Ok(());
-        }
+        };
 
         // Define maximum number of parallel bundling jobs
         let semaphore = Arc::new(Semaphore::new(self.max_concurrent));
 
         let deploy_functions_len = deploy_functions.len();
-
-        let client = Client::new(self.deploy_config.is_some()).await?;
 
         let handles = deploy_functions.into_iter().map(|mut function| {
             let client = client.clone();
@@ -138,7 +137,7 @@ impl<'a> Pipeline<'a> {
 
                 pipeline_progress.increase_current_function_position();
 
-                if let Err(error) = tokio::fs::remove_file(function.bundle_path()).await {
+                if let Err(error) = tokio::fs::remove_file(function.bundle_path()?).await {
                     log::error!(
                         "Failed to remove file {:?} with error {}",
                         function.bundle_path(),

@@ -1,7 +1,7 @@
-use crate::api::orgs::members::invite::{Request, Response};
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
+use kinetics_api::orgs::members::invite::{Request, Response};
 use serde_json::json;
 
 #[derive(clap::Args, Clone)]

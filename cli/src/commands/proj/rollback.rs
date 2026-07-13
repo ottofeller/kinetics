@@ -1,8 +1,8 @@
-use crate::api::stack;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use eyre::Context;
+use kinetics_api::stack;
 use serde_json::json;
 use std::path::PathBuf;
 
@@ -44,7 +44,7 @@ impl Runner for RollbackRunner<'_> {
             .request(
                 "/stack/versions",
                 stack::versions::Request {
-                    name: project.name.to_string(),
+                    project: (&project).into(),
                 },
             )
             .await
@@ -98,7 +98,7 @@ impl Runner for RollbackRunner<'_> {
         client
             .post("/stack/rollback")
             .json(&stack::rollback::Request {
-                name: project.name.to_string(),
+                project: (&project).into(),
                 version: self.command.version,
             })
             .send()

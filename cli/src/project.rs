@@ -1,5 +1,6 @@
 mod cache;
 mod config_file;
+mod dependencies;
 mod filehash;
 mod parse;
 
@@ -8,9 +9,7 @@ mod templates;
 mod workspace;
 
 use crate::api::client::Client;
-use crate::api::projects::{Kvdb, ProjectInfo};
-use crate::api::request::Validate;
-use crate::api::stack;
+use crate::config::build_config;
 use crate::config::deploy::DeployConfig;
 use crate::envs::Envs;
 use crate::error::Error;
@@ -21,10 +20,13 @@ use cache::Cache;
 use config_file::ConfigFile;
 use eyre::WrapErr;
 use http::StatusCode;
+use kinetics_api::projects::{Kvdb, ProjectInfo};
+use kinetics_api::request::{to_log_safe_string_pretty, Validate};
+use kinetics_api::stack;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use toml_edit::{value, DocumentMut, Table};
 
 /// Managing user's project
@@ -49,6 +51,8 @@ pub struct Project {
 
     pub observability: Option<Observability>,
 
+    /// Custom domain name for the project
+    pub domain_name: Option<String>,
     /// Org is optional and set in kinetics.toml
     pub org: Option<String>,
 }
@@ -60,33 +64,64 @@ pub struct Observability {
 }
 
 impl Project {
-    fn new(path: PathBuf, name: String) -> Self {
-        let workspace = Workspace::from_path(&path).ok().unwrap_or_default();
-
-        Self {
-            path,
-            workspace,
-            name,
-            url: String::new(),
-            kvdb: Vec::new(),
-            observability: None,
-            org: None,
-        }
-    }
-
-    fn set_observability(mut self, dd_api_key: String) -> Self {
-        self.observability = Some(Observability { dd_api_key });
-        self
-    }
-
-    fn set_kvdb(mut self, kvdb: Vec<Kvdb>) -> Self {
-        self.kvdb = kvdb;
-        self
-    }
-
     pub fn with_org(mut self, org: Option<&str>) -> Self {
         self.org = org.map(|o| o.to_string());
         self
+    }
+
+    /// Validate workspace rules for kinetics and returns relevant config.
+    ///
+    /// 1️⃣ Special case - standalone crate - deploy it anyway (with config or without).
+    ///
+    /// | root config | cwd config | other members | cwd == root? | result
+    /// |-------------|------------|---------------|--------------|-------
+    /// | 2️⃣ yes      | yes        | no            | no           | error, no config in root and members at the same time
+    /// | 2️⃣ yes      | yes        | yes           | yes          | error, no config in root and members at the same time
+    /// | 2️⃣ yes      | yes        | yes           | no           | error, no config in root and members at the same time
+    /// | 2️⃣ yes      | no         | yes           | no           | error, no config in root and members at the same time
+    /// | 3️⃣ yes      | no         | no            | yes          | deploy workspace, root config
+    /// | 3️⃣ yes      | no         | no            | no           | deploy workspace, root config
+    /// | 4️⃣ no       | no         | no            | yes          | ok, but this path eventually fails on pulling name from root Cargo.toml
+    /// | 4️⃣ no       | no         | no            | no           | deploy member, Cargo.toml name
+    /// | 5️⃣ no       | no         | yes           | yes          | error, use --project
+    /// | 5️⃣ no       | no         | yes           | no           | error, use --project
+    /// | 6️⃣ no       | yes        | no            | no           | deploy member, cwd config
+    /// | 6️⃣ no       | yes        | yes           | no           | deploy member, cwd config
+    fn config(ws: &Workspace, path: &Path) -> eyre::Result<ConfigFile> {
+        // 1. Standalone crate
+        if ws.is_standalone_crate {
+            return ConfigFile::from_path(path);
+        }
+
+        let workspace_config_exists = ConfigFile::exists(&ws.root_path);
+        let no_member_configs = ws
+            .packages
+            .iter()
+            .filter(|pkg| ConfigFile::exists(&ws.root_path.join(&pkg.relative_path)))
+            .count()
+            == 0;
+        // 2. Error on config present in root and members
+        if workspace_config_exists && !no_member_configs {
+            eyre::bail!("Workspace is not allowed to have `kinetics.toml` within its root and within its members at the same time.");
+        }
+
+        // 3. Root config
+        if workspace_config_exists {
+            return ConfigFile::from_path(&ws.root_path);
+        }
+
+        // 4. No configs - deploy the cwd crate (either root or member)
+        if no_member_configs {
+            return ConfigFile::from_path(path);
+        }
+
+        // 5. Call from root or member without config
+        if ws.root_path == path || !ConfigFile::exists(path) {
+            eyre::bail!("Current folder is not a kinetics project. From the workspace root point to a folder with kinetics.toml with --project argument");
+        }
+
+        // 6. Call from member with config
+        ConfigFile::from_path(path)
     }
 
     /// Creates a new project instance by reading `kinetics.toml` from a given file `path`
@@ -94,31 +129,31 @@ impl Project {
     /// Returns default config if kinetics.toml does not exist. In that case the name will be taken
     /// from the ` Cargo.toml ` file in the same path
     pub fn from_path(path: PathBuf) -> eyre::Result<Self> {
-        let cfg = ConfigFile::from_path(path)?;
-        let mut project = Project::new(cfg.path, cfg.project.name).set_kvdb(cfg.kvdb);
+        let workspace = Workspace::from_path(&path)?;
+        let config = Self::config(&workspace, &path)?;
 
-        if cfg.observability.is_some() {
-            let observability = cfg.observability.unwrap();
-
-            // Read DataDog API key from env, it's not safe to store it in kinetics config file
-            let dd_api_key = std::env::var(&observability.dd_api_key_env).unwrap_or_default();
-
-            project = project.set_observability(dd_api_key);
-        }
-
-        if cfg.project.org.is_some() {
-            project = project.with_org(cfg.project.org.as_deref());
-        }
-
-        Ok(project)
+        Ok(Self {
+            path: config.path,
+            name: config.project.name.clone(),
+            url: String::new(),
+            kvdb: config.kvdb.clone(),
+            observability: config.observability.as_ref().map(|observability| {
+                // Read DataDog API key from env, it's not safe to store it in kinetics config file
+                let dd_api_key = std::env::var(&observability.dd_api_key_env).unwrap_or_default();
+                Observability { dd_api_key }
+            }),
+            domain_name: config.domain.clone(),
+            org: config.project.org.clone(),
+            workspace,
+        })
     }
 
     /// Get project by name, with automatic cache management.
     ///
     /// Returns an error if the API request fails or if there are filesystem issues
     /// with reading/writing the cache.
-    pub async fn fetch_one(name: &str) -> eyre::Result<Self> {
-        let cache = Cache::new().await?;
+    pub async fn fetch_one(name: &str, org: Option<&str>) -> eyre::Result<Self> {
+        let cache = Cache::new(org).await?;
 
         cache
             .get(name)
@@ -129,8 +164,8 @@ impl Project {
     ///
     /// Returns an error if the API request fails or if there are filesystem issues
     /// with reading/writing the cache.
-    pub async fn fetch_all() -> eyre::Result<Vec<Self>> {
-        Cache::new()
+    pub async fn fetch_all(org: Option<&str>) -> eyre::Result<Vec<Self>> {
+        Cache::new(org)
             .await
             .map(|cache| cache.projects.into_values().collect())
     }
@@ -146,7 +181,7 @@ impl Project {
             .wrap_err("Failed to create client")?
             .post("/stack/destroy")
             .json(&stack::destroy::Request {
-                project: self.clone(),
+                project: self.into(),
             })
             .send()
             .await?;
@@ -178,7 +213,7 @@ impl Project {
                 .iter()
                 .map(|f| f.into())
                 .collect::<Vec<stack::deploy::FunctionRequest>>(),
-            project: self.clone(),
+            project: self.into(),
         };
 
         if let Some(errors) = request.validate() {
@@ -187,7 +222,7 @@ impl Project {
 
         log::debug!(
             "Sending request to deploy:\n{}",
-            serde_json::to_string_pretty(&request)?
+            to_log_safe_string_pretty(&request)?
         );
 
         let result = client
@@ -223,7 +258,7 @@ impl Project {
             .post("/stack/status")
             .json(&stack::status::Request {
                 name: self.name.to_owned(),
-                project: self.clone(),
+                project: self.into(),
             })
             .send()
             .await
@@ -261,7 +296,7 @@ impl Project {
 
     /// Write the current project config to config file
     pub fn write_config(&self) -> eyre::Result<()> {
-        let config_path = self.path.join("kinetics.toml");
+        let config_path = ConfigFile::path(&self.path);
 
         let mut doc = if config_path.exists() {
             fs::read_to_string(&config_path)
@@ -294,8 +329,21 @@ impl Project {
             }
         }
 
+        match &self.domain_name {
+            Some(domain) => {
+                doc["domain"] = value(domain);
+            }
+            None => {
+                doc.remove("domain");
+            }
+        }
+
         fs::write(&config_path, doc.to_string()).wrap_err("Failed to write kinetics.toml")?;
         Ok(())
+    }
+
+    pub fn build_path(&self) -> eyre::Result<PathBuf> {
+        Ok(PathBuf::from(build_config()?.kinetics_path).join(&self.name))
     }
 }
 
@@ -309,6 +357,30 @@ impl From<ProjectInfo> for Project {
             kvdb: value.kvdb,
             org: value.org,
             observability: None,
+            domain_name: None,
         }
+    }
+}
+
+impl From<&Project> for kinetics_api::project::Project {
+    fn from(project: &Project) -> Self {
+        Self {
+            name: project.name.clone(),
+            url: project.url.clone(),
+            kvdb: project.kvdb.clone(),
+            observability: project.observability.as_ref().map(|observability| {
+                kinetics_api::project::Observability {
+                    dd_api_key: observability.dd_api_key.clone(),
+                }
+            }),
+            domain_name: project.domain_name.clone(),
+            org: project.org.clone(),
+        }
+    }
+}
+
+impl From<Project> for kinetics_api::project::Project {
+    fn from(project: Project) -> Self {
+        Self::from(&project)
     }
 }

@@ -1,6 +1,6 @@
 use http::{Request, Response};
-use kinetics::tools::config::Config as KineticsConfig;
-use kinetics::{macros::endpoint, tools::http::Body};
+use kinetics_lib::tools::config::Config as KineticsConfig;
+use kinetics_lib::{macros::endpoint, tools::http::Body};
 use opentelemetry::global;
 use opentelemetry::KeyValue;
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;

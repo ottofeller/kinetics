@@ -1,17 +1,15 @@
-use crate::api::stack;
 use crate::commands::build::pipeline::Pipeline;
 use crate::commands::deploy::DeployCommand;
-use crate::config::build_config;
 use crate::error::Error;
 use crate::function::Function;
 use crate::project::Project;
 use crate::runner::Runner;
 use crate::writer::Writer;
 use eyre::Context;
+use kinetics_api::stack;
 use reqwest::StatusCode;
 use serde_json::json;
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 pub(crate) struct DeployRunner<'a> {
     pub(crate) command: DeployCommand,
@@ -46,6 +44,14 @@ impl Runner for DeployRunner<'_> {
             self.deploy_all(project).await?;
         }
 
+        Project::clear_cache().map_err(|e| {
+            self.error(
+                Some("Failed to clear project cache"),
+                Some(&e.to_string()),
+                Some(e.into()),
+            )
+        })?;
+
         self.writer.json(json!({"success": true}))?;
         Ok(())
     }
@@ -62,10 +68,7 @@ impl DeployRunner<'_> {
         let client = self.api_client().await?;
 
         let functions: Vec<Function> = project
-            .parse(
-                PathBuf::from(build_config()?.kinetics_path),
-                &self.command.functions,
-            )?
+            .parse(&self.command.functions)?
             .iter()
             .filter(|f| f.is_deploying)
             .cloned()
@@ -109,7 +112,7 @@ impl DeployRunner<'_> {
         let result = client
             .post("/stack/deploy/envs")
             .json(&stack::deploy::envs::Request {
-                project,
+                project: (&project).into(),
                 functions: envs,
             })
             .send()

@@ -1,10 +1,10 @@
-use crate::api::func;
 use crate::error::Error;
 use crate::function::Function;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use eyre::Context;
 use http::StatusCode;
+use kinetics_api::func;
 use serde_json::json;
 use std::path::PathBuf;
 
@@ -92,7 +92,7 @@ impl Runner for ToggleRunner<'_> {
         let response = client
             .post("/function/toggle")
             .json(&func::toggle::Request {
-                project,
+                project: (&project).into(),
                 function_name: function.name,
                 operation: self.op.clone(),
             })

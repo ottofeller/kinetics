@@ -1,10 +1,10 @@
-use crate::api::func;
 use crate::error::Error;
 use crate::function::Function;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize as _;
 use eyre::Context;
+use kinetics_api::func;
 use serde_json::json;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -18,7 +18,7 @@ pub(crate) struct StatsCommand {
 
     /// Period to get statistics for.
     ///
-    /// The period object (e.g. `1day 3hours`) is a concatenation of time spans.
+    /// The period (e.g. `1day 3hours`) is a concatenation of time spans.
     /// Where each time span is an integer number and a suffix representing time units.
     ///
     /// Maximum available period is 7 days.
@@ -66,7 +66,7 @@ impl Runner for StatsRunner<'_> {
         let response = client
             .post("/function/stats")
             .json(&func::stats::Request {
-                project,
+                project: (&project).into(),
                 function_name: function.name,
                 period: self.command.period.to_owned(),
             })
@@ -90,26 +90,33 @@ impl Runner for StatsRunner<'_> {
             ));
         }
 
-        let logs_response: func::stats::Response = response.json().await.wrap_err(Error::new(
+        let stats_response: func::stats::Response = response.json().await.wrap_err(Error::new(
             "Invalid response from server",
             Some("Try again later."),
         ))?;
 
+        // Period returned by the API in human-readable format
+        let period = stats_response.period.clone();
+
+        self.writer
+            .text(&format!("{} {}\n", "Period:".bold(), period))?;
+
         self.writer.text(&format!(
             "{}\n  Total: {}\n  Success: {}\n  Error: {}\n",
             "Runs:".bold(),
-            logs_response.runs.total,
-            logs_response.runs.success,
-            logs_response.runs.error,
+            stats_response.runs.total,
+            stats_response.runs.success,
+            stats_response.runs.error,
         ))?;
 
         self.writer.json(json!({
             "success": true,
-            "runs": logs_response.runs,
-            "queue": logs_response.queue,
+            "runs": &stats_response.runs,
+            "queue": &stats_response.queue,
+            "period": period,
         }))?;
 
-        if let Some(queue) = logs_response.queue {
+        if let Some(queue) = stats_response.queue {
             self.writer.text(&format!(
                 "\n{}\n  Waiting: {}\n  Oldest: {}\n  In flight: {}\n  Retries: {}\n  Failed: {}\n  Completed: {}\n",
                 "Queue:".bold(),

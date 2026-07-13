@@ -3,19 +3,35 @@ use crate::project::Project;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize;
+use eyre::WrapErr;
 use serde_json::{json, Value};
+use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
-pub(crate) struct ListCommand;
+pub(crate) struct ListCommand {
+    /// Organization to list projects for. Defaults to the current project's org from kinetics.toml.
+    #[arg(long)]
+    org: Option<String>,
+
+    /// Relative path to the project directory
+    #[arg(long)]
+    project: Option<PathBuf>,
+}
 
 impl Runnable for ListCommand {
     fn runner(&self, writer: &Writer) -> impl Runner {
-        ListRunner { writer }
+        ListRunner {
+            writer,
+            org: self.org.clone(),
+            project: self.project.clone(),
+        }
     }
 }
 
 struct ListRunner<'a> {
     writer: &'a Writer,
+    org: Option<String>,
+    project: Option<PathBuf>,
 }
 
 impl Runner for ListRunner<'_> {
@@ -29,7 +45,16 @@ impl Runner for ListRunner<'_> {
             console::style("Fetching projects").green().bold()
         ))?;
 
-        let projects = Project::fetch_all()
+        let project = self
+            .config_project()
+            .map_err(|e| self.error(None, None, Some(e.into())))?;
+
+        let org = self
+            .org
+            .as_deref()
+            .or(project.as_ref().and_then(|project| project.org.as_deref()));
+
+        let projects = Project::fetch_all(org)
             .await
             .map_err(|e| self.server_error(Some(e.into())))?;
 
@@ -54,5 +79,20 @@ impl Runner for ListRunner<'_> {
             .json(json!({"success": true, "projects": projects_json}))?;
 
         Ok(())
+    }
+}
+
+impl ListRunner<'_> {
+    /// Returns the project from the config file, if one exists
+    fn config_project(&self) -> eyre::Result<Option<Project>> {
+        let path = std::env::current_dir()
+            .wrap_err("Failed to get current dir")?
+            .join(self.project.clone().unwrap_or_default());
+
+        if !path.join("kinetics.toml").exists() {
+            return Ok(None);
+        }
+
+        Project::from_path(path).map(Some)
     }
 }
