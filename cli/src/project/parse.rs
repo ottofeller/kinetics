@@ -54,12 +54,7 @@ impl Project {
         // If the project is a single package at the workspace root,
         // create a new manifest with [workspace] section.
         // Otherwise, read and update the existing workspace manifest.
-        let is_plain_crate = self.workspace.packages.len() == 1
-            && self.workspace.packages[0]
-                .relative_path
-                .to_str()
-                .is_some_and(|p| p.is_empty());
-        let mut workspace_doc = if is_plain_crate {
+        let mut workspace_doc = if self.workspace.is_standalone_crate {
             toml_edit::DocumentMut::from(toml_edit::Table::from_iter([(
                 "workspace",
                 toml_edit::Table::new(),
