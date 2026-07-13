@@ -3,7 +3,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
         format!(
             "{import_statement}
             use aws_lambda_events::sqs::{{SqsEvent, SqsMessage}};
-            use kinetics::tools::{{queue::Record as QueueRecord, config::Config as KineticsConfig}};
+            use kinetics_lib::tools::{{queue::Record as QueueRecord, config::Config as KineticsConfig}};
             #[tokio::main]
             async fn main() -> Result<(), tower::BoxError> {{
                 let user_function = {rust_function_name};
@@ -45,7 +45,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
         format!(
             "{import_statement}
             use lambda_runtime::{{Error, run, service_fn}};\n\
-            use kinetics::tools::{{queue::Record as QueueRecord, config::Config as KineticsConfig}};
+            use kinetics_lib::tools::{{queue::Record as QueueRecord, config::Config as KineticsConfig}};
             #[tokio::main]\n\
             async fn main() -> Result<(), Error> {{\n\
                 let user_function = {rust_function_name};

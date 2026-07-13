@@ -1,6 +1,6 @@
 use http::{Request, Response};
-use kinetics::tools::config::Config as KineticsConfig;
-use kinetics::{macros::endpoint, tools::http::Body};
+use kinetics_lib::tools::config::Config as KineticsConfig;
+use kinetics_lib::{macros::endpoint, tools::http::Body};
 use std::collections::HashMap;
 // As an example use a general-purpose type-erased error from tower.
 // Custom errors would work as well.

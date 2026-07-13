@@ -1,5 +1,5 @@
-use kinetics::macros::cron;
-use kinetics::tools::config::Config as KineticsConfig;
+use kinetics_lib::macros::cron;
+use kinetics_lib::tools::config::Config as KineticsConfig;
 use std::collections::HashMap;
 use tower::BoxError;
 
