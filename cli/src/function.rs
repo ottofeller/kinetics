@@ -270,7 +270,7 @@ impl From<&Function> for kinetics_api::stack::deploy::FunctionRequest {
     fn from(function: &Function) -> Self {
         Self {
             name: function.name.clone(),
-            package_name: function.package_name.clone(),
+            package_name: Some(function.package_name.clone()),
             is_deploying: function.is_deploying,
             params: function.params.clone(),
             role: function.role.clone(),
