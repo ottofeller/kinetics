@@ -73,12 +73,7 @@ impl Client {
             .split_once("::")
             .ok_or_eyre("Failed to get the project name from a worker")?;
 
-        // Use the original Cargo package name so from_worker derives the same worker name
-        // that was used when provisioning the queue
-        let package_name =
-            std::env::var("KINETICS_PACKAGE_NAME").unwrap_or_else(|_| crate_name.to_string());
-
-        Self::from_name(&package_name, module_path).await
+        Self::from_name(crate_name, module_path).await
     }
 
     /// Init the client from the crate name and module path of the worker fn
