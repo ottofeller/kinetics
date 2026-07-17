@@ -1,16 +1,16 @@
 [workspace]
 resolver = "2"
 
-members = ["api", "cli", "examples", "macro", "parser", "runtime"]
+members = ["api", "cli", "examples", "lib", "macro", "parser"]
 
 [workspace.package]
-version = "0.16.15"
+version = "0.17.1"
 
 [workspace.dependencies]
-kinetics = { path = "runtime", version = "0.16.15" }
-kinetics-api = { path = "api", version = "0.16.15" }
-kinetics-macro = { path = "macro", version = "0.16.15" }
-kinetics-parser = { path = "parser", version = "0.16.15" }
+kinetics-api = { path = "api", version = "0.17.1" }
+kinetics-lib = { path = "lib", version = "0.17.1" }
+kinetics-macro = { path = "macro", version = "0.17.1" }
+kinetics-parser = { path = "parser", version = "0.17.1" }
 
 # Do not upgrade as TOML parsing fails
 toml = "=0.8.23"

@@ -5,7 +5,7 @@ use super::Project;
 use crate::function::Function;
 use crate::project::dependencies::insert_lambda_dependency_group;
 use eyre::{Context, ContextCompat};
-use kinetics::tools::config::EndpointConfig;
+use kinetics_lib::tools::config::EndpointConfig;
 use kinetics_parser::{Params, ParsedFunction, Parser, Role};
 use regex::Regex;
 use std::fs;
@@ -366,8 +366,13 @@ impl Project {
             Some(&pruned),
             checksum,
         )?;
-
-        self.create_function_manifest(dst, &member_dir, function_name, parsed_function, checksum)?;
+        let lib_name = self.create_function_manifest(
+            dst,
+            &member_dir,
+            function_name,
+            parsed_function,
+            checksum,
+        )?;
         self.create_lib(
             src,
             pkg_rel_path,
@@ -384,8 +389,8 @@ impl Project {
         ))?;
 
         // Create src/bin/<func_name>.rs for the remote and local function
-        self.create_lambda_bin(dst, &bin_dir, parsed_function, false, checksum)?;
-        self.create_lambda_bin(dst, &bin_dir, parsed_function, true, checksum)?;
+        self.create_lambda_bin(dst, &bin_dir, parsed_function, &lib_name, false, checksum)?;
+        self.create_lambda_bin(dst, &bin_dir, parsed_function, &lib_name, true, checksum)?;
 
         Ok(())
     }
@@ -394,6 +399,7 @@ impl Project {
     ///
     /// Based on the original package's manifest, with:
     /// - package name changed to the function name;
+    /// - library target name preserved from the original package;
     /// - lambda runtime dependencies added.
     fn create_function_manifest(
         &self,
@@ -402,7 +408,7 @@ impl Project {
         function_name: &str,
         parsed_function: &ParsedFunction,
         checksum: &mut FileHash,
-    ) -> eyre::Result<()> {
+    ) -> eyre::Result<String> {
         let manifest_path = member_dir.join("Cargo.toml");
         let src_manifest_path = self
             .workspace
@@ -411,7 +417,27 @@ impl Project {
             .join("Cargo.toml");
 
         let mut doc: toml_edit::DocumentMut = fs::read_to_string(&src_manifest_path)?.parse()?;
+        let lib_name = doc
+            .get("lib")
+            .and_then(toml_edit::Item::as_table)
+            .and_then(|lib| lib.get("name"))
+            .and_then(toml_edit::Item::as_str)
+            .map(String::from)
+            .or_else(|| {
+                doc.get("package")
+                    .and_then(toml_edit::Item::as_table)
+                    .and_then(|package| package.get("name"))
+                    .and_then(toml_edit::Item::as_str)
+                    .map(|name| name.replace('-', "_"))
+            })
+            .wrap_err("Package name is missing from Cargo.toml")?;
+
         doc["package"]["name"] = toml_edit::value(function_name);
+        doc.entry("lib")
+            .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+            .as_table_mut()
+            .wrap_err("Invalid [lib] table in Cargo.toml")?
+            .insert("name", toml_edit::value(&lib_name));
         self.deps(parsed_function, &mut doc)?;
 
         let manifest_string = doc.to_string();
@@ -424,7 +450,7 @@ impl Project {
                 .wrap_err("Failed to write function Cargo.toml")?;
         }
 
-        Ok(())
+        Ok(lib_name)
     }
 
     /// Create a function with the code necessary to build lambda
@@ -436,6 +462,7 @@ impl Project {
         dst: &Path,
         bin_dir: &Path,
         parsed_function: &ParsedFunction,
+        lib_name: &str,
         is_local: bool,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
@@ -446,7 +473,7 @@ impl Project {
         let fn_import = self.import_statement(
             &parsed_function.relative_path,
             &parsed_function.rust_function_name,
-            &parsed_function.func_name(false)?,
+            lib_name,
         )?;
 
         let rust_function_name = parsed_function.rust_function_name.clone();
@@ -490,13 +517,13 @@ impl Project {
         };
 
         let kinetics_version = env!("CARGO_PKG_VERSION");
-        if doc["dependencies"]["kinetics"].as_str().is_some() {
+        if doc["dependencies"]["kinetics-lib"].as_str().is_some() {
             // Discard string version and write an object
-            doc["dependencies"]["kinetics"] =
+            doc["dependencies"]["kinetics-lib"] =
                 toml_edit::Table::from_iter([("version", kinetics_version)]).into();
         } else {
             // For an object overwrite only the version field
-            doc["dependencies"]["kinetics"]
+            doc["dependencies"]["kinetics-lib"]
                 .or_insert(toml_edit::Table::new().into())
                 .as_table_mut()
                 .map(|t| t.insert("version", kinetics_version.into()));
