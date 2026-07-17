@@ -89,6 +89,15 @@ impl<'a> DependencyGraph<'a> {
             }
         }
 
+        for method_call in node.descendants().filter_map(ast::MethodCallExpr::cast) {
+            if self.conservative_fallback {
+                return;
+            }
+            if let Some(function) = semantics.resolve_method_call(&method_call) {
+                self.reach_definition(function.into(), semantics);
+            }
+        }
+
         for macro_call in node.descendants().filter_map(ast::MacroCall::cast) {
             if self.conservative_fallback {
                 return;
