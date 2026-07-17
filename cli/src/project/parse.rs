@@ -1,6 +1,6 @@
 use super::filehash::{FileHash, CHECKSUMS_FILENAME};
 use super::templates;
-use super::treeshake::{PrunedGraph, TreeShaker, TreeShakerBuilder};
+use super::treeshake::{RetainedFiles, TreeShaker, TreeShakerBuilder};
 use super::Project;
 use crate::function::Function;
 use crate::project::dependencies::insert_lambda_dependency_group;
@@ -159,14 +159,14 @@ impl Project {
     /// Clone the package dir to a new directory.
     ///
     /// `skip_more` — additional paths (relative to `src`) to skip entirely.
-    /// `graph` — module graph that can decide whether to shake the module or retain.
+    /// `retained_files` — source files retained by tree shaking.
     fn clone(
         &self,
         src: &Path,
         dst_dir: &Path,
         dst_rel_path: &Path,
         skip_more: &[PathBuf],
-        graph: Option<&PrunedGraph>,
+        retained_files: Option<&RetainedFiles>,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
         let dst_pkg = dst_dir.join(dst_rel_path);
@@ -194,8 +194,10 @@ impl Project {
                 if p.is_dir() {
                     return true;
                 }
-                if let Some(graph) = graph {
-                    if p.extension().is_some_and(|ext| ext == "rs") && !graph.should_keep(p) {
+                if let Some(retained_files) = retained_files {
+                    if p.extension().is_some_and(|ext| ext == "rs")
+                        && !retained_files.should_keep(p)
+                    {
                         log::debug!("  pruning unreached file: {p:?}");
                         return false;
                     }
@@ -219,7 +221,7 @@ impl Project {
                 src_path,
                 dst_dir,
                 &dst_rel_path.join(src_relative),
-                graph,
+                retained_files,
                 checksum,
             )?;
         }
@@ -281,7 +283,7 @@ impl Project {
         dst: &Path,
         dst_pkg_path: &Path,
         function: &ParsedFunction,
-        graph: Option<&PrunedGraph>,
+        retained_files: Option<&RetainedFiles>,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
         let src_lib_rs_path = src.join(src_pkg_path).join("src/lib.rs");
@@ -303,8 +305,8 @@ impl Project {
         let lib = if src_lib_rs_path.exists() {
             // Start from the tree-shaken content (strips orphan mods)
             // and then ensure the target module is exported.
-            let lib = if let Some(graph) = graph {
-                graph.emit_file_content(&src_lib_rs_path)?
+            let lib = if let Some(retained_files) = retained_files {
+                retained_files.emit_file_content(&src_lib_rs_path)?
             } else {
                 fs::read_to_string(&src_lib_rs_path).wrap_err("Failed to read src/lib.rs")?
             };
@@ -355,15 +357,15 @@ impl Project {
     ) -> eyre::Result<()> {
         let member_dir = PathBuf::from(function_name);
         let pkg_rel_path = &parsed_function.pkg_rel_path;
-        let graph = shaker.dependency_graph(parsed_function)?;
-        let pruned = graph.prune();
+        let dependency_graph = shaker.dependency_graph(parsed_function)?;
+        let retained_files = dependency_graph.prune();
 
         self.clone(
             &src.join(pkg_rel_path),
             dst,
             &member_dir,
             &[PathBuf::from("Cargo.toml"), PathBuf::from("src/lib.rs")],
-            Some(&pruned),
+            Some(&retained_files),
             checksum,
         )?;
         let lib_name = self.create_function_manifest(
@@ -379,7 +381,7 @@ impl Project {
             dst,
             &member_dir,
             parsed_function,
-            Some(&pruned),
+            Some(&retained_files),
             checksum,
         )?;
 
@@ -592,7 +594,7 @@ impl Project {
         src: &Path,
         dst_dir: &Path,
         dst_rel_path: &Path,
-        graph: Option<&PrunedGraph>,
+        retained_files: Option<&RetainedFiles>,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
         let dst_path_full = dst_dir.join(dst_rel_path);
@@ -605,8 +607,8 @@ impl Project {
         }
 
         // Update hash table for the file.
-        let content = if let Some(graph) = graph {
-            graph.emit_file_content(src)?
+        let content = if let Some(retained_files) = retained_files {
+            retained_files.emit_file_content(src)?
         } else {
             fs::read_to_string(src).wrap_err(format!("Failed to read file {src:?}"))?
         };
