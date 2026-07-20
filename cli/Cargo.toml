@@ -65,6 +65,7 @@ sqlx = { version = "0.8.6", features = [
 syn = { version = "2.0", features = ["full", "visit"] }
 tabled = "0.20.0"
 terminal_size = "0.4.4"
+tempfile = "3.27.0"
 tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
 toml_edit = "0.25.11+spec-1.1.0"
@@ -72,6 +73,7 @@ twox-hash = "2.1.2"
 url = "2.5.8"
 users = "0.11.0"
 walkdir = "2.5.0"
+zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 triomphe = "0.1.14"
 ra_ap_hir = "0.0.307"
 ra_ap_base_db = "0.0.307"

@@ -12,6 +12,8 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
+mod bundle;
+
 // Re-export types from kinetics-parser
 pub use kinetics_parser::{Params, ParsedFunction, Role};
 
@@ -220,8 +222,6 @@ pub async fn build(
         .arg("--release")
         .arg("--target")
         .arg("x86_64-unknown-linux-musl")
-        .arg("--output-format")
-        .arg("zip")
         .current_dir(&project.build_path()?)
         // Null stdout avoids an unread pipe when cargo-lambda inherits verbose RUST_LOG.
         .stdout(Stdio::null())
@@ -258,6 +258,12 @@ pub async fn build(
     if !status.success() {
         return Err(eyre!("{}", error_message_lines.join("\n")));
     }
+
+    let functions = functions.to_vec();
+
+    tokio::task::spawn_blocking(move || bundle::bundle_functions(&functions))
+        .await
+        .wrap_err("Failed to join the Lambda bundling task")??;
 
     Ok(())
 }
