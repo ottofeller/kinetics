@@ -9,17 +9,25 @@ use twox_hash::XxHash64;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, DateTime, ZipArchive, ZipWriter};
 
+/// The name of the binary entry in the lambda bundle
 const BINARY_NAME: &str = "bootstrap";
+
+/// The mode of the binary entry in the bundle
 const BINARY_MODE: u32 = 0o100755;
 
+/// Represents a binary fingerprint consisting of its size and hash
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct Fingerprint {
+    /// The size of the binary in bytes
     size: u64,
+    /// The hash of the binary
     hash: u64,
 }
 
-/// Ensures each function has an up-to-date deployment bundle.
+/// Ensures each function has an up-to-date deployment bundle (zip archive).
+///
 /// Existing bundles are reused when their `bootstrap` entry matches the current binary.
+/// Otherwise, a new bundle is created from the current binary.
 pub(super) fn bundle_functions(functions: &[Function]) -> eyre::Result<()> {
     for function in functions {
         let bundle_path = function.bundle_path().wrap_err_with(|| {
@@ -28,9 +36,10 @@ pub(super) fn bundle_functions(functions: &[Function]) -> eyre::Result<()> {
                 function.name
             )
         })?;
+
         let binary_path = bundle_path.with_file_name(BINARY_NAME);
 
-        if !is_bundle_current(&binary_path, &bundle_path).wrap_err_with(|| {
+        if !is_cache_hit(&binary_path, &bundle_path).wrap_err_with(|| {
             format!("Failed to inspect bundle for function `{}`", function.name)
         })? {
             write_bundle_atomic(&binary_path, &bundle_path)
@@ -41,22 +50,22 @@ pub(super) fn bundle_functions(functions: &[Function]) -> eyre::Result<()> {
     Ok(())
 }
 
-/// Checks the bundle layout, metadata, and contents against the current binary.
-/// Missing or invalid archives are treated as cache misses and rebuilt.
-fn is_bundle_current(binary_path: &Path, bundle_path: &Path) -> eyre::Result<bool> {
-    let binary_fingerprint = fingerprint_file(binary_path)
-        .wrap_err_with(|| format!("Failed to read binary at {}", binary_path.display()))?;
+/// Checks the bundle layout, metadata, and contents against the current bootstrap binary.
+///
+/// Missing or invalid archives are treated as cache misses.
+fn is_cache_hit(binary_path: &Path, bundle_path: &Path) -> eyre::Result<bool> {
+    let binary = File::open(binary_path)
+        .wrap_err_with(|| format!("Failed to open binary at {binary_path:?}"))?;
+
+    let binary_fingerprint = fingerprint_reader(&mut BufReader::new(binary))
+        .wrap_err_with(|| format!("Failed to read binary at {binary_path:?}"))?;
 
     let bundle_file = match File::open(bundle_path) {
         Ok(file) => file,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
-        Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
-            return Err(error)
-                .wrap_err_with(|| format!("Failed to open bundle at {}", bundle_path.display()));
-        }
         Err(error) => {
             return Err(error)
-                .wrap_err_with(|| format!("Failed to open bundle at {}", bundle_path.display()));
+                .wrap_err_with(|| format!("Failed to open bundle at {bundle_path:?}"));
         }
     };
 
@@ -84,38 +93,33 @@ fn is_bundle_current(binary_path: &Path, bundle_path: &Path) -> eyre::Result<boo
         return Ok(false);
     }
 
-    let bundle_fingerprint = match fingerprint_reader(&mut entry) {
+    let bundled_binary_fingerprint = match fingerprint_reader(&mut entry) {
         Ok(fingerprint) => fingerprint,
         Err(_) => return Ok(false),
     };
 
-    Ok(bundle_fingerprint == binary_fingerprint)
+    Ok(bundled_binary_fingerprint == binary_fingerprint)
 }
 
 /// Writes a function binary to a deployment bundle atomically.
+///
 /// The existing archive is replaced only after the new archive is complete and synced.
 fn write_bundle_atomic(binary_path: &Path, bundle_path: &Path) -> eyre::Result<()> {
-    let bundle_dir = bundle_path.parent().ok_or_else(|| {
-        eyre::eyre!(
-            "Bundle path has no parent directory: {}",
-            bundle_path.display()
-        )
-    })?;
-    let binary = File::open(binary_path)
-        .wrap_err_with(|| format!("Failed to open binary at {}", binary_path.display()))?;
+    let bundle_dir = bundle_path
+        .parent()
+        .ok_or_else(|| eyre::eyre!("Bundle path has no parent directory: {bundle_path:?}",))?;
 
-    // Keeping the temporary file beside the bundle allows an atomic replace.
-    let temp_file = NamedTempFile::new_in(bundle_dir).wrap_err_with(|| {
-        format!(
-            "Failed to create temporary bundle in {}",
-            bundle_dir.display()
-        )
-    })?;
+    let binary = File::open(binary_path)
+        .wrap_err_with(|| format!("Failed to open binary at {binary_path:?}"))?;
+
+    // Keeping the temporary file beside the bundle allows an atomic replace
+    let temp_file = NamedTempFile::new_in(bundle_dir)
+        .wrap_err_with(|| format!("Failed to create temporary bundle in {bundle_dir:?}"))?;
 
     let mut archive = ZipWriter::new(temp_file);
     let options = SimpleFileOptions::default()
         .compression_method(CompressionMethod::Deflated)
-        // A fixed timestamp makes archives deterministic for identical input.
+        // A fixed timestamp makes archives deterministic for identical input
         .last_modified_time(DateTime::default())
         .unix_permissions(BINARY_MODE);
 
@@ -124,10 +128,11 @@ fn write_bundle_atomic(binary_path: &Path, bundle_path: &Path) -> eyre::Result<(
         .wrap_err("Failed to start bootstrap ZIP entry")?;
 
     io::copy(&mut BufReader::new(binary), &mut archive)
-        .wrap_err_with(|| format!("Failed to read binary at {}", binary_path.display()))?;
+        .wrap_err_with(|| format!("Failed to read binary at {binary_path:?}"))?;
 
     let mut temp_file = archive.finish().wrap_err("Failed to finish bundle")?;
-    // Sync before persist so a write failure cannot replace a valid old bundle.
+
+    // Sync before persist so a write failure cannot replace a valid old bundle
     temp_file
         .as_file_mut()
         .sync_all()
@@ -136,25 +141,20 @@ fn write_bundle_atomic(binary_path: &Path, bundle_path: &Path) -> eyre::Result<(
     temp_file
         .persist(bundle_path)
         .map_err(|error| error.error)
-        .wrap_err_with(|| format!("Failed to persist bundle at {}", bundle_path.display()))?;
+        .wrap_err_with(|| format!("Failed to persist bundle at {bundle_path:?}"))?;
 
     Ok(())
 }
 
-/// Opens a file and computes its content fingerprint without buffering the
-/// entire file in memory.
-fn fingerprint_file(path: &Path) -> io::Result<Fingerprint> {
-    fingerprint_reader(&mut BufReader::new(File::open(path)?))
-}
-
 /// Streams readable data into xxHash64 and records its total byte length.
+///
 /// The fingerprint is intended for local cache invalidation.
 fn fingerprint_reader(reader: &mut impl Read) -> io::Result<Fingerprint> {
     let mut hasher = XxHash64::default();
     let mut size = 0_u64;
     let mut buffer = [0_u8; 64 * 1024];
 
-    // Hash in fixed-size chunks so memory use stays bounded for large binaries.
+    // Hash in fixed-size chunks so memory use stays bounded for large binaries
     loop {
         let bytes_read = reader.read(&mut buffer)?;
         if bytes_read == 0 {
