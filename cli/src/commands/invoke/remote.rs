@@ -14,10 +14,20 @@ use std::str::FromStr;
 impl InvokeRunner<'_> {
     /// Resolve function name into URL and call it remotely
     pub async fn remote(&mut self, function: Function) -> eyre::Result<()> {
-        if function.role == Role::Endpoint {
-            self.endpoint(function).await
-        } else {
-            self.worker_or_cron(function).await
+        match function.role {
+            Role::Endpoint => self.endpoint(function).await,
+            Role::Cron => self.worker_or_cron(function).await,
+            Role::Worker => {
+                if self.command.payload.is_none() {
+                    return Err(Error::new(
+                        "No payload",
+                        Some("--payload argument is required with workers"),
+                    )
+                    .into());
+                }
+
+                self.worker_or_cron(function).await
+            }
         }
     }
 
