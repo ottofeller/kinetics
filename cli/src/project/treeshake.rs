@@ -1,7 +1,7 @@
-mod files;
-mod graph;
+mod database;
+mod reachability;
+mod sources;
 mod treeshaker;
 
-pub(super) use files::RetainedFiles;
-pub(super) use graph::DependencyGraph;
-pub(super) use treeshaker::{TreeShaker, TreeShakerBuilder};
+pub(super) use sources::FunctionSources;
+pub(super) use treeshaker::TreeShaker;

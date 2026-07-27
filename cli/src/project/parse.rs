@@ -1,16 +1,40 @@
 use super::filehash::{FileHash, CHECKSUMS_FILENAME};
 use super::templates;
-use super::treeshake::{RetainedFiles, TreeShaker, TreeShakerBuilder};
+use super::treeshake::{FunctionSources, TreeShaker};
 use super::Project;
 use crate::function::Function;
 use crate::project::dependencies::insert_lambda_dependency_group;
 use eyre::{Context, ContextCompat};
 use kinetics_lib::tools::config::EndpointConfig;
 use kinetics_parser::{Params, ParsedFunction, Parser, Role};
-use regex::Regex;
 use std::fs;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
+
+#[derive(Clone, Copy)]
+enum CopyMode<'a> {
+    Exact,
+    TreeShaken(&'a FunctionSources),
+}
+
+impl<'a> CopyMode<'a> {
+    fn function_sources_for(
+        self,
+        path: &Path,
+        relative_path: &Path,
+    ) -> Option<&'a FunctionSources> {
+        match self {
+            Self::TreeShaken(plan)
+                if relative_path.starts_with("src")
+                    && path.extension().is_some_and(|extension| extension == "rs")
+                    && plan.is_module_file(path) =>
+            {
+                Some(plan)
+            }
+            Self::Exact | Self::TreeShaken(_) => None,
+        }
+    }
+}
 
 /// Code parsing methods
 impl Project {
@@ -34,8 +58,8 @@ impl Project {
 
         let mut all_functions = Vec::new();
 
-        // Clone user project into the build folder.
-        self.clone(
+        // Copy user project into the build folder.
+        self.copy_tree(
             src,
             &dst,
             &PathBuf::new(),
@@ -48,7 +72,7 @@ impl Project {
                 // Skip the root Cargo.toml, since we populate it ourselves.
                 .chain([PathBuf::from("Cargo.toml")])
                 .collect::<Vec<_>>(),
-            None,
+            CopyMode::Exact,
             &mut checksum,
         )?;
 
@@ -88,12 +112,12 @@ impl Project {
             } else {
                 &package.relative_path
             };
-            self.clone(
+            self.copy_tree(
                 &src.join(&package.relative_path),
                 &dst,
                 pkg_path,
                 &[],
-                None,
+                CopyMode::Exact,
                 &mut checksum,
             )?;
 
@@ -102,7 +126,7 @@ impl Project {
                 continue;
             }
 
-            let shaker = TreeShakerBuilder::new().build(&src.join(&package.relative_path))?;
+            let shaker = TreeShaker::load(&src.join(&package.relative_path))?;
 
             for parsed_function in &parsed_functions {
                 let function_name = parsed_function.func_name(false)?;
@@ -156,21 +180,21 @@ impl Project {
             .collect::<eyre::Result<Vec<_>>>()
     }
 
-    /// Clone the package dir to a new directory.
+    /// Copy the package dir to a new directory.
     ///
     /// `skip_more` — additional paths (relative to `src`) to skip entirely.
-    /// `retained_files` — source files retained by tree shaking.
-    fn clone(
+    /// `mode` controls whether Rust module files under `src` are tree-shaken.
+    fn copy_tree(
         &self,
         src: &Path,
         dst_dir: &Path,
         dst_rel_path: &Path,
         skip_more: &[PathBuf],
-        retained_files: Option<&RetainedFiles>,
+        mode: CopyMode<'_>,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
         let dst_pkg = dst_dir.join(dst_rel_path);
-        fs::create_dir_all(&dst_pkg).wrap_err("Failed to create dir to clone the project to")?;
+        fs::create_dir_all(&dst_pkg).wrap_err("Failed to create project copy directory")?;
 
         let skip_paths = [
             // Skip the target dir, cargo lambda use it (if exist) for incremental builds.
@@ -182,29 +206,13 @@ impl Project {
         .chain(skip_more.iter().map(|p| src.join(p)))
         .collect::<Vec<_>>();
 
-        for entry in WalkDir::new(src)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|entry| {
-                let p = entry.path();
-                if skip_paths.iter().any(|prefix| p.starts_with(prefix)) {
-                    return false;
-                }
-                // Directories always pass — they'll be created below.
-                if p.is_dir() {
-                    return true;
-                }
-                if let Some(retained_files) = retained_files {
-                    if p.extension().is_some_and(|ext| ext == "rs")
-                        && !retained_files.should_keep(p)
-                    {
-                        log::debug!("  pruning unreached file: {p:?}");
-                        return false;
-                    }
-                }
-                true
-            })
-        {
+        let entries = WalkDir::new(src).into_iter().filter_entry(|entry| {
+            !skip_paths
+                .iter()
+                .any(|prefix| entry.path().starts_with(prefix))
+        });
+        for entry in entries {
+            let entry = entry.wrap_err_with(|| format!("Failed to walk source tree {src:?}"))?;
             let src_path = entry.path();
 
             // Strip leading path from source to create relative path in destination
@@ -217,11 +225,17 @@ impl Project {
                 continue;
             }
 
+            let function_sources = mode.function_sources_for(src_path, src_relative);
+            if function_sources.is_some_and(|sources| !sources.should_keep(src_path)) {
+                log::trace!("pruning unreached file: {src_path:?}");
+                continue;
+            }
+
             self.clean_copy(
                 src_path,
                 dst_dir,
                 &dst_rel_path.join(src_relative),
-                retained_files,
+                function_sources,
                 checksum,
             )?;
         }
@@ -232,9 +246,19 @@ impl Project {
     /// Remove files that are not present in the source directory
     /// but still exist in the target directory.
     fn clear_dir(&self, dst: &Path, checksum: &FileHash) -> eyre::Result<()> {
-        for entry in WalkDir::new(dst).into_iter().filter_map(|e| e.ok()) {
-            let path = entry.path();
+        let entries = WalkDir::new(dst).into_iter().filter_entry(|entry| {
+            entry
+                .path()
+                .strip_prefix(dst)
+                .is_ok_and(|path| !path.starts_with("target"))
+        });
+        let mut paths = Vec::new();
+        for entry in entries {
+            let entry = entry.wrap_err_with(|| format!("Failed to walk build tree {dst:?}"))?;
+            paths.push(entry.into_path());
+        }
 
+        for path in paths.into_iter().rev() {
             let Ok(src_relative) = path.strip_prefix(dst) else {
                 continue;
             };
@@ -243,12 +267,9 @@ impl Project {
             // - the `target` folder;
             // - `.checksums` file.
             // - `Cargo.lock` file.
-            // - non *.rs files
-            if src_relative.extension().is_some_and(|ext| ext != "rs")
-                || src_relative.strip_prefix("target").is_ok()
-                || src_relative
-                    .to_str()
-                    .is_some_and(|p| p == CHECKSUMS_FILENAME || p == "Cargo.lock")
+            if src_relative
+                .to_str()
+                .is_some_and(|p| p == CHECKSUMS_FILENAME || p == "Cargo.lock")
             {
                 continue;
             };
@@ -256,7 +277,7 @@ impl Project {
             if path.is_dir() {
                 // Delete all folders except those known from file paths in .checksums.
                 if !checksum.has_folder(src_relative) {
-                    fs::remove_dir_all(path).wrap_err(format!(
+                    fs::remove_dir_all(&path).wrap_err(format!(
                         "Failed to delete an obsolete folder {src_relative:?}"
                     ))?;
                 }
@@ -265,7 +286,7 @@ impl Project {
 
             // Delete files not in .checksums.
             if !checksum.has_file(src_relative) {
-                fs::remove_file(path).wrap_err(format!(
+                fs::remove_file(&path).wrap_err(format!(
                     "failed to delete an obsolete file {src_relative:?}"
                 ))?;
             };
@@ -278,55 +299,14 @@ impl Project {
     /// The file is used as an export point for the function.
     fn create_lib(
         &self,
-        src: &Path,
-        src_pkg_path: &Path,
+        package_root: &Path,
         dst: &Path,
         dst_pkg_path: &Path,
-        function: &ParsedFunction,
-        retained_files: Option<&RetainedFiles>,
+        function_sources: &FunctionSources,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
-        let src_lib_rs_path = src.join(src_pkg_path).join("src/lib.rs");
-
-        // Take the first path component from function module in the src folder, and export it.
-        let fn_path = function.to_string();
-        let module = match Path::new(&fn_path)
-            .strip_prefix(src_pkg_path)?
-            .strip_prefix("src")?
-            .with_extension("")
-            .components()
-            .next()
-        {
-            Some(Component::Normal(comp)) => comp.to_str().map(String::from),
-            _ => None,
-        }
-        .wrap_err(format!("Invalid path format for {fn_path}"))?;
-
-        let lib = if src_lib_rs_path.exists() {
-            // Start from the tree-shaken content (strips orphan mods)
-            // and then ensure the target module is exported.
-            let lib = if let Some(retained_files) = retained_files {
-                retained_files.emit_file_content(&src_lib_rs_path)?
-            } else {
-                fs::read_to_string(&src_lib_rs_path).wrap_err("Failed to read src/lib.rs")?
-            };
-
-            if module != "lib"
-                && Regex::new(&format!(r"(?m)^\s*pub\s*mod\s+{module};$"))?
-                    .find(&lib)
-                    .is_none()
-            {
-                let re_module = Regex::new(&format!(r"(?m)^\s*mod\s+{module};$"))?;
-                let export = format!("pub mod {module};");
-                // Delete any existing declaration and append new one
-                format!("{export}\n{}", re_module.replace(&lib, ""))
-            } else {
-                lib
-            }
-        } else {
-            // Create lib.rs file with required exports.
-            format!("pub mod {module};\n")
-        };
+        let src_lib_rs_path = package_root.join("src/lib.rs");
+        let lib = function_sources.emit_lib(&src_lib_rs_path)?;
 
         let relative_lib_path = dst_pkg_path.join("src/lib.rs");
         if checksum.update(
@@ -357,15 +337,15 @@ impl Project {
     ) -> eyre::Result<()> {
         let member_dir = PathBuf::from(function_name);
         let pkg_rel_path = &parsed_function.pkg_rel_path;
-        let dependency_graph = shaker.dependency_graph(parsed_function)?;
-        let retained_files = dependency_graph.prune();
+        let package_root = src.join(pkg_rel_path);
+        let function_sources = shaker.function_sources(parsed_function)?;
 
-        self.clone(
-            &src.join(pkg_rel_path),
+        self.copy_tree(
+            &package_root,
             dst,
             &member_dir,
             &[PathBuf::from("Cargo.toml"), PathBuf::from("src/lib.rs")],
-            Some(&retained_files),
+            CopyMode::TreeShaken(&function_sources),
             checksum,
         )?;
         let lib_name = self.create_function_manifest(
@@ -375,24 +355,36 @@ impl Project {
             parsed_function,
             checksum,
         )?;
-        self.create_lib(
-            src,
-            pkg_rel_path,
-            dst,
-            &member_dir,
-            parsed_function,
-            Some(&retained_files),
-            checksum,
-        )?;
+        self.create_lib(&package_root, dst, &member_dir, &function_sources, checksum)?;
 
         let bin_dir = member_dir.join("src/bin");
         fs::create_dir_all(dst.join(&bin_dir)).wrap_err(format!(
             "Failed to create dir for function member {function_name}"
         ))?;
 
+        let function_import = self.import_statement(
+            function_sources.module_path(),
+            &parsed_function.rust_function_name,
+            &lib_name,
+        );
+
         // Create src/bin/<func_name>.rs for the remote and local function
-        self.create_lambda_bin(dst, &bin_dir, parsed_function, &lib_name, false, checksum)?;
-        self.create_lambda_bin(dst, &bin_dir, parsed_function, &lib_name, true, checksum)?;
+        self.create_lambda_bin(
+            dst,
+            &bin_dir,
+            parsed_function,
+            &function_import,
+            false,
+            checksum,
+        )?;
+        self.create_lambda_bin(
+            dst,
+            &bin_dir,
+            parsed_function,
+            &function_import,
+            true,
+            checksum,
+        )?;
 
         Ok(())
     }
@@ -464,7 +456,7 @@ impl Project {
         dst: &Path,
         bin_dir: &Path,
         parsed_function: &ParsedFunction,
-        lib_name: &str,
+        function_import: &str,
         is_local: bool,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
@@ -472,20 +464,19 @@ impl Project {
         let lambda_path_local = bin_dir.join(format!("{}.rs", function_name));
         let lambda_path = dst.join(&lambda_path_local);
 
-        let fn_import = self.import_statement(
-            &parsed_function.relative_path,
-            &parsed_function.rust_function_name,
-            lib_name,
-        )?;
-
         let rust_function_name = parsed_function.rust_function_name.clone();
         let main_code = match &parsed_function.params {
             Params::Endpoint(params) => {
                 let endpoint_config = EndpointConfig::new(&params.url_path);
-                templates::endpoint(&fn_import, &rust_function_name, endpoint_config, is_local)
+                templates::endpoint(
+                    function_import,
+                    &rust_function_name,
+                    endpoint_config,
+                    is_local,
+                )
             }
-            Params::Worker(_) => templates::worker(&fn_import, &rust_function_name, is_local),
-            Params::Cron(_) => templates::cron(&fn_import, &rust_function_name, is_local),
+            Params::Worker(_) => templates::worker(function_import, &rust_function_name, is_local),
+            Params::Cron(_) => templates::cron(function_import, &rust_function_name, is_local),
         };
 
         let item: syn::File = syn::parse_str(&main_code)?;
@@ -540,52 +531,14 @@ impl Project {
 
     /// Generate the import statement for the function
     /// which is being deployed as a lambda
-    fn import_statement(
-        &self,
-        relative_path: &Path,
-        rust_name: &str,
-        pkg_name: &str,
-    ) -> eyre::Result<String> {
-        let relative_path = relative_path.strip_prefix("src/").unwrap_or(relative_path);
-
-        let mut module_path_parts = relative_path
-            .components()
-            .filter_map(|component| {
-                if let std::path::Component::Normal(os_str) = component {
-                    os_str.to_str()
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<&str>>();
-
-        // Handle lib.rs (root module)
-        let is_root_module = relative_path == Path::new("lib.rs");
-
-        let module_path = if is_root_module {
-            "".to_string()
-        } else {
-            // Remove extension from last component
-            if let Some(last) = module_path_parts.last_mut() {
-                if *last == "mod.rs" {
-                    // Remove 'mod.rs'
-                    module_path_parts.pop();
-                } else {
-                    *last = last.trim_end_matches(".rs");
-                }
-            }
-            module_path_parts.join("::")
-        };
-
+    fn import_statement(&self, module_path: &[String], rust_name: &str, pkg_name: &str) -> String {
         let pkg_name = pkg_name.replace('-', "_");
-        // If module path is empty then the function is located in the lib.rs file
-        let import_statement = if module_path.is_empty() {
+        if module_path.is_empty() {
             format!("use {pkg_name}::{rust_name};")
         } else {
+            let module_path = module_path.join("::");
             format!("use {pkg_name}::{module_path}::{rust_name};")
-        };
-
-        Ok(import_statement)
+        }
     }
 
     /// Copy a file to the destination folder.
@@ -594,30 +547,22 @@ impl Project {
         src: &Path,
         dst_dir: &Path,
         dst_rel_path: &Path,
-        retained_files: Option<&RetainedFiles>,
+        function_sources: Option<&FunctionSources>,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
         let dst_path_full = dst_dir.join(dst_rel_path);
-        // For all non .rs files just copy it.
-        if src.extension().is_some_and(|ext| ext != "rs") {
-            log::debug!("Copy without checksum {dst_path_full:?}");
-            return fs::copy(src, &dst_path_full)
-                .wrap_err_with(|| format!("Failed to copy file {src:?} -> {dst_path_full:?}"))
-                .map(|_| ());
-        }
-
-        // Update hash table for the file.
-        let content = if let Some(retained_files) = retained_files {
-            retained_files.emit_file_content(src)?
+        let content = if let Some(function_sources) = function_sources {
+            function_sources.emit_file_content(src)?.into_bytes()
         } else {
-            fs::read_to_string(src).wrap_err(format!("Failed to read file {src:?}"))?
+            fs::read(src).wrap_err_with(|| format!("Failed to read file {src:?}"))?
         };
+
         if checksum.update(
             dst_rel_path.to_path_buf(),
             &FileHash::hash_from_bytes(&content)
                 .wrap_err_with(|| format!("Failed to calculate hash from bytes of {src:?}"))?,
         ) {
-            log::debug!("Copy with changed checksum {dst_path_full:?}");
+            log::debug!("Copy changed file {dst_path_full:?}");
             fs::write(&dst_path_full, &content)
                 .wrap_err_with(|| format!("Failed to write {dst_path_full:?}"))?;
         }

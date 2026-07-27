@@ -1,137 +1,102 @@
-use super::DependencyGraph;
+use super::database::AnalysisDatabase;
+use super::reachability::Reachability;
+use super::sources::FunctionSources;
+use eyre::{eyre, ContextCompat};
 use kinetics_parser::ParsedFunction;
-use ra_ap_base_db::{
-    CrateGraphBuilder, CrateOrigin, CrateWorkspaceData, Env, FileId, FileSet, SourceRoot, VfsPath,
-};
-use ra_ap_hir::ChangeWithProcMacros;
-use ra_ap_ide::{AnalysisHost, Edition};
-use ra_ap_paths::AbsPathBuf;
-use std::collections::HashMap;
-use std::fs;
-use std::path::{Path, PathBuf};
-use triomphe::Arc;
-use walkdir::WalkDir;
+use ra_ap_hir::{attach_db, Function, Semantics};
+use ra_ap_syntax::ast::HasName;
+use ra_ap_syntax::{ast, AstNode};
+use std::path::Path;
 
-/// Builds the `rust-analyzer` database used to analyze a package's Rust source files
-#[derive(Debug)]
-pub(crate) struct TreeShakerBuilder {
-    /// Virtual file registry that defines the local source root loaded into the database.
-    file_set: FileSet,
-    /// Maps assigned analysis file IDs back to their physical source paths.
-    id_to_path: HashMap<FileId, PathBuf>,
-}
-
-impl TreeShakerBuilder {
-    pub(crate) fn new() -> Self {
-        Self {
-            file_set: FileSet::default(),
-            id_to_path: HashMap::new(),
-        }
-    }
-
-    /// Build the dependency graph by
-    /// - scanning the source directory;
-    /// - apply all files as changes to register their content within the graph.
-    pub(crate) fn build(mut self, src_dir: &Path) -> eyre::Result<TreeShaker> {
-        let mut file_id_counter = 0u32;
-        let mut file_contents = HashMap::new();
-
-        log::debug!("walk with TreeShakerBuilder: {src_dir:?}");
-        // 1. Recursively scan for .rs files and collect contents
-        let mut file_count = 0usize;
-        for entry in WalkDir::new(src_dir)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "rs"))
-        {
-            let path = entry.path();
-            if let Ok(content) = fs::read_to_string(path) {
-                let vfs_path = VfsPath::new_virtual_path(path.to_string_lossy().into_owned());
-                let fid = FileId::from_raw(file_id_counter);
-
-                self.file_set.insert(fid, vfs_path);
-                self.id_to_path.insert(fid, path.to_path_buf());
-
-                file_contents.insert(fid, content);
-
-                file_id_counter += 1;
-                file_count += 1;
-            }
-        }
-        log::debug!("TreeShakerBuilder: found {file_count} .rs files");
-
-        // 2. Build SourceRoot and CrateGraph
-        let source_root = SourceRoot::new_local(self.file_set.clone());
-        let mut crate_graph = CrateGraphBuilder::default();
-
-        // Find the root of the package (src/lib.rs or src/main.rs)
-        let root_file_id = self.id_to_path.iter().find_map(|(&id, path)| {
-            if path.ends_with("src/lib.rs") || path.ends_with("src/main.rs") {
-                Some(id)
-            } else {
-                None
-            }
-        });
-
-        if let Some(fid) = root_file_id {
-            let proc_macro_cwd =
-                Arc::new(AbsPathBuf::assert_utf8(std::env::current_dir().unwrap()));
-            crate_graph.add_crate_root(
-                fid,
-                Edition::CURRENT,
-                None,               // display_name
-                None,               // version
-                Default::default(), // cfg_options
-                None,               // potential_cfg_options
-                Env::default(),
-                CrateOrigin::Local {
-                    repo: None,
-                    name: None,
-                },
-                false, // is_proc_macro
-                proc_macro_cwd,
-                Arc::new(CrateWorkspaceData {
-                    target: Err("no layout".into()),
-                    toolchain: None,
-                }),
-            );
-        }
-
-        // 3. Create AnalysisHost and apply changes
-        let mut host = AnalysisHost::new(None);
-        let mut change = ChangeWithProcMacros::default();
-        change.set_roots(vec![source_root.clone()]);
-        for (fid, content) in &file_contents {
-            change.change_file(*fid, Some(content.clone()));
-        }
-        change.set_crate_graph(crate_graph);
-
-        host.apply_change(change);
-
-        Ok(TreeShaker {
-            id_to_path: self.id_to_path,
-            host,
-        })
-    }
-}
-
-/// Owns the initialized analysis database used to compute per-function dependencies.
+/// Orchestrates entrypoint resolution, semantic reachability, and source emission.
 #[derive(Debug)]
 pub(crate) struct TreeShaker {
-    /// Maps registered analysis file IDs to the source paths emitted after shaking.
-    id_to_path: HashMap<FileId, PathBuf>,
-    /// Provides semantic resolution for dependency graph construction.
-    host: AnalysisHost,
+    /// Loaded rust-analyzer database for one package.
+    database: AnalysisDatabase,
 }
 
 impl TreeShaker {
-    /// Build a DependencyGraph for the given function, referencing this TreeShaker.
-    pub(crate) fn dependency_graph(
+    /// Loads a package and initializes its semantic source database.
+    pub(crate) fn load(package_root: &Path) -> eyre::Result<Self> {
+        Ok(Self {
+            database: AnalysisDatabase::load(package_root)?,
+        })
+    }
+
+    /// Computes the sources needed for one parsed Kinetics function.
+    pub(crate) fn function_sources(
         &self,
         parsed_function: &ParsedFunction,
-    ) -> eyre::Result<DependencyGraph<'_>> {
-        let mut graph = DependencyGraph::new(&self.host, &self.id_to_path);
-        graph.build_from(parsed_function)?;
-        Ok(graph)
+    ) -> eyre::Result<FunctionSources> {
+        let function = self.find_function(parsed_function)?;
+        let module_path = self.module_path(function);
+        let reachability = Reachability::new(&self.database).build(function);
+        let sources = FunctionSources::build(&self.database, function, module_path, reachability);
+        sources.log_summary(&parsed_function.rust_function_name);
+        Ok(sources)
+    }
+
+    /// Returns semantic module names suitable for generated library imports.
+    fn module_path(&self, function: Function) -> Vec<String> {
+        let database = self.database.host.raw_database();
+        let mut modules = function.module(database).path_to_root(database);
+        modules.reverse();
+        let mut path = modules
+            .into_iter()
+            .filter_map(|module| {
+                let name = module.name(database)?;
+                let edition = module.krate().edition(database);
+                let displayed_name = name.display(database, edition).to_string();
+                Some(displayed_name)
+            })
+            .collect::<Vec<_>>();
+
+        if self.database.crate_root_path == self.database.package_root.join("src/main.rs") {
+            path.insert(0, "main".to_owned());
+        }
+        path
+    }
+
+    /// Resolves the parser result through its physical source file and AST function definition.
+    fn find_function(&self, parsed_function: &ParsedFunction) -> eyre::Result<Function> {
+        let source_path = self
+            .database
+            .package_root
+            .join(&parsed_function.relative_path);
+        let file_id = self
+            .database
+            .source_index
+            .file_id(&source_path)
+            .wrap_err_with(|| format!("Function source {source_path:?} is not registered"))?;
+        let semantics = Semantics::new_dyn(self.database.host.raw_database());
+        let mut matches = Vec::new();
+
+        attach_db(semantics.db, || {
+            let source_file = semantics.parse_guess_edition(file_id);
+            for function in source_file.syntax().descendants().filter_map(ast::Fn::cast) {
+                if function
+                    .name()
+                    .is_some_and(|name| name.text() == parsed_function.rust_function_name)
+                {
+                    if let Some(function) = semantics.to_fn_def(&function) {
+                        matches.push(function);
+                    }
+                }
+            }
+        });
+
+        match matches.as_slice() {
+            [function] => Ok(*function),
+            [] => Err(eyre!(
+                "Function {:?} was not found in {:?}",
+                parsed_function.rust_function_name,
+                parsed_function.relative_path
+            )),
+            _ => Err(eyre!(
+                "Function {:?} is ambiguous in {:?}",
+                parsed_function.rust_function_name,
+                parsed_function.relative_path
+            )),
+        }
     }
 }
