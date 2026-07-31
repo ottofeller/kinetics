@@ -163,7 +163,7 @@ impl Function {
             .post("/function/status")
             .json(&func::status::Request {
                 project: (&self.project).into(),
-                function_name: self.name.clone(),
+                function_name: func::status::FunctionName::Single(self.name.clone()),
             })
             .send()
             .await
@@ -173,35 +173,83 @@ impl Function {
                 Some("Try again in a few seconds."),
             ))?;
 
-        let status_code = result.status();
-
-        // If the status code is 404, the function is not found or not deployed yet
-        if status_code == StatusCode::NOT_FOUND {
-            log::debug!(
-                "Function not found or not deployed yet: {}/{}",
-                self.project.name,
-                self.name
-            );
-
-            return Ok(None);
-        }
-
-        if status_code != StatusCode::OK {
-            return Err(Error::new(
-                &format!(
-                    "Function status request failed for {}/{}",
-                    self.project.name.clone(),
-                    self.name.clone()
-                ),
-                Some("Try again in a few seconds."),
-            )
-            .into());
-        }
-
-        let status: func::status::Response =
+        let result: func::status::Response =
             result.json().await.wrap_err("Failed to parse response")?;
 
-        Ok(status.last_modified)
+        match result.last_modified {
+            func::status::FunctionStatus::Single(status) => match status {
+                func::status::SingleFunctionStatus::Modified(dt) => Ok(Some(dt)),
+                func::status::SingleFunctionStatus::NotModified => Ok(None),
+                func::status::SingleFunctionStatus::NotFound => {
+                    log::debug!(
+                        "Function not found or not deployed yet: {}/{}",
+                        self.project.name,
+                        self.name
+                    );
+
+                    Ok(None)
+                }
+                func::status::SingleFunctionStatus::Error(e) => Err(Error::new(
+                    &format!(
+                        "Function status request failed for {}/{}",
+                        self.project.name, self.name
+                    ),
+                    Some(&e),
+                )
+                .into()),
+            },
+            func::status::FunctionStatus::List(_) => Err(Error::new(
+                &format!(
+                    "Unexpected response for function {}/{} status",
+                    self.project.name, self.name
+                ),
+                Some("Please report a bug at support@deploykinetics.com"),
+            )
+            .into()),
+        }
+    }
+}
+
+/// Get from the backend deployment status of multiple functions
+pub async fn status(
+    client: &Client,
+    project: &Project,
+    functions: &[Function],
+) -> eyre::Result<Vec<String>> {
+    let result = client
+        .post("/function/status")
+        .json(&func::status::Request {
+            project: project.into(),
+            function_name: func::status::FunctionName::List(
+                functions.iter().map(|f| f.name.to_owned()).collect(),
+            ),
+        })
+        .send()
+        .await
+        .inspect_err(|err| log::error!("{err:?}"))
+        .wrap_err(Error::new(
+            "Network request failed",
+            Some("Try again in a few seconds."),
+        ))?;
+
+    let result: func::status::Response =
+        result.json().await.wrap_err("Failed to parse response")?;
+
+    match result.last_modified {
+        func::status::FunctionStatus::Single(_) => Err(Error::new(
+            &format!("Unexpected response for {} functions status", project.name),
+            Some("Please report a bug at support@deploykinetics.com"),
+        )
+        .into()),
+        func::status::FunctionStatus::List(items) => Ok(items
+            .into_iter()
+            .map(|status| match status {
+                func::status::SingleFunctionStatus::Modified(dt) => dt,
+                func::status::SingleFunctionStatus::NotModified => "Not modified".to_string(),
+                func::status::SingleFunctionStatus::NotFound => "Not found".to_string(),
+                func::status::SingleFunctionStatus::Error(e) => format!("Error {e}"),
+            })
+            .collect()),
     }
 }
 
