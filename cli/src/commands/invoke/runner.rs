@@ -19,24 +19,24 @@ impl Runner for InvokeRunner<'_> {
 
         let function = Function::find_by_name(&all_functions, &self.command.name)?;
 
-        // If --with_migrations was not passed, or comes with default "" value, then
-        // do not set the migrations path. There is a default value set down the flow.
-        let migrations_path = if self
-            .command
-            .with_migrations
-            .clone()
-            .unwrap_or_default()
-            .is_empty()
-        {
-            None
-        } else {
-            self.command.with_migrations.clone()
-        };
-
         if !self.command.remote {
+            // If --with_migrations was not passed, or comes with default "" value, then
+            // do not set the migrations path. There is a default value set down the flow.
+            let migrations_path = if self
+                .command
+                .with_migrations
+                .clone()
+                .unwrap_or_default()
+                .is_empty()
+            {
+                None
+            } else {
+                self.command.with_migrations.clone()
+            };
+
             self.local(&function, migrations_path.as_deref()).await?
         } else {
-            self.remote(&function).await?
+            self.remote(function).await?
         }
 
         Ok(())

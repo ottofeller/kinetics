@@ -551,6 +551,14 @@ impl Project {
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
         let dst_path_full = dst_dir.join(dst_rel_path);
+        // For all non .rs files just copy it.
+        if src.extension().is_none_or(|ext| ext != "rs") {
+            log::debug!("Copy without checksum {dst_path_full:?}");
+            return fs::copy(src, &dst_path_full)
+                .wrap_err_with(|| format!("Failed to copy file {src:?} -> {dst_path_full:?}"))
+                .map(|_| ());
+        }
+
         let content = if let Some(function_sources) = function_sources {
             function_sources.emit_file_content(src)?.into_bytes()
         } else {

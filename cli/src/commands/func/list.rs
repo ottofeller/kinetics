@@ -1,5 +1,6 @@
 use crate::api::client::Client;
 use crate::error::Error;
+use crate::function::status;
 use crate::function::Function;
 use crate::project::Project;
 use crate::runner::{Runnable, Runner};
@@ -200,17 +201,20 @@ impl ListRunner<'_> {
             return Ok(());
         }
 
-        for parsed_function in self.functions.clone() {
-            let function = Function::new(&project, &parsed_function)?;
+        let functions = self
+            .functions
+            .iter()
+            .map(|f| Function::new(&project, f))
+            .collect::<eyre::Result<Vec<_>>>()?;
 
-            let last_modified = function
-                .status(client)
-                .await?
-                .unwrap_or_else(|| "NA".into());
+        let statuses = status(client, &project, &functions).await?;
 
-            let func_path = parsed_function.to_string();
+        for (i, function) in functions.into_iter().enumerate() {
+            let func_path = self.functions[i].to_string();
+            // Expect server to return the same length vector with the same order.
+            let last_modified = statuses[i].clone();
 
-            match parsed_function.params {
+            match function.params {
                 Params::Endpoint(params) => {
                     endpoint_rows.push(EndpointRow {
                         function: format_function_and_path(&function.name, &func_path),

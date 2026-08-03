@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Display, path::PathBuf};
 
 /// The kind of function
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Role {
     Endpoint,
     Cron,
