@@ -551,12 +551,20 @@ impl Project {
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
         let dst_path_full = dst_dir.join(dst_rel_path);
-        // For all non .rs files just copy it.
+        // Copy all non .rs files without transforming their contents.
         if src.extension().is_none_or(|ext| ext != "rs") {
-            log::debug!("Copy without checksum {dst_path_full:?}");
-            return fs::copy(src, &dst_path_full)
-                .wrap_err_with(|| format!("Failed to copy file {src:?} -> {dst_path_full:?}"))
-                .map(|_| ());
+            let content = fs::read(src).wrap_err_with(|| format!("Failed to read file {src:?}"))?;
+
+            let content_hash = FileHash::hash_from_bytes(&content)
+                .wrap_err_with(|| format!("Failed to calculate hash from bytes of {src:?}"))?;
+
+            if checksum.update(dst_rel_path.to_path_buf(), &content_hash) {
+                log::debug!("Copy changed file {dst_path_full:?}");
+                fs::copy(src, &dst_path_full).wrap_err_with(|| {
+                    format!("Failed to copy file {src:?} -> {dst_path_full:?}")
+                })?;
+            }
+            return Ok(());
         }
 
         let content = if let Some(function_sources) = function_sources {
