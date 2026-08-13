@@ -37,10 +37,22 @@ pub fn endpoint(
                     }}
                 }}
 
-                let payload = match std::env::var(\"KINETICS_INVOKE_PAYLOAD\") {{
-                    Ok(val) => val,
-                    Err(_) => \"{{}}\".into(),
-                }};
+                let payload_path = std::env::args_os().nth(1).ok_or_else(|| {{
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        \"Payload file path is required as the first argument\",
+                    )
+                }})?;
+
+                let payload = std::fs::read_to_string(&payload_path).map_err(|err| {{
+                    std::io::Error::new(
+                        err.kind(),
+                        format!(
+                            \"Failed to read payload file '{{}}': {{err}}\",
+                            std::path::Path::new(&payload_path).display(),
+                        ),
+                    )
+                }})?;
 
                 let headers_json = match std::env::var(\"KINETICS_INVOKE_HEADERS\") {{
                     Ok(val) => val,

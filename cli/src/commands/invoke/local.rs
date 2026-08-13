@@ -10,6 +10,7 @@ use color_eyre::owo_colors::OwoColorize;
 use eyre::WrapErr;
 use serde_json::json;
 use std::collections::HashMap;
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
@@ -21,6 +22,27 @@ impl InvokeRunner<'_> {
         function: &Function,
         migrations_path: Option<&str>,
     ) -> eyre::Result<()> {
+        let payload = self.resolve_payload(&function.role)?;
+
+        // Pass the payload through a temporary file to avoid process environment size limits.
+        let payload_file = payload
+            .as_deref()
+            .map(|payload| {
+                let mut file = tempfile::NamedTempFile::new()
+                    .wrap_err("Failed to create temporary payload file")?;
+
+                file.write_all(payload.as_bytes())
+                    .wrap_err("Failed to write temporary payload file")?;
+
+                let temp_path = file.into_temp_path();
+                let absolute_path = temp_path
+                    .canonicalize()
+                    .wrap_err("Failed to resolve temporary payload file path")?;
+
+                Ok::<_, eyre::Error>((temp_path, absolute_path))
+            })
+            .transpose()?;
+
         let project = self.project(&self.command.project).await?;
         let mut secrets_envs = HashMap::new();
 
@@ -94,16 +116,14 @@ impl InvokeRunner<'_> {
         }
 
         // Start the command with piped stdout and stderr
-        let child = Command::new("cargo")
+        let mut command = Command::new("cargo");
+
+        command
             .args(["run", "--bin", &format!("{}Local", function.name)])
             .envs(secrets_envs)
             .envs(aws_credentials)
             .envs(local_environment)
             .envs(function.environment())
-            .env(
-                "KINETICS_INVOKE_PAYLOAD",
-                self.command.payload.clone().unwrap_or("{}".into()),
-            )
             .env(
                 "KINETICS_INVOKE_HEADERS",
                 self.command.headers.clone().unwrap_or("{}".into()),
@@ -114,9 +134,14 @@ impl InvokeRunner<'_> {
             )
             .current_dir(&invoke_dir)
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .wrap_err("Failed to execute cargo run")?;
+            .stderr(Stdio::piped());
+
+        // Keep the TempPath alive until invocation completes so the file is not deleted on drop.
+        if let Some((_, absolute_path)) = payload_file.as_ref() {
+            command.arg("--").arg(absolute_path.as_os_str());
+        }
+
+        let child = command.spawn().wrap_err("Failed to execute cargo run")?;
 
         let mut process = Process::new(child, self.writer);
         let status = process.log()?;

@@ -16,22 +16,15 @@ impl InvokeRunner<'_> {
     pub async fn remote(&mut self, function: Function) -> eyre::Result<()> {
         match function.role {
             Role::Endpoint => self.endpoint(function).await,
-            Role::Cron => self.worker_or_cron(function).await,
-            Role::Worker => {
-                if self.command.payload.is_none() {
-                    return Err(Error::new(
-                        "No payload",
-                        Some("--payload argument is required with workers"),
-                    )
-                    .into());
-                }
-
-                self.worker_or_cron(function).await
-            }
+            Role::Cron | Role::Worker => self.worker_or_cron(function).await,
         }
     }
 
     async fn endpoint(&self, function: Function) -> eyre::Result<()> {
+        let payload = self
+            .resolve_payload(&function.role)?
+            .expect("endpoint payload is always resolved");
+
         let project = self.project(&self.command.project).await?;
         let display_path = format!(
             "{}/{}/src/bin/{}.rs",
@@ -94,7 +87,7 @@ impl InvokeRunner<'_> {
         let response = client
             .post(url)
             .headers(headers_map)
-            .body(self.command.payload.clone().unwrap_or_else(|| "{}".into()))
+            .body(payload)
             .send()
             .await
             .wrap_err("Failed to call function URL")?;
@@ -121,6 +114,7 @@ impl InvokeRunner<'_> {
     }
 
     async fn worker_or_cron(&mut self, function: Function) -> eyre::Result<()> {
+        let payload = self.resolve_payload(&function.role)?;
         let project = self.project(&self.command.project).await?;
         let client = self.api_client().await?;
 
@@ -135,7 +129,7 @@ impl InvokeRunner<'_> {
                 project: project.into(),
                 function_name: function.name,
                 payload: match function.role {
-                    Role::Worker => self.command.payload.take(),
+                    Role::Worker => payload,
                     Role::Cron => None,
                     _ => unreachable!(),
                 },

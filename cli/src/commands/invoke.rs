@@ -29,14 +29,23 @@ pub(crate) struct InvokeCommand {
     #[arg(long)]
     url_path: Option<String>,
 
-    /// Must be a valid JSON.
+    /// JSON payload for an endpoint or worker.
     ///
-    /// In case of endpoint functions payload is a body.
-    /// In case of workers, payload is a single event of a queue, which will be wrapped in array and passed to worker function.
+    /// For an endpoint, the payload is sent unchanged in the request body.
+    /// For a worker, the payload must be a JSON array. Each array item becomes
+    /// the body of an individual worker message. If omitted, an empty array is used.
     ///
-    /// Example: --payload '{"name": "John Smith"}'
-    #[arg(short, long)]
+    /// Example: --payload '[{"name": "John"}]'
+    #[arg(short, long, conflicts_with = "payload_file")]
     payload: Option<String>,
+
+    /// Read the JSON payload from a file.
+    ///
+    /// Uses the same role-specific format as --payload.
+    ///
+    /// Example: --payload-file payload.json
+    #[arg(long, value_name = "PATH")]
+    payload_file: Option<PathBuf>,
 
     /// Invoke function remotely. Only works if function was deployed before.
     #[arg(short, long)]

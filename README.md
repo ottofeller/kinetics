@@ -202,10 +202,11 @@ Print out all available functions before deployment. Their names and URLs of RES
 kinetics func list
 ```
 
-Invoke a function locally with parameters. `--payload` sets the JSON body payload for endpoint and worker functions:
+Invoke a function with JSON using `--payload` or `--payload-file`; worker payloads must be arrays, with one message per item:
 
 ```sh
-kinetics invoke BasicWorkerWorker --payload '{"name": "John"}'
+kinetics invoke BasicWorkerWorker --payload '[{"name": "John"}, {"name": "Jane"}]'
+kinetics invoke BasicEndpointEndpoint --payload-file endpoint-payload.json
 ```
 
 Invoke endpoint with http headers:
