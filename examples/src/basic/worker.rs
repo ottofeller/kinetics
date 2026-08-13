@@ -20,6 +20,7 @@ pub async fn worker(
     _config: &KineticsConfig,
 ) -> Result<QueueRetries, BoxError> {
     let mut retries = QueueRetries::new();
+    println!("Got batch of {} records", records.len());
 
     let first_record = match records.first() {
         Some(record) => record,

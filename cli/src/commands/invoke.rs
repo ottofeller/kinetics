@@ -33,7 +33,7 @@ pub(crate) struct InvokeCommand {
     ///
     /// For an endpoint, the payload is sent unchanged in the request body.
     /// For a worker, the payload must be a JSON array. Each array item becomes
-    /// the body of an individual worker message.
+    /// the body of an individual worker message. If omitted, an empty array is used.
     ///
     /// Example: --payload '[{"name": "John"}]'
     #[arg(short, long, conflicts_with = "payload_file")]

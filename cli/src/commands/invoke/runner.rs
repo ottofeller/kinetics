@@ -66,14 +66,9 @@ impl InvokeRunner<'_> {
 
         // Resolve the final payload based on the role
         let resolved_payload = match role {
-            Role::Endpoint => Some(payload.unwrap_or_else(|| "{}".into())),
+            Role::Endpoint => Some(payload.unwrap_or("{}".to_string())),
             Role::Worker => {
-                let payload = payload.ok_or_else(|| {
-                    Error::new(
-                        "No payload",
-                        Some("--payload or --payload-file is required with workers"),
-                    )
-                })?;
+                let payload = payload.unwrap_or("[]".to_string());
 
                 serde_json::from_str::<Vec<Value>>(&payload)
                     .wrap_err("Worker payload must be a top-level JSON array")?;
