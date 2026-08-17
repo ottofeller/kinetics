@@ -1,4 +1,4 @@
-use crate::tools::{config::Config as KineticsConfig, resource_name};
+use crate::tools::{config::Config as KineticsConfig, project_resource_name, ProjectResourceKind};
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use eyre::OptionExt;
@@ -117,7 +117,8 @@ impl Client {
                 // out of user and project names
                 let queue_name = std::env::var("KINETICS_QUEUE_NAME")
                     .or_else(|_| {
-                        Ok::<String, std::env::VarError>(resource_name(
+                        Ok::<String, std::env::VarError>(project_resource_name(
+                            ProjectResourceKind::Queue,
                             &std::env::var("KINETICS_USERNAME")
                                 .expect("KINETICS_USERNAME is not set"),
                             &project_name,
