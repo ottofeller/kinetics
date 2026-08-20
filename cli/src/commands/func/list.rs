@@ -132,7 +132,7 @@ impl ListRunner<'_> {
 
         if !endpoints.is_empty() {
             self.writer
-                .text(&format!("\n{}\n\n", "Endpoints".bold().green()))
+                .text(&format!("\n{}\n\n", "Endpoints".bold()))
                 .map_err(|e| eyre::eyre!(e))?;
 
             endpoints.iter().try_for_each(|f| self.display_simple(f))?;
@@ -140,7 +140,7 @@ impl ListRunner<'_> {
 
         if !workers.is_empty() {
             self.writer
-                .text(&format!("\n{}\n\n", "Workers".bold().green()))
+                .text(&format!("\n{}\n\n", "Workers".bold()))
                 .map_err(|e| eyre::eyre!(e))?;
 
             workers.iter().try_for_each(|f| self.display_simple(f))?;
@@ -148,7 +148,7 @@ impl ListRunner<'_> {
 
         if !crons.is_empty() {
             self.writer
-                .text(&format!("\n{}\n\n", "Crons".bold().green()))
+                .text(&format!("\n{}\n\n", "Crons".bold()))
                 .map_err(|e| eyre::eyre!(e))?;
 
             crons.iter().try_for_each(|f| self.display_simple(f))?;
@@ -255,7 +255,7 @@ impl ListRunner<'_> {
             table.with(Style::modern()).with(settings.clone());
 
             self.writer
-                .text(&format!("Endpoints\n{}\n", table))
+                .text(&format!("{}\n{}\n", "Endpoints".bold(), table))
                 .map_err(|e| eyre::eyre!(e))?;
         }
 
@@ -264,7 +264,7 @@ impl ListRunner<'_> {
             table.with(Style::modern()).with(settings.clone());
 
             self.writer
-                .text(&format!("Crons:\n{}\n", table))
+                .text(&format!("{}\n{}\n", "Crons".bold(), table))
                 .map_err(|e| eyre::eyre!(e))?;
         }
 
@@ -272,7 +272,7 @@ impl ListRunner<'_> {
             let mut table = Table::new(worker_rows.to_vec());
             table.with(Style::modern()).with(settings);
             self.writer
-                .text(&format!("Workers:\n{}\n", table))
+                .text(&format!("{}\n{}\n", "Workers".bold(), table))
                 .map_err(|e| eyre::eyre!(e))?;
         }
 
@@ -321,7 +321,7 @@ impl ListRunner<'_> {
         self.writer
             .text(&format!(
                 "{} {}\n",
-                function.func_name(false)?.bold(),
+                function.func_name(false)?,
                 function.to_string().dimmed(),
             ))
             .map_err(|e| eyre::eyre!(e))?;

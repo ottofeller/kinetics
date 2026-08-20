@@ -123,12 +123,10 @@ impl<'a> Migrations<'a> {
             .wrap_err("Failed to create a migration file")?;
 
         self.writer.text(&format!(
-            "{} {} {}\n",
-            console::style("Created migration").green().bold(),
+            "{} migration {} {}\n",
+            console::style("Created").bold(),
             console::style("at").dim(),
-            console::style(format!("{}", filepath.to_string_lossy()))
-                .underlined()
-                .bold(),
+            console::style(filepath.to_string_lossy()).underlined(),
         ))?;
 
         Ok(())

@@ -61,10 +61,10 @@ impl InvokeRunner<'_> {
 
         self.writer
             .text(&format!(
-                "\n{} {} {}...\n",
-                console::style("Invoking function").green().bold(),
+                "\n{} function {} {}...\n",
+                console::style("Invoking").bold(),
                 console::style("from").dimmed(),
-                console::style(&display_path).underlined().bold()
+                console::style(&display_path).underlined()
             ))
             .map_err(|e| eyre::eyre!(e))?;
 

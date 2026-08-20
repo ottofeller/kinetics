@@ -49,9 +49,9 @@ impl Runner for AddRunner<'_> {
         }
 
         self.writer.text(&format!(
-            "\n{} {}...\n\n",
-            console::style("Adding domain").bold().green(),
-            console::style(&self.command.domain_name).bold(),
+            "\n{} domain {}...\n\n",
+            console::style("Adding").bold(),
+            console::style(&self.command.domain_name).underlined(),
         ))?;
 
         let response = client
@@ -92,7 +92,7 @@ impl Runner for AddRunner<'_> {
 
         for ns in &resp.nameservers {
             self.writer
-                .text(&format!("  {}\n", console::style(ns).bold()))?;
+                .text(&format!("  {}\n", console::style(ns).underlined()))?;
         }
 
         project.domain_name = Some(self.command.domain_name.clone());

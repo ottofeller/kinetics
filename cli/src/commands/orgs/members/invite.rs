@@ -35,11 +35,10 @@ impl Runner for InviteMemberRunner<'_> {
         let client = self.api_client().await?;
 
         self.writer.text(&format!(
-            "\n{} {} {} {}...\n\n",
-            console::style("Inviting").bold().green(),
-            console::style(&email).bold(),
-            console::style("to").bold().green(),
-            console::style(&org).bold()
+            "\n{} {} {} {org}...\n\n",
+            console::style("Inviting").bold(),
+            console::style(&email).underlined(),
+            console::style("to").dim()
         ))?;
 
         client
@@ -54,7 +53,7 @@ impl Runner for InviteMemberRunner<'_> {
 
         self.writer.text(&format!(
             "Invitation has been sent. Please ask the person to check email.\n\n{}\n",
-            console::style("Done").green().bold()
+            console::style("Done").bold()
         ))?;
 
         self.writer
