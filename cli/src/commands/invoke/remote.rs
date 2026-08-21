@@ -120,7 +120,7 @@ impl InvokeRunner<'_> {
 
         self.writer.text(&format!(
             "\n{} {}...\n\n",
-            console::style("Invoke").bold(),
+            console::style("Invoking").bold(),
             function.name
         ))?;
 
