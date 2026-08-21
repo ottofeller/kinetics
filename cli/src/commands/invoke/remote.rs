@@ -171,16 +171,20 @@ impl InvokeRunner<'_> {
                 self.writer
                     .text(&format!("{}", console::style("Success\n").green()))?;
 
-                if let Some(payload) = &body.payload {
-                    self.writer.text(&format!(
-                        "{}",
-                        console::style(
-                            &String::from_utf8(payload.clone())
-                                .unwrap_or_else(|_e| "Not a string".into())
-                        )
-                        .yellow(),
-                    ))?;
-                }
+                match function.role {
+                    Role::Worker if let Some(payload) = &body.payload => {
+                        self.writer.text(&format!(
+                            "{}",
+                            console::style(
+                                &String::from_utf8(payload.clone())
+                                    .unwrap_or_else(|_e| "Not a string".into())
+                            )
+                            .yellow(),
+                        ))?;
+                    }
+                    // For cron no output is expected, so discard anything that arrives (e.g. "null" string).
+                    _ => (),
+                };
 
                 self.writer
                     .json(json!({"invoked": true, "success": true, "payload": body.payload}))?;
