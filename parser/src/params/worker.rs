@@ -95,7 +95,7 @@ impl Parse for Worker {
 
         Ok(Self {
             name,
-            concurrency: concurrency.unwrap_or(1),
+            concurrency: concurrency.unwrap_or(2),
             fifo: fifo.unwrap_or_default(),
             environment: environment.unwrap_or_default(),
             batch_size,
