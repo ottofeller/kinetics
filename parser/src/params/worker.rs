@@ -2,7 +2,7 @@ use crate::environment::{parse_environment, Environment};
 use serde::{Deserialize, Serialize};
 use syn::{
     parse::{Parse, ParseStream},
-    token, Ident, LitBool, LitInt, LitStr,
+    token, Ident, LitBool, LitInt,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,7 +16,7 @@ pub struct Worker {
 
 impl Parse for Worker {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut name = None;
+        let name = None;
         let mut concurrency = None;
         let mut fifo = None;
         let mut environment = None;
