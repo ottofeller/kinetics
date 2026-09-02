@@ -35,8 +35,8 @@ impl Runner for LogoutRunner<'_> {
         credentials.delete()?;
 
         self.writer.text(&format!(
-            "{}\n",
-            console::style("Successfully logged out").green().bold()
+            "{} logged out\n",
+            console::style("Successfully").bold()
         ))?;
 
         self.writer.json(json!({ "success": true }))?;

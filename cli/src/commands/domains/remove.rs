@@ -58,9 +58,9 @@ impl Runner for RemoveRunner<'_> {
         }
 
         self.writer.text(&format!(
-            "\n{} {}...\n\n",
-            console::style("Removing domain").bold().green(),
-            console::style(&domain_name).bold(),
+            "\n{} domain {}...\n\n",
+            console::style("Removing").bold(),
+            console::style(&domain_name).underlined(),
         ))?;
 
         let response = client
@@ -87,9 +87,9 @@ impl Runner for RemoveRunner<'_> {
             .map_err(|e| self.error(None, None, Some(e.into())))?;
 
         self.writer.text(&format!(
-            "{} {}\n",
-            console::style("Removed domain").bold().green(),
-            console::style(&domain_name).bold(),
+            "{} domain {}\n",
+            console::style("Removed").bold(),
+            console::style(&domain_name).underlined(),
         ))?;
 
         self.writer.json(json!({
