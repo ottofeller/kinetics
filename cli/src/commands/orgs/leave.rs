@@ -42,7 +42,7 @@ impl Runner for LeaveRunner<'_> {
         if !self.writer.is_structured() {
             self.writer.text(&format!(
                 "\nAre you sure you want to leave org {}? {} ",
-                org.clone().white().bold(),
+                org.clone().white(),
                 "[y/N]".dim()
             ))?;
 
@@ -65,9 +65,8 @@ impl Runner for LeaveRunner<'_> {
         }
 
         self.writer.text(&format!(
-            "\n{} {}...\n",
-            console::style("Leaving the org").bold().green(),
-            console::style(&org).bold(),
+            "\n{} the org {org}...\n",
+            console::style("Leaving").bold(),
         ))?;
 
         client
@@ -80,7 +79,7 @@ impl Runner for LeaveRunner<'_> {
             .await?;
 
         self.writer
-            .text(&format!("\n{}\n", console::style("Done").green().bold()))?;
+            .text(&format!("\n{}\n", console::style("Done").bold()))?;
 
         self.writer
             .json(json!({"success": true, "org": {"name": org}}))?;

@@ -35,10 +35,10 @@ impl InvokeRunner<'_> {
 
         self.writer
             .text(&format!(
-                "\n{} {} {}...\n",
-                console::style("Invoking remote function").green().bold(),
+                "\n{} remote function {} {}...\n",
+                console::style("Invoking").bold(),
                 console::style("from").dimmed(),
-                console::style(&display_path).underlined().bold()
+                console::style(&display_path).underlined()
             ))
             .map_err(|e| eyre::eyre!(e))?;
 
@@ -119,8 +119,9 @@ impl InvokeRunner<'_> {
         let client = self.api_client().await?;
 
         self.writer.text(&format!(
-            "\nInvoke {}...\n\n",
-            console::style(&function.name).bold()
+            "\n{} {}...\n\n",
+            console::style("Invoking").bold(),
+            function.name
         ))?;
 
         let response = client
@@ -169,7 +170,7 @@ impl InvokeRunner<'_> {
             func::invoke::Status::Success => {
                 self.writer.text("Function invoked\n")?;
                 self.writer
-                    .text(&format!("{}", console::style("Success\n").green()))?;
+                    .text(&format!("{}\n", console::style("Success").bold()))?;
 
                 match function.role {
                     Role::Worker if let Some(payload) = &body.payload => {

@@ -41,8 +41,8 @@ impl Runner for ListRunner<'_> {
         self.api_client().await?;
 
         self.writer.text(&format!(
-            "{}...\n\n",
-            console::style("Fetching projects").green().bold()
+            "{} projects...\n\n",
+            console::style("Fetching").bold()
         ))?;
 
         let project = self
@@ -70,7 +70,7 @@ impl Runner for ListRunner<'_> {
 
         for Project { name, url, .. } in &projects {
             self.writer
-                .text(&format!("{}\n{}\n\n", name.bold(), url.dimmed()))?;
+                .text(&format!("{name}\n{}\n\n", url.dimmed().underline()))?;
 
             projects_json.push(json!({"name": name, "url": url}));
         }

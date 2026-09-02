@@ -35,8 +35,8 @@ impl Runner for VersionsRunner<'_> {
         let client = self.api_client().await?;
 
         self.writer.text(&format!(
-            "{}...\n\n",
-            console::style("Fetching versions").green().bold()
+            "{} versions...\n\n",
+            console::style("Fetching").bold()
         ))?;
 
         let project = self.project(&self.command.project).await?;
@@ -77,7 +77,7 @@ impl Runner for VersionsRunner<'_> {
 
             self.writer.text(&format!(
                 "{} {}\n{}\n\n",
-                v.version.to_string().bold(),
+                v.version,
                 updated_at.dimmed(),
                 message
             ))?;
