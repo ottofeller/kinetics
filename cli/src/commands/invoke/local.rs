@@ -47,7 +47,7 @@ impl InvokeRunner<'_> {
         let mut secrets_envs = HashMap::new();
 
         // Envs with the prefix are then processed and provisioned as secrets
-        for (name, value) in Secrets::load() {
+        for (name, value) in Secrets::load(&project.path) {
             secrets_envs.insert(format!("KINETICS_SECRET_{}", name.clone()), value);
         }
 

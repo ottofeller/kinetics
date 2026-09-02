@@ -29,10 +29,10 @@ impl Parse for Worker {
 
             match ident.to_string().as_str() {
                 "name" => {
-                    if name.is_some() {
-                        return Err(syn::Error::new(ident_span, "Duplicate attribute `name`"));
-                    }
-                    name = Some(input.parse::<LitStr>()?.value());
+                    return Err(syn::Error::new(
+                        ident_span,
+                        "Workers are not allowed to have custom `name`",
+                    ));
                 }
                 "environment" => {
                     if environment.is_some() {
@@ -95,7 +95,7 @@ impl Parse for Worker {
 
         Ok(Self {
             name,
-            concurrency: concurrency.unwrap_or(1),
+            concurrency: concurrency.unwrap_or(2),
             fifo: fifo.unwrap_or_default(),
             environment: environment.unwrap_or_default(),
             batch_size,
