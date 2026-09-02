@@ -38,7 +38,8 @@ impl Runner for InvokeRunner<'_> {
                 self.command.with_migrations.clone()
             };
 
-            self.local(&function, migrations_path.as_deref()).await?
+            self.local(&function, &all_functions, migrations_path.as_deref())
+                .await?;
         } else {
             self.remote(function).await?
         }

@@ -113,22 +113,41 @@ impl Client {
                     aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await
                 };
 
-                // Use a hardcoded queue name for local invocations, otherwise generate the name
-                // out of user and project names
-                let queue_name = std::env::var("KINETICS_QUEUE_NAME")
-                    .or_else(|_| {
-                        Ok::<String, std::env::VarError>(project_resource_name(
-                            ProjectResourceKind::Queue,
-                            &std::env::var("KINETICS_USERNAME")
-                                .expect("KINETICS_USERNAME is not set"),
-                            &project_name,
-                            &kinetics_parser::ParsedFunction::to_local_name(&[
-                                crate_name,
-                                &module_path.replace("::", "/"),
-                            ]),
-                        ))
-                    })
-                    .expect("Queue name is not set");
+                // Resolve the queue the message should be delivered to:
+                // - locally - a per-worker named queue if the CLI provisioned one;
+                // - locally - unnamed local queue;
+                // - remotely - generate the name out of user and project names.
+                let worker_local_name = kinetics_parser::ParsedFunction::to_local_name(&[
+                    crate_name,
+                    &module_path.replace("::", "/"),
+                ]);
+
+                let queue_name = match std::env::var("KINETICS_QUEUE_NAME") {
+                    // Local invocation: the CLI sets the unnamed queue and,
+                    // optionally, the list of named per-worker queues it provisioned.
+                    Ok(generic_queue_name) => {
+                        let named_queues_raw =
+                            std::env::var("KINETICS_LOCAL_QUEUE_NAMES").unwrap_or_default();
+                        let named_queues: Vec<&str> = named_queues_raw
+                            .split(',')
+                            .map(str::trim)
+                            .filter(|name| !name.is_empty())
+                            .collect();
+
+                        if named_queues.iter().any(|name| *name == worker_local_name) {
+                            worker_local_name
+                        } else {
+                            generic_queue_name
+                        }
+                    }
+                    // Remote
+                    Err(_) => project_resource_name(
+                        ProjectResourceKind::Queue,
+                        &std::env::var("KINETICS_USERNAME").expect("KINETICS_USERNAME is not set"),
+                        &project_name,
+                        &worker_local_name,
+                    ),
+                };
 
                 eprintln!("Resolved Queue cache_key={cache_key}, queue_name={queue_name}");
 

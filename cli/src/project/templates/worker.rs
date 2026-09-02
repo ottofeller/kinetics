@@ -49,12 +49,16 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
                 for (index, payload) in payloads.into_iter().enumerate() {{
                     let mut sqs_message = SqsMessage::default();
                     sqs_message.message_id = Some(format!(\"test-{{}}\", index + 1));
-                    sqs_message.body = Some(serde_json::to_string(&payload).map_err(|err| {{
-                        std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            format!(\"Failed to serialize worker payload item {{}}: {{err}}\", index + 1),
-                        )
-                    }})?);
+
+                    sqs_message.body = Some(match &payload {{
+                        serde_json::Value::String(body) => body.clone(),
+                        other => serde_json::to_string(other).map_err(|err| {{
+                            std::io::Error::new(
+                                std::io::ErrorKind::InvalidData,
+                                format!(\"Failed to serialize worker payload item {{}}: {{err}}\", index + 1),
+                            )
+                        }})?,
+                    }});
                     records.push(sqs_message);
                 }}
 
@@ -65,8 +69,20 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
                 let context = lambda_runtime::Context::default();
                 let event = lambda_runtime::LambdaEvent::new(sqs_event, context);
 
-                if let Err(err) = user_function(QueueRecord::from_sqsevent(event)?, &secrets, &kinetics_config).await {{
-                    eprintln!(\"Request failed: {{:?}}\", err);
+                match user_function(QueueRecord::from_sqsevent(event)?, &secrets, &kinetics_config).await {{
+                    Ok(retries) => {{
+                        let retries = retries.collect();
+
+                        let failures = if retries.batch_item_failures.is_empty() {{
+                            \"none\".into()
+                        }} else {{
+                            serde_json::to_string(&retries.batch_item_failures).unwrap_or_default()
+                        }};
+                        println!(\"Batch item failures: {{failures}}\");
+                    }}
+                    Err(err) => {{
+                        eprintln!(\"Request failed: {{:?}}\", err);
+                    }}
                 }}
 
                 Ok(())
