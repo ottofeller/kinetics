@@ -2,6 +2,7 @@ use crate::api::client::Client;
 use crate::config::deploy::DeployConfig;
 use crate::error::Error;
 use crate::project::Project;
+use crate::secrets::Secrets;
 use base64::Engine as _;
 use crc_fast::{CrcAlgorithm::Crc64Nvme, Digest};
 use eyre::{eyre, ContextCompat, WrapErr};
@@ -32,17 +33,33 @@ pub struct Function {
 
     /// The project that contains the function, it belongs to Crate in the build directory
     pub project: Project,
+
+    /// Function-level secrets from the workspace member `.env.secrets`, if any.
+    pub secrets: Option<HashMap<String, String>>,
 }
 
 impl Function {
     /// Instantiate struct from parsed function data
     pub fn new(project: &Project, function: &ParsedFunction) -> eyre::Result<Self> {
+        let secrets = if !project.workspace.is_standalone_crate
+            && project.path == project.workspace.root_path
+        {
+            // Within workspace if package the function belongs to is not a project,
+            // read secrets from package and write them to the function.
+            Secrets::from_files(&[&project.workspace.root_path.join(&function.pkg_rel_path)])
+        } else {
+            // In standalone crate or workspace-root project
+            // all secrets are global and reside in project, nothing in function.
+            None
+        };
+
         Ok(Function {
             name: function.func_name(false)?,
             is_deploying: false,
             project: project.clone(),
             params: function.params.clone(),
             role: function.role.clone(),
+            secrets,
         })
     }
 
@@ -318,6 +335,7 @@ impl From<&Function> for kinetics_api::stack::deploy::FunctionRequest {
             params: function.params.clone(),
             role: function.role.clone(),
             environment: function.environment(),
+            secrets: function.secrets.clone().filter(|s| !s.is_empty()),
         }
     }
 }

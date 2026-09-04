@@ -150,6 +150,7 @@ pub struct FunctionRequest {
     pub role: Role,
     pub params: Params,
     pub environment: HashMap<String, String>,
+    pub secrets: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

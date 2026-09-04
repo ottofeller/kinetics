@@ -199,7 +199,17 @@ impl Project {
         version_message: Option<String>,
     ) -> eyre::Result<bool> {
         let client = Client::new(deploy_config.is_some()).await?;
-        let secrets = Secrets::load(&self.path);
+
+        let secrets = if self.path == self.workspace.root_path {
+            // A workspace-root project keeps root secrets only,
+            // while member secrets reside in functions (see Function::new).
+            Secrets::from_files(&[&self.workspace.root_path])
+        } else {
+            // A member project or standalone crate
+            // merges root and member secrets into the project section.
+            Secrets::from_files(&[&self.workspace.root_path, &self.path])
+        }
+        .unwrap_or_else(Secrets::from_env);
 
         if let Some(config) = deploy_config {
             return config.deploy(self, secrets, functions).await;
