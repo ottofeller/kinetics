@@ -29,8 +29,15 @@ impl InvokeRunner<'_> {
         let project = self.project(&self.command.project).await?;
         let mut secrets_envs = HashMap::new();
 
-        // Envs with the prefix are then processed and provisioned as secrets
-        for (name, value) in Secrets::load(&project.path) {
+        // Envs with the prefix are then processed and provisioned as secrets.
+        // Member secrets take priority over workspace root ones.
+        let secrets = if project.workspace.root_path == project.path {
+            Secrets::from_files(&[&project.path])
+        } else {
+            Secrets::from_files(&[&project.workspace.root_path, &project.path])
+        }
+        .unwrap_or_else(Secrets::from_env);
+        for (name, value) in secrets {
             secrets_envs.insert(format!("KINETICS_SECRET_{}", name.clone()), value);
         }
 
