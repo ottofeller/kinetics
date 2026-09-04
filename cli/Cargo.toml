@@ -73,6 +73,13 @@ twox-hash = "2.1.2"
 url = "2.5.8"
 users = "0.11.0"
 walkdir = "2.5.0"
+triomphe = "0.1.14"
+ra_ap_hir = "0.0.307"
+ra_ap_base_db = "0.0.307"
+ra_ap_syntax = "0.0.307"
+ra_ap_paths = "0.0.307"
+ra_ap_ide_db = "0.0.307"
+ra_ap_ide = "0.0.307"
 
 [package.metadata.kinetics.dependencies.common]
 aws-config = { version = "1.8.15" }
