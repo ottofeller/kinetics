@@ -37,7 +37,8 @@ impl Params {
         match self {
             Params::Endpoint(params) => params.name.as_ref(),
             Params::Cron(params) => params.name.as_ref(),
-            Params::Worker(params) => params.name.as_ref(),
+            // Workers are not currently allowed to have custom names
+            Params::Worker(_) => None,
         }
     }
 

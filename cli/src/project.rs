@@ -200,7 +200,7 @@ impl Project {
         version_message: Option<String>,
     ) -> eyre::Result<bool> {
         let client = Client::new(deploy_config.is_some()).await?;
-        let secrets = Secrets::load();
+        let secrets = Secrets::load(&self.path);
 
         if let Some(config) = deploy_config {
             return config.deploy(self, secrets, functions).await;

@@ -16,22 +16,15 @@ impl InvokeRunner<'_> {
     pub async fn remote(&mut self, function: Function) -> eyre::Result<()> {
         match function.role {
             Role::Endpoint => self.endpoint(function).await,
-            Role::Cron => self.worker_or_cron(function).await,
-            Role::Worker => {
-                if self.command.payload.is_none() {
-                    return Err(Error::new(
-                        "No payload",
-                        Some("--payload argument is required with workers"),
-                    )
-                    .into());
-                }
-
-                self.worker_or_cron(function).await
-            }
+            Role::Cron | Role::Worker => self.worker_or_cron(function).await,
         }
     }
 
     async fn endpoint(&self, function: Function) -> eyre::Result<()> {
+        let payload = self
+            .resolve_payload(&function.role)?
+            .expect("endpoint payload is always resolved");
+
         let project = self.project(&self.command.project).await?;
         let display_path = format!(
             "{}/{}/src/bin/{}.rs",
@@ -42,10 +35,10 @@ impl InvokeRunner<'_> {
 
         self.writer
             .text(&format!(
-                "\n{} {} {}...\n",
-                console::style("Invoking remote function").green().bold(),
+                "\n{} remote function {} {}...\n",
+                console::style("Invoking").bold(),
                 console::style("from").dimmed(),
-                console::style(&display_path).underlined().bold()
+                console::style(&display_path).underlined()
             ))
             .map_err(|e| eyre::eyre!(e))?;
 
@@ -94,7 +87,7 @@ impl InvokeRunner<'_> {
         let response = client
             .post(url)
             .headers(headers_map)
-            .body(self.command.payload.clone().unwrap_or_else(|| "{}".into()))
+            .body(payload)
             .send()
             .await
             .wrap_err("Failed to call function URL")?;
@@ -121,12 +114,14 @@ impl InvokeRunner<'_> {
     }
 
     async fn worker_or_cron(&mut self, function: Function) -> eyre::Result<()> {
+        let payload = self.resolve_payload(&function.role)?;
         let project = self.project(&self.command.project).await?;
         let client = self.api_client().await?;
 
         self.writer.text(&format!(
-            "\nInvoke {}...\n\n",
-            console::style(&function.name).bold()
+            "\n{} {}...\n\n",
+            console::style("Invoking").bold(),
+            function.name
         ))?;
 
         let response = client
@@ -135,7 +130,7 @@ impl InvokeRunner<'_> {
                 project: project.into(),
                 function_name: function.name,
                 payload: match function.role {
-                    Role::Worker => self.command.payload.take(),
+                    Role::Worker => payload,
                     Role::Cron => None,
                     _ => unreachable!(),
                 },
@@ -175,18 +170,22 @@ impl InvokeRunner<'_> {
             func::invoke::Status::Success => {
                 self.writer.text("Function invoked\n")?;
                 self.writer
-                    .text(&format!("{}", console::style("Success\n").green()))?;
+                    .text(&format!("{}\n", console::style("Success").bold()))?;
 
-                if let Some(payload) = &body.payload {
-                    self.writer.text(&format!(
-                        "{}",
-                        console::style(
-                            &String::from_utf8(payload.clone())
-                                .unwrap_or_else(|_e| "Not a string".into())
-                        )
-                        .yellow(),
-                    ))?;
-                }
+                match function.role {
+                    Role::Worker if let Some(payload) = &body.payload => {
+                        self.writer.text(&format!(
+                            "{}",
+                            console::style(
+                                &String::from_utf8(payload.clone())
+                                    .unwrap_or_else(|_e| "Not a string".into())
+                            )
+                            .yellow(),
+                        ))?;
+                    }
+                    // For cron no output is expected, so discard anything that arrives (e.g. "null" string).
+                    _ => (),
+                };
 
                 self.writer
                     .json(json!({"invoked": true, "success": true, "payload": body.payload}))?;

@@ -91,8 +91,7 @@ impl Runner for RollbackRunner<'_> {
                 "v{} ({})",
                 target_version.version,
                 target_version.updated_at.with_timezone(&chrono::Local)
-            ))
-            .bold(),
+            )),
         ))?;
 
         client
@@ -130,7 +129,7 @@ impl Runner for RollbackRunner<'_> {
         }
 
         self.writer
-            .text(&format!("{}\n", console::style("Done").green()))?;
+            .text(&format!("{}\n", console::style("Done").bold()))?;
 
         self.writer.json(json!({"success": true}))?;
         Ok(())

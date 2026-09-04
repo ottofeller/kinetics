@@ -2483,7 +2483,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics"
-version = "0.17.4"
+version = "0.17.7"
 dependencies = [
  "async-trait",
  "aws-config",
@@ -2543,7 +2543,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics-api"
-version = "0.17.4"
+version = "0.17.7"
 dependencies = [
  "chrono",
  "humantime",
@@ -2556,7 +2556,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics-lib"
-version = "0.17.4"
+version = "0.17.7"
 dependencies = [
  "aws-config",
  "aws-sdk-dsql",
@@ -2580,7 +2580,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics-macro"
-version = "0.17.4"
+version = "0.17.7"
 dependencies = [
  "kinetics-parser",
  "syn",
@@ -2588,7 +2588,7 @@ dependencies = [
 
 [[package]]
 name = "kinetics-parser"
-version = "0.17.4"
+version = "0.17.7"
 dependencies = [
  "color-eyre",
  "http 1.4.2",

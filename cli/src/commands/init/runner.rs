@@ -48,10 +48,10 @@ impl<'a> Runner for InitRunner<'a> {
         self.set_dir()?;
 
         self.writer.text(&format!(
-            "\n{} {} {}...\n",
-            console::style("Starting project").green().bold(),
+            "\n{} project {} {}...\n",
+            console::style("Starting").bold(),
             console::style("in").dim(),
-            console::style(&self.dir.to_string_lossy()).bold()
+            console::style(&self.dir.to_string_lossy()).underlined()
         ))?;
 
         // Create project directory
@@ -166,7 +166,7 @@ impl<'a> Runner for InitRunner<'a> {
         }
 
         self.writer
-            .text(&format!("{}\n", console::style("Done").bold().green()))?;
+            .text(&format!("{}\n", console::style("Done").bold()))?;
 
         self.writer.json(json!({"success": true}))?;
         Ok(())

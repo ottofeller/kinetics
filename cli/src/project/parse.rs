@@ -121,6 +121,14 @@ impl Project {
                 &mut checksum,
             )?;
 
+            // If project is a workspace member, skip parsing other members.
+            if !self.workspace.is_standalone_crate
+                && self.path != self.workspace.root_path
+                && src.join(&package.relative_path) != self.path
+            {
+                continue;
+            }
+
             let parsed_functions = Parser::new(&self.workspace.root_path, Some(package))?.functions;
             if parsed_functions.is_empty() {
                 continue;

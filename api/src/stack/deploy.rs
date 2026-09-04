@@ -121,9 +121,9 @@ fn validate_cron(function: &FunctionRequest, cron: &kinetics_parser::Cron) -> Ve
 fn validate_worker(function: &FunctionRequest, worker: &Worker) -> Vec<String> {
     let mut errors = Vec::new();
 
-    if worker.concurrency == 0 {
+    if worker.concurrency < 2 {
         errors.push(format!(
-            "Invalid worker \"{}\". Queue concurrency must be at least 1.",
+            "Invalid worker \"{}\". Queue concurrency must be at least 2.",
             function.name
         ));
     }

@@ -49,16 +49,14 @@ impl Runner for LoginRunner {
         }
 
         println!(
-            "{} {} {}",
+            "{} logged in via {}",
             console::style(if is_new_session {
-                "Successfully logged in"
+                "Successfully"
             } else {
-                "Already logged in"
+                "Already"
             })
-            .green()
             .bold(),
-            console::style("via").dim(),
-            console::style(&self.command.email).underlined().bold()
+            console::style(&self.command.email).underlined()
         );
 
         Ok(())

@@ -61,8 +61,8 @@ impl DeployRunner<'_> {
     /// Deploy only environment variables for functions
     async fn deploy_envs(&mut self, project: Project) -> eyre::Result<()> {
         self.writer.text(&format!(
-            "{}...\n",
-            console::style("Provisioning envs").green().bold()
+            "{} envs...\n",
+            console::style("Provisioning").bold()
         ))?;
 
         let client = self.api_client().await?;
@@ -77,7 +77,7 @@ impl DeployRunner<'_> {
         if functions.is_empty() {
             self.writer.text(&format!(
                 "{}\n",
-                console::style("No functions found").yellow().bold()
+                console::style("No functions found").yellow()
             ))?;
 
             return Ok(());
@@ -98,7 +98,7 @@ impl DeployRunner<'_> {
 
             self.writer.text(&format!(
                 "{} {}\n",
-                console::style(function.name.clone()).bold(),
+                function.name,
                 if envs_string.is_empty() {
                     console::style("None").dim().yellow()
                 } else {
@@ -146,7 +146,7 @@ impl DeployRunner<'_> {
         }
 
         self.writer
-            .text(&format!("{}\n", console::style("Done").green().bold()))?;
+            .text(&format!("{}\n", console::style("Done").bold()))?;
 
         Ok(())
     }
