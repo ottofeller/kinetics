@@ -1,6 +1,6 @@
 use super::database::AnalysisDatabase;
+use super::emission::EmissionPlan;
 use super::reachability::Reachability;
-use super::sources::FunctionSources;
 use eyre::{eyre, ContextCompat};
 use kinetics_parser::ParsedFunction;
 use ra_ap_hir::{attach_db, Function, Semantics};
@@ -23,38 +23,21 @@ impl TreeShaker {
         })
     }
 
-    /// Computes the sources needed for one parsed Kinetics function.
-    pub(crate) fn function_sources(
+    /// Computes how source files should be emitted for one parsed Kinetics function.
+    pub(crate) fn emission_plan(
         &self,
         parsed_function: &ParsedFunction,
-    ) -> eyre::Result<FunctionSources> {
+    ) -> eyre::Result<EmissionPlan> {
         let function = self.find_function(parsed_function)?;
-        let module_path = self.module_path(function);
         let reachability = Reachability::new(&self.database).build(function);
-        let sources = FunctionSources::build(&self.database, function, module_path, reachability);
-        sources.log_summary(&parsed_function.rust_function_name);
-        Ok(sources)
-    }
-
-    /// Returns semantic module names suitable for generated library imports.
-    fn module_path(&self, function: Function) -> Vec<String> {
-        let database = self.database.host.raw_database();
-        let mut modules = function.module(database).path_to_root(database);
-        modules.reverse();
-        let mut path = modules
-            .into_iter()
-            .filter_map(|module| {
-                let name = module.name(database)?;
-                let edition = module.krate().edition(database);
-                let displayed_name = name.display(database, edition).to_string();
-                Some(displayed_name)
-            })
-            .collect::<Vec<_>>();
-
-        if self.database.crate_root_path == self.database.package_root.join("src/main.rs") {
-            path.insert(0, "main".to_owned());
-        }
-        path
+        let plan = EmissionPlan::build(
+            &self.database,
+            function,
+            &parsed_function.rust_function_name,
+            reachability,
+        );
+        plan.log_summary(&parsed_function.rust_function_name);
+        Ok(plan)
     }
 
     /// Resolves the parser result through its physical source file and AST function definition.

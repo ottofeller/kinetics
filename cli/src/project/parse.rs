@@ -1,6 +1,6 @@
 use super::filehash::{FileHash, CHECKSUMS_FILENAME};
 use super::templates;
-use super::treeshake::{FunctionSources, TreeShaker};
+use super::treeshake::{EmissionPlan, FileEmission, TreeShaker};
 use super::Project;
 use crate::function::Function;
 use crate::project::dependencies::insert_lambda_dependency_group;
@@ -14,24 +14,14 @@ use walkdir::WalkDir;
 #[derive(Clone, Copy)]
 enum CopyMode<'a> {
     Exact,
-    TreeShaken(&'a FunctionSources),
+    TreeShaken(&'a EmissionPlan),
 }
 
 impl<'a> CopyMode<'a> {
-    fn function_sources_for(
-        self,
-        path: &Path,
-        relative_path: &Path,
-    ) -> Option<&'a FunctionSources> {
+    fn file_emission(self, path: &Path) -> eyre::Result<FileEmission> {
         match self {
-            Self::TreeShaken(plan)
-                if relative_path.starts_with("src")
-                    && path.extension().is_some_and(|extension| extension == "rs")
-                    && plan.is_module_file(path) =>
-            {
-                Some(plan)
-            }
-            Self::Exact | Self::TreeShaken(_) => None,
+            Self::Exact => Ok(FileEmission::Exact),
+            Self::TreeShaken(plan) => plan.file_emission(path),
         }
     }
 }
@@ -233,17 +223,11 @@ impl Project {
                 continue;
             }
 
-            let function_sources = mode.function_sources_for(src_path, src_relative);
-            if function_sources.is_some_and(|sources| !sources.should_keep(src_path)) {
-                log::trace!("pruning unreached file: {src_path:?}");
-                continue;
-            }
-
-            self.clean_copy(
+            self.copy_file(
                 src_path,
                 dst_dir,
                 &dst_rel_path.join(src_relative),
-                function_sources,
+                mode.file_emission(src_path)?,
                 checksum,
             )?;
         }
@@ -310,11 +294,11 @@ impl Project {
         package_root: &Path,
         dst: &Path,
         dst_pkg_path: &Path,
-        function_sources: &FunctionSources,
+        emission_plan: &EmissionPlan,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
         let src_lib_rs_path = package_root.join("src/lib.rs");
-        let lib = function_sources.emit_lib(&src_lib_rs_path)?;
+        let lib = emission_plan.emit_lib(&src_lib_rs_path)?;
 
         let relative_lib_path = dst_pkg_path.join("src/lib.rs");
         if checksum.update(
@@ -331,7 +315,7 @@ impl Project {
     /// Create a new workspace member for a function.
     ///
     /// Each function gets its own package in the workspace with:
-    /// - a full copy of the original package's source files;
+    /// - exact non-module files and only the module sources retained for the function;
     /// - `Cargo.toml` based on the original package's manifest with name changed and deps added;
     /// - remote and local lambda bins for the function.
     fn create_function_member(
@@ -346,14 +330,14 @@ impl Project {
         let member_dir = PathBuf::from(function_name);
         let pkg_rel_path = &parsed_function.pkg_rel_path;
         let package_root = src.join(pkg_rel_path);
-        let function_sources = shaker.function_sources(parsed_function)?;
+        let emission_plan = shaker.emission_plan(parsed_function)?;
 
         self.copy_tree(
             &package_root,
             dst,
             &member_dir,
             &[PathBuf::from("Cargo.toml"), PathBuf::from("src/lib.rs")],
-            CopyMode::TreeShaken(&function_sources),
+            CopyMode::TreeShaken(&emission_plan),
             checksum,
         )?;
         let lib_name = self.create_function_manifest(
@@ -363,18 +347,14 @@ impl Project {
             parsed_function,
             checksum,
         )?;
-        self.create_lib(&package_root, dst, &member_dir, &function_sources, checksum)?;
+        self.create_lib(&package_root, dst, &member_dir, &emission_plan, checksum)?;
 
         let bin_dir = member_dir.join("src/bin");
         fs::create_dir_all(dst.join(&bin_dir)).wrap_err(format!(
             "Failed to create dir for function member {function_name}"
         ))?;
 
-        let function_import = self.import_statement(
-            function_sources.module_path(),
-            &parsed_function.rust_function_name,
-            &lib_name,
-        );
+        let function_import = emission_plan.function_import(&lib_name);
 
         // Create src/bin/<func_name>.rs for the remote and local function
         self.create_lambda_bin(
@@ -537,48 +517,41 @@ impl Project {
         Ok(())
     }
 
-    /// Generate the import statement for the function
-    /// which is being deployed as a lambda
-    fn import_statement(&self, module_path: &[String], rust_name: &str, pkg_name: &str) -> String {
-        let pkg_name = pkg_name.replace('-', "_");
-        if module_path.is_empty() {
-            format!("use {pkg_name}::{rust_name};")
-        } else {
-            let module_path = module_path.join("::");
-            format!("use {pkg_name}::{module_path}::{rust_name};")
-        }
-    }
-
     /// Copy a file to the destination folder.
-    fn clean_copy(
+    fn copy_file(
         &self,
         src: &Path,
         dst_dir: &Path,
         dst_rel_path: &Path,
-        function_sources: Option<&FunctionSources>,
+        emission: FileEmission,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
         let dst_path_full = dst_dir.join(dst_rel_path);
-        // Copy all non .rs files without transforming their contents.
-        if src.extension().is_none_or(|ext| ext != "rs") {
-            let content = fs::read(src).wrap_err_with(|| format!("Failed to read file {src:?}"))?;
 
-            let content_hash = FileHash::hash_from_bytes(&content)
-                .wrap_err_with(|| format!("Failed to calculate hash from bytes of {src:?}"))?;
-
-            if checksum.update(dst_rel_path.to_path_buf(), &content_hash) {
-                log::debug!("Copy changed file {dst_path_full:?}");
-                fs::copy(src, &dst_path_full).wrap_err_with(|| {
-                    format!("Failed to copy file {src:?} -> {dst_path_full:?}")
-                })?;
+        let content = match emission {
+            FileEmission::Skip => {
+                log::trace!("pruning unreached file: {src:?}");
+                return Ok(());
             }
-            return Ok(());
-        }
+            // Preserve the existing byte-copy path for assets and other non-Rust files.
+            FileEmission::Exact if src.extension().is_none_or(|ext| ext != "rs") => {
+                let content =
+                    fs::read(src).wrap_err_with(|| format!("Failed to read file {src:?}"))?;
+                let content_hash = FileHash::hash_from_bytes(&content)
+                    .wrap_err_with(|| format!("Failed to calculate hash from bytes of {src:?}"))?;
 
-        let content = if let Some(function_sources) = function_sources {
-            function_sources.emit_file_content(src)?.into_bytes()
-        } else {
-            fs::read(src).wrap_err_with(|| format!("Failed to read file {src:?}"))?
+                if checksum.update(dst_rel_path.to_path_buf(), &content_hash) {
+                    log::debug!("Copy changed file {dst_path_full:?}");
+                    fs::copy(src, &dst_path_full).wrap_err_with(|| {
+                        format!("Failed to copy file {src:?} -> {dst_path_full:?}")
+                    })?;
+                }
+                return Ok(());
+            }
+            FileEmission::Exact => {
+                fs::read(src).wrap_err_with(|| format!("Failed to read file {src:?}"))?
+            }
+            FileEmission::Rendered(content) => content.into_bytes(),
         };
 
         if checksum.update(

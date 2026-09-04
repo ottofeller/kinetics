@@ -76,7 +76,7 @@ pub(super) enum RetentionMode {
 
 impl RetentionMode {
     /// Records only the first reason requiring full retention.
-    fn require_full(&mut self, reason: FullRetentionReason) {
+    pub(super) fn require_full(&mut self, reason: FullRetentionReason) {
         if matches!(self, Self::Selective) {
             log::trace!("TreeShaker full retention: {reason}");
             *self = Self::Full { reason };
