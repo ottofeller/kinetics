@@ -65,10 +65,8 @@ impl DeployRunner<'_> {
             console::style("Provisioning").bold()
         ))?;
 
-        let client = self.api_client().await?;
-
         let functions: Vec<Function> = project
-            .parse(&self.command.functions)?
+            .parse_with_package(&self.command.functions, self.command.package.as_deref())?
             .iter()
             .filter(|f| f.is_deploying)
             .cloned()
@@ -82,6 +80,8 @@ impl DeployRunner<'_> {
 
             return Ok(());
         }
+
+        let client = self.api_client().await?;
 
         // Collect environment variables from all functions
         // {"<Function name>": {"<Env>": "<Value>"}}
@@ -157,6 +157,7 @@ impl DeployRunner<'_> {
             .set_max_concurrent(self.command.max_concurrency)
             .with_deploy_enabled(true)
             .with_hotswap(self.command.hotswap)
+            .with_package(self.command.package.clone())
             .with_version_message(self.command.message.clone())
             .set_project(project)
             .build()

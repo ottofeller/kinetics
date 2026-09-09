@@ -23,6 +23,10 @@ pub(crate) struct DeployCommand {
     #[arg(value_delimiter = ',')]
     functions: Vec<String>,
 
+    /// Deploy only functions from the workspace package with this Cargo package name
+    #[arg(long)]
+    package: Option<String>,
+
     /// Message to include in the deployment (max 100 characters)
     #[arg(short, long)]
     message: Option<String>,

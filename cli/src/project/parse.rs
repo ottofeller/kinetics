@@ -26,6 +26,30 @@ impl Project {
         // to mark the requested functions as requested for deployment
         deploy_functions: &[String],
     ) -> eyre::Result<Vec<Function>> {
+        self.parse_with_package(deploy_functions, None)
+    }
+
+    /// Prepare every project function, selecting a package and function names for deployment.
+    pub(crate) fn parse_with_package(
+        &self,
+        deploy_functions: &[String],
+        package_name: Option<&str>,
+    ) -> eyre::Result<Vec<Function>> {
+        let selected_package = package_name
+            .map(|name| self.workspace.package(name))
+            .transpose()?;
+
+        if let (Some(package), Some(name)) = (selected_package, package_name) {
+            if !self.workspace.is_standalone_crate
+                && self.path != self.workspace.root_path
+                && self.workspace.root_path.join(&package.relative_path) != self.path
+            {
+                eyre::bail!(
+                    "Package `{name}` is outside the current Kinetics project; use --project to select its project",
+                );
+            }
+        }
+
         let src = &self.workspace.root_path;
         let dst = self.build_path()?;
         // Checksums of source files for preventing rewrite existing files
@@ -143,19 +167,25 @@ impl Project {
         checksum.save().wrap_err("Failed to save checksums")?;
         self.clear_dir(&dst, &checksum)?;
 
-        all_functions
+        let functions = all_functions
             .into_iter()
             .map(|f| {
                 let name = f.func_name(false)?;
+                let is_deploying = selected_package
+                    .is_none_or(|package| package.relative_path == f.pkg_rel_path)
+                    && (deploy_functions.is_empty() || deploy_functions.contains(&name));
 
-                Function::new(self, &f).map(|f| {
-                    // Mark function as requested (or not) for deployment
-                    f.set_is_deploying(
-                        deploy_functions.is_empty() || deploy_functions.contains(&name),
-                    )
-                })
+                Function::new(self, &f).map(|f| f.set_is_deploying(is_deploying))
             })
-            .collect::<eyre::Result<Vec<_>>>()
+            .collect::<eyre::Result<Vec<_>>>()?;
+
+        if let Some(name) = package_name {
+            if !functions.iter().any(|function| function.is_deploying) {
+                eyre::bail!("No functions match the selection in package `{name}`");
+            }
+        }
+
+        Ok(functions)
     }
 
     /// Clone the package dir to a new directory

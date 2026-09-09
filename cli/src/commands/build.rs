@@ -14,6 +14,10 @@ pub(crate) struct BuildCommand {
     #[arg(short, long, value_delimiter = ',')]
     pub(crate) functions: Vec<String>,
 
+    /// Build only functions from the workspace package with this Cargo package name
+    #[arg(long)]
+    pub(crate) package: Option<String>,
+
     /// Relative path to the project directory
     #[arg(long)]
     pub(crate) project: Option<PathBuf>,

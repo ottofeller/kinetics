@@ -172,22 +172,26 @@ You can then interact with it like you normally interact with a SQL DB, [example
 Enable DataDog integration in the following way.
 
 1. Set env var with DataDog API key:
+
 ```shell
 export DD_API_KEY=NNN
 ```
 
 2. Add `[observability]` section in `kinetics.toml`, with `dd_api_key_env` set to the env var name from the previous step:
+
 ```toml
 [observability]
 dd_api_key_env = "DD_API_KEY"
 ```
 
 3. Deploy the example:
+
 ```shell
 kinetics deploy DatadogDatadog
 ```
 
 4. Call the deployed function remotely, and then check the logs and metrics in DataDog dashboard (may take a few minutes to ingest):
+
 ```shell
 kinetics invoke DatadogDatadog --remote
 ```
@@ -239,6 +243,13 @@ Deploy individual functions:
 kinetics deploy DatabaseDatabase,BasicWorkerWorker
 ```
 
+Build or deploy only the functions in one workspace package:
+
+```sh
+kinetics build --package api
+kinetics deploy --package api
+```
+
 Deploy faster, but without the ability to roll back.
 
 ```sh
@@ -281,14 +292,19 @@ kinetics func stats BasicEndpointEndpoint
 Use `tokio::sync::OnceCell` to have code run once before handling requests (e.g. initialize tracing library or get some constant values): [examples/src/init_once.rs](/examples/src/init_once.rs).
 
 ## CI/CD
+
 ### Initializing
+
 A GitHub workflow is automatically created in projects initialized with `kientics init`. If you need to add GitHub workflow in existing project do the following in the dir of the project:
+
 ```sh
 kinetic cicd init
 ```
 
 ### Access token
+
 To make GitHub workflow work you need to provide it with kinetics access token:
+
 - After calling `kinetics init <project-name>`
 - In your terminal run `kinetics auth token` to get a token (you need to be logged in)
 - Add it as `KINETICS_ACCESS_TOKEN` secret to your repo to enable deploys (check example below).
@@ -296,6 +312,7 @@ To make GitHub workflow work you need to provide it with kinetics access token:
 This workflow enables automatic cloud deployment of any update in the main branch.
 
 ### Secrets
+
 In order to provide your functions with secrets residing in `.env.secrets` you need to add them to the `env` section of the `Run kinetics deploy` step with `KINETICS_SECRET_` prefix, e.g.:
 
 ```yaml
