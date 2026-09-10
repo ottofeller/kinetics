@@ -35,7 +35,7 @@ pub struct Function {
     pub project: Project,
 
     /// Function-level secrets from the workspace member `.env.secrets`, if any.
-    pub secrets: Option<HashMap<String, String>>,
+    pub secrets: Option<kinetics_api::stack::deploy::FunctionSecrets>,
 }
 
 impl Function {
@@ -46,7 +46,12 @@ impl Function {
         {
             // Within workspace if package the function belongs to is not a project,
             // read secrets from package and write them to the function.
-            Secrets::from_files(&[&project.workspace.root_path.join(&function.pkg_rel_path)])
+            Secrets::from_files(&[&project.workspace.root_path.join(&function.pkg_rel_path)]).map(
+                |values| kinetics_api::stack::deploy::FunctionSecrets {
+                    scope: function.pkg_name.clone(),
+                    values,
+                },
+            )
         } else {
             // In standalone crate or workspace-root project
             // all secrets are global and reside in project, nothing in function.
@@ -335,7 +340,7 @@ impl From<&Function> for kinetics_api::stack::deploy::FunctionRequest {
             params: function.params.clone(),
             role: function.role.clone(),
             environment: function.environment(),
-            secrets: function.secrets.clone().filter(|s| !s.is_empty()),
+            secrets: function.secrets.clone().filter(|s| !s.values.is_empty()),
         }
     }
 }
