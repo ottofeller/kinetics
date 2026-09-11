@@ -164,8 +164,8 @@ impl Project {
                 .wrap_err("Failed to write workspace Cargo.toml")?;
         }
 
-        checksum.save().wrap_err("Failed to save checksums")?;
         self.clear_dir(&dst, &checksum)?;
+        checksum.save().wrap_err("Failed to save checksums")?;
 
         let functions = all_functions
             .into_iter()
@@ -210,15 +210,13 @@ impl Project {
         .chain(skip_more.iter().map(|p| src.join(p)))
         .collect::<Vec<_>>();
 
-        for entry in WalkDir::new(src)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|entry| {
-                !skip_paths
-                    .iter()
-                    .any(|prefix| entry.path().starts_with(prefix))
-            })
-        {
+        for entry in WalkDir::new(src).into_iter().filter_entry(|entry| {
+            !skip_paths
+                .iter()
+                .any(|prefix| entry.path().starts_with(prefix))
+        }) {
+            let entry =
+                entry.wrap_err_with(|| format!("Failed to read source directory {src:?}"))?;
             let src_path = entry.path();
 
             // Strip leading path from source to create relative path in destination
@@ -246,7 +244,10 @@ impl Project {
     /// Remove files that are not present in the source directory
     /// but still exist in the target directory.
     fn clear_dir(&self, dst: &Path, checksum: &FileHash) -> eyre::Result<()> {
-        for entry in WalkDir::new(dst).into_iter().filter_map(|e| e.ok()) {
+        let mut entries = WalkDir::new(dst).into_iter();
+        while let Some(entry) = entries.next() {
+            let entry =
+                entry.wrap_err_with(|| format!("Failed to read build directory {dst:?}"))?;
             let path = entry.path();
 
             let Ok(src_relative) = path.strip_prefix(dst) else {
@@ -254,22 +255,28 @@ impl Project {
             };
 
             // Leave intact:
+            // - the build directory itself;
             // - the `target` folder;
             // - `.checksums` file.
             // - `Cargo.lock` file.
-            // - non *.rs files
-            if src_relative.extension().is_some_and(|ext| ext != "rs")
-                || src_relative.strip_prefix("target").is_ok()
+            if src_relative.as_os_str().is_empty() {
+                continue;
+            }
+            if src_relative.strip_prefix("target").is_ok()
                 || src_relative
                     .to_str()
                     .is_some_and(|p| p == CHECKSUMS_FILENAME || p == "Cargo.lock")
             {
+                if entry.file_type().is_dir() {
+                    entries.skip_current_dir();
+                }
                 continue;
             };
 
-            if path.is_dir() {
-                // Delete all folders except those known from file paths in .checksums.
+            if entry.file_type().is_dir() {
+                // Delete folders with no files registered during this parse.
                 if !checksum.has_folder(src_relative) {
+                    entries.skip_current_dir();
                     fs::remove_dir_all(path).wrap_err(format!(
                         "Failed to delete an obsolete folder {src_relative:?}"
                     ))?;
@@ -277,7 +284,7 @@ impl Project {
                 continue;
             }
 
-            // Delete files not in .checksums.
+            // Delete files not registered during this parse.
             if !checksum.has_file(src_relative) {
                 fs::remove_file(path).wrap_err(format!(
                     "failed to delete an obsolete file {src_relative:?}"
@@ -603,6 +610,7 @@ impl Project {
         let dst_path_full = dst_dir.join(dst_rel_path);
         // For all non .rs files just copy it.
         if src.extension().is_none_or(|ext| ext != "rs") {
+            checksum.register(dst_rel_path.to_path_buf());
             log::debug!("Copy without checksum {dst_path_full:?}");
             return fs::copy(src, &dst_path_full)
                 .wrap_err_with(|| format!("Failed to copy file {src:?} -> {dst_path_full:?}"))
