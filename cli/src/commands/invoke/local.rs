@@ -41,6 +41,16 @@ impl InvokeRunner<'_> {
             secrets_envs.insert(format!("KINETICS_SECRET_{}", name.clone()), value);
         }
 
+        let function_secrets = |function: &Function| {
+            let mut envs = secrets_envs.clone();
+            if let Some(secrets) = &function.secrets {
+                for (name, value) in &secrets.values {
+                    envs.insert(format!("KINETICS_SECRET_{}", name.clone()), value.clone());
+                }
+            }
+            envs
+        };
+
         let invoke_dir = project.build_path()?;
         let display_path = format!(
             "{}/{}/src/bin/{}Local.rs",
@@ -162,7 +172,7 @@ impl InvokeRunner<'_> {
         let output = self.invoke_local_binary(
             function,
             &invoke_dir,
-            &secrets_envs,
+            &function_secrets(function),
             &aws_credentials,
             &local_environment,
             payload.as_deref(),
@@ -189,7 +199,7 @@ impl InvokeRunner<'_> {
                 self.invoke_local_binary(
                     &worker,
                     &invoke_dir,
-                    &secrets_envs,
+                    &function_secrets(&worker),
                     &aws_credentials,
                     &local_environment,
                     Some(&payload),
