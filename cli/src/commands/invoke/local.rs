@@ -31,7 +31,7 @@ impl InvokeRunner<'_> {
 
         // Envs with the prefix are then processed and provisioned as secrets.
         // Member secrets take priority over workspace root ones.
-        let secrets = if project.workspace.root_path == project.path {
+        let secrets = if project.is_ws_root() {
             Secrets::from_files(&[&project.path])
         } else {
             Secrets::from_files(&[&project.workspace.root_path, &project.path])

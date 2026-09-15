@@ -96,7 +96,7 @@ impl Project {
 
             // If project is a workspace member, skip parsing other members.
             if !self.workspace.is_standalone_crate
-                && self.path != self.workspace.root_path
+                && !self.is_ws_root()
                 && src.join(&package.relative_path) != self.path
             {
                 continue;
