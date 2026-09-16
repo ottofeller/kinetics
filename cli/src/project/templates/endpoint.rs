@@ -130,13 +130,17 @@ pub fn endpoint(
                         .tag_list
                         .unwrap_or_default();
 
-                    let name = match tags.iter().find(|t| t.key() == \"original_name\") {{
-                        Some(tag) => tag.value(),
-                        None => &secret_name.clone(),
-                    }};
+                    let name = tags
+                        .iter()
+                        .find(|t| t.key() == \"original_name\")
+                        .map(|t| t.value().to_string())
+                        .ok_or(format!(
+                            \"Secret {{}} not found\",
+                            secret_name
+                        ))?;
 
                     let secret_value = result.value().unwrap();
-                    secrets.insert(name.into(), secret_value.to_string());
+                    secrets.insert(name, secret_value.to_string());
                 }}
 
                 let endpoint_config = {config};

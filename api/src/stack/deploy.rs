@@ -150,6 +150,15 @@ pub struct FunctionRequest {
     pub role: Role,
     pub params: Params,
     pub environment: HashMap<String, String>,
+    /// Secrets applied only to this function
+    pub secrets: Option<FunctionSecrets>,
+}
+
+/// Function-level secrets scoped by their workspace package
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct FunctionSecrets {
+    pub scope: String,
+    pub values: HashMap<String, String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
