@@ -48,8 +48,8 @@ impl Runner for ListRunner<'_> {
 
         let envs = if self.command.remote {
             self.writer.text(&format!(
-                "{}...\n\n",
-                console::style("Fetching env vars").green().bold()
+                "{} env vars...\n\n",
+                console::style("Fetching").bold()
             ))?;
 
             remote(&project, &parsed_functions)
@@ -57,8 +57,8 @@ impl Runner for ListRunner<'_> {
                 .map_err(|e| self.server_error(Some(e.into())))?
         } else {
             self.writer.text(&format!(
-                "{}\n\n",
-                console::style("Showing local env vars").bold().green()
+                "{} local env vars\n\n",
+                console::style("Showing").bold()
             ))?;
 
             local(&project)
@@ -93,9 +93,9 @@ impl Runner for ListRunner<'_> {
                 .to_string();
 
             self.writer.text(&format!(
-                "{} {}\n",
-                function_name.as_str().bold(),
-                format!("from {}", path).dim()
+                "{function_name} {} {}\n",
+                "from".dim(),
+                path.dim().underlined()
             ))?;
 
             envs_json.insert(function_name.clone(), json!(env_vars));

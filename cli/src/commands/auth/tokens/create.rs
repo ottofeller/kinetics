@@ -36,8 +36,8 @@ impl Runner for CreateRunner<'_> {
     /// Creates a new authentication token
     async fn run(&mut self) -> Result<(), Error> {
         self.writer.text(&format!(
-            "\n{}...\n",
-            console::style("Requesting new access token").bold().green()
+            "\n{} new access token...\n",
+            console::style("Requesting").bold()
         ))?;
 
         let client = self.api_client().await?;

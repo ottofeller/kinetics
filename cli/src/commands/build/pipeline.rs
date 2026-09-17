@@ -14,6 +14,7 @@ pub struct Pipeline<'a> {
     is_deploy_enabled: bool,
     is_hotswap: bool,
     project: Project,
+    package: Option<String>,
     max_concurrent: usize,
     deploy_config: Option<Arc<dyn DeployConfig>>,
     writer: &'a Writer,
@@ -57,7 +58,9 @@ impl<'a> Pipeline<'a> {
         ))?;
 
         // All functions to add to the template
-        let all_functions = self.project.parse(deploy_functions)?;
+        let all_functions = self
+            .project
+            .parse_with_package(deploy_functions, self.package.as_deref())?;
 
         // Clear the previous line, the "Preparing..." step is not a part of the build pipeline
         self.writer.text("\r\x1B[K")?;
@@ -136,14 +139,6 @@ impl<'a> Pipeline<'a> {
                 }?;
 
                 pipeline_progress.increase_current_function_position();
-
-                if let Err(error) = tokio::fs::remove_file(function.bundle_path()?).await {
-                    log::error!(
-                        "Failed to remove file {:?} with error {}",
-                        function.bundle_path(),
-                        error,
-                    );
-                };
 
                 Ok(())
             })
@@ -273,6 +268,7 @@ pub struct PipelineBuilder<'a> {
     is_deploy_enabled: Option<bool>,
     is_hotswap: Option<bool>,
     project: Option<Project>,
+    package: Option<String>,
     max_concurrent: Option<usize>,
     deploy_config: Option<Arc<dyn DeployConfig>>,
     writer: &'a Writer,
@@ -285,6 +281,7 @@ impl<'a> PipelineBuilder<'a> {
             project: self
                 .project
                 .ok_or_eyre("No project provided to the pipeline")?,
+            package: self.package,
             is_deploy_enabled: self.is_deploy_enabled.unwrap_or(false),
             is_hotswap: self.is_hotswap.unwrap_or(false),
             max_concurrent: self.max_concurrent.unwrap_or(10),
@@ -306,6 +303,11 @@ impl<'a> PipelineBuilder<'a> {
 
     pub fn set_project(mut self, project: Project) -> Self {
         self.project = Some(project);
+        self
+    }
+
+    pub fn with_package(mut self, package: Option<String>) -> Self {
+        self.package = package;
         self
     }
 

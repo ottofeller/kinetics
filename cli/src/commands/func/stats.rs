@@ -57,10 +57,10 @@ impl Runner for StatsRunner<'_> {
         let client = self.api_client().await?;
 
         self.writer.text(&format!(
-            "\n{} {} {}...\n\n",
-            console::style("Fetching stats").bold().green(),
+            "\n{} stats {} {}...\n\n",
+            console::style("Fetching").bold(),
             console::style("for").dim(),
-            console::style(&function.name).bold()
+            function.name
         ))?;
 
         let response = client

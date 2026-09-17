@@ -46,8 +46,8 @@ impl Runner for DeleteMemberRunner<'_> {
         if !self.writer.is_structured() {
             self.writer.text(&format!(
                 "\nAre you sure you want to remove {} from {}? {} ",
-                username.clone().white().bold(),
-                org.clone().white().bold(),
+                username.clone().white(),
+                org.clone().white(),
                 "[y/N]".dim()
             ))?;
 
@@ -70,8 +70,8 @@ impl Runner for DeleteMemberRunner<'_> {
         }
 
         self.writer.text(&format!(
-            "\n{}...\n",
-            console::style("Removing member").bold().green()
+            "\n{} member...\n",
+            console::style("Removing").bold()
         ))?;
 
         client
@@ -85,7 +85,7 @@ impl Runner for DeleteMemberRunner<'_> {
             .await?;
 
         self.writer
-            .text(&format!("\n{}\n", console::style("Done").green().bold()))?;
+            .text(&format!("\n{}\n", console::style("Done").bold()))?;
 
         self.writer
             .json(json!({"success": true, "org": org, "username": username}))?;

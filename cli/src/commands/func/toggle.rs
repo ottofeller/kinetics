@@ -85,8 +85,8 @@ impl Runner for ToggleRunner<'_> {
 
         self.writer.text(&format!(
             "\n{} {}...\n\n",
-            console::style(format!("{}", self.op)).bold().green(),
-            console::style(&function.name).bold()
+            console::style(format!("{}", self.op)).bold(),
+            function.name
         ))?;
 
         let response = client
@@ -109,7 +109,7 @@ impl Runner for ToggleRunner<'_> {
         match response.status() {
             status if status.is_success() => {
                 self.writer
-                    .text(&format!("{}\n", console::style("Done").bold().green()))?;
+                    .text(&format!("{}\n", console::style("Done").bold()))?;
 
                 self.writer
                     .json(json!({"success": true, "is_throttled": is_throttled}))?;

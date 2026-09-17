@@ -1,3 +1,4 @@
+pub mod invoke;
 pub mod logs;
 pub mod stats;
 pub mod status;

@@ -2,7 +2,7 @@ use crate::environment::{parse_environment, Environment};
 use serde::{Deserialize, Serialize};
 use syn::{
     parse::{Parse, ParseStream},
-    token, Ident, LitBool, LitInt, LitStr,
+    token, Ident, LitBool, LitInt,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,7 +16,7 @@ pub struct Worker {
 
 impl Parse for Worker {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut name = None;
+        let name = None;
         let mut concurrency = None;
         let mut fifo = None;
         let mut environment = None;
@@ -29,10 +29,10 @@ impl Parse for Worker {
 
             match ident.to_string().as_str() {
                 "name" => {
-                    if name.is_some() {
-                        return Err(syn::Error::new(ident_span, "Duplicate attribute `name`"));
-                    }
-                    name = Some(input.parse::<LitStr>()?.value());
+                    return Err(syn::Error::new(
+                        ident_span,
+                        "Workers are not allowed to have custom `name`",
+                    ));
                 }
                 "environment" => {
                     if environment.is_some() {
@@ -95,7 +95,7 @@ impl Parse for Worker {
 
         Ok(Self {
             name,
-            concurrency: concurrency.unwrap_or(1),
+            concurrency: concurrency.unwrap_or(2),
             fifo: fifo.unwrap_or_default(),
             environment: environment.unwrap_or_default(),
             batch_size,

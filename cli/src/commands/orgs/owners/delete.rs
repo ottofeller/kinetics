@@ -47,8 +47,8 @@ impl Runner for DeleteOwnerRunner<'_> {
         if !self.writer.is_structured() {
             self.writer.text(&format!(
                 "\nAre you sure you want to demote {} from being an owner of {}? {} ",
-                username.clone().white().bold(),
-                org.clone().white().bold(),
+                username.clone().white(),
+                org.clone().white(),
                 "[y/N]".dim()
             ))?;
 
@@ -71,8 +71,8 @@ impl Runner for DeleteOwnerRunner<'_> {
         }
 
         self.writer.text(&format!(
-            "\n{}...\n",
-            console::style("Demoting owner").bold().green()
+            "\n{} owner...\n",
+            console::style("Demoting").bold()
         ))?;
 
         let request = Request {
@@ -89,7 +89,7 @@ impl Runner for DeleteOwnerRunner<'_> {
             .await?;
 
         self.writer
-            .text(&format!("\n{}\n", console::style("Done").green().bold()))?;
+            .text(&format!("\n{}\n", console::style("Done").bold()))?;
 
         self.writer
             .json(json!({"success": true, "org": org, "username": username}))?;

@@ -9,6 +9,7 @@ local-sqs:
         - "{{PORT}}"
 "#;
 
+#[derive(Clone)]
 pub struct LocalQueue {
     name: String,
     port: u16,
@@ -22,6 +23,14 @@ impl LocalQueue {
         }
     }
 
+    /// A queue with an explicit name
+    pub fn named(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            port: 9324,
+        }
+    }
+
     pub fn docker_compose_snippet(&self) -> String {
         DOCKER_COMPOSE_SNIPPET.replace(
             "{{PORT}}",
@@ -30,17 +39,7 @@ impl LocalQueue {
     }
 
     pub async fn provision(&self) -> eyre::Result<()> {
-        // Configure AWS client
-        let config = aws_config::defaults(BehaviorVersion::latest())
-            .endpoint_url("http://localhost:9324")
-            .region("us-east-1")
-            .credentials_provider(aws_sdk_sqs::config::Credentials::new(
-                "key", "secret", None, None, "provider",
-            ))
-            .load()
-            .await;
-
-        let client = aws_sdk_sqs::Client::new(&config);
+        let client = self.client().await;
 
         // Retry parameters
         let max_retries = 5;
@@ -69,8 +68,27 @@ impl LocalQueue {
         Ok(())
     }
 
-    pub fn name(&self) -> String {
-        self.name.clone()
+    /// Build an SQS client configured for the local queue.
+    pub async fn client(&self) -> aws_sdk_sqs::Client {
+        let config = aws_config::defaults(BehaviorVersion::latest())
+            .endpoint_url(self.endpoint_url())
+            .region("us-east-1")
+            .credentials_provider(aws_sdk_sqs::config::Credentials::new(
+                "key", "secret", None, None, "provider",
+            ))
+            .load()
+            .await;
+
+        aws_sdk_sqs::Client::new(&config)
+    }
+
+    /// The fixed account id used by the local SQS emulator.
+    pub fn account_id(&self) -> &str {
+        "000000000000"
+    }
+
+    pub fn name(&self) -> &str {
+        self.name.as_str()
     }
 
     pub fn endpoint_url(&self) -> String {

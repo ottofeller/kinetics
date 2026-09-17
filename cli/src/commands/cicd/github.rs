@@ -69,9 +69,7 @@ pub fn workflow(project: &Project, is_silent: bool, writer: &Writer) -> eyre::Re
         return Err(Error::new(
             &format!(
                 "Workflow already exists\n{}",
-                console::style(deploy_workflow_path.to_string_lossy())
-                    .bold()
-                    .underlined(),
+                console::style(deploy_workflow_path.to_string_lossy()).underlined(),
             ),
             None,
         )
@@ -90,7 +88,6 @@ pub fn workflow(project: &Project, is_silent: bool, writer: &Writer) -> eyre::Re
             "\n{}\n{}\n\n{}\n{}\n",
             console::style("Added CI/CD config files at").dim(),
             console::style(deploy_workflow_path.to_string_lossy())
-                .bold()
                 .underlined(),
             console::style("CI/CD docs available at").yellow(),
             console::style(

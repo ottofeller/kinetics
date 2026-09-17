@@ -123,12 +123,10 @@ impl<'a> Migrations<'a> {
             .wrap_err("Failed to create a migration file")?;
 
         self.writer.text(&format!(
-            "{} {} {}\n",
-            console::style("Created migration").green().bold(),
+            "{} migration {} {}\n",
+            console::style("Created").bold(),
             console::style("at").dim(),
-            console::style(format!("{}", filepath.to_string_lossy()))
-                .underlined()
-                .bold(),
+            console::style(filepath.to_string_lossy()).underlined(),
         ))?;
 
         Ok(())
@@ -196,8 +194,8 @@ impl<'a> Migrations<'a> {
     async fn validate(&self, migrations: &Vec<(String, String)>) -> eyre::Result<()> {
         for (path, content) in migrations {
             // Strip ASYNC keyword before parsing — sqlparser doesn't support
-            // CREATE ASYNC INDEX (DSQL syntax) but it's need DDL/DML classification only
-            let sanitized = content.replace("CREATE INDEX ASYNC", "CREATE INDEX");
+            // INDEX ASYNC (DSQL syntax), and parsing is only needed for DDL/DML classification.
+            let sanitized = content.to_uppercase().replace("INDEX ASYNC", "INDEX");
             let statements = Parser::parse_sql(&PostgreSqlDialect {}, &sanitized)
                 .wrap_err("Failed to parse migration SQL")?;
 

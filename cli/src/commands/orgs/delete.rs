@@ -55,7 +55,7 @@ impl Runner for DeleteRunner<'_> {
         if !self.writer.is_structured() {
             self.writer.text(&format!(
                 "\nAre you sure want to delete org {}? {} ",
-                name.clone().white().bold(),
+                name.clone().white(),
                 "[y/N]".dim()
             ))?;
 
@@ -77,10 +77,8 @@ impl Runner for DeleteRunner<'_> {
             }
         }
 
-        self.writer.text(&format!(
-            "\n{}...\n",
-            console::style("Deleting org").bold().green()
-        ))?;
+        self.writer
+            .text(&format!("\n{} org...\n", console::style("Deleting").bold()))?;
 
         let delete_response: Response = client
             .request(
@@ -93,7 +91,7 @@ impl Runner for DeleteRunner<'_> {
             .map_err(|e| self.server_error(Some(e.into())))?;
 
         self.writer
-            .text(&format!("\n{}\n", console::style("Done").green().bold()))?;
+            .text(&format!("\n{}\n", console::style("Done").bold()))?;
 
         self.writer
             .json(json!({"success": true, "org": {"id": delete_response.id, "name": name}}))?;

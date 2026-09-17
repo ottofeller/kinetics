@@ -26,6 +26,30 @@ impl Project {
         // to mark the requested functions as requested for deployment
         deploy_functions: &[String],
     ) -> eyre::Result<Vec<Function>> {
+        self.parse_with_package(deploy_functions, None)
+    }
+
+    /// Prepare every project function, selecting a package and function names for deployment.
+    pub(crate) fn parse_with_package(
+        &self,
+        deploy_functions: &[String],
+        package_name: Option<&str>,
+    ) -> eyre::Result<Vec<Function>> {
+        let selected_package = package_name
+            .map(|name| self.workspace.package(name))
+            .transpose()?;
+
+        if let (Some(package), Some(name)) = (selected_package, package_name) {
+            if !self.workspace.is_standalone_crate
+                && self.path != self.workspace.root_path
+                && self.workspace.root_path.join(&package.relative_path) != self.path
+            {
+                eyre::bail!(
+                    "Package `{name}` is outside the current Kinetics project; use --project to select its project",
+                );
+            }
+        }
+
         let src = &self.workspace.root_path;
         let dst = self.build_path()?;
         // Checksums of source files for preventing rewrite existing files
@@ -94,6 +118,14 @@ impl Project {
                 &mut checksum,
             )?;
 
+            // If project is a workspace member, skip parsing other members.
+            if !self.workspace.is_standalone_crate
+                && !self.is_ws_root()
+                && src.join(&package.relative_path) != self.path
+            {
+                continue;
+            }
+
             let parsed_functions = Parser::new(&self.workspace.root_path, Some(package))?.functions;
             if parsed_functions.is_empty() {
                 continue;
@@ -132,22 +164,28 @@ impl Project {
                 .wrap_err("Failed to write workspace Cargo.toml")?;
         }
 
-        checksum.save().wrap_err("Failed to save checksums")?;
         self.clear_dir(&dst, &checksum)?;
+        checksum.save().wrap_err("Failed to save checksums")?;
 
-        all_functions
+        let functions = all_functions
             .into_iter()
             .map(|f| {
                 let name = f.func_name(false)?;
+                let is_deploying = selected_package
+                    .is_none_or(|package| package.relative_path == f.pkg_rel_path)
+                    && (deploy_functions.is_empty() || deploy_functions.contains(&name));
 
-                Function::new(self, &f).map(|f| {
-                    // Mark function as requested (or not) for deployment
-                    f.set_is_deploying(
-                        deploy_functions.is_empty() || deploy_functions.contains(&name),
-                    )
-                })
+                Function::new(self, &f).map(|f| f.set_is_deploying(is_deploying))
             })
-            .collect::<eyre::Result<Vec<_>>>()
+            .collect::<eyre::Result<Vec<_>>>()?;
+
+        if let Some(name) = package_name {
+            if !functions.iter().any(|function| function.is_deploying) {
+                eyre::bail!("No functions match the selection in package `{name}`");
+            }
+        }
+
+        Ok(functions)
     }
 
     /// Clone the package dir to a new directory
@@ -172,15 +210,13 @@ impl Project {
         .chain(skip_more.iter().map(|p| src.join(p)))
         .collect::<Vec<_>>();
 
-        for entry in WalkDir::new(src)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|entry| {
-                !skip_paths
-                    .iter()
-                    .any(|prefix| entry.path().starts_with(prefix))
-            })
-        {
+        for entry in WalkDir::new(src).into_iter().filter_entry(|entry| {
+            !skip_paths
+                .iter()
+                .any(|prefix| entry.path().starts_with(prefix))
+        }) {
+            let entry =
+                entry.wrap_err_with(|| format!("Failed to read source directory {src:?}"))?;
             let src_path = entry.path();
 
             // Strip leading path from source to create relative path in destination
@@ -208,7 +244,10 @@ impl Project {
     /// Remove files that are not present in the source directory
     /// but still exist in the target directory.
     fn clear_dir(&self, dst: &Path, checksum: &FileHash) -> eyre::Result<()> {
-        for entry in WalkDir::new(dst).into_iter().filter_map(|e| e.ok()) {
+        let mut entries = WalkDir::new(dst).into_iter();
+        while let Some(entry) = entries.next() {
+            let entry =
+                entry.wrap_err_with(|| format!("Failed to read build directory {dst:?}"))?;
             let path = entry.path();
 
             let Ok(src_relative) = path.strip_prefix(dst) else {
@@ -216,22 +255,28 @@ impl Project {
             };
 
             // Leave intact:
+            // - the build directory itself;
             // - the `target` folder;
             // - `.checksums` file.
             // - `Cargo.lock` file.
-            // - non *.rs files
-            if src_relative.extension().is_some_and(|ext| ext != "rs")
-                || src_relative.strip_prefix("target").is_ok()
+            if src_relative.as_os_str().is_empty() {
+                continue;
+            }
+            if src_relative.strip_prefix("target").is_ok()
                 || src_relative
                     .to_str()
                     .is_some_and(|p| p == CHECKSUMS_FILENAME || p == "Cargo.lock")
             {
+                if entry.file_type().is_dir() {
+                    entries.skip_current_dir();
+                }
                 continue;
             };
 
-            if path.is_dir() {
-                // Delete all folders except those known from file paths in .checksums.
+            if entry.file_type().is_dir() {
+                // Delete folders with no files registered during this parse.
                 if !checksum.has_folder(src_relative) {
+                    entries.skip_current_dir();
                     fs::remove_dir_all(path).wrap_err(format!(
                         "Failed to delete an obsolete folder {src_relative:?}"
                     ))?;
@@ -239,7 +284,7 @@ impl Project {
                 continue;
             }
 
-            // Delete files not in .checksums.
+            // Delete files not registered during this parse.
             if !checksum.has_file(src_relative) {
                 fs::remove_file(path).wrap_err(format!(
                     "failed to delete an obsolete file {src_relative:?}"
@@ -335,7 +380,13 @@ impl Project {
             &[PathBuf::from("Cargo.toml"), PathBuf::from("src/lib.rs")],
             checksum,
         )?;
-        self.create_function_manifest(dst, &member_dir, function_name, parsed_function, checksum)?;
+        let lib_name = self.create_function_manifest(
+            dst,
+            &member_dir,
+            function_name,
+            parsed_function,
+            checksum,
+        )?;
         self.create_lib(
             src,
             pkg_rel_path,
@@ -351,8 +402,8 @@ impl Project {
         ))?;
 
         // Create src/bin/<func_name>.rs for the remote and local function
-        self.create_lambda_bin(dst, &bin_dir, parsed_function, false, checksum)?;
-        self.create_lambda_bin(dst, &bin_dir, parsed_function, true, checksum)?;
+        self.create_lambda_bin(dst, &bin_dir, parsed_function, &lib_name, false, checksum)?;
+        self.create_lambda_bin(dst, &bin_dir, parsed_function, &lib_name, true, checksum)?;
 
         Ok(())
     }
@@ -361,6 +412,7 @@ impl Project {
     ///
     /// Based on the original package's manifest, with:
     /// - package name changed to the function name;
+    /// - library target name preserved from the original package;
     /// - lambda runtime dependencies added.
     fn create_function_manifest(
         &self,
@@ -369,7 +421,7 @@ impl Project {
         function_name: &str,
         parsed_function: &ParsedFunction,
         checksum: &mut FileHash,
-    ) -> eyre::Result<()> {
+    ) -> eyre::Result<String> {
         let manifest_path = member_dir.join("Cargo.toml");
         let src_manifest_path = self
             .workspace
@@ -378,7 +430,27 @@ impl Project {
             .join("Cargo.toml");
 
         let mut doc: toml_edit::DocumentMut = fs::read_to_string(&src_manifest_path)?.parse()?;
+        let lib_name = doc
+            .get("lib")
+            .and_then(toml_edit::Item::as_table)
+            .and_then(|lib| lib.get("name"))
+            .and_then(toml_edit::Item::as_str)
+            .map(String::from)
+            .or_else(|| {
+                doc.get("package")
+                    .and_then(toml_edit::Item::as_table)
+                    .and_then(|package| package.get("name"))
+                    .and_then(toml_edit::Item::as_str)
+                    .map(|name| name.replace('-', "_"))
+            })
+            .wrap_err("Package name is missing from Cargo.toml")?;
+
         doc["package"]["name"] = toml_edit::value(function_name);
+        doc.entry("lib")
+            .or_insert(toml_edit::Item::Table(toml_edit::Table::new()))
+            .as_table_mut()
+            .wrap_err("Invalid [lib] table in Cargo.toml")?
+            .insert("name", toml_edit::value(&lib_name));
         self.deps(parsed_function, &mut doc)?;
 
         let manifest_string = doc.to_string();
@@ -391,7 +463,7 @@ impl Project {
                 .wrap_err("Failed to write function Cargo.toml")?;
         }
 
-        Ok(())
+        Ok(lib_name)
     }
 
     /// Create a function with the code necessary to build lambda
@@ -403,6 +475,7 @@ impl Project {
         dst: &Path,
         bin_dir: &Path,
         parsed_function: &ParsedFunction,
+        lib_name: &str,
         is_local: bool,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
@@ -413,7 +486,7 @@ impl Project {
         let fn_import = self.import_statement(
             &parsed_function.relative_path,
             &parsed_function.rust_function_name,
-            &parsed_function.func_name(false)?,
+            lib_name,
         )?;
 
         let rust_function_name = parsed_function.rust_function_name.clone();
@@ -536,7 +609,8 @@ impl Project {
     ) -> eyre::Result<()> {
         let dst_path_full = dst_dir.join(dst_rel_path);
         // For all non .rs files just copy it.
-        if src.extension().is_some_and(|ext| ext != "rs") {
+        if src.extension().is_none_or(|ext| ext != "rs") {
+            checksum.register(dst_rel_path.to_path_buf());
             log::debug!("Copy without checksum {dst_path_full:?}");
             return fs::copy(src, &dst_path_full)
                 .wrap_err_with(|| format!("Failed to copy file {src:?} -> {dst_path_full:?}"))

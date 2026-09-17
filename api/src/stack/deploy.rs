@@ -121,9 +121,9 @@ fn validate_cron(function: &FunctionRequest, cron: &kinetics_parser::Cron) -> Ve
 fn validate_worker(function: &FunctionRequest, worker: &Worker) -> Vec<String> {
     let mut errors = Vec::new();
 
-    if worker.concurrency == 0 {
+    if worker.concurrency < 2 {
         errors.push(format!(
-            "Invalid worker \"{}\". Queue concurrency must be at least 1.",
+            "Invalid worker \"{}\". Queue concurrency must be at least 2.",
             function.name
         ));
     }
@@ -147,10 +147,18 @@ fn validate_worker(function: &FunctionRequest, worker: &Worker) -> Vec<String> {
 pub struct FunctionRequest {
     pub is_deploying: bool,
     pub name: String,
-    pub package_name: String,
     pub role: Role,
     pub params: Params,
     pub environment: HashMap<String, String>,
+    /// Secrets applied only to this function
+    pub secrets: Option<FunctionSecrets>,
+}
+
+/// Function-level secrets scoped by their workspace package
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct FunctionSecrets {
+    pub scope: String,
+    pub values: HashMap<String, String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

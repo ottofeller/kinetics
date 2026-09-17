@@ -67,19 +67,16 @@ impl Runner for OrgRunner<'_> {
         match self.command.org.clone() {
             Some(org) => {
                 self.writer.text(&format!(
-                    "{} {}\n",
-                    console::style("Project org set to").green().bold(),
-                    console::style(&org).bold()
+                    "{} {} {org}\n",
+                    console::style("Set").bold(),
+                    console::style("project org to").dim(),
                 ))?;
 
                 self.writer.json(json!({"success": true, "org": org}))?;
             }
             None => {
-                self.writer.text(&format!(
-                    "{} {}\n",
-                    console::style("Project org unset").green().bold(),
-                    console::style("").bold()
-                ))?;
+                self.writer
+                    .text(&format!("{} project org\n", console::style("Unset").bold()))?;
 
                 self.writer.json(json!({"success": true}))?;
             }

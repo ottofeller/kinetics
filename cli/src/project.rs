@@ -148,6 +148,15 @@ impl Project {
         })
     }
 
+    /// Whether the project is a whole workspace rather than one of its members.
+    ///
+    /// The comparison decides how the project relates to its workspace:
+    /// a root project covers every member (deploying, parsing, secrets scoping),
+    /// while a member project covers only its own package.
+    pub fn is_ws_root(&self) -> bool {
+        self.path == self.workspace.root_path
+    }
+
     /// Get project by name, with automatic cache management.
     ///
     /// Returns an error if the API request fails or if there are filesystem issues
@@ -199,7 +208,17 @@ impl Project {
         version_message: Option<String>,
     ) -> eyre::Result<bool> {
         let client = Client::new(deploy_config.is_some()).await?;
-        let secrets = Secrets::load();
+
+        let secrets = if self.is_ws_root() {
+            // A workspace-root project keeps root secrets only,
+            // while member secrets reside in functions (see Function::new).
+            Secrets::from_files(&[&self.workspace.root_path])
+        } else {
+            // A member project or standalone crate
+            // merges root and member secrets into the project section.
+            Secrets::from_files(&[&self.workspace.root_path, &self.path])
+        }
+        .unwrap_or_else(Secrets::from_env);
 
         if let Some(config) = deploy_config {
             return config.deploy(self, secrets, functions).await;

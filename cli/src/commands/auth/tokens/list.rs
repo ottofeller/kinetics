@@ -25,8 +25,8 @@ impl Runner for ListRunner<'_> {
         let client = self.api_client().await?;
 
         self.writer.text(&format!(
-            "\n{}...\n\n",
-            console::style("Fetching access tokens").bold().green()
+            "\n{} access tokens...\n\n",
+            console::style("Fetching").bold()
         ))?;
 
         let response = client
@@ -76,7 +76,7 @@ impl Runner for ListRunner<'_> {
 
             self.writer.text(&format!(
                 "{}\n{}\n\n",
-                console::style(&token.name).bold(),
+                console::style(&token.name),
                 console::style(format!(
                     "Expires at {}",
                     expires_at_local.format("%d %b %Y %H:%M:%S")

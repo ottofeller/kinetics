@@ -35,11 +35,11 @@ impl Runner for AddOwnerRunner<'_> {
         let client = self.api_client().await?;
 
         self.writer.text(&format!(
-            "\n{} {} {} {}...\n",
-            console::style("Adding").bold().green(),
-            console::style(&username).bold(),
-            console::style("as an owner of").bold().green(),
-            console::style(&org).bold()
+            "\n{} {} {} owner {} {org}...\n",
+            console::style("Adding").bold(),
+            console::style(&username).underlined(),
+            console::style("as an").dim(),
+            console::style("of").dim(),
         ))?;
 
         client
@@ -53,7 +53,7 @@ impl Runner for AddOwnerRunner<'_> {
             .await?;
 
         self.writer
-            .text(&format!("\n{}\n", console::style("Done").green().bold()))?;
+            .text(&format!("\n{}\n", console::style("Done").bold()))?;
 
         self.writer
             .json(json!({"success": true, "org": org, "email": username}))?;

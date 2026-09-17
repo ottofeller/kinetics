@@ -18,6 +18,7 @@ impl Runner for BuildRunner<'_> {
 
         Pipeline::builder(self.writer)
             .with_deploy_enabled(false)
+            .with_package(self.command.package.clone())
             .set_project(project)
             .build()
             .wrap_err("Failed to build pipeline")?

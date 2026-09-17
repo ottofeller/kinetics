@@ -61,7 +61,7 @@ impl Runner for DestroyRunner<'_> {
         if !self.writer.is_structured() {
             self.writer.text(&format!(
                 "You are destroying \"{}\" project.\n",
-                project.name.as_str().blue().bold()
+                project.name.as_str().blue()
             ))?;
             self.writer.text(&format!(
                 "{} {}: ",
@@ -97,10 +97,8 @@ impl Runner for DestroyRunner<'_> {
             .wrap_err("Project destroy request failed")
             .map_err(|e| self.server_error(Some(e.into())))?;
 
-        self.writer.text(&format!(
-            "{}\n",
-            console::style("Project destroyed").green()
-        ))?;
+        self.writer
+            .text(&format!("Project {}\n", console::style("destroyed").bold()))?;
 
         Project::clear_cache().map_err(|e| {
             self.error(

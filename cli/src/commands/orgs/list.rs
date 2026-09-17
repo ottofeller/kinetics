@@ -20,8 +20,8 @@ struct ListRunner<'a> {
 impl Runner for ListRunner<'_> {
     async fn run(&mut self) -> Result<(), Error> {
         self.writer.text(&format!(
-            "\n{}...\n\n",
-            console::style("Fetching orgs").bold().green()
+            "\n{} orgs...\n\n",
+            console::style("Fetching").bold()
         ))?;
 
         let client = self.api_client().await?;
@@ -41,7 +41,7 @@ impl Runner for ListRunner<'_> {
 
         for org in &response.orgs {
             self.writer
-                .text(&format!("{}", console::style(&org.name).white().bold(),))?;
+                .text(&format!("{}", console::style(&org.name).white()))?;
 
             for member in &org.members {
                 self.writer.text(&format!(

@@ -1,6 +1,8 @@
 use crate::project::ConfigFile;
 use cargo_metadata::MetadataCommand;
+use eyre::Context;
 use kinetics_parser::Package;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 // Workspace definition for a project.
@@ -17,6 +19,27 @@ pub struct Workspace {
 }
 
 impl Workspace {
+    /// Resolve an exact Cargo package name.
+    pub(super) fn package(&self, name: &str) -> eyre::Result<&Package> {
+        let manifest: toml::Value = fs::read_to_string(self.root_path.join("Cargo.toml"))
+            .wrap_err("Failed to read workspace Cargo.toml")?
+            .parse()
+            .wrap_err("Failed to parse workspace Cargo.toml")?;
+
+        if !manifest.get("workspace").is_some_and(toml::Value::is_table) {
+            eyre::bail!("--package requires a Cargo workspace");
+        }
+
+        for package in &self.packages {
+            let package_path = self.root_path.join(&package.relative_path);
+            if ConfigFile::cargo_toml_name(&package_path)? == name {
+                return Ok(package);
+            }
+        }
+
+        eyre::bail!("Package `{name}` was not found in the Cargo workspace");
+    }
+
     pub fn from_path(path: &Path) -> eyre::Result<Self> {
         let metadata = MetadataCommand::new().current_dir(path).exec()?;
         let root_path = metadata.workspace_root.as_std_path();

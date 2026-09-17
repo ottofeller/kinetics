@@ -40,7 +40,7 @@ impl Runner for DeleteRunner<'_> {
         if !self.writer.is_structured() {
             self.writer.text(&format!(
                 "\nDelete access token {}? {} ",
-                self.command.name.clone().bold(),
+                self.command.name.clone(),
                 "[y/N]".dim()
             ))?;
 
@@ -63,8 +63,8 @@ impl Runner for DeleteRunner<'_> {
         }
 
         self.writer.text(&format!(
-            "\n{}...\n",
-            console::style("Deleting access token").bold().green()
+            "\n{} access token...\n",
+            console::style("Deleting").bold()
         ))?;
 
         let client = self.api_client().await?;
@@ -103,7 +103,7 @@ impl Runner for DeleteRunner<'_> {
         }
 
         self.writer
-            .text(&format!("\n{}\n", console::style("Deleted").green().bold()))?;
+            .text(&format!("\n{}\n", console::style("Deleted").bold()))?;
 
         self.writer.json(json!({"success": true}))?;
         Ok(())

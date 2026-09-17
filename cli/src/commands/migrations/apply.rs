@@ -49,12 +49,10 @@ impl<'a> Runner for ApplyRunner<'a> {
         }
 
         self.writer.text(&format!(
-            "{} {} {}...\n\n",
-            console::style("Applying migrations").green().bold(),
+            "{} migrations {} {}...\n\n",
+            console::style("Applying").bold(),
             console::style("from").dim(),
-            console::style(format!("{}", migrations_path.to_string_lossy()))
-                .underlined()
-                .bold(),
+            console::style(format!("{}", migrations_path.to_string_lossy())).underlined(),
         ))?;
 
         let response = client
@@ -95,7 +93,7 @@ impl<'a> Runner for ApplyRunner<'a> {
             .map_err(|e| self.server_error(Some(e.into())))?;
 
         self.writer
-            .text(&format!("\n{}\n", console::style("Done").green().bold()))?;
+            .text(&format!("\n{}\n", console::style("Done").bold()))?;
 
         self.writer.json(json!({"success": true}))?;
         Ok(())

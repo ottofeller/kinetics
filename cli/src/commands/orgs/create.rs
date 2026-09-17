@@ -30,8 +30,8 @@ impl Runner for CreateRunner<'_> {
         let client = self.api_client().await?;
 
         self.writer.text(&format!(
-            "{}...\n",
-            console::style("Creating new org").bold().green()
+            "{} new org...\n",
+            console::style("Creating").bold()
         ))?;
 
         let response: Response = client
@@ -45,7 +45,7 @@ impl Runner for CreateRunner<'_> {
             .map_err(|e| self.server_error(Some(e.into())))?;
 
         self.writer
-            .text(&format!("{}\n", console::style("Done").green()))?;
+            .text(&format!("{}\n", console::style("Done").bold()))?;
 
         self.writer
             .json(json!({"success": true, "org": {"id": response.id, "name": name}}))?;

@@ -64,6 +64,7 @@ sqlx = { version = "0.8.6", features = [
 ] }
 syn = { version = "2.0", features = ["full", "visit"] }
 tabled = "0.20.0"
+tempfile = "3.27.0"
 terminal_size = "0.4.4"
 tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
@@ -72,6 +73,7 @@ twox-hash = "2.1.2"
 url = "2.5.8"
 users = "0.11.0"
 walkdir = "2.5.0"
+zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [package.metadata.kinetics.dependencies.common]
 aws-config = { version = "1.8.15" }

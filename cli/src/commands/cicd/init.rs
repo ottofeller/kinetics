@@ -38,8 +38,8 @@ impl Runner for InitRunner<'_> {
         let project = self.project(&self.command.project).await?;
 
         self.writer.text(&format!(
-            "{}\n",
-            console::style("Creating GitHub workflow...").bold().green()
+            "{} GitHub workflow...\n",
+            console::style("Creating").bold()
         ))?;
 
         if self.command.github {
@@ -48,7 +48,7 @@ impl Runner for InitRunner<'_> {
         }
 
         self.writer
-            .text(&format!("{}\n", console::style("Done").bold().green()))?;
+            .text(&format!("{}\n", console::style("Done").bold()))?;
 
         self.writer.json(json!({"success": true}))?;
         Ok(())

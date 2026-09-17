@@ -1,17 +1,30 @@
 use crate::commands::invoke::InvokeRunner;
+use crate::error::Error;
 use crate::function::Function;
 use crate::project::Project;
 use crate::runner::Runner;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::WrapErr;
+use kinetics_api::func;
+use kinetics_parser::Role;
 use serde_json::json;
 use std::collections::HashMap;
 use std::str::FromStr;
 
 impl InvokeRunner<'_> {
     /// Resolve function name into URL and call it remotely
-    #[allow(clippy::too_many_arguments)]
-    pub async fn remote(&self, function: &Function) -> eyre::Result<()> {
+    pub async fn remote(&mut self, function: Function) -> eyre::Result<()> {
+        match function.role {
+            Role::Endpoint => self.endpoint(function).await,
+            Role::Cron | Role::Worker => self.worker_or_cron(function).await,
+        }
+    }
+
+    async fn endpoint(&self, function: Function) -> eyre::Result<()> {
+        let payload = self
+            .resolve_payload(&function.role)?
+            .expect("endpoint payload is always resolved");
+
         let project = self.project(&self.command.project).await?;
         let display_path = format!(
             "{}/{}/src/bin/{}.rs",
@@ -22,10 +35,10 @@ impl InvokeRunner<'_> {
 
         self.writer
             .text(&format!(
-                "\n{} {} {}...\n",
-                console::style("Invoking remote function").green().bold(),
+                "\n{} remote function {} {}...\n",
+                console::style("Invoking").bold(),
                 console::style("from").dimmed(),
-                console::style(&display_path).underlined().bold()
+                console::style(&display_path).underlined()
             ))
             .map_err(|e| eyre::eyre!(e))?;
 
@@ -74,7 +87,7 @@ impl InvokeRunner<'_> {
         let response = client
             .post(url)
             .headers(headers_map)
-            .body(self.command.payload.clone().unwrap_or_else(|| "{}".into()))
+            .body(payload)
             .send()
             .await
             .wrap_err("Failed to call function URL")?;
@@ -96,6 +109,108 @@ impl InvokeRunner<'_> {
         self.writer
             .json(json!({"status": status.as_u16(), "response": response_text}))
             .map_err(|e| eyre::eyre!(e))?;
+
+        Ok(())
+    }
+
+    async fn worker_or_cron(&mut self, function: Function) -> eyre::Result<()> {
+        let payload = self.resolve_payload(&function.role)?;
+        let project = self.project(&self.command.project).await?;
+        let client = self.api_client().await?;
+
+        self.writer.text(&format!(
+            "\n{} {}...\n\n",
+            console::style("Invoking").bold(),
+            function.name
+        ))?;
+
+        let response = client
+            .post("/function/invoke")
+            .json(&func::invoke::Request {
+                project: project.into(),
+                function_name: function.name,
+                payload: match function.role {
+                    Role::Worker => payload,
+                    Role::Cron => None,
+                    _ => unreachable!(),
+                },
+            })
+            .send()
+            .await
+            .wrap_err("Failed to send invoke request")
+            .map_err(|e| self.server_error(Some(e.into())))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or("Unknown error".to_string());
+            eyre::bail!("Failed to invoke the function ({status}): {error_text}");
+        }
+
+        let body: func::invoke::Response = response.json().await.wrap_err(Error::new(
+            "Invalid response from server",
+            Some("Try again later."),
+        ))?;
+
+        log::debug!("Invoke response: {body:?}");
+
+        if let Some(log) = body.log {
+            self.writer.text(&format!(
+                "Function logs:\n{}\n",
+                console::style(log).yellow(),
+            ))?;
+        }
+
+        match body.status {
+            func::invoke::Status::NotStarted(error) => {
+                self.writer
+                    .error(&format!("Function not invoked: {error}"))?;
+                self.writer
+                    .json(json!({"invoked": false, "error": body.payload}))?;
+            }
+            func::invoke::Status::Success => {
+                self.writer.text("Function invoked\n")?;
+                self.writer
+                    .text(&format!("{}\n", console::style("Success").bold()))?;
+
+                match function.role {
+                    Role::Worker if let Some(payload) = &body.payload => {
+                        self.writer.text(&format!(
+                            "{}",
+                            console::style(
+                                &String::from_utf8(payload.clone())
+                                    .unwrap_or_else(|_e| "Not a string".into())
+                            )
+                            .yellow(),
+                        ))?;
+                    }
+                    // For cron no output is expected, so discard anything that arrives (e.g. "null" string).
+                    _ => (),
+                };
+
+                self.writer
+                    .json(json!({"invoked": true, "success": true, "payload": body.payload}))?;
+            }
+            func::invoke::Status::Fail(error) => {
+                self.writer.text("Function invoked\n")?;
+                self.writer
+                    .error(&format!("{} ({})\n", console::style("Error").red(), error))?;
+                self.writer.text(&format!(
+                    "{}",
+                    console::style(
+                        &String::from_utf8(
+                            body.payload
+                                .clone()
+                                .unwrap_or_else(|| "Empty payload".into())
+                        )
+                        .unwrap_or_else(|_e| "Not a string".into())
+                    )
+                    .yellow(),
+                ))?;
+
+                self.writer
+                    .json(json!({"invoked": true, "success": false, "payload": body.payload}))?;
+            }
+        }
 
         Ok(())
     }
