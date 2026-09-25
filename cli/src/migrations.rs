@@ -1,4 +1,5 @@
 use crate::writer::Writer;
+use arborium::{theme::builtin, AnsiHighlighter};
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
@@ -111,6 +112,8 @@ impl<'a> Migrations<'a> {
     /// Connects to the database to determine the latest applied migration,
     /// then prints each pending migration filename and its content.
     ///
+    /// Content is SQL-highlighted for interactive terminals; piped output stays plain.
+    ///
     /// Returns the filenames of the pending migrations.
     pub async fn preview(&self, connection_string: String) -> eyre::Result<Vec<String>> {
         let connection = sqlx::PgPool::connect(&connection_string)
@@ -127,14 +130,29 @@ impl<'a> Migrations<'a> {
             return Ok(vec![]);
         }
 
+        let mut highlighter =
+            console::colors_enabled().then(|| AnsiHighlighter::new(builtin::one_dark().clone()));
+
         let mut filenames = Vec::with_capacity(migrations.len());
 
         for (filename, content) in migrations {
             self.writer
                 .text(&format!("\n{}\n", console::style(&filename).underlined()))?;
 
-            self.writer
-                .text(&format!("{}\n", console::style(content.trim()).dimmed()))?;
+            let content = content.trim();
+
+            let rendered = match highlighter.as_mut() {
+                Some(highlighter) => match highlighter.highlight("sql", content) {
+                    Ok(highlighted) => highlighted,
+                    Err(e) => {
+                        log::warn!("Failed to highlight migration SQL: {e}");
+                        console::style(content).dimmed().to_string()
+                    }
+                },
+                None => console::style(content).dimmed().to_string(),
+            };
+
+            self.writer.text(&format!("{rendered}\n"))?;
 
             filenames.push(filename);
         }
