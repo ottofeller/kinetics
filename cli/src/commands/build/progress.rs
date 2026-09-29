@@ -112,14 +112,7 @@ impl Progress {
             self.resource_name,
         );
 
-        // Terminal or CI/CD?
-        if stdout().is_terminal() {
-            self.progress_bar.println(msg);
-        } else {
-            self.progress_bar.suspend(|| {
-                println!("{msg}");
-            });
-        }
+        self.print_message(msg);
     }
 
     pub(super) fn finish(&self, stage: &str, status: ProgressStatus, message: Option<&str>) {
@@ -134,8 +127,8 @@ impl Progress {
             ProgressStatus::Error => stage.red(),
         };
         let message = message.map(|m| format!(": {m}")).unwrap_or_default();
-        self.progress_bar
-            .finish_with_message(format!("{} {}{}", stage, self.resource_name, message));
+        self.print_message(format!("{} {}{}", stage, self.resource_name, message));
+        self.progress_bar.finish_and_clear();
     }
 
     pub(super) fn error(&self, stage: &str) {
@@ -144,6 +137,17 @@ impl Progress {
         }
 
         self.finish(stage, ProgressStatus::Error, None);
+    }
+
+    fn print_message(&self, message: String) {
+        // Terminal or CI/CD?
+        if stdout().is_terminal() {
+            self.progress_bar.println(message);
+        } else {
+            self.progress_bar.suspend(|| {
+                println!("{message}");
+            });
+        }
     }
 
     // Required padding to make the message centered in the cargo-like style
