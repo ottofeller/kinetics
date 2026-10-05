@@ -82,6 +82,8 @@ impl DeployRunner<'_> {
             return Ok(());
         }
 
+        let client = self.api_client().await?;
+
         // Collect environment variables from all functions
         // {"<Function name>": {"<Env>": "<Value>"}}
         let mut envs = HashMap::new();
@@ -115,8 +117,6 @@ impl DeployRunner<'_> {
         if let Some(errors) = request.validate() {
             return Err(eyre::eyre!("{}", errors.join("\n")));
         }
-
-        let client = self.api_client().await?;
 
         let result = client
             .post("/stack/deploy/envs")
