@@ -9,7 +9,7 @@ use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
 use kinetics_parser::{Params, ParsedFunction, Role};
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
 use tabled::settings::{peaker::Priority, style::Style, Settings, Width};
 use tabled::{Table, Tabled};
@@ -17,6 +17,8 @@ use terminal_size::{terminal_size, Height as TerminalHeight, Width as TerminalWi
 
 #[derive(Tabled, Clone)]
 struct EndpointRow {
+    #[tabled(skip)]
+    package: String,
     #[tabled(rename = "Function")]
     function: String,
     #[tabled(rename = "Environment")]
@@ -29,6 +31,8 @@ struct EndpointRow {
 
 #[derive(Tabled, Clone)]
 struct CronRow {
+    #[tabled(skip)]
+    package: String,
     #[tabled(rename = "Function")]
     function: String,
     #[tabled(rename = "Environment")]
@@ -41,6 +45,8 @@ struct CronRow {
 
 #[derive(Tabled, Clone)]
 struct WorkerRow {
+    #[tabled(skip)]
+    package: String,
     #[tabled(rename = "Function")]
     function: String,
     #[tabled(rename = "Environment")]
@@ -112,46 +118,67 @@ impl Runner for ListRunner<'_> {
 
 impl ListRunner<'_> {
     fn simple(&self) -> eyre::Result<()> {
-        let crons: Vec<&ParsedFunction> = self
-            .functions
-            .iter()
-            .filter(|f| matches!(f.role, Role::Cron))
-            .collect();
+        let packages: BTreeSet<&str> = self.functions.iter().map(|f| f.pkg_name.as_str()).collect();
 
-        let endpoints: Vec<&ParsedFunction> = self
-            .functions
-            .iter()
-            .filter(|f| matches!(f.role, Role::Endpoint))
-            .collect();
+        // Nest under crate headers only when functions span multiple crates
+        let grouped = packages.len() > 1;
+        let section_indent = if grouped { "  " } else { "" };
+        let row_indent = if grouped { "    " } else { "" };
 
-        let workers: Vec<&ParsedFunction> = self
-            .functions
-            .iter()
-            .filter(|f| matches!(f.role, Role::Worker))
-            .collect();
+        for package in packages {
+            if grouped {
+                self.writer
+                    .text(&format!("\n{}\n", package.bold()))
+                    .map_err(|e| eyre::eyre!(e))?;
+            }
 
-        if !endpoints.is_empty() {
-            self.writer
-                .text(&format!("\n{}\n\n", "Endpoints".bold()))
-                .map_err(|e| eyre::eyre!(e))?;
+            let crons: Vec<&ParsedFunction> = self
+                .functions
+                .iter()
+                .filter(|f| f.pkg_name == package && matches!(f.role, Role::Cron))
+                .collect();
 
-            endpoints.iter().try_for_each(|f| self.display_simple(f))?;
-        }
+            let endpoints: Vec<&ParsedFunction> = self
+                .functions
+                .iter()
+                .filter(|f| f.pkg_name == package && matches!(f.role, Role::Endpoint))
+                .collect();
 
-        if !workers.is_empty() {
-            self.writer
-                .text(&format!("\n{}\n\n", "Workers".bold()))
-                .map_err(|e| eyre::eyre!(e))?;
+            let workers: Vec<&ParsedFunction> = self
+                .functions
+                .iter()
+                .filter(|f| f.pkg_name == package && matches!(f.role, Role::Worker))
+                .collect();
 
-            workers.iter().try_for_each(|f| self.display_simple(f))?;
-        }
+            if !endpoints.is_empty() {
+                self.writer
+                    .text(&format!("\n{}{}\n\n", section_indent, "Endpoints".bold()))
+                    .map_err(|e| eyre::eyre!(e))?;
 
-        if !crons.is_empty() {
-            self.writer
-                .text(&format!("\n{}\n\n", "Crons".bold()))
-                .map_err(|e| eyre::eyre!(e))?;
+                endpoints
+                    .iter()
+                    .try_for_each(|f| self.display_simple(f, row_indent))?;
+            }
 
-            crons.iter().try_for_each(|f| self.display_simple(f))?;
+            if !workers.is_empty() {
+                self.writer
+                    .text(&format!("\n{}{}\n\n", section_indent, "Workers".bold()))
+                    .map_err(|e| eyre::eyre!(e))?;
+
+                workers
+                    .iter()
+                    .try_for_each(|f| self.display_simple(f, row_indent))?;
+            }
+
+            if !crons.is_empty() {
+                self.writer
+                    .text(&format!("\n{}{}\n\n", section_indent, "Crons".bold()))
+                    .map_err(|e| eyre::eyre!(e))?;
+
+                crons
+                    .iter()
+                    .try_for_each(|f| self.display_simple(f, row_indent))?;
+            }
         }
 
         let mut functions_json: Vec<Value> = vec![];
@@ -160,6 +187,7 @@ impl ListRunner<'_> {
             let mut entry = json!({
                 "name": f.func_name(false)?,
                 "role": format!("{:?}", f.role).to_lowercase(),
+                "package": &f.pkg_name,
                 "path": f.to_string(),
             });
 
@@ -211,12 +239,14 @@ impl ListRunner<'_> {
 
         for (i, function) in functions.into_iter().enumerate() {
             let func_path = self.functions[i].to_string();
+            let package = self.functions[i].pkg_name.clone();
             // Expect server to return the same length vector with the same order.
             let last_modified = statuses[i].clone();
 
             match function.params {
                 Params::Endpoint(params) => {
                     endpoint_rows.push(EndpointRow {
+                        package: package.clone(),
                         function: format_function_and_path(&function.name, &func_path),
                         environment: format_environment(&format!("{:?}", params.environment)),
                         url_path: format!("{}{}", project_base_url, params.url_path),
@@ -225,6 +255,7 @@ impl ListRunner<'_> {
                 }
                 Params::Cron(params) => {
                     cron_rows.push(CronRow {
+                        package: package.clone(),
                         function: format_function_and_path(&function.name, &func_path),
                         environment: format_environment(&format!("{:?}", params.environment)),
                         schedule: params.schedule.to_string(),
@@ -233,6 +264,7 @@ impl ListRunner<'_> {
                 }
                 Params::Worker(params) => {
                     worker_rows.push(WorkerRow {
+                        package: package.clone(),
                         function: format_function_and_path(&function.name, &func_path),
                         environment: format_environment(&format!("{:?}", params.environment)),
                         fifo: format!("{:?}", params.fifo),
@@ -243,37 +275,90 @@ impl ListRunner<'_> {
             }
         }
 
+        let packages: BTreeSet<&str> = self.functions.iter().map(|f| f.pkg_name.as_str()).collect();
+
+        // Nest under crate headers only when functions span multiple crates
+        let grouped = packages.len() > 1;
+        let section_gap = if grouped { "\n" } else { "" };
+        let section_indent = if grouped { "  " } else { "" };
+
         let (width, _) = get_terminal_size();
 
         // Verbose output with tables
+        let table_width = width.saturating_sub(section_indent.len());
         let settings = Settings::default()
-            .with(Width::wrap(width).priority(Priority::max(true)))
-            .with(Width::increase(width));
+            .with(Width::wrap(table_width).priority(Priority::max(true)))
+            .with(Width::increase(table_width));
 
-        if !endpoint_rows.is_empty() {
-            let mut table = Table::new(endpoint_rows.to_vec());
-            table.with(Style::modern()).with(settings.clone());
+        for package in packages {
+            if grouped {
+                self.writer
+                    .text(&format!("\n{}\n", package.bold()))
+                    .map_err(|e| eyre::eyre!(e))?;
+            }
 
-            self.writer
-                .text(&format!("{}\n{}\n", "Endpoints".bold(), table))
-                .map_err(|e| eyre::eyre!(e))?;
-        }
+            let endpoint_rows: Vec<EndpointRow> = endpoint_rows
+                .iter()
+                .filter(|row| row.package == package)
+                .cloned()
+                .collect();
 
-        if !cron_rows.is_empty() {
-            let mut table = Table::new(cron_rows.to_vec());
-            table.with(Style::modern()).with(settings.clone());
+            if !endpoint_rows.is_empty() {
+                let mut table = Table::new(endpoint_rows.clone());
+                table.with(Style::modern()).with(settings.clone());
 
-            self.writer
-                .text(&format!("{}\n{}\n", "Crons".bold(), table))
-                .map_err(|e| eyre::eyre!(e))?;
-        }
+                self.writer
+                    .text(&format!(
+                        "{}{}{}\n{}\n",
+                        section_gap,
+                        section_indent,
+                        "Endpoints".bold(),
+                        indent_block(&table.to_string(), section_indent),
+                    ))
+                    .map_err(|e| eyre::eyre!(e))?;
+            }
 
-        if !worker_rows.is_empty() {
-            let mut table = Table::new(worker_rows.to_vec());
-            table.with(Style::modern()).with(settings);
-            self.writer
-                .text(&format!("{}\n{}\n", "Workers".bold(), table))
-                .map_err(|e| eyre::eyre!(e))?;
+            let cron_rows: Vec<CronRow> = cron_rows
+                .iter()
+                .filter(|row| row.package == package)
+                .cloned()
+                .collect();
+
+            if !cron_rows.is_empty() {
+                let mut table = Table::new(cron_rows.clone());
+                table.with(Style::modern()).with(settings.clone());
+
+                self.writer
+                    .text(&format!(
+                        "{}{}{}\n{}\n",
+                        section_gap,
+                        section_indent,
+                        "Crons".bold(),
+                        indent_block(&table.to_string(), section_indent),
+                    ))
+                    .map_err(|e| eyre::eyre!(e))?;
+            }
+
+            let worker_rows: Vec<WorkerRow> = worker_rows
+                .iter()
+                .filter(|row| row.package == package)
+                .cloned()
+                .collect();
+
+            if !worker_rows.is_empty() {
+                let mut table = Table::new(worker_rows.clone());
+                table.with(Style::modern()).with(settings.clone());
+
+                self.writer
+                    .text(&format!(
+                        "{}{}{}\n{}\n",
+                        section_gap,
+                        section_indent,
+                        "Workers".bold(),
+                        indent_block(&table.to_string(), section_indent),
+                    ))
+                    .map_err(|e| eyre::eyre!(e))?;
+            }
         }
 
         let mut functions_json: Vec<Value> = vec![];
@@ -281,6 +366,7 @@ impl ListRunner<'_> {
         for row in &endpoint_rows {
             functions_json.push(json!({
                 "role": "endpoint",
+                "package": &row.package,
                 "function": &row.function,
                 "environment": &row.environment,
                 "url_path": &row.url_path,
@@ -291,6 +377,7 @@ impl ListRunner<'_> {
         for row in &cron_rows {
             functions_json.push(json!({
                 "role": "cron",
+                "package": &row.package,
                 "function": &row.function,
                 "environment": &row.environment,
                 "schedule": &row.schedule,
@@ -301,6 +388,7 @@ impl ListRunner<'_> {
         for row in &worker_rows {
             functions_json.push(json!({
                 "role": "worker",
+                "package": &row.package,
                 "function": &row.function,
                 "environment": &row.environment,
                 "fifo": &row.fifo,
@@ -317,10 +405,11 @@ impl ListRunner<'_> {
     }
 
     /// Display the function with its main properties
-    fn display_simple(&self, function: &ParsedFunction) -> eyre::Result<()> {
+    fn display_simple(&self, function: &ParsedFunction, indent: &str) -> eyre::Result<()> {
         self.writer
             .text(&format!(
-                "{} {}\n",
+                "{}{} {}\n",
+                indent,
                 function.func_name(false)?,
                 function.to_string().dimmed(),
             ))
@@ -330,7 +419,7 @@ impl ListRunner<'_> {
             Params::Endpoint(_) => {}
             Params::Cron(params) => {
                 self.writer
-                    .text(&format!("{}\n", params.schedule.cyan()))
+                    .text(&format!("{}{}\n", indent, params.schedule.cyan()))
                     .map_err(|e| eyre::eyre!(e))?;
             }
             Params::Worker(_) => {}
@@ -338,6 +427,14 @@ impl ListRunner<'_> {
 
         Ok(())
     }
+}
+
+/// Shifts every line of a block of text by the given indent
+fn indent_block(text: &str, indent: &str) -> String {
+    text.lines()
+        .map(|line| format!("{}{}", indent, line))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn format_environment(json_str: &str) -> String {
