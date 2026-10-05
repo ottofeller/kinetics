@@ -6,6 +6,7 @@ use crate::project::Project;
 use crate::runner::Runner;
 use crate::writer::Writer;
 use eyre::Context;
+use kinetics_api::request::Validate;
 use kinetics_api::stack;
 use reqwest::StatusCode;
 use serde_json::json;
@@ -81,8 +82,6 @@ impl DeployRunner<'_> {
             return Ok(());
         }
 
-        let client = self.api_client().await?;
-
         // Collect environment variables from all functions
         // {"<Function name>": {"<Env>": "<Value>"}}
         let mut envs = HashMap::new();
@@ -109,12 +108,19 @@ impl DeployRunner<'_> {
             envs.insert(function.name.clone(), function_envs.clone());
         }
 
+        let request = stack::deploy::envs::Request {
+            project: (&project).into(),
+            functions: envs,
+        };
+        if let Some(errors) = request.validate() {
+            return Err(eyre::eyre!("{}", errors.join("\n")));
+        }
+
+        let client = self.api_client().await?;
+
         let result = client
             .post("/stack/deploy/envs")
-            .json(&stack::deploy::envs::Request {
-                project: (&project).into(),
-                functions: envs,
-            })
+            .json(&request)
             .send()
             .await
             .wrap_err("Request to update envs failed")?;
