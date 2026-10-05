@@ -14,6 +14,28 @@ pub struct Request {
 }
 
 const MAX_MESSAGE_LENGTH: usize = 100;
+const MAX_USER_ENVIRONMENT_BYTES: usize = 3 * 1024;
+
+/// Check the size of a function's user-supplied Lambda environment map.
+fn validate_user_environment(
+    function_name: &str,
+    environment: &HashMap<String, String>,
+) -> Result<(), String> {
+    let size = serde_json::to_vec(environment)
+        .map_err(|error| {
+            format!("Could not measure user environment for function \"{function_name}\": {error}")
+        })?
+        .len();
+
+    if size > MAX_USER_ENVIRONMENT_BYTES {
+        return Err(format!(
+            "User environment for function \"{}\" is {} bytes; limit is {} bytes",
+            function_name, size, MAX_USER_ENVIRONMENT_BYTES
+        ));
+    }
+
+    Ok(())
+}
 
 impl Validate for Request {
     fn validate(&self) -> Option<Vec<String>> {
@@ -29,6 +51,12 @@ impl Validate for Request {
 
         for function in &self.functions {
             errors.extend(validate_function(function));
+            if !self.is_hotswap && function.is_deploying {
+                if let Err(error) = validate_user_environment(&function.name, &function.environment)
+                {
+                    errors.push(error);
+                }
+            }
         }
 
         if let Some(message) = &self.version_message {
