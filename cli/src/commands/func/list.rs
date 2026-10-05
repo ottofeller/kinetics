@@ -128,7 +128,7 @@ impl ListRunner<'_> {
         for package in packages {
             if grouped {
                 self.writer
-                    .text(&format!("\n{}\n", package.bold()))
+                    .text(&format!("\n{}\n", package.magenta().bold()))
                     .map_err(|e| eyre::eyre!(e))?;
             }
 
@@ -293,7 +293,7 @@ impl ListRunner<'_> {
         for package in packages {
             if grouped {
                 self.writer
-                    .text(&format!("\n{}\n", package.bold()))
+                    .text(&format!("\n{}\n", package.magenta().bold()))
                     .map_err(|e| eyre::eyre!(e))?;
             }
 
