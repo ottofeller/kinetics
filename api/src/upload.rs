@@ -5,6 +5,7 @@ pub struct Request {
     pub project_name: String,
     pub name: String,
     pub checksum: String,
+    pub org: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
