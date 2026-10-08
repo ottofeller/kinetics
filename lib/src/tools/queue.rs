@@ -1,7 +1,7 @@
 use crate::tools::{config::Config as KineticsConfig, project_resource_name, ProjectResourceKind};
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
-use eyre::OptionExt;
+use eyre::{Context, OptionExt};
 use lambda_runtime::LambdaEvent;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -102,7 +102,9 @@ impl Client {
                 let queue_endpoint_url = std::env::var("KINETICS_QUEUE_ENDPOINT_URL")
                     .unwrap_or(format!("https://sqs.{region}.amazonaws.com"));
 
-                let config = if std::env::var("KINETICS_IS_LOCAL").is_ok() {
+                let is_local = std::env::var("KINETICS_IS_LOCAL").is_ok();
+
+                let config = if is_local {
                     // Redefine endpoint in local mode
                     aws_config::defaults(aws_config::BehaviorVersion::latest())
                         .region(aws_config::Region::new(region.clone()))
@@ -122,37 +124,41 @@ impl Client {
                     &module_path.replace("::", "/"),
                 ]);
 
-                let queue_name = match std::env::var("KINETICS_QUEUE_NAME") {
-                    // Local invocation: the CLI sets the unnamed queue and,
-                    // optionally, the list of named per-worker queues it provisioned.
-                    Ok(generic_queue_name) => {
-                        let named_queues_raw =
-                            std::env::var("KINETICS_LOCAL_QUEUE_NAMES").unwrap_or_default();
-                        let named_queues: Vec<&str> = named_queues_raw
-                            .split(',')
-                            .map(str::trim)
-                            .filter(|name| !name.is_empty())
-                            .collect();
+                let queue_name = if is_local {
+                    // Local invocation: the CLI provisions the unnamed queue and,
+                    // optionally, a list of named per-worker queues.
+                    let generic_queue_name = std::env::var("KINETICS_QUEUE_NAME").wrap_err(
+                        "Queue is not configured for local invocation. \
+                             Re-run with `--with-queue` or `--with-worker` to provision one.",
+                    )?;
 
-                        if named_queues.iter().any(|name| *name == worker_local_name) {
-                            worker_local_name
-                        } else {
-                            generic_queue_name
-                        }
+                    let named_queues_raw =
+                        std::env::var("KINETICS_LOCAL_QUEUE_NAMES").unwrap_or_default();
+                    let named_queues: Vec<&str> = named_queues_raw
+                        .split(',')
+                        .map(str::trim)
+                        .filter(|name| !name.is_empty())
+                        .collect();
+
+                    if named_queues.iter().any(|name| *name == worker_local_name) {
+                        worker_local_name
+                    } else {
+                        generic_queue_name
                     }
-                    // Remote
-                    Err(_) => project_resource_name(
+                } else {
+                    project_resource_name(
                         ProjectResourceKind::Queue,
-                        &std::env::var("KINETICS_USERNAME").expect("KINETICS_USERNAME is not set"),
+                        &std::env::var("KINETICS_USERNAME")
+                            .wrap_err("KINETICS_USERNAME is not set")?,
                         &project_name,
                         &worker_local_name,
-                    ),
+                    )
                 };
 
                 eprintln!("Resolved Queue cache_key={cache_key}, queue_name={queue_name}");
 
                 let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
-                    .expect("KINETICS_CLOUD_ACCOUNT_ID is not set");
+                    .wrap_err("KINETICS_CLOUD_ACCOUNT_ID is not set")?;
 
                 aws_sdk_sqs::Client::new(&config)
                     .send_message()
