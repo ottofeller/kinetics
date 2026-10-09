@@ -97,16 +97,12 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
             async fn main() -> Result<(), Error> {{\n\
                 let user_function = {rust_function_name};
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+                let runtime_config = kinetics_lib::tools::runtime::load(&config).await?;
                 println!(\"Provisioning secrets\");
                 let secrets_client = aws_sdk_ssm::Client::new(&config);
-                let secrets_names_env = \"KINETICS_SECRETS_NAMES\";
                 let mut secrets = std::collections::HashMap::new();
 
-                for secret_name in std::env::var(secrets_names_env)?
-                    .split(\",\")
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                {{
+                for secret_name in &runtime_config.secrets_names {{
                     let desc = secrets_client
                         .get_parameter()
                         .name(secret_name.clone())
