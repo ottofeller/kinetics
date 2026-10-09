@@ -222,14 +222,6 @@ pub enum SendOptions {
     },
 }
 
-impl Default for SendOptions {
-    fn default() -> Self {
-        SendOptions::Standard {
-            delay_seconds: None,
-        }
-    }
-}
-
 impl SendOptions {
     fn validate(&self, queue: &SendMessageFluentBuilder) -> eyre::Result<()> {
         let fifo = is_fifo(queue);
@@ -289,12 +281,15 @@ impl SendOptions {
     fn default_for_queue(queue: &SendMessageFluentBuilder) -> Self {
         if is_fifo(queue) {
             SendOptions::Fifo {
-                message_group_id: "default".to_string(),
-                message_deduplication_id: None,
+                message_group_id: queue
+                    .get_message_group_id()
+                    .clone()
+                    .unwrap_or_else(|| "default".to_string()),
+                message_deduplication_id: queue.get_message_deduplication_id().clone(),
             }
         } else {
             SendOptions::Standard {
-                delay_seconds: None,
+                delay_seconds: queue.get_delay_seconds().map(|delay| delay as u32),
             }
         }
     }
