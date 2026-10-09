@@ -166,17 +166,18 @@ impl Client {
 
                 let named_queues_raw =
                     std::env::var("KINETICS_LOCAL_QUEUE_NAMES").unwrap_or_default();
+
                 let named_queues: Vec<&str> = named_queues_raw
                     .split(',')
                     .map(str::trim)
                     .filter(|name| !name.is_empty())
                     .collect();
 
-                let queue_name = if named_queues.iter().any(|name| *name == worker_local_name) {
-                    worker_local_name
-                } else {
-                    generic_queue_name
-                };
+                let queue_name = named_queues
+                    .into_iter()
+                    .find(|name| name.trim_end_matches(".fifo") == worker_local_name)
+                    .map(str::to_owned)
+                    .unwrap_or(generic_queue_name);
 
                 let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
                     .wrap_err("KINETICS_CLOUD_ACCOUNT_ID is not set")?;
