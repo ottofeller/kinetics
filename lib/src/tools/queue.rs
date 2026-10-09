@@ -1,6 +1,4 @@
-use crate::tools::{
-    config::Config as KineticsConfig, project_resource_name, runtime, ProjectResourceKind,
-};
+use crate::tools::{config::Config as KineticsConfig, runtime};
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use eyre::{Context, OptionExt};
@@ -118,7 +116,7 @@ impl Client {
                 // Resolve the queue the message should be delivered to:
                 // - locally - a per-worker named queue if the CLI provisioned one;
                 // - locally - unnamed local queue;
-                // - remotely - generate the name out of user and project names.
+                // - remotely - read the physical name from the runtime configuration.
                 let worker_local_name = kinetics_parser::ParsedFunction::to_local_name(&[
                     crate_name,
                     &module_path.replace("::", "/"),
@@ -153,12 +151,15 @@ impl Client {
                 } else {
                     let runtime = runtime::load(&config).await?;
                     (
-                        project_resource_name(
-                            ProjectResourceKind::Queue,
-                            &runtime.owner_id,
-                            &runtime.project_name,
-                            &worker_local_name,
-                        ),
+                        runtime
+                            .queues
+                            .get(&worker_local_name)
+                            .cloned()
+                            .ok_or_else(|| {
+                                eyre::eyre!(
+                                    "Queue is not configured for worker {worker_local_name}"
+                                )
+                            })?,
                         runtime.cloud_account_id.clone(),
                     )
                 };
