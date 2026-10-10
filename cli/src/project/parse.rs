@@ -599,7 +599,7 @@ impl Project {
         Ok(import_statement)
     }
 
-    /// Copy a file to the destination folder.
+    /// Copy a file only when its contents changed or the destination is missing.
     fn clean_copy(
         &self,
         src: &Path,
@@ -608,25 +608,15 @@ impl Project {
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
         let dst_path_full = dst_dir.join(dst_rel_path);
-        // For all non .rs files just copy it.
-        if src.extension().is_none_or(|ext| ext != "rs") {
-            checksum.register(dst_rel_path.to_path_buf());
-            log::debug!("Copy without checksum {dst_path_full:?}");
-            return fs::copy(src, &dst_path_full)
-                .wrap_err_with(|| format!("Failed to copy file {src:?} -> {dst_path_full:?}"))
-                .map(|_| ());
-        }
-
-        // Update hash table for the file.
-        let content = fs::read_to_string(src).wrap_err(format!("Failed to read file {src:?}"))?;
+        let content = fs::read(src).wrap_err(format!("Failed to read file {src:?}"))?;
         if checksum.update(
             dst_rel_path.to_path_buf(),
             &FileHash::hash_from_bytes(&content)
                 .wrap_err_with(|| format!("Failed to calculate hash from bytes of {src:?}"))?,
         ) {
             log::debug!("Copy with changed checksum {dst_path_full:?}");
-            fs::write(&dst_path_full, &content)
-                .wrap_err_with(|| format!("Failed to write {dst_path_full:?}"))?;
+            fs::copy(src, &dst_path_full)
+                .wrap_err_with(|| format!("Failed to copy file {src:?} -> {dst_path_full:?}"))?;
         }
 
         Ok(())
