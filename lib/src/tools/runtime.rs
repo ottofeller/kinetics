@@ -21,7 +21,6 @@ pub struct RuntimeConfig {
     pub sqldb_user: String,
     /// SSM parameter names
     pub secrets_names: Vec<String>,
-
     /// Queue logical names to physical names mapping.
     pub queues: BTreeMap<String, String>,
 }
