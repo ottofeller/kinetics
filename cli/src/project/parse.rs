@@ -608,12 +608,7 @@ impl Project {
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
         let dst_path_full = dst_dir.join(dst_rel_path);
-        let content = fs::read(src).wrap_err(format!("Failed to read file {src:?}"))?;
-        if checksum.update(
-            dst_rel_path.to_path_buf(),
-            &FileHash::hash_from_bytes(&content)
-                .wrap_err_with(|| format!("Failed to calculate hash from bytes of {src:?}"))?,
-        ) {
+        if checksum.update(dst_rel_path.to_path_buf(), &FileHash::hash_from_file(src)?) {
             log::debug!("Copy with changed checksum {dst_path_full:?}");
             fs::copy(src, &dst_path_full)
                 .wrap_err_with(|| format!("Failed to copy file {src:?} -> {dst_path_full:?}"))?;
