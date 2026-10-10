@@ -1,4 +1,6 @@
-use crate::tools::{config::Config as KineticsConfig, project_resource_name, ProjectResourceKind};
+use crate::tools::{
+    config::Config as KineticsConfig, project_resource_name, runtime, ProjectResourceKind,
+};
 use aws_lambda_events::sqs::{BatchItemFailure, SqsBatchResponse, SqsEvent};
 use aws_sdk_sqs::operation::send_message::builders::SendMessageFluentBuilder;
 use eyre::{Context, OptionExt};
@@ -93,16 +95,14 @@ impl Client {
 
         let client = Client {
             queue: {
-                // Use crate_name as a fallback for the project name
-                let project_name =
-                    std::env::var("KINETICS_PROJECT_NAME").unwrap_or(crate_name.into());
-
-                let region = std::env::var("AWS_REGION").unwrap_or("us-east-1".to_string());
-
-                let queue_endpoint_url = std::env::var("KINETICS_QUEUE_ENDPOINT_URL")
-                    .unwrap_or(format!("https://sqs.{region}.amazonaws.com"));
-
                 let is_local = std::env::var("KINETICS_IS_LOCAL").is_ok();
+                let region = std::env::var("AWS_REGION").unwrap_or("us-east-1".to_string());
+                let default_queue_endpoint = format!("https://sqs.{region}.amazonaws.com");
+                let queue_endpoint_url = if is_local {
+                    std::env::var("KINETICS_QUEUE_ENDPOINT_URL").unwrap_or(default_queue_endpoint)
+                } else {
+                    default_queue_endpoint
+                };
 
                 let config = if is_local {
                     // Redefine endpoint in local mode
@@ -124,7 +124,7 @@ impl Client {
                     &module_path.replace("::", "/"),
                 ]);
 
-                let queue_name = if is_local {
+                let (queue_name, account_id) = if is_local {
                     // Local invocation: the CLI provisions the unnamed queue and,
                     // optionally, a list of named per-worker queues.
                     let generic_queue_name = std::env::var("KINETICS_QUEUE_NAME").wrap_err(
@@ -140,25 +140,30 @@ impl Client {
                         .filter(|name| !name.is_empty())
                         .collect();
 
-                    if named_queues.iter().any(|name| *name == worker_local_name) {
+                    let queue_name = if named_queues.iter().any(|name| *name == worker_local_name) {
                         worker_local_name
                     } else {
                         generic_queue_name
-                    }
+                    };
+
+                    let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
+                        .wrap_err("KINETICS_CLOUD_ACCOUNT_ID is not set")?;
+
+                    (queue_name, account_id)
                 } else {
-                    project_resource_name(
-                        ProjectResourceKind::Queue,
-                        &std::env::var("KINETICS_USERNAME")
-                            .wrap_err("KINETICS_USERNAME is not set")?,
-                        &project_name,
-                        &worker_local_name,
+                    let runtime = runtime::load(&config).await?;
+                    (
+                        project_resource_name(
+                            ProjectResourceKind::Queue,
+                            &runtime.owner_id,
+                            &runtime.project_name,
+                            &worker_local_name,
+                        ),
+                        runtime.cloud_account_id.clone(),
                     )
                 };
 
                 eprintln!("Resolved Queue cache_key={cache_key}, queue_name={queue_name}");
-
-                let account_id = std::env::var("KINETICS_CLOUD_ACCOUNT_ID")
-                    .wrap_err("KINETICS_CLOUD_ACCOUNT_ID is not set")?;
 
                 aws_sdk_sqs::Client::new(&config)
                     .send_message()

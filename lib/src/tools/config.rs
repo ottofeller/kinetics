@@ -1,4 +1,5 @@
 use crate::sqldb::SqlDb;
+use crate::tools::runtime;
 use aws_config::SdkConfig;
 use lambda_runtime::Error;
 
@@ -37,11 +38,21 @@ pub struct Config {
 
 impl Config {
     pub async fn new(config: &SdkConfig, endpoint: Option<EndpointConfig>) -> Result<Self, Error> {
-        let cluster_id = std::env::var("KINETICS_SQLDB_CLUSTER_ID");
-        let user = std::env::var("KINETICS_SQLDB_USER");
+        let (cluster_id, user) = if std::env::var("KINETICS_IS_LOCAL").is_ok() {
+            (
+                std::env::var("KINETICS_SQLDB_CLUSTER_ID").ok(),
+                std::env::var("KINETICS_SQLDB_USER").ok(),
+            )
+        } else {
+            let runtime = runtime::load(config).await?;
+            (
+                Some(runtime.sqldb_cluster_id.clone()),
+                Some(runtime.sqldb_user.clone()),
+            )
+        };
 
         // If both cluster_id and user are set, use them to connect to sqldb
-        if let (Ok(cluster_id), Ok(user)) = (cluster_id, user) {
+        if let (Some(cluster_id), Some(user)) = (cluster_id, user) {
             return Ok(Self {
                 db: SqlDb::new(&cluster_id, &user, config)
                     .await?
