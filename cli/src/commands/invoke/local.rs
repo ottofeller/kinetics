@@ -3,7 +3,7 @@ use super::poller::LocalQueuePoller;
 use super::service::{LocalDynamoDB, LocalQueue, LocalSqlDB};
 use crate::commands::invoke::InvokeRunner;
 use crate::config::build_config;
-use crate::function::Function;
+use crate::function::{Function, Params};
 use crate::process::Process;
 use crate::runner::Runner;
 use crate::secrets::Secrets;
@@ -109,6 +109,11 @@ impl InvokeRunner<'_> {
             })
             .collect::<eyre::Result<Vec<_>>>()?;
 
+        let queue_name = |worker: &Function| match &worker.params {
+            Params::Worker(params) if params.fifo => format!("{}.fifo", worker.name),
+            _ => worker.name.clone(),
+        };
+
         if self.command.with_queue || self.command.with_worker.is_some() {
             // The generic queue impersonates any consumer without a dedicated
             // queue, so it backs both flags.
@@ -122,18 +127,20 @@ impl InvokeRunner<'_> {
             );
             docker.with_queue(unnamed_queue);
 
-            // Provision a named queue per requested worker
-            // and pass names to the invoked function.
-            if !workers.is_empty() {
-                let named_queues = workers
-                    .iter()
-                    .map(|worker| worker.name.as_str())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                local_environment.insert("KINETICS_LOCAL_QUEUE_NAMES", named_queues);
+            // FIFO workers need dedicated queues even when only producing messages.
+            let named_queues = all_functions
+                .iter()
+                .filter(|worker| {
+                    workers.iter().any(|selected| selected.name == worker.name)
+                        || matches!(&worker.params, Params::Worker(params) if params.fifo)
+                })
+                .map(queue_name)
+                .collect::<Vec<_>>();
+            if !named_queues.is_empty() {
+                local_environment.insert("KINETICS_LOCAL_QUEUE_NAMES", named_queues.join(","));
 
-                for worker in &workers {
-                    docker.with_queue(LocalQueue::named(&worker.name));
+                for name in named_queues {
+                    docker.with_queue(LocalQueue::named(&name));
                 }
             }
         }
@@ -181,7 +188,7 @@ impl InvokeRunner<'_> {
         // Start polling and drain each named queue,
         // invoke the corresponding worker for every message.
         for worker in workers {
-            let mut poller = LocalQueuePoller::new(LocalQueue::named(&worker.name));
+            let mut poller = LocalQueuePoller::new(LocalQueue::named(&queue_name(&worker)));
             let messages = poller.drain_queue().await?;
 
             for body in messages {

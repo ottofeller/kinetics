@@ -1,6 +1,7 @@
 use aws_config::SdkConfig;
 use eyre::{Context, OptionExt};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::str::FromStr;
 use tokio::sync::OnceCell;
 
@@ -20,6 +21,8 @@ pub struct RuntimeConfig {
     pub sqldb_user: String,
     /// SSM parameter names
     pub secrets_names: Vec<String>,
+    /// Queue logical names to physical names mapping.
+    pub queues: BTreeMap<String, String>,
 }
 
 static RUNTIME_CONFIG: OnceCell<RuntimeConfig> = OnceCell::const_new();
