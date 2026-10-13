@@ -1,0 +1,118 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag (for example, v0.19.0)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepare-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check workspace
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+
+      - name: Check workspace
+        uses: ./.github/actions/check-workspace
+
+  build:
+    name: ${{ matrix.target }}
+    needs: check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: macos-15
+            target: aarch64-apple-darwin
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+
+      - name: Set up Rust and verify release version
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          rustup show active-toolchain
+          version=$(cargo metadata --no-deps --locked --format-version 1 | jq -r '.packages[] | select(.name == "kinetics") | .version')
+          if [ "$TAG" != "v$version" ]; then
+            echo "Release tag $TAG does not match kinetics version $version." >&2
+            exit 1
+          fi
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+
+      - name: Build release archive
+        id: build
+        uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: kinetics
+          package: kinetics
+          target: ${{ matrix.target }}
+          ref: refs/tags/${{ inputs.tag }}
+          locked: true
+          archive: "$bin-$tag-$target"
+          checksum: sha256
+          dry-run: true
+          dry-run-intended: true
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: kinetics-${{ matrix.target }}
+          path: |
+            ${{ steps.build.outputs.tar }}
+            ${{ steps.build.outputs.sha256 }}
+          if-no-files-found: error
+          compression-level: 0
+
+  draft:
+    name: Create draft release
+    needs: build
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout release history
+        uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download release archives
+        uses: actions/download-artifact@v8
+        with:
+          pattern: kinetics-*
+          merge-multiple: true
+          path: dist
+
+      - name: Create draft with generated notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          previous_tag=$(git describe --tags --abbrev=0 --first-parent --match 'v[0-9]*' HEAD^)
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "$TAG" --generate-notes --notes-start-tag "$previous_tag"

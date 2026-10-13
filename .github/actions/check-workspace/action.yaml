@@ -1,0 +1,28 @@
+name: Check Workspace
+description: Check Rust formatting, workspace targets, and Clippy warnings.
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Rust from rust-toolchain.toml
+      shell: bash
+      run: |
+        rustup show active-toolchain
+        rustup component add rustfmt clippy
+
+    - name: Check formatting
+      shell: bash
+      run: cargo fmt --all --check
+
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        cache-on-failure: true
+
+    - name: Check workspace
+      shell: bash
+      run: cargo check --workspace --all-targets --locked
+
+    - name: Run Clippy
+      shell: bash
+      run: cargo clippy --workspace --all-targets --locked -- -D warnings
