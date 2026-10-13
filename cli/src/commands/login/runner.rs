@@ -140,15 +140,13 @@ impl LoginRunner {
                     KeyCode::Enter => {
                         break;
                     }
-                    KeyCode::Backspace => {
-                        if !password.is_empty() {
-                            password.pop();
-                            // Erase the last asterisk (use actual backspace character)
-                            print!("\x08 \x08");
-                            io::stdout()
-                                .flush()
-                                .wrap_err(Error::new("Could not modify stdout", None))?;
-                        }
+                    KeyCode::Backspace if !password.is_empty() => {
+                        password.pop();
+                        // Erase the last asterisk (use actual backspace character)
+                        print!("\x08 \x08");
+                        io::stdout()
+                            .flush()
+                            .wrap_err(Error::new("Could not modify stdout", None))?;
                     }
                     // Handle Ctrl+C to exit
                     KeyCode::Char('c') if key_event.modifiers == event::KeyModifiers::CONTROL => {
