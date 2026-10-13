@@ -2,32 +2,35 @@ name: Prepare Release
 
 on:
   workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing release tag (for example, v0.19.0)
-        type: string
-        required: true
 
 permissions:
   contents: read
 
 concurrency:
-  group: prepare-release-${{ inputs.tag }}
+  group: prepare-release
   cancel-in-progress: false
 
 jobs:
   check:
     name: Check workspace
     runs-on: ubuntu-26.04
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
     steps:
-      - name: Checkout release tag
+      - name: Checkout release commit
         uses: actions/checkout@v7
         with:
-          ref: refs/tags/${{ inputs.tag }}
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Check workspace
         uses: ./.github/actions/check-workspace
+
+      - name: Resolve release tag
+        id: release
+        run: |
+          version=$(cargo metadata --no-deps --locked --format-version 1 | jq -er '.packages[] | select(.name == "kinetics") | .version')
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
   build:
     name: ${{ matrix.target }}
@@ -42,22 +45,15 @@ jobs:
           - os: macos-15
             target: aarch64-apple-darwin
     steps:
-      - name: Checkout release tag
+      - name: Checkout release commit
         uses: actions/checkout@v7
         with:
-          ref: refs/tags/${{ inputs.tag }}
+          ref: ${{ github.sha }}
           persist-credentials: false
 
-      - name: Set up Rust and verify release version
-        env:
-          TAG: ${{ inputs.tag }}
+      - name: Set up Rust
         run: |
           rustup show active-toolchain
-          version=$(cargo metadata --no-deps --locked --format-version 1 | jq -r '.packages[] | select(.name == "kinetics") | .version')
-          if [ "$TAG" != "v$version" ]; then
-            echo "Release tag $TAG does not match kinetics version $version." >&2
-            exit 1
-          fi
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
@@ -71,7 +67,8 @@ jobs:
           bin: kinetics
           package: kinetics
           target: ${{ matrix.target }}
-          ref: refs/tags/${{ inputs.tag }}
+          # Used for the archive name; builds the checked-out SHA without requiring the tag to exist.
+          ref: refs/tags/${{ needs.check.outputs.tag }}
           locked: true
           archive: "$bin-$tag-$target"
           checksum: sha256
@@ -90,7 +87,7 @@ jobs:
 
   draft:
     name: Create draft release
-    needs: build
+    needs: [check, build]
     runs-on: ubuntu-26.04
     permissions:
       contents: write
@@ -98,7 +95,7 @@ jobs:
       - name: Checkout release history
         uses: actions/checkout@v7
         with:
-          ref: refs/tags/${{ inputs.tag }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -109,10 +106,21 @@ jobs:
           merge-multiple: true
           path: dist
 
-      - name: Create draft with generated notes
+      - name: Create tag and draft with generated notes
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ needs.check.outputs.tag }}
         run: |
-          previous_tag=$(git describe --tags --abbrev=0 --first-parent --match 'v[0-9]*' HEAD^)
+          previous_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude "$TAG" HEAD)
+
+          if git show-ref --verify --quiet "refs/tags/$TAG"; then
+            tag_sha=$(git rev-parse "refs/tags/$TAG^{commit}")
+            if [ "$tag_sha" != "$GITHUB_SHA" ]; then
+              echo "Release tag $TAG points to $tag_sha, but this workflow is building $GITHUB_SHA." >&2
+              exit 1
+            fi
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA" --silent
+          fi
+
           gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "$TAG" --generate-notes --notes-start-tag "$previous_tag"
