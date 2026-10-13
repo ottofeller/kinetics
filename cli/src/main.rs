@@ -115,6 +115,7 @@ async fn main() -> Result<(), Error> {
         Commands::Migrations(migrations) => match migrations {
             commands::migrations::MigrationsCommands::Create(cmd) => cli.run(cmd).await,
             commands::migrations::MigrationsCommands::Apply(cmd) => cli.run(cmd).await,
+            commands::migrations::MigrationsCommands::Preview(cmd) => cli.run(cmd).await,
         },
 
         Commands::Proj(proj) => match proj {

@@ -47,7 +47,12 @@ impl LocalQueue {
 
         // Wait for SQS to be ready and attempt to create the queue with retries
         for attempt in 1..=max_retries {
-            let result = client.create_queue().queue_name(&self.name).send().await;
+            let mut request = client.create_queue().queue_name(&self.name);
+            if self.name.ends_with(".fifo") {
+                request =
+                    request.attributes(aws_sdk_sqs::types::QueueAttributeName::FifoQueue, "true");
+            }
+            let result = request.send().await;
 
             match result {
                 Ok(_) => return Ok(()),

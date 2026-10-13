@@ -1,6 +1,8 @@
+use eyre::WrapErr;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::hash::Hasher;
+use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
 use twox_hash::XxHash64;
 
@@ -71,6 +73,26 @@ impl FileHash {
     pub fn hash_from_bytes<C: AsRef<[u8]>>(contents: C) -> eyre::Result<String> {
         let mut hasher = XxHash64::default();
         hasher.write(contents.as_ref());
+        Ok(format!("{:x}", hasher.finish()))
+    }
+
+    pub fn hash_from_file(path: &Path) -> eyre::Result<String> {
+        let mut file =
+            fs::File::open(path).wrap_err_with(|| format!("Failed to open file {path:?}"))?;
+        let mut hasher = XxHash64::default();
+        let mut buffer = [0u8; 64 * 1024];
+
+        loop {
+            match file.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(bytes_read) => hasher.write(&buffer[..bytes_read]),
+                Err(error) if error.kind() == ErrorKind::Interrupted => continue,
+                Err(error) => {
+                    return Err(error).wrap_err_with(|| format!("Failed to read file {path:?}"));
+                }
+            }
+        }
+
         Ok(format!("{:x}", hasher.finish()))
     }
 }

@@ -15,6 +15,7 @@ path = "src/main.rs"
 
 [dependencies]
 time = "=0.3.47"
+arborium = { version = "2.18.2", features = ["lang-sql"] }
 async-trait = "0.1.89"
 aws-config = "1.8.15"
 aws-sdk-dynamodb = "1.110.0"

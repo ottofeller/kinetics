@@ -6,6 +6,7 @@ use chrono::{DateTime, Utc};
 use eyre::Context;
 use kinetics_api::func;
 use serde_json::json;
+use std::io::Write;
 use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]
@@ -35,6 +36,7 @@ impl Runnable for LogsCommand {
         LogsRunner {
             command: self.clone(),
             writer,
+            interactive: !writer.is_structured() && console::user_attended(),
         }
     }
 }
@@ -42,6 +44,8 @@ impl Runnable for LogsCommand {
 struct LogsRunner<'a> {
     command: LogsCommand,
     writer: &'a Writer,
+    /// The terminal is human attended and might require temp notices.
+    interactive: bool,
 }
 
 impl Runner for LogsRunner<'_> {
@@ -71,35 +75,98 @@ impl Runner for LogsRunner<'_> {
             console::style(&function.name)
         ))?;
 
-        let response = client
-            .post("/function/logs")
-            .json(&func::logs::Request {
+        let mut events = Vec::new();
+        let mut response_period = None;
+        let mut cursor = None;
+        let mut page = 1usize;
+
+        loop {
+            let request = func::logs::Request {
                 project: (&project).into(),
                 function_name: function.name.clone(),
                 period: self.command.period.to_owned(),
-            })
-            .send()
-            .await
-            .wrap_err("Failed to send request to logs endpoint")
-            .map_err(|e| self.server_error(Some(e.into())))?;
+                cursor,
+            };
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or("Unknown error".to_string());
-            log::error!("Failed to fetch logs from API ({}): {}", status, error_text);
-            return Err(self.server_error(None));
+            let response = client
+                .post("/function/logs")
+                .json(&request)
+                .send()
+                .await
+                .wrap_err("Failed to send request to logs endpoint")
+                .map_err(|e| self.server_error(Some(e.into())))?;
+
+            // The notice printed for the previous page is erased once this page arrives.
+            if self.interactive && page > 1 {
+                self.writer.text("\r\x1B[K")?;
+            }
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or("Unknown error".to_string());
+                log::error!("Failed to fetch logs from API ({}): {}", status, error_text);
+                return Err(self.server_error(None));
+            }
+
+            let response: func::logs::Response = response
+                .json()
+                .await
+                .wrap_err("Invalid response from server")
+                .map_err(|e| self.error(None, None, Some(e.into())))?;
+
+            // Print the period once.
+            if response_period.is_none() && !response.events.is_empty() {
+                self.writer.text(&format!(
+                    "{} {}\n",
+                    console::style("Period:").bold(),
+                    response.period
+                ))?;
+            }
+            response_period.get_or_insert(response.period);
+
+            for event in response.events {
+                // Convert timestamp to readable format
+                let datetime = match DateTime::<Utc>::from_timestamp_millis(event.timestamp) {
+                    Some(dt) => dt,
+                    None => {
+                        log::warn!("Invalid timestamp: {}", event.timestamp);
+                        continue;
+                    }
+                };
+
+                let formatted_time = datetime.format("%Y-%m-%d %H:%M:%S").to_string();
+                let line = format!("{} {}", console::style(formatted_time).dim(), event.message);
+                self.writer.text(&line)?;
+                events.push(line);
+            }
+
+            if let Some(next_timestamp) = response.next_page {
+                cursor = Some(next_timestamp);
+                page += 1;
+
+                // Provide fetching notice for human attended terminals.
+                if self.interactive {
+                    self.writer.text(&format!(
+                        "{} {} {}...",
+                        console::style("Fetching").bold(),
+                        console::style("page").dim(),
+                        page,
+                    ))?;
+
+                    // No newline follows, so the notice must be flushed
+                    // to be visible while the page is loading.
+                    std::io::stdout()
+                        .flush()
+                        .wrap_err("Failed to show the fetching notice")?;
+                }
+            } else {
+                break;
+            }
         }
 
-        let logs_response: func::logs::Response = response
-            .json()
-            .await
-            .wrap_err("Invalid response from server")
-            .map_err(|e| self.error(None, None, Some(e.into())))?;
+        let period = response_period.unwrap_or_default();
 
-        // Period returned by the API in human-readable format
-        let period = logs_response.period.clone();
-
-        if logs_response.events.is_empty() {
+        if events.is_empty() {
             self.writer.text(&format!(
                 "{}\n",
                 console::style(format!(
@@ -108,39 +175,10 @@ impl Runner for LogsRunner<'_> {
                 ))
                 .yellow(),
             ))?;
-
-            self.writer
-                .json(json!({"success": true, "logs": [], "period": period}))?;
-
-            return Ok(());
-        }
-
-        self.writer.text(&format!(
-            "{} {}\n",
-            console::style("Period:").bold(),
-            period
-        ))?;
-
-        let mut events_json: Vec<String> = vec![];
-
-        for event in logs_response.events {
-            // Convert timestamp to readable format
-            let datetime = match DateTime::<Utc>::from_timestamp_millis(event.timestamp) {
-                Some(dt) => dt,
-                None => {
-                    log::warn!("Invalid timestamp: {}", event.timestamp);
-                    continue;
-                }
-            };
-
-            let formatted_time = datetime.format("%Y-%m-%d %H:%M:%S").to_string();
-            let line = format!("{} {}", console::style(formatted_time).dim(), event.message);
-            self.writer.text(&line)?;
-            events_json.push(line);
         }
 
         self.writer
-            .json(json!({"success": true, "logs": events_json, "period": period}))?;
+            .json(json!({"success": true, "logs": events, "period": period}))?;
 
         Ok(())
     }

@@ -16,4 +16,4 @@ pub mod function;
 pub mod project;
 
 mod envs;
-mod secrets;
+pub mod secrets;

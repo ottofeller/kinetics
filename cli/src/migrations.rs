@@ -1,4 +1,5 @@
 use crate::writer::Writer;
+use arborium::{theme::builtin, AnsiHighlighter};
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
@@ -47,15 +48,7 @@ impl<'a> Migrations<'a> {
             .await
             .wrap_err("Failed to connect to database")?;
 
-        // Get latest applied migration
-        let result = sqlx::query("SELECT MAX(id) FROM schema_migrations")
-            .fetch_one(&connection)
-            .await?;
-
-        let last_db_id: String = result
-            .try_get::<Option<String>, _>(0)
-            .unwrap_or_default()
-            .unwrap_or("0".to_string());
+        let last_db_id = self.last_applied_id(&connection).await?;
 
         let migrations = self.migrations(&last_db_id).await?;
 
@@ -90,6 +83,81 @@ impl<'a> Migrations<'a> {
         }
 
         Ok(())
+    }
+
+    /// Returns ID of the latest applied migration,
+    /// or "0" if none applied yet.
+    async fn last_applied_id(&self, connection: &sqlx::PgPool) -> eyre::Result<String> {
+        match sqlx::query("SELECT MAX(id) FROM schema_migrations")
+            .fetch_one(connection)
+            .await
+        {
+            Ok(result) => Ok(result
+                .try_get::<Option<String>, _>(0)
+                .unwrap_or_default()
+                .unwrap_or("0".to_string())),
+            // Missing `schema_migrations` detected by the PostgreSQL
+            // error code 42P01 (undefined_table, class 42):
+            // https://www.postgresql.org/docs/current/errcodes-appendix.html#ERRCODES-TABLE.
+            Err(sqlx::Error::Database(e)) if e.code().as_deref() == Some("42P01") => {
+                log::info!("undefined_table code from DB");
+                Ok("0".to_string())
+            }
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Lists migrations that are not yet applied to the database.
+    ///
+    /// Connects to the database to determine the latest applied migration,
+    /// then prints each pending migration filename and its content.
+    ///
+    /// Content is SQL-highlighted for interactive terminals; piped output stays plain.
+    ///
+    /// Returns the filenames of the pending migrations.
+    pub async fn preview(&self, connection_string: String) -> eyre::Result<Vec<String>> {
+        let connection = sqlx::PgPool::connect(&connection_string)
+            .await
+            .wrap_err("Failed to connect to database")?;
+
+        let last_db_id = self.last_applied_id(&connection).await?;
+        let migrations = self.migrations(&last_db_id).await?;
+
+        if migrations.is_empty() {
+            self.writer
+                .text(&format!("{}", console::style("No new migrations").yellow()))?;
+
+            return Ok(vec![]);
+        }
+
+        let mut highlighter =
+            console::colors_enabled().then(|| AnsiHighlighter::new(builtin::one_dark().clone()));
+
+        let mut filenames = Vec::with_capacity(migrations.len());
+
+        for (filename, content) in migrations {
+            self.writer
+                .text(&format!("\n{}\n", console::style(&filename).underlined()))?;
+
+            let content = content.trim();
+
+            let rendered = match highlighter.as_mut() {
+                Some(highlighter) => match highlighter.highlight("sql", content) {
+                    Ok(highlighted) => highlighted,
+                    Err(e) => {
+                        log::warn!("Failed to highlight migration SQL: {e}");
+                        console::style(content).dimmed().to_string()
+                    }
+                },
+                None => console::style(content).dimmed().to_string(),
+            };
+
+            self.writer.text(&format!("{rendered}\n"))?;
+
+            filenames.push(filename);
+        }
+
+        Ok(filenames)
     }
 
     /// Creates a new migration file with a unique filename based on the current

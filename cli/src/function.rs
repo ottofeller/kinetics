@@ -113,6 +113,7 @@ impl Function {
             project_name: self.project.name.clone(),
             name: self.name.clone(),
             checksum: base64::prelude::BASE64_STANDARD.encode(digest.finalize().to_be_bytes()),
+            org: self.project.org.clone(),
         };
 
         log::debug!(
