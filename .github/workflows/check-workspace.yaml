@@ -24,21 +24,5 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
-      - name: Set up Rust from rust-toolchain.toml
-        run: |
-          rustup show active-toolchain
-          rustup component add rustfmt clippy
-
-      - name: Check formatting
-        run: cargo fmt --all --check
-
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: true
-
       - name: Check workspace
-        run: cargo check --workspace --all-targets --locked
-
-      - name: Run Clippy
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+        uses: ./.github/actions/check-workspace
