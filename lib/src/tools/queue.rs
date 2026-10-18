@@ -338,13 +338,24 @@ impl Retries {
 }
 
 /// A record received from a queue
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Record {
     #[serde(default)]
     pub message_id: Option<String>,
 
     #[serde(default)]
     pub body: Option<String>,
+
+    /// Delivery attempts so far (approximate).
+    #[serde(default)]
+    pub receive_count: u32,
+
+    /// FIFO message group, set via `SendOptions::Fifo`
+    pub message_group_id: Option<String>,
+
+    /// FIFO deduplication id, set via `SendOptions::Fifo`
+    #[serde(default)]
+    pub message_deduplication_id: Option<String>,
 }
 
 impl Record {
@@ -356,6 +367,13 @@ impl Record {
             .map(|r| Record {
                 message_id: r.message_id.clone(),
                 body: r.body.clone(),
+                receive_count: r
+                    .attributes
+                    .get("ApproximateReceiveCount")
+                    .and_then(|count| count.parse().ok())
+                    .unwrap_or(1),
+                message_group_id: r.attributes.get("MessageGroupId").cloned(),
+                message_deduplication_id: r.attributes.get("MessageDeduplicationId").cloned(),
             })
             .collect())
     }

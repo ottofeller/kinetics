@@ -16,7 +16,7 @@ impl InvokeRunner<'_> {
     pub async fn remote(&mut self, function: Function) -> eyre::Result<()> {
         match function.role {
             Role::Endpoint => self.endpoint(function).await,
-            Role::Cron | Role::Worker => self.worker_or_cron(function).await,
+            Role::Cron | Role::Worker | Role::DlqWorker => self.worker_or_cron(function).await,
         }
     }
 
@@ -130,7 +130,7 @@ impl InvokeRunner<'_> {
                 project: project.into(),
                 function_name: function.name,
                 payload: match function.role {
-                    Role::Worker => payload,
+                    Role::Worker | Role::DlqWorker => payload,
                     Role::Cron => None,
                     _ => unreachable!(),
                 },
@@ -173,7 +173,7 @@ impl InvokeRunner<'_> {
                     .text(&format!("{}\n", console::style("Success").bold()))?;
 
                 match function.role {
-                    Role::Worker if let Some(payload) = &body.payload => {
+                    Role::Worker | Role::DlqWorker if let Some(payload) = &body.payload => {
                         self.writer.text(&format!(
                             "{}",
                             console::style(

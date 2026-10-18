@@ -68,7 +68,7 @@ impl<'a> Runner for InitRunner<'a> {
 
         let template_url = match function_role {
             Role::Cron => CRON_TEMPLATE_URL,
-            Role::Worker => WORKER_TEMPLATE_URL,
+            Role::Worker | Role::DlqWorker => WORKER_TEMPLATE_URL,
             Role::Endpoint => ENDPOINT_TEMPLATE_URL,
         };
 

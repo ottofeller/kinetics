@@ -134,9 +134,24 @@ A queue worker. When deployed, a corresponding queue gets provisioned automatica
 
 - `concurrency`: Max number of concurrent workers.
 - `fifo`: Set to true to enable FIFO processing.
+- `dlq`: Name of the `dlq_worker` function consuming this worker's dead-letter queue; must be defined in the same file.
+- `max_receive_count`: Attempts before the main queue drives a record to its DLQ (default 3).
 - `environment`: Environment variables.
 
 [Example](https://github.com/ottofeller/kinetics/blob/main/examples/src/basic/worker.rs).
+
+#### DLQ worker
+
+A dead-letter queue recovery handler.
+Inherits FIFO setting from the main worker.
+Settlement is owned by the handler - after exhausted attempts the message is lost.
+
+- `concurrency`: Max number of concurrent workers (default 2).
+- `batch_size`: Max number of records processed in a single batch.
+- `environment`: Environment variables.
+
+Note: across a redrive the message is new — `message_id` changes and
+`receive_count` restarts.
 
 #### Cron
 
