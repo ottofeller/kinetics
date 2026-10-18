@@ -1,8 +1,10 @@
 pub mod cron;
+pub mod dlq_worker;
 pub mod endpoint;
 pub mod worker;
 
 pub use cron::Cron;
+pub use dlq_worker::DlqWorker;
 pub use endpoint::Endpoint;
 pub use worker::Worker;
 
@@ -18,6 +20,7 @@ pub enum Params {
     Endpoint(Endpoint),
     Cron(Cron),
     Worker(Worker),
+    DlqWorker(DlqWorker),
 }
 
 impl Display for Params {
@@ -26,6 +29,7 @@ impl Display for Params {
             Params::Endpoint(_) => "endpoint",
             Params::Cron(_) => "cron",
             Params::Worker(_) => "worker",
+            Params::DlqWorker(_) => "dlq_worker",
         };
 
         write!(f, "{}", str)
@@ -38,7 +42,7 @@ impl Params {
             Params::Endpoint(params) => params.name.as_ref(),
             Params::Cron(params) => params.name.as_ref(),
             // Workers are not currently allowed to have custom names
-            Params::Worker(_) => None,
+            Params::Worker(_) | Params::DlqWorker(_) => None,
         }
     }
 
@@ -47,6 +51,7 @@ impl Params {
             Params::Endpoint(params) => &params.environment,
             Params::Cron(params) => &params.environment,
             Params::Worker(params) => &params.environment,
+            Params::DlqWorker(params) => &params.environment,
         }
     }
 }

@@ -55,6 +55,22 @@ struct WorkerRow {
     fifo: String,
     #[tabled(rename = "Concurrency")]
     concurrency: String,
+    #[tabled(rename = "DLQ")]
+    dlq: String,
+    #[tabled(rename = "Updated")]
+    last_modified: String,
+}
+
+#[derive(Tabled, Clone)]
+struct DlqWorkerRow {
+    #[tabled(skip)]
+    package: String,
+    #[tabled(rename = "Function")]
+    function: String,
+    #[tabled(rename = "Environment")]
+    environment: String,
+    #[tabled(rename = "Concurrency")]
+    concurrency: String,
     #[tabled(rename = "Updated")]
     last_modified: String,
 }
@@ -153,6 +169,12 @@ impl ListRunner<'_> {
                 .filter(|f| f.pkg_name == package && matches!(f.role, Role::Worker))
                 .collect();
 
+            let dlq_workers: Vec<&ParsedFunction> = self
+                .functions
+                .iter()
+                .filter(|f| f.pkg_name == package && matches!(f.role, Role::DlqWorker))
+                .collect();
+
             if !endpoints.is_empty() {
                 self.writer
                     .text(&format!("\n{}{}\n\n", section_indent, "Endpoints".bold()))
@@ -169,6 +191,16 @@ impl ListRunner<'_> {
                     .map_err(|e| eyre::eyre!(e))?;
 
                 workers
+                    .iter()
+                    .try_for_each(|f| self.display_simple(f, row_indent))?;
+            }
+
+            if !dlq_workers.is_empty() {
+                self.writer
+                    .text(&format!("\n{}{}\n\n", section_indent, "DLQ Workers".bold()))
+                    .map_err(|e| eyre::eyre!(e))?;
+
+                dlq_workers
                     .iter()
                     .try_for_each(|f| self.display_simple(f, row_indent))?;
             }
@@ -198,6 +230,15 @@ impl ListRunner<'_> {
                 entry["schedule"] = json!(params.schedule.to_string());
             }
 
+            if let Params::Worker(ref params) = f.params {
+                entry["dlq"] = json!(params.dlq);
+                entry["max_receive_count"] = json!(params.max_receive_count);
+            }
+
+            if let Params::DlqWorker(ref params) = f.params {
+                entry["concurrency"] = json!(params.concurrency);
+            }
+
             functions_json.push(entry);
         }
 
@@ -216,6 +257,7 @@ impl ListRunner<'_> {
         let mut endpoint_rows = Vec::new();
         let mut cron_rows = Vec::new();
         let mut worker_rows = Vec::new();
+        let mut dlq_worker_rows = Vec::new();
 
         if self.functions.is_empty() {
             self.writer
@@ -271,6 +313,16 @@ impl ListRunner<'_> {
                         function: format_function_and_path(&function.name, &func_path),
                         environment: format_environment(&format!("{:?}", params.environment)),
                         fifo: format!("{:?}", params.fifo),
+                        concurrency: format!("{:?}", params.concurrency),
+                        dlq: params.dlq.clone().unwrap_or_else(|| "none".to_string()),
+                        last_modified,
+                    });
+                }
+                Params::DlqWorker(params) => {
+                    dlq_worker_rows.push(DlqWorkerRow {
+                        package: package.clone(),
+                        function: format_function_and_path(&function.name, &func_path),
+                        environment: format_environment(&format!("{:?}", params.environment)),
                         concurrency: format!("{:?}", params.concurrency),
                         last_modified,
                     });
@@ -362,6 +414,27 @@ impl ListRunner<'_> {
                     ))
                     .map_err(|e| eyre::eyre!(e))?;
             }
+
+            let dlq_worker_rows: Vec<DlqWorkerRow> = dlq_worker_rows
+                .iter()
+                .filter(|row| row.package == package)
+                .cloned()
+                .collect();
+
+            if !dlq_worker_rows.is_empty() {
+                let mut table = Table::new(dlq_worker_rows.clone());
+                table.with(Style::modern()).with(settings.clone());
+
+                self.writer
+                    .text(&format!(
+                        "{}{}{}\n{}\n",
+                        section_gap,
+                        section_indent,
+                        "DLQ Workers".bold(),
+                        indent_block(&table.to_string(), section_indent),
+                    ))
+                    .map_err(|e| eyre::eyre!(e))?;
+            }
         }
 
         let mut functions_json: Vec<Value> = vec![];
@@ -396,6 +469,18 @@ impl ListRunner<'_> {
                 "environment": &row.environment,
                 "fifo": &row.fifo,
                 "concurrency": &row.concurrency,
+                "dlq": &row.dlq,
+                "last_modified": &row.last_modified,
+            }));
+        }
+
+        for row in &dlq_worker_rows {
+            functions_json.push(json!({
+                "role": "dlq_worker",
+                "package": &row.package,
+                "function": &row.function,
+                "environment": &row.environment,
+                "concurrency": &row.concurrency,
                 "last_modified": &row.last_modified,
             }));
         }
@@ -419,13 +504,19 @@ impl ListRunner<'_> {
             .map_err(|e| eyre::eyre!(e))?;
 
         match function.params.clone() {
-            Params::Endpoint(_) => {}
+            Params::Endpoint(_) | Params::DlqWorker(_) => {}
             Params::Cron(params) => {
                 self.writer
                     .text(&format!("{}{}\n", indent, params.schedule.cyan()))
                     .map_err(|e| eyre::eyre!(e))?;
             }
-            Params::Worker(_) => {}
+            Params::Worker(params) => {
+                if let Some(dlq) = params.dlq {
+                    self.writer
+                        .text(&format!("{}{}\n", indent, format!("dlq = {dlq}").cyan()))
+                        .map_err(|e| eyre::eyre!(e))?;
+                }
+            }
         }
 
         Ok(())

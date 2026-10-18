@@ -1,5 +1,5 @@
 use crate::{
-    params::{Cron, Endpoint, Params, Worker},
+    params::{Cron, DlqWorker, Endpoint, Params, Worker},
     ParsedFunction, Role,
 };
 use color_eyre::eyre;
@@ -117,6 +117,10 @@ impl<'a> Parser<'a> {
         ));
     }
 
+    fn parse_dlq_worker(&mut self, attr: &Attribute) -> syn::Result<DlqWorker> {
+        parse_attr_args(attr)
+    }
+
     /// Checks if the input is a valid kinetics_macro definition and returns its role
     /// Known definitions:
     /// #[<role>, kinetics_macro::<role> or kinetics_lib::macros::<role>]
@@ -160,6 +164,13 @@ impl<'a> Visit<'_> for Parser<'a> {
                 },
                 "worker" => match self.parse_worker(attr) {
                     Ok(params) => (Role::Worker, Params::Worker(params)),
+                    Err(error) => {
+                        self.record_attr_error(attr, error);
+                        continue;
+                    }
+                },
+                "dlq_worker" => match self.parse_dlq_worker(attr) {
+                    Ok(params) => (Role::DlqWorker, Params::DlqWorker(params)),
                     Err(error) => {
                         self.record_attr_error(attr, error);
                         continue;

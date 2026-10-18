@@ -496,6 +496,7 @@ impl Project {
                 templates::endpoint(&fn_import, &rust_function_name, endpoint_config, is_local)
             }
             Params::Worker(_) => templates::worker(&fn_import, &rust_function_name, is_local),
+            Params::DlqWorker(_) => templates::worker(&fn_import, &rust_function_name, is_local),
             Params::Cron(_) => templates::cron(&fn_import, &rust_function_name, is_local),
         };
 
@@ -521,7 +522,7 @@ impl Project {
         insert_lambda_dependency_group(doc, "common")?;
 
         match parsed_function.role {
-            Role::Cron | Role::Worker => {
+            Role::Cron | Role::Worker | Role::DlqWorker => {
                 insert_lambda_dependency_group(doc, "cron")?;
             }
             Role::Endpoint => {
