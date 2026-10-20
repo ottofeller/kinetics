@@ -119,7 +119,7 @@ impl<'a> Parser<'a> {
 
     /// Checks if the input is a valid kinetics_macro definition and returns its role
     /// Known definitions:
-    /// #[kinetics_macro::<role> or <role>]
+    /// #[<role>, kinetics_macro::<role> or kinetics_lib::macros::<role>]
     fn parse_attr_role(&self, input: &Attribute) -> String {
         let path = input.path();
 
@@ -130,6 +130,14 @@ impl<'a> Parser<'a> {
 
         if path.segments.len() == 2 && &path.segments[0].ident == "kinetics_macro" {
             let ident = &path.segments[1].ident;
+            return ident.to_string();
+        }
+
+        if path.segments.len() == 3
+            && &path.segments[0].ident == "kinetics_lib"
+            && &path.segments[1].ident == "macros"
+        {
+            let ident = &path.segments[2].ident;
             return ident.to_string();
         }
 
