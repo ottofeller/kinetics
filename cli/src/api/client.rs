@@ -3,14 +3,13 @@ use crate::credentials::Credentials;
 use crate::error::Error;
 use chrono::Utc;
 use eyre::{Ok, WrapErr};
+use kinetics_api::compatibility::{MIN_VERSION_HEADER, VERSION_HEADER};
 use reqwest::{Method, StatusCode};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::OnceCell;
 
-const VERSION_HEADER: &str = "x-kinetics-version";
-const MIN_VERSION_HEADER: &str = "x-kinetics-min-version";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const UPGRADE_COMMAND: &str = "cargo install kinetics --locked --force";
 static WARNED: AtomicBool = AtomicBool::new(false);
