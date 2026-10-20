@@ -216,8 +216,11 @@ fn validate_dlq_worker(
 ///
 /// Upon calling the validator the `dlq` prop
 /// already holds full name of the linked `#[dlq_worker]`.
-/// Check that the target exists in the project, has the required type,
-/// and conforms to main worker batch size rules.
+/// Check that the target:
+/// - exists in the project,
+/// - has the required type,
+/// - is linked from a single worker,
+/// - conforms to main worker batch size rules.
 fn validate_dlq_links(functions: &[FunctionRequest]) -> Vec<String> {
     let mut errors = Vec::new();
 
@@ -261,19 +264,30 @@ fn validate_dlq_links(functions: &[FunctionRequest]) -> Vec<String> {
                 }
             }
             Params::DlqWorker(dlq) => {
-                // Every DLQ worker must be linked from a worker.
-                let linked = functions.iter().any(|other| {
-                    matches!(
-                        &other.params,
+                // Every DLQ worker must be linked from a worker,
+                // and a single worker owns the queue it consumes.
+                let referrers: Vec<&str> = functions
+                    .iter()
+                    .filter_map(|other| match &other.params {
                         Params::Worker(worker)
-                            if worker.dlq.as_deref() == Some(function.name.as_str())
-                    )
-                });
+                            if worker.dlq.as_deref() == Some(function.name.as_str()) =>
+                        {
+                            Some(other.name.as_str())
+                        }
+                        _ => None,
+                    })
+                    .collect();
 
-                if !linked {
+                if referrers.is_empty() {
                     errors.push(format!(
                         "Invalid dlq_worker \"{}\": not linked from any worker",
                         function.name
+                    ));
+                } else if referrers.len() > 1 {
+                    errors.push(format!(
+                        "Invalid dlq_worker \"{}\": referenced by several workers: {}",
+                        function.name,
+                        referrers.join(", ")
                     ));
                 }
 
