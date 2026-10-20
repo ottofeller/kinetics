@@ -95,10 +95,13 @@ impl Runner for ListRunner<'_> {
         // If the method is called within other method, then the auth error won't be propogated
         let client = self.api_client().await?;
 
-        self.functions = project
-            .parsed_functions()
-            .wrap_err("Failed to parse the project")
-            .map_err(|e| self.error(None, None, Some(e.into())))?;
+        self.functions = project.parsed_functions().map_err(|e| {
+            self.error(
+                Some("Failed to parse the project"),
+                Some(&format!("{e:#}")),
+                None,
+            )
+        })?;
 
         if !self.command.verbose {
             return self
