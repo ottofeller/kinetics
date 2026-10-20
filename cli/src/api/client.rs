@@ -1,8 +1,9 @@
+use super::error::ApiError;
 use crate::config::api_url;
 use crate::credentials::Credentials;
 use crate::error::Error;
 use chrono::Utc;
-use eyre::{Ok, WrapErr};
+use eyre::WrapErr;
 use kinetics_api::compatibility::{MIN_VERSION_HEADER, VERSION_HEADER};
 use reqwest::{Method, StatusCode};
 use semver::Version;
@@ -27,8 +28,16 @@ impl RequestBuilder {
         Self(self.0.json(body))
     }
 
-    pub async fn send(self) -> eyre::Result<reqwest::Response> {
-        let response = self.0.header(VERSION_HEADER, VERSION).send().await?;
+    pub async fn send(self) -> Result<reqwest::Response, Error> {
+        let response = self
+            .0
+            .header(VERSION_HEADER, VERSION)
+            .send()
+            .await
+            .wrap_err(Error::new(
+                "Network request failed",
+                Some("Try again in a few seconds."),
+            ))?;
         let minimum = response
             .headers()
             .get(MIN_VERSION_HEADER)
@@ -36,13 +45,13 @@ impl RequestBuilder {
             .and_then(|value| Version::parse(value).ok());
 
         if response.status() == StatusCode::UPGRADE_REQUIRED {
-            return Err(CompatibilityError { minimum }.into());
+            return Err(ApiError::from_response(response).await?.into());
         }
 
         // The backend advertises its minimum even when enforcement is disabled.
         // In that mode, warn once and let the request continue.
         if let Some(minimum) = minimum {
-            let current = Version::parse(VERSION)?;
+            let current = Version::parse(VERSION).wrap_err("Invalid CLI version")?;
             if current.cmp_precedence(&minimum).is_lt() && !WARNED.swap(true, Ordering::Relaxed) {
                 eprintln!(
                     "{}: kinetics {VERSION} is below the backend minimum {minimum}.\n\
@@ -59,7 +68,7 @@ impl RequestBuilder {
 static CREDENTIALS: OnceCell<Credentials> = OnceCell::const_new();
 
 impl Client {
-    pub async fn new(is_directly: bool) -> eyre::Result<Self> {
+    pub async fn new(is_directly: bool) -> Result<Self, Error> {
         if is_directly {
             return Ok(Self::unauthenticated());
         }
@@ -70,7 +79,7 @@ impl Client {
 
         // If credentials expired — request to re-login
         if credentials.expires_at.timestamp() <= Utc::now().timestamp() {
-            return Err(eyre::eyre!("Credentials expired, please re-login."));
+            return Err(Error::new("Credentials expired, please re-login.", None));
         }
 
         Ok(Self::with_token(&credentials.token))
@@ -105,7 +114,7 @@ impl Client {
     }
 
     /// Encapsulate a typical POST request
-    pub async fn request<B, R>(&self, path: &str, body: B) -> eyre::Result<R>
+    pub async fn request<B, R>(&self, path: &str, body: B) -> Result<R, Error>
     where
         B: Serialize + for<'de> Deserialize<'de>,
         R: Serialize + for<'de> Deserialize<'de>,
@@ -115,14 +124,13 @@ impl Client {
             .json(&body)
             .send()
             .await
-            .inspect_err(|err| log::error!("{err:?}"))
-            .wrap_err(Error::new(
-                "Network request failed",
-                Some("Try again in a few seconds."),
-            ))?;
+            .inspect_err(|err| log::error!("{err:?}"))?;
 
         let status = result.status();
-        let text = result.text().await?;
+        let text = result
+            .text()
+            .await
+            .wrap_err("Failed to read backend response")?;
         log::info!("Got status from {path}: {status}");
         log::info!("Got response from {path}: {text}");
 
@@ -131,6 +139,13 @@ impl Client {
                 "Invalid response from server",
                 Some("Try again later."),
             ))?;
+
+            if response.get("code").is_some() {
+                let mut error: ApiError =
+                    serde_json::from_value(response).wrap_err("Invalid backend error response")?;
+                error.status = status;
+                return Err(error.into());
+            }
 
             return Err(Error::new(
                 "Request failed",
@@ -141,28 +156,9 @@ impl Client {
                         .as_str()
                         .unwrap_or("Unknown error"),
                 ),
-            )
-            .into());
+            ));
         }
 
         Ok(serde_json::from_str(&text).wrap_err("Could not parse")?)
     }
 }
-
-/// Retained through command contexts and credential fallbacks.
-#[derive(Clone, Debug)]
-pub(crate) struct CompatibilityError {
-    minimum: Option<Version>,
-}
-
-impl std::fmt::Display for CompatibilityError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "kinetics {VERSION} is not supported by this backend.")?;
-        if let Some(minimum) = &self.minimum {
-            write!(f, " Minimum version: {minimum}.")?;
-        }
-        write!(f, "\nUpdate with: {UPGRADE_COMMAND}")
-    }
-}
-
-impl std::error::Error for CompatibilityError {}

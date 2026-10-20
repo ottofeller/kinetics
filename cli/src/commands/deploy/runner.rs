@@ -158,7 +158,7 @@ impl DeployRunner<'_> {
     }
 
     /// Do full deployment of requested functions
-    async fn deploy_all(&self, project: Project) -> eyre::Result<()> {
+    async fn deploy_all(&self, project: Project) -> Result<(), Error> {
         Pipeline::builder(self.writer)
             .set_max_concurrent(self.command.max_concurrency)
             .with_deploy_enabled(true)

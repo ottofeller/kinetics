@@ -249,11 +249,7 @@ impl Project {
             .json(&request)
             .send()
             .await
-            .inspect_err(|err| log::error!("Error while requesting deploy: {err:?}"))
-            .wrap_err(Error::new(
-                "Network request failed",
-                Some("Try again in a few seconds."),
-            ))?;
+            .inspect_err(|err| log::error!("Error while requesting deploy: {err:?}"))?;
 
         let status = result.status();
         log::info!("got status from /stack/deploy: {status}");
@@ -280,11 +276,7 @@ impl Project {
                 project: self.into(),
             })
             .send()
-            .await
-            .wrap_err(Error::new(
-                "Network request failed",
-                Some("Try again in a few seconds."),
-            ))?;
+            .await?;
 
         let status = result.status();
         let text = result.text().await?;
