@@ -57,9 +57,12 @@ impl Cli {
                     log::error!("Output error: {e:?}");
                 });
 
-            self.writer.json(error.to_json()).unwrap_or_else(|e| {
-                log::error!("Output error: {e:?}");
-            });
+            error
+                .to_json()
+                .and_then(|output| self.writer.json(output).map_err(Into::into))
+                .unwrap_or_else(|e| {
+                    log::error!("Output error: {e:?}");
+                });
 
             std::process::exit(1)
         }

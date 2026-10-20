@@ -24,7 +24,7 @@ pub struct Credentials {
 /// Managing credentials file
 impl Credentials {
     /// Fetch email and expires_at associated with the token
-    async fn fetch_info(token: &str) -> eyre::Result<auth::info::Response> {
+    async fn fetch_info(token: &str) -> Result<auth::info::Response, Error> {
         let url = "/auth/info";
 
         let result = Client::with_token(token)
@@ -34,23 +34,25 @@ impl Credentials {
             .inspect_err(|e| log::error!("Request to /auth/info failed: {e:?}"))?;
 
         let status = result.status();
-        let text = result.text().await?;
+        let text = result
+            .text()
+            .await
+            .wrap_err("Failed to read auth info response")?;
         log::debug!("Got status from {url}: {status}");
         log::debug!("Got response from {url}: {text}");
 
         if status != StatusCode::OK {
             log::error!("Auth info request status is not OK");
-            return Err(eyre::eyre!("Status is not 200"));
+            return Err(Error::new("Status is not 200", None));
         }
 
-        Ok(serde_json::from_str(&text)
-            .inspect_err(|e| log::error!("Could not parse auth info response: {e:?}"))?)
+        Ok(serde_json::from_str(&text).wrap_err("Could not parse auth info response")?)
     }
 
     /// Initialize from the path to credentials file
     ///
     /// First checks environment variable, if not found, reads from file
-    pub async fn new() -> eyre::Result<Self> {
+    pub async fn new() -> Result<Self, Error> {
         let config = build_config()?;
         let path = Path::new(config.credentials_path);
 
@@ -59,13 +61,7 @@ impl Credentials {
                 log::info!("Using credentials from env var");
                 return Ok(credentials);
             }
-            Err(error)
-                if error
-                    .chain()
-                    .any(|cause| Error::from_compatibility(cause).is_some()) =>
-            {
-                return Err(error);
-            }
+            Err(error @ Error::Api(_)) => return Err(error),
             Err(error) => log::info!("Failed to read credentials from env, skipping: {error}"),
         }
 
@@ -156,7 +152,7 @@ impl Credentials {
     }
 
     /// Init from API token set in the the env
-    async fn from_env() -> eyre::Result<Credentials> {
+    async fn from_env() -> Result<Credentials, Error> {
         let config = build_config()?;
         log::info!("Using credentials from env {}", config.credentials_env);
         let path = Path::new(config.credentials_path);
@@ -167,13 +163,7 @@ impl Credentials {
         ))?;
 
         // Fetch token info from backend
-        let info = Self::fetch_info(&token).await.wrap_err(Error::new(
-            "Failed to fetch auth info",
-            Some(&format!(
-                "Check if your {} is valid.",
-                config.credentials_env
-            )),
-        ))?;
+        let info = Self::fetch_info(&token).await?;
 
         Ok(Credentials {
             path: path.to_path_buf(),

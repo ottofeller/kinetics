@@ -1,54 +1,49 @@
 use eyre::WrapErr;
 use reqwest::{Response, StatusCode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// An HTTP failure with the backend's public error details.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ApiError {
+    /// The HTTP status code of the response, serialized as a number.
+    #[serde(skip_deserializing, serialize_with = "serialize_status")]
     pub status: StatusCode,
-    pub code: Option<String>,
+    pub code: String,
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<Value>,
 }
 
-#[derive(Deserialize)]
-struct ErrorBody {
-    // Legacy endpoints may only return an `error` message.
-    code: Option<String>,
-    error: String,
-    data: Option<Value>,
+fn serialize_status<S>(status: &StatusCode, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_u16(status.as_u16())
 }
 
 impl ApiError {
     pub async fn from_response(response: Response) -> eyre::Result<Self> {
         let status = response.status();
-        let body = response
-            .bytes()
+        let mut public = response
+            .json::<Self>()
             .await
-            .wrap_err_with(|| format!("Failed to read backend error response (HTTP {status})"))?;
+            .wrap_err_with(|| format!("Invalid backend error response (HTTP {status})"))?;
 
-        let public = serde_json::from_slice::<ErrorBody>(&body).unwrap_or_else(|error| {
-            log::debug!("Invalid backend error response (HTTP {status}): {error}");
-            ErrorBody {
-                code: None,
-                error: format!("Backend request failed (HTTP {status}). Try again later."),
-                data: None,
-            }
-        });
-
-        Ok(Self {
-            status,
-            code: public.code,
-            message: public.error,
-            data: public.data,
-        })
+        public.status = status;
+        Ok(public)
     }
 }
 
 impl std::fmt::Display for ApiError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.message)
+        f.write_str(&self.message)?;
+        if let Some(details) = &self.details {
+            write!(f, "\n\n{details}")?;
+        }
+        Ok(())
     }
 }
 

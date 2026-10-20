@@ -198,11 +198,7 @@ impl Function {
             })
             .send()
             .await
-            .inspect_err(|err| log::error!("{err:?}"))
-            .wrap_err(Error::new(
-                "Network request failed",
-                Some("Try again in a few seconds."),
-            ))?;
+            .inspect_err(|err| log::error!("{err:?}"))?;
 
         let result: func::status::Response =
             result.json().await.wrap_err("Failed to parse response")?;
@@ -257,11 +253,7 @@ pub async fn status(
         })
         .send()
         .await
-        .inspect_err(|err| log::error!("{err:?}"))
-        .wrap_err(Error::new(
-            "Network request failed",
-            Some("Try again in a few seconds."),
-        ))?;
+        .inspect_err(|err| log::error!("{err:?}"))?;
 
     let result: func::status::Response =
         result.json().await.wrap_err("Failed to parse response")?;

@@ -1,10 +1,11 @@
 use super::progress::{PipelineProgress, ProgressStatus};
 use crate::api::client::Client;
 use crate::config::deploy::DeployConfig;
+use crate::error::Error;
 use crate::function::{build, Function};
 use crate::project::Project;
 use crate::writer::Writer;
-use eyre::{eyre, OptionExt, Report};
+use eyre::{OptionExt, Report};
 use futures::future;
 use std::sync::Arc;
 use std::time::Instant;
@@ -34,7 +35,7 @@ impl<'a> Pipeline<'a> {
 
         // Only selected functions are built and uploaded
         deploy_functions: &[String],
-    ) -> eyre::Result<()> {
+    ) -> Result<(), Error> {
         let client = if self.is_deploy_enabled {
             Some(Client::new(self.deploy_config.is_some()).await?)
         } else {
@@ -153,29 +154,22 @@ impl<'a> Pipeline<'a> {
             })
             .collect();
 
-        let (.., errors): (Vec<_>, Vec<_>) = results.into_iter().partition(Result::is_ok);
+        let errors: Vec<Error> = results
+            .into_iter()
+            .filter_map(Result::err)
+            .map(Error::from)
+            .collect();
 
         if !errors.is_empty() {
+            log::error!("Failed to process functions: {errors:?}");
             if let Some(error) = errors
-                .iter()
-                .filter_map(|result| result.as_ref().err())
-                .find_map(|report| {
-                    report
-                        .chain()
-                        .find_map(crate::error::Error::from_compatibility)
-                })
+                .into_iter()
+                .find(|error| matches!(error, Error::Api(_)))
             {
-                return Err(error.into());
+                return Err(error);
             }
-            log::error!(
-                "Failed to process functions: {:?}",
-                errors
-                    .into_iter()
-                    .map(Result::unwrap_err)
-                    .collect::<Vec<_>>()
-            );
 
-            return Err(eyre!("Failed to process function(s)"));
+            return Err(Error::new("Failed to process function(s)", None));
         }
 
         // Check if there's an ongoing deployment and wait for it to finish
@@ -251,13 +245,13 @@ impl<'a> Pipeline<'a> {
                         .map(|errors| errors.join("\n"))
                         .unwrap_or("Unknown error".into());
 
-                    return Err(eyre!("{error_text}"));
+                    return Err(Error::new(&error_text, None));
                 }
             }
             Err(err) => {
                 deploying_progress.error("Provisioning");
                 pipeline_progress.total_progress_bar.finish_and_clear();
-                return Err(err);
+                return Err(err.into());
             }
         };
 

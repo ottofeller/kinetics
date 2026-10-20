@@ -27,10 +27,7 @@ impl Runner for LogoutRunner<'_> {
         let credentials = Credentials::new().await?;
 
         if credentials.is_valid() {
-            self.remove(&credentials.email).await.map_err(|error| {
-                let details = format!("{error:#}");
-                error.wrap_err(Error::new("Logout request failed", Some(&details)))
-            })?;
+            self.remove(&credentials.email).await?;
         }
 
         credentials.delete()?;
@@ -46,7 +43,7 @@ impl Runner for LogoutRunner<'_> {
 }
 
 impl LogoutRunner<'_> {
-    async fn remove(&mut self, email: &str) -> eyre::Result<()> {
+    async fn remove(&mut self, email: &str) -> Result<(), Error> {
         let client = self.api_client().await?;
 
         let response = client
@@ -64,7 +61,7 @@ impl LogoutRunner<'_> {
         let error = ApiError::from_response(response).await?;
 
         // Ignore invalid_session error, as it means the session is already invalidated
-        if error.code.as_deref() == Some("invalid_session") {
+        if error.code == "invalid_session" {
             return Ok(());
         }
 

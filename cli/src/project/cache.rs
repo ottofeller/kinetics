@@ -1,6 +1,5 @@
 use crate::api::client::Client;
 use crate::config::build_config;
-use crate::error::Error;
 use crate::project::Project;
 use chrono::Duration;
 use chrono::{DateTime, Utc};
@@ -137,11 +136,7 @@ impl Cache {
                     org: org.map(str::to_owned),
                 },
             )
-            .await
-            .wrap_err(Error::new(
-                "Failed to fetch project information",
-                Some("Try again in a few seconds."),
-            ))?;
+            .await?;
 
         let projects = HashMap::from_iter(
             response

@@ -75,11 +75,7 @@ impl LoginRunner {
                 email: self.command.email.clone(),
             })
             .send()
-            .await
-            .wrap_err(Error::new(
-                "Network request failed",
-                Some("Try again in a few seconds."),
-            ))?;
+            .await?;
 
         if !response.status().is_success() {
             log::error!("Got error response: {}", response.text().await?);
@@ -102,11 +98,7 @@ impl LoginRunner {
                 code: code.to_owned(),
             })
             .send()
-            .await
-            .wrap_err(Error::new(
-                "Network request failed",
-                Some("Try again in a few seconds."),
-            ))?;
+            .await?;
 
         if response.status().is_client_error() {
             return Err(Error::new(
