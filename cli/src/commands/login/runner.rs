@@ -1,5 +1,5 @@
+use crate::api::client::Client;
 use crate::commands::login::LoginCommand;
-use crate::config::api_url;
 use crate::credentials::Credentials;
 use crate::error::Error;
 use crate::project::Project;
@@ -67,10 +67,10 @@ impl LoginRunner {
     /// Request auth code and exchange it for access token
     async fn request(&self) -> eyre::Result<Credentials> {
         // Refresh the token if it is expired
-        let client = reqwest::Client::new();
+        let client = Client::unauthenticated();
 
         let response = client
-            .post(api_url("/auth/code/request"))
+            .post("/auth/code/request")
             .json(&auth::code::request::Request {
                 email: self.command.email.clone(),
             })
@@ -96,7 +96,7 @@ impl LoginRunner {
         let code = code.trim();
 
         let response = client
-            .post(api_url("/auth/code/exchange"))
+            .post("/auth/code/exchange")
             .json(&auth::code::exchange::Request {
                 email: self.command.email.clone(),
                 code: code.to_owned(),
