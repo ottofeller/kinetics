@@ -549,7 +549,7 @@ fn format_function_and_path(function: &str, path: &str) -> String {
 
 fn get_terminal_size() -> (usize, usize) {
     let (TerminalWidth(width), TerminalHeight(height)) =
-        terminal_size().expect("failed to obtain a terminal size");
+        terminal_size().unwrap_or((TerminalWidth(80), TerminalHeight(24)));
 
     (width as usize, height as usize)
 }
