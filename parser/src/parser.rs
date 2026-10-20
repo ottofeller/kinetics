@@ -4,7 +4,7 @@ use crate::{
 };
 use color_eyre::eyre;
 use std::path::{Path, PathBuf};
-use syn::{parse::Parse, visit::Visit, Attribute, ItemFn};
+use syn::{parse::Parse, visit::Visit, Attribute, ItemFn, Meta};
 use walkdir::WalkDir;
 
 /// For a workspace represents its member.
@@ -28,6 +28,9 @@ pub struct Parser<'a> {
 
     /// The package being processed
     pkg: Option<&'a Package>,
+
+    /// Attribute parse errors, collected during the project walk
+    errors: Vec<String>,
 }
 
 impl<'a> Parser<'a> {
@@ -64,6 +67,13 @@ impl<'a> Parser<'a> {
             self.visit_file(&syntax);
         }
 
+        if !self.errors.is_empty() {
+            eyre::bail!(
+                "Invalid kinetics macro attributes:\n{}",
+                self.errors.join("\n")
+            );
+        }
+
         Ok(())
     }
 
@@ -76,15 +86,35 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_endpoint(&mut self, attr: &Attribute) -> syn::Result<Endpoint> {
-        attr.parse_args_with(Endpoint::parse)
+        parse_attr_args(attr)
     }
 
     fn parse_worker(&mut self, attr: &Attribute) -> syn::Result<Worker> {
-        attr.parse_args_with(Worker::parse)
+        parse_attr_args(attr)
     }
 
     fn parse_cron(&mut self, attr: &Attribute) -> syn::Result<Cron> {
-        attr.parse_args_with(Cron::parse)
+        parse_attr_args(attr)
+    }
+
+    /// Remember an attribute parse error with the file
+    /// and attribute it came from.
+    /// All errors are reported together after the walk.
+    fn record_attr_error(&mut self, attr: &Attribute, error: syn::Error) {
+        let path = attr
+            .path()
+            .segments
+            .iter()
+            .map(|segment| segment.ident.to_string())
+            .collect::<Vec<_>>()
+            .join("::");
+
+        self.errors.push(format!(
+            "{}: #[{}] {}",
+            self.fn_rel_path.to_string_lossy(),
+            path,
+            error
+        ));
     }
 
     /// Checks if the input is a valid kinetics_macro definition and returns its role
@@ -113,18 +143,27 @@ impl<'a> Visit<'_> for Parser<'a> {
         for attr in &item.attrs {
             // Skip non-endpoint or non-worker attributes
             let (role, params) = match self.parse_attr_role(attr).as_str() {
-                "endpoint" => {
-                    let params = self.parse_endpoint(attr).unwrap();
-                    (Role::Endpoint, Params::Endpoint(params))
-                }
-                "worker" => {
-                    let params = self.parse_worker(attr).unwrap();
-                    (Role::Worker, Params::Worker(params))
-                }
-                "cron" => {
-                    let params = self.parse_cron(attr).unwrap();
-                    (Role::Cron, Params::Cron(params))
-                }
+                "endpoint" => match self.parse_endpoint(attr) {
+                    Ok(params) => (Role::Endpoint, Params::Endpoint(params)),
+                    Err(error) => {
+                        self.record_attr_error(attr, error);
+                        continue;
+                    }
+                },
+                "worker" => match self.parse_worker(attr) {
+                    Ok(params) => (Role::Worker, Params::Worker(params)),
+                    Err(error) => {
+                        self.record_attr_error(attr, error);
+                        continue;
+                    }
+                },
+                "cron" => match self.parse_cron(attr) {
+                    Ok(params) => (Role::Cron, Params::Cron(params)),
+                    Err(error) => {
+                        self.record_attr_error(attr, error);
+                        continue;
+                    }
+                },
                 _ => continue,
             };
 
@@ -141,5 +180,20 @@ impl<'a> Visit<'_> for Parser<'a> {
         }
 
         // We don't need to parse the function body (in case nested functions), so just exit here
+    }
+}
+
+/// Parse the arguments similar to proc macro:
+/// - `#[worker(fifo = true)]` passes the tokens inside the parentheses;
+/// - bare `#[worker]` is treated as empty arguments
+///   and yields default parameters.
+fn parse_attr_args<T: Parse>(attr: &Attribute) -> syn::Result<T> {
+    match &attr.meta {
+        Meta::Path(_) => syn::parse2(Default::default()),
+        Meta::List(list) => syn::parse2(list.tokens.clone()),
+        Meta::NameValue(name_value) => Err(syn::Error::new(
+            name_value.eq_token.span,
+            "expected parentheses with parameters, e.g. `#[worker(...)]`",
+        )),
     }
 }
