@@ -278,9 +278,10 @@ impl InvokeRunner<'_> {
         let mut process = Process::new(child, self.writer);
         let status = process.log()?;
 
-        if !status.success() {
-            process.print_error()?;
+        // Report the child's stderr whether or not the invocation failed.
+        process.print_error()?;
 
+        if !status.success() {
             return Err(eyre::eyre!(
                 "Invocation failed with status {}: {}",
                 status,
