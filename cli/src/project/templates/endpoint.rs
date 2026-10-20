@@ -72,12 +72,14 @@ pub fn endpoint(
                         );
                 }}
 
-                let event = event_builder
-                    .uri(url_path)
-                    .body(kinetics_lib::tools::http::Body::from(payload).try_into()?)?;
-                match kinetics_lib::tools::http::map_result(
-                    user_function(event, &secrets, &kinetics_config).await
-                ) {{
+                let result = match kinetics_lib::tools::http::Body::from(payload).try_into() {{
+                    Ok(body) => {{
+                        let event = event_builder.uri(url_path).body(body)?;
+                        user_function(event, &secrets, &kinetics_config).await
+                    }}
+                    Err(error) => Err(error.into()),
+                }};
+                match kinetics_lib::tools::http::map_result(result) {{
                     Ok(response) => {{
                         println!(\"{{response:?}}\");
                     }},
