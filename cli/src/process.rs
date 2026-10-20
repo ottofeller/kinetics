@@ -102,13 +102,20 @@ impl<'a> Process<'a> {
     }
 
     /// If there was an error, print the full stderr
+    ///
+    /// No-op when the process wrote nothing to stderr, so callers can report
+    /// it unconditionally.
     pub fn print_error(&self) -> eyre::Result<()> {
         if let Ok(lines) = self.stderr_lines.lock() {
+            if lines.is_empty() {
+                return Ok(());
+            }
+
             self.writer.text(&format!(
                 "\n{}\n{}",
                 console::style("Error:").red().bold(),
                 lines.join("\n")
-            ))?
+            ))?;
         }
 
         Ok(())
