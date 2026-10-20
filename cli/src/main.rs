@@ -18,7 +18,6 @@ use crate::logger::Logger;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use clap::{ArgAction, Parser};
-use serde_json::json;
 
 #[derive(Parser)]
 #[command(
@@ -58,11 +57,9 @@ impl Cli {
                     log::error!("Output error: {e:?}");
                 });
 
-            self.writer
-                .json(json!({"success": false, "error": error.to_string()}))
-                .unwrap_or_else(|e| {
-                    log::error!("Output error: {e:?}");
-                });
+            self.writer.json(error.to_json()).unwrap_or_else(|e| {
+                log::error!("Output error: {e:?}");
+            });
 
             std::process::exit(1)
         }

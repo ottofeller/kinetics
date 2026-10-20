@@ -1,8 +1,8 @@
+use crate::api::error::ApiError;
 use crate::credentials::Credentials;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
-use eyre::Context;
 use kinetics_api::auth;
 use serde_json::json;
 
@@ -27,9 +27,10 @@ impl Runner for LogoutRunner<'_> {
         let credentials = Credentials::new().await?;
 
         if credentials.is_valid() {
-            self.remove(&credentials.email)
-                .await
-                .wrap_err("Logout request failed")?;
+            self.remove(&credentials.email).await.map_err(|error| {
+                let details = format!("{error:#}");
+                error.wrap_err(Error::new("Logout request failed", Some(&details)))
+            })?;
         }
 
         credentials.delete()?;
@@ -56,10 +57,17 @@ impl LogoutRunner<'_> {
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            return Err(eyre::eyre!("Failed to logout: {}", response.text().await?));
+        if response.status().is_success() {
+            return Ok(());
         }
 
-        Ok(())
+        let error = ApiError::from_response(response).await?;
+
+        // Ignore invalid_session error, as it means the session is already invalidated
+        if error.code.as_deref() == Some("invalid_session") {
+            return Ok(());
+        }
+
+        Err(error.into())
     }
 }

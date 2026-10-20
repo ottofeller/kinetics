@@ -43,7 +43,7 @@ pub(crate) trait Runner {
         origin: Option<Box<dyn StdError>>,
     ) -> Error {
         if let Some(origin) = origin {
-            if let Some(error) = Error::from_compatibility(origin.as_ref()) {
+            if let Some(error) = Error::from_source(origin.as_ref()) {
                 return error;
             }
             log::error!("{origin:?}");
