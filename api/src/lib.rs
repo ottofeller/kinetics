@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod compatibility;
 pub mod domains;
 pub mod envs;
 pub mod func;

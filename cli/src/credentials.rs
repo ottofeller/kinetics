@@ -1,4 +1,5 @@
-use crate::config::{api_url, build_config};
+use crate::api::client::Client;
+use crate::config::build_config;
 use crate::error::Error;
 use chrono::{DateTime, Utc};
 use eyre::{Context, OptionExt};
@@ -26,10 +27,8 @@ impl Credentials {
     async fn fetch_info(token: &str) -> eyre::Result<auth::info::Response> {
         let url = "/auth/info";
 
-        // Can't use internal client here, as it will create recursion
-        let result = reqwest::Client::new()
-            .get(api_url(url))
-            .header("Authorization", token)
+        let result = Client::with_token(token)
+            .get(url)
             .send()
             .await
             .inspect_err(|e| log::error!("Request to /auth/info failed: {e:?}"))?;
@@ -55,11 +54,19 @@ impl Credentials {
         let config = build_config()?;
         let path = Path::new(config.credentials_path);
 
-        if let Ok(credentials) = Self::from_env().await.inspect_err(|error| {
-            log::info!("Failed to read credentials from env, skipping: {error}")
-        }) {
-            log::info!("Using credentials from env var");
-            return Ok(credentials);
+        match Self::from_env().await {
+            Ok(credentials) => {
+                log::info!("Using credentials from env var");
+                return Ok(credentials);
+            }
+            Err(error)
+                if error
+                    .chain()
+                    .any(|cause| Error::from_compatibility(cause).is_some()) =>
+            {
+                return Err(error);
+            }
+            Err(error) => log::info!("Failed to read credentials from env, skipping: {error}"),
         }
 
         // Use keyring second (high priority)

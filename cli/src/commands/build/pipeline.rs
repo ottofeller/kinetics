@@ -156,6 +156,17 @@ impl<'a> Pipeline<'a> {
         let (.., errors): (Vec<_>, Vec<_>) = results.into_iter().partition(Result::is_ok);
 
         if !errors.is_empty() {
+            if let Some(error) = errors
+                .iter()
+                .filter_map(|result| result.as_ref().err())
+                .find_map(|report| {
+                    report
+                        .chain()
+                        .find_map(crate::error::Error::from_compatibility)
+                })
+            {
+                return Err(error.into());
+            }
             log::error!(
                 "Failed to process functions: {:?}",
                 errors
