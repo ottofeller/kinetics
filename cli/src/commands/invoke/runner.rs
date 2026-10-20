@@ -68,7 +68,7 @@ impl InvokeRunner<'_> {
         // Resolve the final payload based on the role
         let resolved_payload = match role {
             Role::Endpoint => Some(payload.unwrap_or("{}".to_string())),
-            Role::Worker => {
+            Role::Worker | Role::DlqWorker => {
                 let payload = payload.unwrap_or("[]".to_string());
 
                 serde_json::from_str::<Vec<Value>>(&payload)

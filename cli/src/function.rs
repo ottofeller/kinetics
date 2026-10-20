@@ -58,11 +58,19 @@ impl Function {
             None
         };
 
+        // Resolve local fn name in `dlq` into full function name.
+        let mut params = function.params.clone();
+        if let Params::Worker(worker) = &mut params {
+            if let Some(target) = worker.dlq.as_deref() {
+                worker.dlq = Some(function.full_name(target)?);
+            }
+        }
+
         Ok(Function {
             name: function.func_name(false)?,
             is_deploying: false,
             project: project.clone(),
-            params: function.params.clone(),
+            params,
             role: function.role.clone(),
             secrets,
         })
