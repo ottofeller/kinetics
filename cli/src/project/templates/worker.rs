@@ -81,7 +81,7 @@ pub fn worker(import_statement: &str, rust_function_name: &str, is_local: bool) 
                         println!(\"Batch item failures: {{failures}}\");
                     }}
                     Err(err) => {{
-                        eprintln!(\"Request failed: {{:?}}\", err);
+                        return Err(format!(\"Request failed: {{err:?}}\").into());
                     }}
                 }}
 

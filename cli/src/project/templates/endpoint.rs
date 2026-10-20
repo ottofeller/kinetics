@@ -85,7 +85,7 @@ pub fn endpoint(
                     }},
 
                     Err(err) => {{
-                        println!(\"Request failed: {{:?}}\", err);
+                        return Err(format!(\"Request failed: {{err:?}}\").into());
                     }}
                 }}
 
