@@ -75,7 +75,9 @@ pub fn endpoint(
                 let event = event_builder
                     .uri(url_path)
                     .body(kinetics_lib::tools::http::Body::from(payload).try_into()?)?;
-                match user_function(event, &secrets, &kinetics_config).await {{
+                match kinetics_lib::tools::http::map_result(
+                    user_function(event, &secrets, &kinetics_config).await
+                ) {{
                     Ok(response) => {{
                         println!(\"{{response:?}}\");
                     }},
@@ -148,8 +150,14 @@ pub fn endpoint(
 
                 run(service_fn(|event: Request| async {{
                     let (head, body) = event.into_parts();
-                    let event = http::Request::from_parts(head, kinetics_lib::tools::http::Body::from(body).try_into()?);
-                    match user_function(event, &secrets, &kinetics_config).await {{
+                    let result = match kinetics_lib::tools::http::Body::from(body).try_into() {{
+                        Ok(body) => {{
+                            let event = http::Request::from_parts(head, body);
+                            user_function(event, &secrets, &kinetics_config).await
+                        }}
+                        Err(error) => Err(error.into()),
+                    }};
+                    match kinetics_lib::tools::http::map_result(result) {{
                         Ok(response) => Ok(response),
                         Err(err) => {{
                             eprintln!(\"Error occurred while handling request: {{:?}}\", err);

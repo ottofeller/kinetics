@@ -1,6 +1,9 @@
 use http_body::{Body as HttpBody, Frame, SizeHint};
 use std::{borrow::Cow, mem::take, pin::Pin, task::Poll};
 
+mod response;
+pub use response::{map_result, ApiResponse};
+
 /// Request body supported by kinetics runtime.
 /// In addition to empty bodies string and binary data are supported.
 #[derive(Debug, Default, Eq, PartialEq)]
