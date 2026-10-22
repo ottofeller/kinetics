@@ -1,3 +1,4 @@
+use crate::api::error::ApiError;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
@@ -63,13 +64,7 @@ impl Runner for AddRunner<'_> {
             .map_err(|e| self.server_error(Some(e.into())))?;
 
         if !response.status().is_success() {
-            log::error!(
-                "Failed to add domain ({}): {}",
-                response.status(),
-                response.text().await.unwrap_or("Unknown error".to_string()),
-            );
-
-            return Err(self.server_error(None));
+            return Err(ApiError::from_response(response).await?.into());
         }
 
         let resp: Response = response
