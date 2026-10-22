@@ -1,4 +1,5 @@
 use crate::api::client::Client;
+use crate::api::error::ApiError;
 use crate::config::deploy::DeployConfig;
 use crate::error::Error;
 use crate::project::Project;
@@ -197,11 +198,17 @@ impl Function {
                 function_name: func::status::FunctionName::Single(self.name.clone()),
             })
             .send()
-            .await
-            .inspect_err(|err| log::error!("{err:?}"))?;
+            .await?;
 
-        let result: func::status::Response =
-            result.json().await.wrap_err("Failed to parse response")?;
+        if !result.status().is_success() {
+            return Err(ApiError::from_response(result).await?.into());
+        }
+
+        let result: func::status::Response = result
+            .json()
+            .await
+            .inspect_err(|err| log::debug!("Invalid function status response: {err:?}"))
+            .wrap_err(Error::new("Server error", Some("Try again later.")))?;
 
         match result.last_modified {
             func::status::FunctionStatus::Single(status) => match status {
@@ -252,11 +259,17 @@ pub async fn status(
             ),
         })
         .send()
-        .await
-        .inspect_err(|err| log::error!("{err:?}"))?;
+        .await?;
 
-    let result: func::status::Response =
-        result.json().await.wrap_err("Failed to parse response")?;
+    if !result.status().is_success() {
+        return Err(ApiError::from_response(result).await?.into());
+    }
+
+    let result: func::status::Response = result
+        .json()
+        .await
+        .inspect_err(|err| log::debug!("Invalid function statuses response: {err:?}"))
+        .wrap_err(Error::new("Server error", Some("Try again later.")))?;
 
     match result.last_modified {
         func::status::FunctionStatus::Single(_) => Err(Error::new(

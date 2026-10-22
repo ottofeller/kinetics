@@ -1,3 +1,4 @@
+use crate::api::error::ApiError;
 use crate::commands::invoke::InvokeRunner;
 use crate::error::Error;
 use crate::function::Function;
@@ -97,7 +98,7 @@ impl InvokeRunner<'_> {
         let response_text = response
             .text()
             .await
-            .unwrap_or("Failed to read response".to_string());
+            .wrap_err("Failed to read function response")?;
 
         self.writer
             .text(&format!(
@@ -136,14 +137,10 @@ impl InvokeRunner<'_> {
                 },
             })
             .send()
-            .await
-            .wrap_err("Failed to send invoke request")
-            .map_err(|e| self.server_error(Some(e.into())))?;
+            .await?;
 
         if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or("Unknown error".to_string());
-            eyre::bail!("Failed to invoke the function ({status}): {error_text}");
+            return Err(ApiError::from_response(response).await?.into());
         }
 
         let body: func::invoke::Response = response.json().await.wrap_err(Error::new(

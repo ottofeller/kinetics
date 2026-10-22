@@ -61,6 +61,9 @@ impl From<ApiError> for Error {
 impl From<eyre::Report> for Error {
     fn from(error: eyre::Report) -> Self {
         log::debug!("{error:?}");
+        if let Some(error) = error.downcast_ref::<ApiError>() {
+            return Self::Api(error.clone());
+        }
         error
             .downcast::<Self>()
             .unwrap_or_else(|error| Self::new(&error.to_string(), None))
