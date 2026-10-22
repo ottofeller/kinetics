@@ -1,4 +1,5 @@
 use crate::api::client::Client;
+use crate::api::error::ApiError;
 use crate::commands::login::LoginCommand;
 use crate::credentials::Credentials;
 use crate::error::Error;
@@ -10,7 +11,7 @@ use crossterm::{
 };
 use eyre::Context;
 use kinetics_api::auth;
-use regex::Regex;
+use kinetics_api::request::Validate;
 use std::io::{self, Write};
 pub(crate) struct LoginRunner {
     pub(crate) command: LoginCommand,
@@ -25,18 +26,12 @@ impl Runner for LoginRunner {
     /// The procedure is rather simple and should be improved as the CLI develops. It sends a one-time code to email
     /// and after user enters it in stdin exchanges it for short lived access token.
     async fn run(&mut self) -> Result<(), Error> {
-        // Validate email
-        if !Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-            .map_err(|e| {
-                log::error!("Regex parsing failed: {e:?}");
-                Error::new(
-                    "Failed to parse email",
-                    Some("Please report a bug at support@deploykinetics.com"),
-                )
-            })?
-            .is_match(&self.command.email)
-        {
-            return Err(Error::new("Invalid email format", None));
+        let request = auth::code::request::Request {
+            email: self.command.email.clone(),
+        };
+
+        if let Some(errors) = request.validate() {
+            return Err(Error::new("Validation failed", Some(&errors.join("\n"))));
         }
 
         let mut credentials = Credentials::new().await?;
@@ -44,7 +39,7 @@ impl Runner for LoginRunner {
 
         // If credentials expired — request new token
         if !credentials.is_valid() || credentials.email != self.command.email {
-            credentials.write(self.request().await?)?;
+            credentials.write(self.request(request).await?)?;
             is_new_session = true;
         }
 
@@ -65,58 +60,51 @@ impl Runner for LoginRunner {
 
 impl LoginRunner {
     /// Request auth code and exchange it for access token
-    async fn request(&self) -> eyre::Result<Credentials> {
+    async fn request(&self, request: auth::code::request::Request) -> Result<Credentials, Error> {
         // Refresh the token if it is expired
         let client = Client::unauthenticated();
 
         let response = client
             .post("/auth/code/request")
-            .json(&auth::code::request::Request {
-                email: self.command.email.clone(),
-            })
+            .json(&request)
             .send()
             .await?;
 
         if !response.status().is_success() {
-            log::error!("Got error response: {}", response.text().await?);
-
-            return Err(Error::new(
-                "Failed to request auth code",
-                Some("Try again in a few seconds."),
-            )
-            .into());
+            return Err(ApiError::from_response(response).await?.into());
         }
 
         println!("Please enter the one-time code sent to your email:");
         let code = self.read_masked_password()?;
         let code = code.trim();
 
+        let request = auth::code::exchange::Request {
+            email: self.command.email.clone(),
+            code: code.to_owned(),
+        };
+
+        if let Some(errors) = request.validate() {
+            return Err(Error::new("Validation failed", Some(&errors.join("\n"))));
+        }
+
         let response = client
             .post("/auth/code/exchange")
-            .json(&auth::code::exchange::Request {
-                email: self.command.email.clone(),
-                code: code.to_owned(),
-            })
+            .json(&request)
             .send()
             .await?;
 
-        if response.status().is_client_error() {
-            return Err(Error::new(
-                "Failed to log in",
-                Some("The one-time code has expired or is invalid."),
-            )
-            .into());
-        }
-
         if !response.status().is_success() {
-            return Err(Error::new("Failed to log in", Some("Try again in a few seconds.")).into());
+            return Err(ApiError::from_response(response).await?.into());
         }
 
         // Projects cache is currently holding only one user projects. Clear it to avoid
         // overlapping settings.
         Project::clear_cache()?;
 
-        Ok(response.json().await?)
+        Ok(response
+            .json()
+            .await
+            .wrap_err("Could not parse login response")?)
     }
 
     fn read_masked_password(&self) -> eyre::Result<String> {

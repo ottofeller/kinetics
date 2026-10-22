@@ -1,11 +1,11 @@
 use crate::api::client::Client;
+use crate::api::error::ApiError;
 use crate::config::build_config;
 use crate::error::Error;
 use chrono::{DateTime, Utc};
 use eyre::{Context, OptionExt};
 use keyring::Entry;
 use kinetics_api::auth;
-use reqwest::StatusCode;
 use serde_json::json;
 use std::path::{Path, PathBuf};
 use users::{get_current_uid, get_user_by_uid};
@@ -33,20 +33,14 @@ impl Credentials {
             .await
             .inspect_err(|e| log::error!("Request to /auth/info failed: {e:?}"))?;
 
-        let status = result.status();
-        let text = result
-            .text()
-            .await
-            .wrap_err("Failed to read auth info response")?;
-        log::debug!("Got status from {url}: {status}");
-        log::debug!("Got response from {url}: {text}");
-
-        if status != StatusCode::OK {
-            log::error!("Auth info request status is not OK");
-            return Err(Error::new("Status is not 200", None));
+        if !result.status().is_success() {
+            return Err(ApiError::from_response(result).await?.into());
         }
 
-        Ok(serde_json::from_str(&text).wrap_err("Could not parse auth info response")?)
+        Ok(result
+            .json()
+            .await
+            .wrap_err("Could not parse auth info response")?)
     }
 
     /// Initialize from the path to credentials file

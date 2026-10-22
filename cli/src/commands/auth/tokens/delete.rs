@@ -1,3 +1,4 @@
+use crate::api::error::ApiError;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
@@ -85,21 +86,7 @@ impl Runner for DeleteRunner<'_> {
             .wrap_err("Failed to call token deletion endpoint")?;
 
         if !response.status().is_success() {
-            let response: serde_json::Value = response.json().await.wrap_err(Error::new(
-                "Invalid response from server",
-                Some("Try again later."),
-            ))?;
-
-            return Err(Error::new(
-                "Failed to delete token",
-                Some(
-                    response
-                        .get("error")
-                        .unwrap_or(&serde_json::Value::Null)
-                        .as_str()
-                        .unwrap_or("Unknown error"),
-                ),
-            ));
+            return Err(ApiError::from_response(response).await?.into());
         }
 
         self.writer
