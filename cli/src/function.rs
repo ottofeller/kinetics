@@ -142,12 +142,14 @@ impl Function {
             return Ok(false);
         }
 
-        let text = response.text().await?;
-        log::debug!("Got response for {}: {}", self.name, text);
+        if !response.status().is_success() {
+            return Err(ApiError::from_response(response).await?.into());
+        }
 
-        let presigned = serde_json::from_str::<upload::Response>(&text).inspect_err(|e| {
-            log::error!("Failed to parse the response: {e:?}");
-        })?;
+        let presigned: upload::Response = response
+            .json()
+            .await
+            .wrap_err(Error::new("Server error", Some("Try again later.")))?;
 
         let public_client = reqwest::Client::new();
 

@@ -95,12 +95,13 @@ impl Runner for RollbackRunner<'_> {
         ))?;
 
         client
-            .post("/stack/rollback")
-            .json(&stack::rollback::Request {
-                project: (&project).into(),
-                version: self.command.version,
-            })
-            .send()
+            .request::<_, stack::rollback::Response>(
+                "/stack/rollback",
+                stack::rollback::Request {
+                    project: (&project).into(),
+                    version: Some(target_version.version),
+                },
+            )
             .await
             .wrap_err("Failed to rollback")
             .map_err(|e| self.server_error(Some(e.into())))?;
@@ -120,12 +121,8 @@ impl Runner for RollbackRunner<'_> {
                 .map_err(|e| self.server_error(Some(e.into())))?;
         }
 
-        if status.status == "FAILED" {
-            return Err(self.error(
-                Some("Rollback failed"),
-                Some("Try again in a few minutes."),
-                None,
-            ));
+        if status.status != "COMPLETE" {
+            return Err(Error::stack_operation(&status, "Rollback failed"));
         }
 
         self.writer

@@ -43,19 +43,7 @@ impl Runner for DestroyRunner<'_> {
             None => current_project.name.as_str(),
         };
 
-        let project = match Project::fetch_one(project_name, current_project.org.as_deref()).await {
-            Ok(project) => project,
-
-            Err(_) => {
-                self.writer
-                    .text(&format!("{}\n", "Project not found".yellow()))?;
-
-                self.writer
-                    .json(json!({"success": false, "message": "Project not found"}))?;
-
-                return Ok(());
-            }
-        };
+        let project = Project::fetch_one(project_name, current_project.org.as_deref()).await?;
 
         // Ask for confirmation (skip in structured/JSON mode)
         if !self.writer.is_structured() {

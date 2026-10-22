@@ -9,6 +9,7 @@ mod templates;
 mod workspace;
 
 use crate::api::client::Client;
+use crate::api::error::ApiError;
 use crate::config::build_config;
 use crate::config::deploy::DeployConfig;
 use crate::envs::Envs;
@@ -185,7 +186,7 @@ impl Project {
 
     /// Destroy the project by sending a DELETE request to /projects/{name}
     pub async fn destroy(&self) -> eyre::Result<()> {
-        Client::new(false)
+        let response = Client::new(false)
             .await
             .wrap_err("Failed to create client")?
             .post("/stack/destroy")
@@ -194,6 +195,10 @@ impl Project {
             })
             .send()
             .await?;
+
+        if !response.status().is_success() {
+            return Err(ApiError::from_response(response).await?.into());
+        }
 
         Ok(())
     }
@@ -253,16 +258,10 @@ impl Project {
 
         let status = result.status();
         log::info!("got status from /stack/deploy: {status}");
-        log::info!("got response from /stack/deploy: {}", result.text().await?);
-
         match status {
             StatusCode::OK => eyre::Ok(true),
             StatusCode::NOT_MODIFIED => eyre::Ok(false),
-            _ => Err(Error::new(
-                "Deployment request failed",
-                Some("Try again in a few seconds."),
-            )
-            .into()),
+            _ => Err(ApiError::from_response(result).await?.into()),
         }
     }
 
@@ -278,17 +277,14 @@ impl Project {
             .send()
             .await?;
 
-        let status = result.status();
-        let text = result.text().await?;
-        log::debug!("Got response from /stack/status:\n{status}\n{text}");
-
-        if status != StatusCode::OK {
-            return Err(
-                Error::new("Status request failed", Some("Try again in a few seconds.")).into(),
-            );
+        if !result.status().is_success() {
+            return Err(ApiError::from_response(result).await?.into());
         }
 
-        serde_json::from_str(&text).wrap_err("Failed to parse response")
+        result
+            .json()
+            .await
+            .wrap_err(Error::new("Server error", Some("Try again later.")))
     }
 
     /// Make sure URL is properly formatted

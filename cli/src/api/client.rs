@@ -5,6 +5,7 @@ use crate::error::Error;
 use chrono::Utc;
 use eyre::WrapErr;
 use kinetics_api::compatibility::{MIN_VERSION_HEADER, VERSION_HEADER};
+use kinetics_api::request::to_log_safe_string_pretty;
 use reqwest::{Method, StatusCode};
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -132,7 +133,12 @@ impl Client {
             .await
             .wrap_err("Failed to read backend response")?;
         log::info!("Got status from {path}: {status}");
-        log::info!("Got response from {path}: {text}");
+        log::info!(
+            "Got response from {path}: {}",
+            serde_json::from_str::<serde_json::Value>(&text)
+                .and_then(|response| to_log_safe_string_pretty(&response))
+                .unwrap_or_else(|_| "[invalid JSON response]".to_owned())
+        );
 
         if status != StatusCode::OK {
             let response: serde_json::Value = serde_json::from_str(&text).wrap_err(Error::new(

@@ -1,4 +1,6 @@
+use super::check_results;
 use crate::api::client::Client;
+use crate::api::error::ApiError;
 use crate::error::Error;
 use crate::project::Project;
 use crate::runner::{Runnable, Runner};
@@ -46,7 +48,7 @@ impl Runner for ListRunner<'_> {
 
         self.writer.text("\n")?;
 
-        let envs = if self.command.remote {
+        let response = if self.command.remote {
             self.writer.text(&format!(
                 "{} env vars...\n\n",
                 console::style("Fetching").bold()
@@ -61,20 +63,39 @@ impl Runner for ListRunner<'_> {
                 console::style("Showing").bold()
             ))?;
 
-            local(&project)
+            let envs = local(&project)
                 .await
-                .map_err(|e| self.error(None, None, Some(e.into())))?
+                .map_err(|e| self.error(None, None, Some(e.into())))?;
+            envs::list::Response {
+                results: envs
+                    .into_iter()
+                    .map(|(name, envs)| (name, envs::FunctionResult::Success { envs: Some(envs) }))
+                    .collect(),
+            }
         };
 
-        if envs.is_empty() {
-            self.writer.text(&format!("{}", "No envs found".yellow()))?;
-            self.writer.json(json!({"success": true, "envs": {}}))?;
-            return Ok(());
+        let mut envs = HashMap::new();
+        for (name, result) in &response.results {
+            match result {
+                envs::FunctionResult::Success {
+                    envs: Some(variables),
+                } => {
+                    envs.insert(name.clone(), variables.clone());
+                }
+                envs::FunctionResult::Success { envs: None } => {
+                    return Err(Error::new(
+                        "Invalid response from server",
+                        Some("Environment variables are missing from a successful result."),
+                    ));
+                }
+                envs::FunctionResult::Error { .. } => {}
+            }
         }
 
         let mut envs_json: HashMap<String, Value> = HashMap::new();
 
         for (function_name, env_vars) in &envs {
+            envs_json.insert(function_name.clone(), json!(env_vars));
             if env_vars.is_empty() {
                 continue;
             }
@@ -98,8 +119,6 @@ impl Runner for ListRunner<'_> {
                 path.dim().underlined()
             ))?;
 
-            envs_json.insert(function_name.clone(), json!(env_vars));
-
             for (key, value) in env_vars {
                 self.writer.text(&format!(
                     "{} {}\n",
@@ -111,8 +130,18 @@ impl Runner for ListRunner<'_> {
             self.writer.text("\n")?;
         }
 
-        self.writer
-            .json(json!({"success": true, "envs": envs_json}))?;
+        if (response.results.is_empty() || !envs.is_empty()) && envs.values().all(HashMap::is_empty)
+        {
+            self.writer
+                .text(&format!("{}\n", "No envs found".yellow()))?;
+        }
+
+        check_results(&response, "Failed to read environment variables")?;
+        self.writer.json(json!({
+            "success": true,
+            "envs": envs_json,
+            "results": response.results,
+        }))?;
 
         Ok(())
     }
@@ -122,12 +151,13 @@ impl Runner for ListRunner<'_> {
 async fn remote(
     project: &Project,
     functions: &[ParsedFunction],
-) -> eyre::Result<HashMap<String, HashMap<String, String>>> {
+) -> eyre::Result<envs::list::Response> {
     let response = Client::new(false)
         .await?
         .post("/envs/list")
         .json(&envs::list::Request {
             project: project.into(),
+            detailed_results: true,
             functions_names: functions
                 .iter()
                 .map(|f| f.func_name(false))
@@ -138,13 +168,7 @@ async fn remote(
         .wrap_err("Failed to send request to /envs/list endpoint")?;
 
     if !response.status().is_success() {
-        log::error!(
-            "Error for status {}: {}",
-            response.status(),
-            response.text().await.unwrap_or("Unknown error".to_string())
-        );
-
-        return Err(eyre::eyre!("Failed to fetch envs from backend"));
+        return Err(ApiError::from_response(response).await?.into());
     }
 
     let response: envs::list::Response = response

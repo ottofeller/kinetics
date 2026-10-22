@@ -66,11 +66,50 @@ impl Validate for Request {
     }
 }
 
-/// Check the size of a function's user-supplied Lambda environment map.
+/// Validate names and size of a function's user-supplied Lambda environment map.
 fn validate_user_environment(
     function_name: &str,
     environment: &HashMap<String, String>,
 ) -> Result<(), String> {
+    for key in environment.keys() {
+        if matches!(
+            key.as_str(),
+            "_HANDLER"
+                | "_X_AMZN_TRACE_ID"
+                | "AWS_DEFAULT_REGION"
+                | "AWS_REGION"
+                | "AWS_EXECUTION_ENV"
+                | "AWS_LAMBDA_FUNCTION_NAME"
+                | "AWS_LAMBDA_FUNCTION_MEMORY_SIZE"
+                | "AWS_LAMBDA_FUNCTION_VERSION"
+                | "AWS_LAMBDA_INITIALIZATION_TYPE"
+                | "AWS_LAMBDA_LOG_GROUP_NAME"
+                | "AWS_LAMBDA_LOG_STREAM_NAME"
+                | "AWS_ACCESS_KEY"
+                | "AWS_ACCESS_KEY_ID"
+                | "AWS_SECRET_ACCESS_KEY"
+                | "AWS_SESSION_TOKEN"
+                | "AWS_LAMBDA_RUNTIME_API"
+                | "LAMBDA_TASK_ROOT"
+                | "LAMBDA_RUNTIME_DIR"
+                | "AWS_LAMBDA_MAX_CONCURRENCY"
+                | "AWS_LAMBDA_METADATA_API"
+                | "AWS_LAMBDA_METADATA_TOKEN"
+        ) {
+            return Err(format!("Environment variable \"{key}\" for function \"{function_name}\" is reserved by Lambda."));
+        }
+        if key.len() < 2
+            || !key.as_bytes()[0].is_ascii_alphabetic()
+            || !key
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        {
+            return Err(format!(
+                "Invalid environment variable name \"{key}\" for function \"{function_name}\". Use at least two characters, start with a letter, and use only letters, numbers, and underscores."
+            ));
+        }
+    }
+
     let size = serde_json::to_vec(environment)
         .map_err(|error| {
             format!(

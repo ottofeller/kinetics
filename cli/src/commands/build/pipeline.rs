@@ -231,7 +231,7 @@ impl<'a> Pipeline<'a> {
                     status = self.project.status().await?;
                 }
 
-                if matches!(status.status.as_str(), "FAILED" | "FROZEN") {
+                if status.status != "COMPLETE" {
                     deploying_progress.error("Provisioning");
                     pipeline_progress.total_progress_bar.finish_and_clear();
 
@@ -240,12 +240,7 @@ impl<'a> Pipeline<'a> {
                         self.project.destroy().await?;
                     }
 
-                    let error_text = status
-                        .errors
-                        .map(|errors| errors.join("\n"))
-                        .unwrap_or("Unknown error".into());
-
-                    return Err(Error::new(&error_text, None));
+                    return Err(Error::stack_operation(&status, "Deployment failed"));
                 }
             }
             Err(err) => {
