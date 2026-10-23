@@ -72,34 +72,6 @@ fn validate_user_environment(
     environment: &HashMap<String, String>,
 ) -> Result<(), String> {
     for key in environment.keys() {
-        if matches!(
-            key.as_str(),
-            "_HANDLER"
-                | "_X_AMZN_TRACE_ID"
-                | "AWS_DEFAULT_REGION"
-                | "AWS_REGION"
-                | "AWS_EXECUTION_ENV"
-                | "AWS_LAMBDA_FUNCTION_NAME"
-                | "AWS_LAMBDA_FUNCTION_MEMORY_SIZE"
-                | "AWS_LAMBDA_FUNCTION_VERSION"
-                | "AWS_LAMBDA_INITIALIZATION_TYPE"
-                | "AWS_LAMBDA_LOG_GROUP_NAME"
-                | "AWS_LAMBDA_LOG_STREAM_NAME"
-                | "AWS_ACCESS_KEY"
-                | "AWS_ACCESS_KEY_ID"
-                | "AWS_SECRET_ACCESS_KEY"
-                | "AWS_SESSION_TOKEN"
-                | "AWS_LAMBDA_RUNTIME_API"
-                | "LAMBDA_TASK_ROOT"
-                | "LAMBDA_RUNTIME_DIR"
-                | "AWS_LAMBDA_MAX_CONCURRENCY"
-                | "AWS_LAMBDA_METADATA_API"
-                | "AWS_LAMBDA_METADATA_TOKEN"
-        ) {
-            return Err(format!(
-                "Environment variable \"{key}\" for function \"{function_name}\" is reserved."
-            ));
-        }
         if key.len() < 2
             || !key.as_bytes()[0].is_ascii_alphabetic()
             || !key
