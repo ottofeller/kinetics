@@ -141,10 +141,10 @@ impl DeployRunner<'_> {
             return Err(ApiError::from_response(result).await?.into());
         }
 
-        let response: stack::deploy::envs::Response = result
-            .json()
-            .await
-            .wrap_err("Failed to parse environment update results")?;
+        let response: stack::deploy::envs::Response = result.json().await.wrap_err(Error::new(
+            "Invalid response from server",
+            Some("Try again later."),
+        ))?;
 
         for (name, result) in &response.results {
             if matches!(result, kinetics_api::envs::FunctionResult::Success { .. }) {

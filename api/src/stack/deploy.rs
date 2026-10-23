@@ -96,7 +96,9 @@ fn validate_user_environment(
                 | "AWS_LAMBDA_METADATA_API"
                 | "AWS_LAMBDA_METADATA_TOKEN"
         ) {
-            return Err(format!("Environment variable \"{key}\" for function \"{function_name}\" is reserved by Lambda."));
+            return Err(format!(
+                "Environment variable \"{key}\" for function \"{function_name}\" is reserved."
+            ));
         }
         if key.len() < 2
             || !key.as_bytes()[0].is_ascii_alphabetic()
