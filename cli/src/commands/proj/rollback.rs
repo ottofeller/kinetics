@@ -40,58 +40,13 @@ impl Runner for RollbackRunner<'_> {
         let project = self.project(&self.command.project).await?;
         let client = self.api_client().await?;
 
-        let versions: stack::versions::Response = client
-            .request(
-                "/stack/versions",
-                stack::versions::Request {
-                    project: (&project).into(),
-                },
-            )
-            .await
-            .wrap_err("Failed to fetch versions")
-            .map_err(|e| self.server_error(Some(e.into())))?;
-
-        if versions.versions.len() < 2 && self.command.version.is_none() {
-            self.writer.text(&format!(
-                "{}\n",
-                console::style("Nothing to rollback, there is only one version").yellow()
-            ))?;
-
-            self.writer.json(
-                json!({"success": true, "message": "Nothing to rollback, no other versions"}),
-            )?;
-
-            return Ok(());
-        }
-
-        let target_version = match self.command.version {
-            Some(v) => {
-                // Find the specified version in the list
-                if let Some(target) = versions.versions.iter().find(|ver| ver.version == v) {
-                    target.clone()
-                } else {
-                    return Err(self.error(
-                        Some(&format!("Version {} not found", v)),
-                        Some("Use 'kinetics proj versions' to see available versions."),
-                        None,
-                    ));
-                }
-            }
-            None => {
-                // Default behavior: rollback to previous version
-                versions.versions[1].clone()
-            }
-        };
-
         self.writer.text(&format!(
-            "{} {} {}...\n\n",
+            "{} {}...\n\n",
             console::style("Rolling back").bold().green(),
-            console::style("to").dim(),
-            console::style(format!(
-                "v{} ({})",
-                target_version.version,
-                target_version.updated_at.with_timezone(&chrono::Local)
-            )),
+            match self.command.version {
+                Some(version) => format!("to version {version}"),
+                None => "to the previous version".to_owned(),
+            },
         ))?;
 
         client
@@ -99,7 +54,8 @@ impl Runner for RollbackRunner<'_> {
                 "/stack/rollback",
                 stack::rollback::Request {
                     project: (&project).into(),
-                    version: Some(target_version.version),
+                    // None asks the backend to choose the previous version.
+                    version: self.command.version,
                 },
             )
             .await

@@ -237,7 +237,11 @@ impl<'a> Pipeline<'a> {
 
                     if status.status == "FROZEN" {
                         log::info!("Project deploy failed with FROZEN status - destroy it.");
-                        self.project.destroy().await?;
+                        if let Err(error) = self.project.destroy().await {
+                            log::warn!(
+                                "Failed to destroy project after deployment failure: {error:?}"
+                            );
+                        }
                     }
 
                     return Err(Error::stack_operation(&status, "Deployment failed"));
