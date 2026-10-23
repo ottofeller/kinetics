@@ -66,11 +66,24 @@ impl Validate for Request {
     }
 }
 
-/// Check the size of a function's user-supplied Lambda environment map.
+/// Validate names and size of a function's user-supplied Lambda environment map.
 fn validate_user_environment(
     function_name: &str,
     environment: &HashMap<String, String>,
 ) -> Result<(), String> {
+    for key in environment.keys() {
+        if key.len() < 2
+            || !key.as_bytes()[0].is_ascii_alphabetic()
+            || !key
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        {
+            return Err(format!(
+                "Invalid environment variable name \"{key}\" for function \"{function_name}\". Use at least two characters, start with a letter, and use only letters, numbers, and underscores."
+            ));
+        }
+    }
+
     let size = serde_json::to_vec(environment)
         .map_err(|error| {
             format!(

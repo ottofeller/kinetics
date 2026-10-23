@@ -42,7 +42,7 @@ pub(crate) trait Runner {
         origin: Option<Error>,
     ) -> Error {
         if let Some(origin) = origin {
-            if matches!(origin, Error::Api(_)) {
+            if matches!(origin, Error::Api(_) | Error::Cli { code: Some(_), .. }) {
                 return origin;
             }
             log::error!("{origin:?}");

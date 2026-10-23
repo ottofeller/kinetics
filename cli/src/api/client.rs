@@ -5,6 +5,7 @@ use crate::error::Error;
 use chrono::Utc;
 use eyre::WrapErr;
 use kinetics_api::compatibility::{MIN_VERSION_HEADER, VERSION_HEADER};
+use kinetics_api::request::to_log_safe_string_pretty;
 use reqwest::{Method, StatusCode};
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -127,38 +128,23 @@ impl Client {
             .inspect_err(|err| log::error!("{err:?}"))?;
 
         let status = result.status();
-        let text = result
-            .text()
-            .await
-            .wrap_err("Failed to read backend response")?;
         log::info!("Got status from {path}: {status}");
-        log::info!("Got response from {path}: {text}");
 
         if status != StatusCode::OK {
-            let response: serde_json::Value = serde_json::from_str(&text).wrap_err(Error::new(
-                "Invalid response from server",
-                Some("Try again later."),
-            ))?;
-
-            if response.get("code").is_some() {
-                let mut error: ApiError =
-                    serde_json::from_value(response).wrap_err("Invalid backend error response")?;
-                error.status = status;
-                return Err(error.into());
-            }
-
-            return Err(Error::new(
-                "Request failed",
-                Some(
-                    response
-                        .get("error")
-                        .unwrap_or(&serde_json::Value::Null)
-                        .as_str()
-                        .unwrap_or("Unknown error"),
-                ),
-            ));
+            return Err(ApiError::from_response(result).await?.into());
         }
 
-        Ok(serde_json::from_str(&text).wrap_err("Could not parse")?)
+        let response = result
+            .json::<R>()
+            .await
+            .inspect_err(|error| log::debug!("Invalid response from {path}: {error:?}"))
+            .wrap_err(Error::new("Server error", Some("Try again later.")))?;
+        log::info!(
+            "Got response from {path}: {}",
+            to_log_safe_string_pretty(&response)
+                .unwrap_or_else(|_| "[unavailable response]".to_owned())
+        );
+
+        Ok(response)
     }
 }

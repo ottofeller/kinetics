@@ -1,3 +1,4 @@
+use crate::error::Error;
 use eyre::WrapErr;
 use reqwest::{Response, StatusCode};
 use serde::{Deserialize, Serialize};
@@ -30,7 +31,10 @@ impl ApiError {
         let mut public = response
             .json::<Self>()
             .await
-            .wrap_err_with(|| format!("Invalid backend error response (HTTP {status})"))?;
+            .inspect_err(|error| {
+                log::debug!("Invalid backend error response (HTTP {status}): {error:?}");
+            })
+            .wrap_err(Error::new("Server error", Some("Try again later.")))?;
 
         public.status = status;
         Ok(public)

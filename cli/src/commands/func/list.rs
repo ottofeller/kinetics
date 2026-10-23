@@ -126,10 +126,7 @@ impl Runner for ListRunner<'_> {
                 .map_err(|e| self.error(None, None, Some(e.into())));
         }
 
-        self.verbose(&client)
-            .await
-            .wrap_err("Failed to output the verbose list")
-            .map_err(|e| self.error(None, None, Some(e.into())))?;
+        self.verbose(&client).await?;
 
         Ok(())
     }

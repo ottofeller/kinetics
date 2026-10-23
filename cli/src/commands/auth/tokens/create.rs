@@ -1,3 +1,4 @@
+use crate::api::error::ApiError;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
@@ -59,19 +60,7 @@ impl Runner for CreateRunner<'_> {
             .wrap_err("Failed to call token creation endpoint")?;
 
         if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or("Unknown error".to_string());
-
-            log::error!(
-                "Failed to create token from API ({}): {}",
-                status,
-                error_text
-            );
-
-            return Err(Error::new(
-                "Failed to create token",
-                Some("Try again later."),
-            ));
+            return Err(ApiError::from_response(response).await?.into());
         }
 
         let token = response

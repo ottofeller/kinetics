@@ -11,4 +11,6 @@ pub struct Request {
 pub struct Response {
     pub status: String,
     pub errors: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_details: Option<Vec<crate::error::Error>>,
 }

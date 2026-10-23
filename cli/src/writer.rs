@@ -32,7 +32,7 @@ impl Writer {
     /// Prints out nothing but a warning (in warn log level) when the writer is in structured mode.
     pub(crate) fn text(&self, output: &str) -> Result<(), Error> {
         if self.is_structured {
-            log::warn!("Skipping output (not structured data): {output}");
+            log::warn!("Skipping output (not structured data)");
             return Ok(());
         }
 
@@ -45,7 +45,7 @@ impl Writer {
     /// Prints out nothing but a warning (in warn log level) when the writer is in plain text mode.
     pub(crate) fn json(&self, output: serde_json::Value) -> Result<(), Error> {
         if !self.is_structured {
-            log::warn!("Skipping output (not plain text): {output}");
+            log::warn!("Skipping output (not plain text)");
             return Ok(());
         }
 
@@ -58,7 +58,7 @@ impl Writer {
     /// Prints out nothing but a warning (in warn log level) when the writer is in structured mode.
     pub(crate) fn error(&self, output: &str) -> Result<(), Error> {
         if self.is_structured {
-            log::warn!("Skipping output (not structured data): {output}");
+            log::warn!("Skipping output (not structured data)");
             return Ok(());
         }
 
