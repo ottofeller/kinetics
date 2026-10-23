@@ -289,7 +289,7 @@ impl<'a> Migrations<'a> {
                 eyre::bail!(
                     "Migration: {path} contains both DDL and DML statements. \
                     Please split them into separate migration files."
-                )
+                );
             }
         }
 
