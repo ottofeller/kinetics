@@ -10,8 +10,10 @@ use eyre::{eyre, ContextCompat, WrapErr};
 use kinetics_api::{func, upload};
 use reqwest::StatusCode;
 use std::collections::HashMap;
+use std::io::IsTerminal;
 use std::path::PathBuf;
 use std::process::Stdio;
+use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 mod bundle;
@@ -304,6 +306,9 @@ pub async fn build(
     };
 
     total_progress.set_message("Starting cargo...");
+    let build_path = project.build_path()?;
+    let debug_build = log::log_enabled!(log::Level::Debug);
+    let show_build_output = debug_build || !std::io::stderr().is_terminal();
     let mut cmd = tokio::process::Command::new("cargo");
     cmd.arg("lambda")
         .arg("build")
@@ -313,15 +318,27 @@ pub async fn build(
         .arg("x86_64-unknown-linux-musl")
         .arg("--output-format")
         .arg("binary")
-        .current_dir(&project.build_path()?)
+        .current_dir(&build_path)
         // Null stdout avoids an unread pipe when cargo-lambda inherits verbose RUST_LOG.
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
+
+    if debug_build {
+        // Cargo's verbose output includes Fresh/Dirty units and their rebuild reasons.
+        cmd.arg("--verbose").arg("--timings");
+    }
 
     for function in functions {
         cmd.arg("--bin").arg(&function.name);
     }
 
+    log::debug!(
+        "Building {} Lambda binaries in {}",
+        functions.len(),
+        build_path.display()
+    );
+    log::debug!("Running {cmd:?}");
+    let compile_started_at = Instant::now();
     let mut child = cmd.spawn().wrap_err("Failed to execute the process")?;
 
     let mut is_failed = false;
@@ -332,6 +349,10 @@ pub async fn build(
         let regex = regex::Regex::new(r"^[\t ]+")?;
 
         while let Some(line) = reader.next_line().await? {
+            if show_build_output {
+                total_progress.suspend(|| eprintln!("{line}"));
+            }
+
             let trimmed = line.trim();
 
             if is_failed || trimmed.starts_with("error") || trimmed.starts_with("Error") {
@@ -345,6 +366,10 @@ pub async fn build(
 
     total_progress.set_message("");
     let status = child.wait().await?;
+    log::debug!(
+        "Cargo finished in {:.2}s ({status})",
+        compile_started_at.elapsed().as_secs_f64()
+    );
 
     if !status.success() {
         return Err(eyre!("{}", error_message_lines.join("\n")));
@@ -352,9 +377,14 @@ pub async fn build(
 
     let functions = functions.to_vec();
 
+    let bundle_started_at = Instant::now();
     tokio::task::spawn_blocking(move || bundle::bundle_functions(&functions))
         .await
         .wrap_err("Failed to join the Lambda bundling task")??;
+    log::debug!(
+        "Lambda ZIP packaging finished in {:.2}s",
+        bundle_started_at.elapsed().as_secs_f64()
+    );
 
     Ok(())
 }

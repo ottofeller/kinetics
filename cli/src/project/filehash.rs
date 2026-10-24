@@ -23,10 +23,27 @@ impl FileHash {
         // Relative path -> hash of the file
         let checksums: HashMap<PathBuf, String> = {
             match fs::read_to_string(&path) {
-                Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
-                Err(_) => HashMap::new(),
+                Ok(content) => serde_json::from_str(&content).unwrap_or_else(|error| {
+                    log::debug!(
+                        "Cannot parse cached build inputs {}: {error}",
+                        path.display()
+                    );
+                    HashMap::new()
+                }),
+                Err(error) => {
+                    log::debug!(
+                        "Cannot load cached build inputs {}: {error}",
+                        path.display()
+                    );
+                    HashMap::new()
+                }
             }
         };
+        log::debug!(
+            "Loaded {} cached build input hashes from {}",
+            checksums.len(),
+            path.display()
+        );
 
         FileHash {
             inner: checksums,
@@ -64,10 +81,20 @@ impl FileHash {
     pub fn update(&mut self, path: PathBuf, new_hash: &str) -> bool {
         self.register(path.clone());
         let missing = !self.directory.join(&path).exists();
-        self.inner
-            .insert(path, new_hash.to_owned())
-            .is_none_or(|old_hash| new_hash != old_hash)
-            || missing
+        let previous = self.inner.insert(path.clone(), new_hash.to_owned());
+        let changed = previous.as_deref() != Some(new_hash);
+        if missing || changed {
+            log::debug!(
+                "Updating build input {}: {}",
+                path.display(),
+                if missing {
+                    "file missing"
+                } else {
+                    "contents changed"
+                },
+            );
+        }
+        missing || changed
     }
 
     pub fn hash_from_bytes<C: AsRef<[u8]>>(contents: C) -> eyre::Result<String> {

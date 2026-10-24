@@ -62,6 +62,11 @@ impl<'a> Pipeline<'a> {
         let all_functions = self
             .project
             .parse_with_package(deploy_functions, self.package.as_deref())?;
+        log::debug!(
+            "Prepared {} Lambda functions in {:.2}s",
+            all_functions.len(),
+            start_time.elapsed().as_secs_f64(),
+        );
 
         // Clear the previous line, the "Preparing..." step is not a part of the build pipeline
         self.writer.text("\r\x1B[K")?;
