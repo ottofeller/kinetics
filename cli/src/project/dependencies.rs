@@ -52,7 +52,34 @@ pub fn insert_lambda_dependency_group(
         .ok_or_else(|| eyre!("Cargo.toml dependencies must be a table"))?;
 
     for (name, dependency) in group {
-        dependencies.insert(name, dependency.clone());
+        let Some(existing) = dependencies.get_mut(name) else {
+            dependencies.insert(name, dependency.clone());
+            continue;
+        };
+
+        // Keep the source package's dependency settings and add only the features
+        // required by the generated entry points.
+        let Some(features) = dependency.get("features").and_then(Item::as_array) else {
+            continue;
+        };
+
+        if existing.as_str().is_some() {
+            *existing = toml_edit::Table::from_iter([("version", existing.clone())]).into();
+        }
+
+        let existing_features = existing["features"]
+            .or_insert(toml_edit::Array::new().into())
+            .as_array_mut()
+            .ok_or_else(|| eyre!("Dependency {name} features must be an array"))?;
+
+        for feature in features.iter().filter_map(toml_edit::Value::as_str) {
+            if !existing_features
+                .iter()
+                .any(|existing| existing.as_str() == Some(feature))
+            {
+                existing_features.push(feature);
+            }
+        }
     }
 
     Ok(())

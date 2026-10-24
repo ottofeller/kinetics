@@ -25,6 +25,9 @@ pub struct Function {
     /// The name of the function
     pub name: String,
 
+    /// Source package path within the generated workspace.
+    pub package_path: PathBuf,
+
     /// Whether the function is requested for deployment
     pub is_deploying: bool,
 
@@ -69,6 +72,7 @@ impl Function {
 
         Ok(Function {
             name: function.func_name(false)?,
+            package_path: function.pkg_rel_path.clone(),
             is_deploying: false,
             project: project.clone(),
             params,
@@ -303,6 +307,7 @@ pub async fn build(
     let mut cmd = tokio::process::Command::new("cargo");
     cmd.arg("lambda")
         .arg("build")
+        .arg("--workspace")
         .arg("--release")
         .arg("--target")
         .arg("x86_64-unknown-linux-musl")

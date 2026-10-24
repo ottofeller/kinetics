@@ -52,12 +52,10 @@ impl InvokeRunner<'_> {
         };
 
         let invoke_dir = project.build_path()?;
-        let display_path = format!(
-            "{}/{}/src/bin/{}Local.rs",
-            invoke_dir.display(),
-            function.name,
-            function.name
-        );
+        let display_path = invoke_dir
+            .join(&function.package_path)
+            .join("src/bin")
+            .join(format!("{}Local.rs", function.name));
 
         let mut docker = Docker::new(&PathBuf::from(&build_config()?.kinetics_path));
 
@@ -171,7 +169,7 @@ impl InvokeRunner<'_> {
                 "\n{} function {} {}...\n",
                 console::style("Invoking").bold(),
                 console::style("from").dimmed(),
-                console::style(&display_path).underlined().bold()
+                console::style(display_path.display()).underlined().bold()
             ))
             .map_err(|e| eyre::eyre!(e))?;
 
@@ -238,7 +236,9 @@ impl InvokeRunner<'_> {
         let mut command = Command::new("cargo");
 
         command
-            .args(["run", "--bin", &format!("{}Local", function.name)])
+            .args(["run", "--manifest-path"])
+            .arg(invoke_dir.join(&function.package_path).join("Cargo.toml"))
+            .args(["--bin", &format!("{}Local", function.name)])
             .envs(secrets_envs)
             .envs(aws_credentials)
             .envs(local_environment)
