@@ -97,6 +97,21 @@ impl FileHash {
         missing || changed
     }
 
+    /// Write a generated input without changing its timestamp when it is unchanged.
+    pub(super) fn write(&mut self, path: &Path, content: impl AsRef<[u8]>) -> eyre::Result<()> {
+        let content = content.as_ref();
+        if self.update(path.to_path_buf(), &Self::hash_from_bytes(content)?) {
+            let destination = self.directory.join(path);
+            if let Some(parent) = destination.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::write(&destination, content).wrap_err_with(|| {
+                format!("Failed to write build input {}", destination.display())
+            })?;
+        }
+        Ok(())
+    }
+
     pub fn hash_from_bytes<C: AsRef<[u8]>>(contents: C) -> eyre::Result<String> {
         let mut hasher = XxHash64::default();
         hasher.write(contents.as_ref());

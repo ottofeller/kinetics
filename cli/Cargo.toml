@@ -64,7 +64,7 @@ sqlx = { version = "0.8.6", features = [
   "postgres",
   "runtime-tokio-rustls",
 ] }
-syn = { version = "2.0", features = ["full", "visit"] }
+syn = { version = "2.0", features = ["full", "visit", "visit-mut"] }
 tabled = "0.20.0"
 tempfile = "3.27.0"
 terminal_size = "0.4.4"

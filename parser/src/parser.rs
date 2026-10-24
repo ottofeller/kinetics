@@ -3,6 +3,8 @@ use crate::{
     ParsedFunction, Role,
 };
 use color_eyre::eyre;
+use std::collections::BTreeMap;
+use std::fs;
 use std::path::{Path, PathBuf};
 use syn::{parse::Parse, visit::Visit, Attribute, ItemFn, Meta};
 use walkdir::WalkDir;
@@ -16,6 +18,61 @@ pub struct Package {
 
     /// Relative path to the package from workspace root
     pub relative_path: PathBuf,
+}
+
+/// Source files and workload metadata from a single read of a package.
+pub struct ParsedPackage {
+    pub sources: BTreeMap<PathBuf, syn::File>,
+    pub functions: Vec<ParsedFunction>,
+}
+
+impl ParsedPackage {
+    /// Read syntax for dependency analysis, optionally discovering package workloads.
+    pub fn read(
+        directory: &Path,
+        lib_path: &Path,
+        package: Option<&Package>,
+    ) -> eyre::Result<Self> {
+        let mut sources = read_sources(directory)?;
+        if !sources.contains_key(lib_path) {
+            let path = directory.join(lib_path);
+            let content = if path.exists() {
+                fs::read_to_string(path)?
+            } else {
+                String::new()
+            };
+            sources.insert(lib_path.to_path_buf(), syn::parse_file(&content)?);
+        }
+        let mut parser = Parser {
+            pkg: package,
+            ..Default::default()
+        };
+        if package.is_some() {
+            parser.parse_sources(&sources)?;
+        }
+        Ok(Self {
+            sources,
+            functions: parser.functions,
+        })
+    }
+}
+
+fn read_sources(directory: &Path) -> eyre::Result<BTreeMap<PathBuf, syn::File>> {
+    let mut sources = BTreeMap::new();
+    let src = directory.join("src");
+    if !src.exists() {
+        return Ok(sources);
+    }
+    for entry in WalkDir::new(src) {
+        let entry = entry?;
+        if entry.file_type().is_file() && entry.path().extension().is_some_and(|ext| ext == "rs") {
+            sources.insert(
+                entry.path().strip_prefix(directory)?.to_path_buf(),
+                syn::parse_file(&fs::read_to_string(entry.path())?)?,
+            );
+        }
+    }
+    Ok(sources)
 }
 
 #[derive(Debug, Default)]
@@ -49,23 +106,20 @@ impl<'a> Parser<'a> {
     }
 
     pub fn walk_dir(&mut self, path: &Path) -> eyre::Result<()> {
-        for entry in WalkDir::new(path)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.path().strip_prefix(path).is_ok_and(|p| p.starts_with("src/")) // only src folder
-                && e.path().extension().is_some_and(|ext| ext == "rs") // only rust files
-            })
-        {
-            let content = std::fs::read_to_string(entry.path())?;
-            let syntax = syn::parse_file(&content)?;
+        self.parse_sources(&read_sources(path)?)
+    }
 
-            // Set current file relative path for further imports resolution
-            // WARN It prevents to implement parallel parsing of files and requires rework in the future
-            self.set_fn_rel_path(Some(entry.path().strip_prefix(path)?));
-
-            self.visit_file(&syntax);
+    fn parse_sources(&mut self, sources: &BTreeMap<PathBuf, syn::File>) -> eyre::Result<()> {
+        for (path, syntax) in sources {
+            self.set_fn_rel_path(Some(path));
+            self.visit_file(syntax);
         }
+
+        self.functions.sort_by(|left, right| {
+            left.relative_path
+                .cmp(&right.relative_path)
+                .then_with(|| left.rust_function_name.cmp(&right.rust_function_name))
+        });
 
         if !self.errors.is_empty() {
             eyre::bail!(

@@ -1,14 +1,22 @@
 use super::filehash::{FileHash, CHECKSUMS_FILENAME};
+use super::prepare::PreparedPackage;
 use super::templates;
 use super::Project;
 use crate::function::Function;
 use crate::project::dependencies::insert_lambda_dependency_group;
 use eyre::{Context, ContextCompat};
 use kinetics_lib::tools::config::EndpointConfig;
-use kinetics_parser::{Params, ParsedFunction, Parser, Role};
+use kinetics_parser::{Params, ParsedFunction, ParsedPackage, Parser, Role};
+use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
+
+struct SourcePackage {
+    manifest: toml_edit::DocumentMut,
+    parsed: ParsedPackage,
+    lib_path: PathBuf,
+}
 
 /// Code parsing methods
 impl Project {
@@ -54,6 +62,7 @@ impl Project {
         // Checksums of source files for preventing rewrite existing files
         let mut checksum = FileHash::new(dst.to_path_buf());
 
+        let packages = self.read_packages()?;
         let mut all_functions = Vec::new();
 
         // Clone user project into the build folder.
@@ -93,28 +102,29 @@ impl Project {
 
         for package in &self.workspace.packages {
             let pkg_path = &package.relative_path;
-            let mut parsed_functions = if !self.workspace.is_standalone_crate
-                && !self.is_ws_root()
-                && src.join(pkg_path) != self.path
-            {
-                Vec::new()
+            let source = &packages[pkg_path];
+            let parsed_functions = &source.parsed.functions;
+            let mut package_doc = source.manifest.clone();
+            let prepared = if parsed_functions.is_empty() {
+                None
             } else {
-                Parser::new(src, Some(package))?.functions
+                let lib_name = self.prepare_package_manifest(&mut package_doc, parsed_functions)?;
+                let references = self
+                    .workspace
+                    .references
+                    .iter()
+                    .filter(|reference| {
+                        reference.package == *pkg_path && reference.source != *pkg_path
+                    })
+                    .map(|reference| (&packages[&reference.source].parsed, reference.name.as_str()))
+                    .collect::<Vec<_>>();
+                Some(PreparedPackage::new(
+                    &source.parsed,
+                    &source.lib_path,
+                    lib_name,
+                    &references,
+                )?)
             };
-            parsed_functions.sort_by(|left, right| {
-                left.relative_path
-                    .cmp(&right.relative_path)
-                    .then_with(|| left.rust_function_name.cmp(&right.rust_function_name))
-            });
-
-            let mut package_doc: toml_edit::DocumentMut =
-                fs::read_to_string(src.join(pkg_path).join("Cargo.toml"))?.parse()?;
-            let lib_path = package_doc
-                .get("lib")
-                .and_then(|lib| lib.get("path"))
-                .and_then(toml_edit::Item::as_str)
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from("src/lib.rs"));
 
             // Generated manifests and library exports must not be overwritten with
             // their source versions on every build: that would invalidate Cargo's cache.
@@ -122,8 +132,8 @@ impl Project {
             if !parsed_functions.is_empty() || pkg_path.as_os_str().is_empty() {
                 skip_paths.push(PathBuf::from("Cargo.toml"));
             }
-            if !parsed_functions.is_empty() {
-                skip_paths.push(lib_path.clone());
+            if let Some(prepared) = &prepared {
+                skip_paths.extend(prepared.shared.keys().cloned());
             }
             if pkg_path.as_os_str().is_empty() {
                 skip_paths.extend(
@@ -143,62 +153,32 @@ impl Project {
                 &mut checksum,
             )?;
 
-            if parsed_functions.is_empty() {
-                continue;
+            let Some(prepared) = prepared else { continue };
+            for (path, syntax) in &prepared.shared {
+                checksum.write(&pkg_path.join(path), prettyplease::unparse(syntax))?;
             }
-
-            let lib_name = self.prepare_package_manifest(&mut package_doc, &parsed_functions)?;
-            self.create_lib(
-                src,
-                &dst,
-                pkg_path,
-                &lib_path,
-                &parsed_functions,
-                &mut checksum,
-            )?;
-
+            for (path, syntax) in &prepared.handlers {
+                checksum.write(
+                    &pkg_path.join(".kinetics/handlers").join(path),
+                    prettyplease::unparse(syntax),
+                )?;
+            }
             if pkg_path.as_os_str().is_empty() {
                 workspace_doc = package_doc;
             } else {
-                let manifest_path = pkg_path.join("Cargo.toml");
-                let manifest_string = package_doc.to_string();
-                if checksum.update(
-                    manifest_path.clone(),
-                    &FileHash::hash_from_bytes(&manifest_string)?,
-                ) {
-                    fs::write(dst.join(&manifest_path), manifest_string)
-                        .wrap_err("Failed to write package Cargo.toml")?;
-                }
+                checksum.write(&pkg_path.join("Cargo.toml"), package_doc.to_string())?;
             }
-
-            for parsed_function in &parsed_functions {
-                self.create_function_bins(
-                    &dst,
-                    pkg_path,
-                    parsed_function,
-                    &lib_name,
-                    &lib_path,
-                    &mut checksum,
-                )?;
+            for function in parsed_functions {
+                self.create_function_bins(&dst, pkg_path, function, &prepared, &mut checksum)?;
             }
-
-            all_functions.extend(parsed_functions);
+            all_functions.extend(parsed_functions.iter().cloned());
         }
 
         // Update the workspace manifest with all member paths
         workspace_doc["workspace"]["members"] =
             toml_edit::Array::from_iter(member_paths.iter()).into();
 
-        let workspace_manifest_path = PathBuf::from("Cargo.toml");
-        let manifest_string = workspace_doc.to_string();
-        if checksum.update(
-            workspace_manifest_path.clone(),
-            &FileHash::hash_from_bytes(&manifest_string)
-                .wrap_err("Failed to calculate hash from bytes of workspace Cargo.toml")?,
-        ) {
-            fs::write(dst.join(&workspace_manifest_path), &manifest_string)
-                .wrap_err("Failed to write workspace Cargo.toml")?;
-        }
+        checksum.write(Path::new("Cargo.toml"), workspace_doc.to_string())?;
 
         self.clear_dir(&dst, &checksum)?;
         checksum.save().wrap_err("Failed to save checksums")?;
@@ -222,6 +202,37 @@ impl Project {
         }
 
         Ok(functions)
+    }
+
+    fn read_packages(&self) -> eyre::Result<BTreeMap<PathBuf, SourcePackage>> {
+        self.workspace
+            .packages
+            .iter()
+            .map(|package| {
+                let directory = self.workspace.root_path.join(&package.relative_path);
+                let manifest: toml_edit::DocumentMut =
+                    fs::read_to_string(directory.join("Cargo.toml"))?.parse()?;
+                let lib_path = manifest
+                    .get("lib")
+                    .and_then(|lib| lib.get("path"))
+                    .and_then(toml_edit::Item::as_str)
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|| PathBuf::from("src/lib.rs"));
+                let in_project = self.workspace.is_standalone_crate
+                    || self.is_ws_root()
+                    || directory == self.path;
+                let parsed =
+                    ParsedPackage::read(&directory, &lib_path, in_project.then_some(package))?;
+                Ok((
+                    package.relative_path.clone(),
+                    SourcePackage {
+                        manifest,
+                        parsed,
+                        lib_path,
+                    },
+                ))
+            })
+            .collect()
     }
 
     /// Clone the package dir to a new directory
@@ -331,96 +342,21 @@ impl Project {
         Ok(())
     }
 
-    /// Export all function modules from the package's shared library.
-    fn create_lib(
-        &self,
-        src: &Path,
-        dst: &Path,
-        pkg_path: &Path,
-        lib_path: &Path,
-        functions: &[ParsedFunction],
-        checksum: &mut FileHash,
-    ) -> eyre::Result<()> {
-        let src_lib_path = src.join(pkg_path).join(lib_path);
-        let mut lib = if src_lib_path.exists() {
-            syn::parse_file(&fs::read_to_string(&src_lib_path)?)?
-        } else {
-            syn::parse_file("")?
-        };
-
-        for function in functions {
-            if function.relative_path == lib_path {
-                continue;
-            }
-
-            let module_path = function
-                .relative_path
-                .strip_prefix("src")?
-                .with_extension("");
-            let module = match module_path.components().next() {
-                Some(Component::Normal(comp)) => comp.to_str(),
-                _ => None,
-            }
-            .wrap_err_with(|| format!("Invalid module path for {function}"))?;
-
-            if let Some(module) = lib.items.iter_mut().find_map(|item| match item {
-                syn::Item::Mod(item) if item.ident == module => Some(item),
-                _ => None,
-            }) {
-                module.vis = syn::parse_quote!(pub);
-            } else {
-                let ident: syn::Ident = syn::parse_str(module)?;
-                lib.items.push(syn::parse_quote!(pub mod #ident;));
-            }
-        }
-
-        let lib = prettyplease::unparse(&lib);
-        let relative_lib_path = pkg_path.join(lib_path);
-        if checksum.update(
-            relative_lib_path.clone(),
-            &FileHash::hash_from_bytes(&lib)
-                .wrap_err("Failed to calculate hash from bytes of src/lib.rs")?,
-        ) {
-            if let Some(parent) = dst.join(&relative_lib_path).parent() {
-                fs::create_dir_all(parent)?;
-            }
-            fs::write(dst.join(&relative_lib_path), lib).wrap_err("Failed to write src/lib.rs")?;
-        }
-
-        Ok(())
-    }
-
-    /// Create remote and local entry points that use the package's shared library.
+    /// Create remote and local entry points from the prepared package.
     fn create_function_bins(
         &self,
         dst: &Path,
         pkg_path: &Path,
-        parsed_function: &ParsedFunction,
-        lib_name: &str,
-        lib_path: &Path,
+        function: &ParsedFunction,
+        prepared: &PreparedPackage,
         checksum: &mut FileHash,
     ) -> eyre::Result<()> {
         let bin_dir = pkg_path.join("src/bin");
-        fs::create_dir_all(dst.join(&bin_dir)).wrap_err(format!(
-            "Failed to create dir for function binaries in {}",
-            pkg_path.display()
-        ))?;
-
-        let relative_path = if parsed_function.relative_path == lib_path {
-            Path::new("src/lib.rs")
-        } else {
-            &parsed_function.relative_path
-        };
-        let fn_import =
-            self.import_statement(relative_path, &parsed_function.rust_function_name, lib_name)?;
-
-        self.create_lambda_bin(dst, &bin_dir, parsed_function, &fn_import, false, checksum)?;
-        self.create_lambda_bin(dst, &bin_dir, parsed_function, &fn_import, true, checksum)?;
-
-        Ok(())
+        let import = prepared.binary_import(&dst.join(pkg_path), function);
+        self.create_lambda_bin(&bin_dir, function, &import, false, checksum)?;
+        self.create_lambda_bin(&bin_dir, function, &import, true, checksum)
     }
 
-    /// Add the runtime dependencies needed by every function in the source package.
     fn prepare_package_manifest(
         &self,
         doc: &mut toml_edit::DocumentMut,
@@ -459,7 +395,6 @@ impl Project {
     /// within the `bin` folder.
     fn create_lambda_bin(
         &self,
-        dst: &Path,
         bin_dir: &Path,
         parsed_function: &ParsedFunction,
         fn_import: &str,
@@ -468,30 +403,21 @@ impl Project {
     ) -> eyre::Result<()> {
         let function_name = parsed_function.func_name(is_local)?;
         let lambda_path_local = bin_dir.join(format!("{}.rs", function_name));
-        let lambda_path = dst.join(&lambda_path_local);
 
-        let rust_function_name = parsed_function.rust_function_name.clone();
+        let rust_function_name = "__kinetics_user_function";
         let main_code = match &parsed_function.params {
             Params::Endpoint(params) => {
                 let endpoint_config = EndpointConfig::new(&params.url_path);
-                templates::endpoint(fn_import, &rust_function_name, endpoint_config, is_local)
+                templates::endpoint(fn_import, rust_function_name, endpoint_config, is_local)
             }
-            Params::Worker(_) => templates::worker(fn_import, &rust_function_name, is_local),
-            Params::DlqWorker(_) => templates::worker(fn_import, &rust_function_name, is_local),
-            Params::Cron(_) => templates::cron(fn_import, &rust_function_name, is_local),
+            Params::Worker(_) => templates::worker(fn_import, rust_function_name, is_local),
+            Params::DlqWorker(_) => templates::worker(fn_import, rust_function_name, is_local),
+            Params::Cron(_) => templates::cron(fn_import, rust_function_name, is_local),
         };
 
         let item: syn::File = syn::parse_str(&main_code)?;
         let lambda_content = prettyplease::unparse(&item);
-        let content_hash = FileHash::hash_from_bytes(&lambda_content).wrap_err(format!(
-            "Failed to calculate hash for bytes of {lambda_path_local:?}"
-        ))?;
-        if checksum.update(lambda_path_local, &content_hash) {
-            fs::write(&lambda_path, &lambda_content)
-                .wrap_err(format!("Failed to write {lambda_path:?}"))?;
-        }
-
-        Ok(())
+        checksum.write(&lambda_path_local, lambda_content)
     }
 
     /// Write dependencies required to run a lambda into Cargo.toml
@@ -529,56 +455,6 @@ impl Project {
         }
 
         Ok(())
-    }
-
-    /// Generate the import statement for the function
-    /// which is being deployed as a lambda
-    fn import_statement(
-        &self,
-        relative_path: &Path,
-        rust_name: &str,
-        pkg_name: &str,
-    ) -> eyre::Result<String> {
-        let relative_path = relative_path.strip_prefix("src/").unwrap_or(relative_path);
-
-        let mut module_path_parts = relative_path
-            .components()
-            .filter_map(|component| {
-                if let std::path::Component::Normal(os_str) = component {
-                    os_str.to_str()
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<&str>>();
-
-        // Handle lib.rs (root module)
-        let is_root_module = relative_path == Path::new("lib.rs");
-
-        let module_path = if is_root_module {
-            "".to_string()
-        } else {
-            // Remove extension from last component
-            if let Some(last) = module_path_parts.last_mut() {
-                if *last == "mod.rs" {
-                    // Remove 'mod.rs'
-                    module_path_parts.pop();
-                } else {
-                    *last = last.trim_end_matches(".rs");
-                }
-            }
-            module_path_parts.join("::")
-        };
-
-        let pkg_name = pkg_name.replace('-', "_");
-        // If module path is empty then the function is located in the lib.rs file
-        let import_statement = if module_path.is_empty() {
-            format!("use {pkg_name}::{rust_name};")
-        } else {
-            format!("use {pkg_name}::{module_path}::{rust_name};")
-        };
-
-        Ok(import_statement)
     }
 
     /// Copy a file only when its contents changed or the destination is missing.

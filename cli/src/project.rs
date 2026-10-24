@@ -3,6 +3,9 @@ mod config_file;
 mod dependencies;
 mod filehash;
 mod parse;
+mod paths;
+mod prepare;
+mod queue_references;
 
 /// Runtime templates for different workloads
 mod templates;

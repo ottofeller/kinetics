@@ -5,4 +5,4 @@ mod parser;
 
 pub use function::{ParsedFunction, Role};
 pub use params::{Cron, DlqWorker, Endpoint, Params, Worker};
-pub use parser::{Package, Parser};
+pub use parser::{Package, ParsedPackage, Parser};
