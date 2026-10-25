@@ -252,6 +252,7 @@ impl Project {
             src.join("target"),
             src.join(".git"),
             src.join(".github"),
+            src.join(".zig-cache"),
         ]
         .into_iter()
         .chain(skip_more.iter().map(|p| src.join(p)))
