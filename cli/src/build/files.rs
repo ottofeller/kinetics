@@ -85,21 +85,21 @@ impl BuildFiles {
     /// Returns true when the contents changed or the destination is missing.
     pub fn update(&mut self, path: PathBuf, new_hash: &str) -> bool {
         self.register(path.clone());
-        let missing = !self.directory.join(&path).exists();
+        let is_missing = !self.directory.join(&path).exists();
         let previous = self.checksums.insert(path.clone(), new_hash.to_owned());
-        let changed = previous.as_deref() != Some(new_hash);
-        if missing || changed {
+        let has_changed = previous.as_deref() != Some(new_hash);
+        if is_missing || has_changed {
             log::debug!(
                 "Updating build input {}: {}",
                 path.display(),
-                if missing {
+                if is_missing {
                     "file missing"
                 } else {
                     "contents changed"
                 },
             );
         }
-        missing || changed
+        is_missing || has_changed
     }
 
     /// Write a generated input without changing its timestamp when it is unchanged.

@@ -16,8 +16,8 @@ pub(super) async fn compile(
 
     total_progress.set_message("Starting cargo...");
     let build_path = project.build_path()?;
-    let debug_build = log::log_enabled!(log::Level::Debug);
-    let show_build_output = debug_build || !std::io::stderr().is_terminal();
+    let is_debug_logging_enabled = log::log_enabled!(log::Level::Debug);
+    let is_build_output_enabled = is_debug_logging_enabled || !std::io::stderr().is_terminal();
     let mut cmd = tokio::process::Command::new("cargo");
     cmd.arg("lambda")
         .arg("build")
@@ -32,7 +32,7 @@ pub(super) async fn compile(
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
 
-    if debug_build {
+    if is_debug_logging_enabled {
         // Cargo's verbose output includes Fresh/Dirty units and their rebuild reasons.
         cmd.arg("--verbose").arg("--timings");
     }
@@ -58,7 +58,7 @@ pub(super) async fn compile(
         let regex = regex::Regex::new(r"^[\t ]+")?;
 
         while let Some(line) = reader.next_line().await? {
-            if show_build_output {
+            if is_build_output_enabled {
                 total_progress.suspend(|| eprintln!("{line}"));
             }
 

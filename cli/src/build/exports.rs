@@ -68,12 +68,12 @@ fn export_modules(
 }
 
 /// Detect imports of known non-exported macros.
-fn imports_private_macro(tree: &UseTree, names: &BTreeSet<String>) -> bool {
-    let mut found = false;
+fn has_private_macro_import(tree: &UseTree, names: &BTreeSet<String>) -> bool {
+    let mut has_private_macro = false;
     rust_paths::visit_imports(tree, &mut |path, _| {
-        found |= path.last().is_some_and(|name| names.contains(name));
+        has_private_macro |= path.last().is_some_and(|name| names.contains(name));
     });
-    found
+    has_private_macro
 }
 
 /// Promote item visibility while preserving private macro imports and trait impls.
@@ -108,7 +108,7 @@ fn expose_items(items: &mut [Item], private_macros: &BTreeSet<String>) {
                     field.vis = syn::parse_quote!(pub);
                 }
             }
-            Item::Use(item) if !imports_private_macro(&item.tree, private_macros) => {
+            Item::Use(item) if !has_private_macro_import(&item.tree, private_macros) => {
                 item.vis = syn::parse_quote!(pub)
             }
             Item::Impl(item) if item.trait_.is_none() => {

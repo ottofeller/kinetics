@@ -60,8 +60,12 @@ impl<'a> Pipeline<'a> {
         ))?;
 
         // All functions to add to the template
-        let all_functions =
-            build::generate_workspace(&self.project, deploy_functions, self.package.as_deref())?;
+        let all_functions = build::generate_workspace(
+            &self.project,
+            deploy_functions,
+            self.package.as_deref(),
+            &self.project.build_path()?,
+        )?;
         log::debug!(
             "Prepared {} Lambda functions in {:.2}s",
             all_functions.len(),

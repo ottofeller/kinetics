@@ -1,5 +1,5 @@
 use crate::build::files::CHECKSUMS_FILENAME;
-use crate::build::generate_workspace_into;
+use crate::build::generate_workspace;
 use crate::build::sources::PackageSources;
 use crate::function::Function;
 use crate::project::workspace::Workspace;
@@ -104,7 +104,7 @@ impl Fixture {
 
     /// Run the production workspace generator against this fixture.
     pub fn generate(&self) -> Vec<Function> {
-        generate_workspace_into(&self.project, &[], None, self.build.path()).unwrap()
+        generate_workspace(&self.project, &[], None, self.build.path()).unwrap()
     }
 
     /// Read a generated file for assertions.
@@ -139,7 +139,7 @@ impl CargoFixture {
         let fixture = Self { project, harness };
         fixture.generate();
         let targets = fixture.build(false);
-        assert!(targets.values().all(|fresh| !fresh));
+        assert!(targets.values().all(|is_fresh| !is_fresh));
         fixture.assert_output("SampleApiRequest", "21");
         fixture.assert_output("SampleJobsWorker", "11");
         fixture.assert_output("SamplePairFirst", "31");
@@ -174,7 +174,7 @@ impl CargoFixture {
     }
 
     /// Compile offline in a separate target directory and read Cargo's per-target freshness.
-    fn build(&self, locked: bool) -> BTreeMap<String, bool> {
+    fn build(&self, is_locked: bool) -> BTreeMap<String, bool> {
         let mut command = Command::new(env!("CARGO"));
         command
             .current_dir(self.harness.path())
@@ -189,7 +189,7 @@ impl CargoFixture {
             .env_remove("CARGO_BUILD_TARGET")
             .env_remove("RUSTC_WRAPPER")
             .env_remove("RUSTC_WORKSPACE_WRAPPER");
-        if locked {
+        if is_locked {
             command.arg("--locked");
         }
         let output = command.output().unwrap();
@@ -229,7 +229,7 @@ impl CargoFixture {
         let targets = self.build(true);
         let rebuilt: BTreeSet<_> = targets
             .iter()
-            .filter(|(_, fresh)| !**fresh)
+            .filter(|(_, is_fresh)| !**is_fresh)
             .map(|(name, _)| name.as_str())
             .collect();
         assert_eq!(rebuilt, expected.iter().copied().collect(), "{targets:?}");

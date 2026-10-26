@@ -51,7 +51,7 @@ impl PackageSources {
             let original = shared.get_mut(&path).expect("handler source exists");
             let mut file = original.clone();
             file.items.retain(|item| {
-                group.move_helpers
+                group.is_helper_move_allowed
                     || match item {
                         Item::Use(_) | Item::ExternCrate(_) => true,
                         Item::Fn(item) => names.contains(item.sig.ident.to_string().as_str()),
@@ -78,7 +78,7 @@ impl PackageSources {
                 }
             }
             handlers.insert(path, file);
-            if group.move_helpers {
+            if group.is_helper_move_allowed {
                 original.items.clear();
             } else {
                 original.items.retain(|item| {

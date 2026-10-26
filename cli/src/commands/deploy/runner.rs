@@ -81,6 +81,7 @@ impl DeployRunner<'_> {
             &project,
             &self.command.functions,
             self.command.package.as_deref(),
+            &project.build_path()?,
         )?
         .iter()
         .filter(|f| f.is_deploying)

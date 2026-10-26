@@ -183,7 +183,7 @@ async fn remote(
 
 /// Gets environment variables from local configuration
 async fn local(project: &Project) -> eyre::Result<HashMap<String, HashMap<String, String>>> {
-    let functions = build::generate_workspace(project, &[], None)?;
+    let functions = build::generate_workspace(project, &[], None, &project.build_path()?)?;
     let mut result = HashMap::new();
 
     for function in functions {

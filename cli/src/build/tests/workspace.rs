@@ -1,6 +1,6 @@
 use super::utils::{age_files, copy_fixture, files, fixture_path, replace, write, Fixture};
 use crate::build::files::CHECKSUMS_FILENAME;
-use crate::build::generate_workspace_into;
+use crate::build::generate_workspace;
 use crate::project::workspace::PackageReference;
 use kinetics_parser::{Package, Params, Role};
 use std::collections::BTreeMap;
@@ -156,8 +156,7 @@ fn skips_source_caches_and_rejects_invalid_attributes_before_writing() {
         fixture.source.path().join("src/jobs.rs"),
     )
     .unwrap();
-    let error =
-        generate_workspace_into(&fixture.project, &[], None, fixture.build.path()).unwrap_err();
+    let error = generate_workspace(&fixture.project, &[], None, fixture.build.path()).unwrap_err();
     assert!(error
         .to_string()
         .contains("Missing required attribute `url_path`"));
@@ -165,7 +164,7 @@ fn skips_source_caches_and_rejects_invalid_attributes_before_writing() {
 }
 
 /// Add workspace members and a renamed dependency, optionally retaining a root package.
-fn workspace_fixture(root_package: bool) -> Fixture {
+fn workspace_fixture(has_root_package: bool) -> Fixture {
     let mut fixture = Fixture::new("sample");
     let mut manifest: toml_edit::DocumentMut =
         fs::read_to_string(fixture.source.path().join("Cargo.toml"))
@@ -173,7 +172,7 @@ fn workspace_fixture(root_package: bool) -> Fixture {
             .parse()
             .unwrap();
     copy_fixture("workspace", fixture.source.path());
-    if root_package {
+    if has_root_package {
         let workspace: toml_edit::DocumentMut =
             fs::read_to_string(fixture.source.path().join("Cargo.toml"))
                 .unwrap()
@@ -202,12 +201,12 @@ fn workspace_fixture(root_package: bool) -> Fixture {
 
 #[test]
 fn workspace_members_and_external_references_are_preserved() {
-    for root_package in [false, true] {
-        let fixture = workspace_fixture(root_package);
+    for has_root_package in [false, true] {
+        let fixture = workspace_fixture(has_root_package);
         let functions = fixture.generate();
-        assert_eq!(functions.len(), if root_package { 3 } else { 1 });
+        assert_eq!(functions.len(), if has_root_package { 3 } else { 1 });
         let manifest = fixture.manifest("Cargo.toml");
-        let expected = if root_package {
+        let expected = if has_root_package {
             vec![".", "service", "consumer"]
         } else {
             vec!["service", "consumer"]
@@ -241,7 +240,7 @@ fn workspace_members_and_external_references_are_preserved() {
 #[test]
 fn package_selection_marks_functions_without_removing_other_binaries() {
     let fixture = workspace_fixture(true);
-    let functions = generate_workspace_into(
+    let functions = generate_workspace(
         &fixture.project,
         &["ServiceLibWorker".into()],
         Some("service"),
@@ -260,7 +259,7 @@ fn package_selection_marks_functions_without_removing_other_binaries() {
         .path()
         .join("src/bin/SampleJobsWorker.rs")
         .exists());
-    assert!(generate_workspace_into(
+    assert!(generate_workspace(
         &fixture.project,
         &["missing".into()],
         Some("service"),
@@ -270,7 +269,7 @@ fn package_selection_marks_functions_without_removing_other_binaries() {
     .to_string()
     .contains("No functions match"));
     assert!(
-        generate_workspace_into(&fixture.project, &[], Some("missing"), fixture.build.path())
+        generate_workspace(&fixture.project, &[], Some("missing"), fixture.build.path())
             .unwrap_err()
             .to_string()
             .contains("was not found")
@@ -286,7 +285,7 @@ fn member_project_only_discovers_its_own_handlers() {
     assert_eq!(functions[0].name, "ServiceLibWorker");
     assert!(!fixture.build.path().join("src/bin").exists());
     assert!(
-        generate_workspace_into(&fixture.project, &[], Some("sample"), fixture.build.path())
+        generate_workspace(&fixture.project, &[], Some("sample"), fixture.build.path())
             .unwrap_err()
             .to_string()
             .contains("outside the current Kinetics project")

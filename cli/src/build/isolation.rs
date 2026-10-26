@@ -1,6 +1,7 @@
 use super::rust_paths::{self, function_path, module_path};
 use kinetics_parser::{ParsedFunction, ParsedPackage};
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use syn::visit::Visit;
@@ -9,8 +10,39 @@ use syn::Item;
 /// Handlers from one source file and whether their helpers can move with them.
 pub(super) struct HandlerModule<'a> {
     pub names: BTreeSet<&'a str>,
-    pub move_helpers: bool,
+    pub is_helper_move_allowed: bool,
     targets: Vec<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum IsolationBlockReason {
+    GeneratedNameConflict,
+    SharedCodeReference,
+    PrivateMacro,
+    RelativeInclude,
+    WorkerReferenceInMacro,
+    UnresolvedWorkerCall,
+    MacroGeneratedItem,
+    CrossModuleHandlerReference,
+}
+
+impl fmt::Display for IsolationBlockReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::GeneratedNameConflict => "reference conflicts with generated binary names",
+            Self::SharedCodeReference => "shared code references a handler in the same module",
+            Self::PrivateMacro => "macro is defined privately outside this module",
+            Self::RelativeInclude => "relative include requires the original source directory",
+            Self::WorkerReferenceInMacro => "macro contains an unresolved from_worker reference",
+            Self::UnresolvedWorkerCall => {
+                "unresolved from_worker call requires the original worker type"
+            }
+            Self::MacroGeneratedItem => "module contains a macro-generated item",
+            Self::CrossModuleHandlerReference => {
+                "handler is referenced by another module or package"
+            }
+        })
+    }
 }
 
 /// Select handler files that can leave the shared library without breaking references.
@@ -28,15 +60,15 @@ pub(super) fn select_modules<'a>(
             .entry(function.relative_path.clone())
             .or_insert_with(|| HandlerModule {
                 names: BTreeSet::new(),
-                move_helpers: false,
+                is_helper_move_allowed: false,
                 targets: Vec::new(),
             });
         group.names.insert(&function.rust_function_name);
         group.targets.push(function_path(function, lib_path));
     }
     for (path, group) in &mut groups {
-        group.move_helpers =
-            path != lib_path && can_move_helpers(&sources[path].items, &group.names);
+        group.is_helper_move_allowed =
+            path != lib_path && is_helper_move_allowed(&sources[path].items, &group.names);
     }
     let mut retained = BTreeMap::new();
     for (path, syntax) in sources {
@@ -44,7 +76,7 @@ pub(super) fn select_modules<'a>(
         let mut references = References {
             module: module_path(path, lib_path),
             lib_name: lib_name.to_owned(),
-            check_self_reference: group.is_none_or(|group| !group.move_helpers),
+            is_self_reference_checked: group.is_none_or(|group| !group.is_helper_move_allowed),
             own_handlers: group
                 .into_iter()
                 .flat_map(|group| &group.names)
@@ -62,7 +94,7 @@ pub(super) fn select_modules<'a>(
             ..Default::default()
         };
         references.visit_file(syntax);
-        if let Some(reason) = references.keep_shared {
+        if let Some(reason) = references.isolation_block_reason {
             retained.insert(path.clone(), reason);
         }
         if syntax
@@ -70,7 +102,7 @@ pub(super) fn select_modules<'a>(
             .iter()
             .any(|item| matches!(item, Item::Macro(item) if item.ident.is_none()))
         {
-            retained.insert(path.clone(), "module contains a macro-generated item");
+            retained.insert(path.clone(), IsolationBlockReason::MacroGeneratedItem);
         }
         retain_referenced(&mut retained, &references, &groups, Some(path));
     }
@@ -101,7 +133,7 @@ pub(super) fn select_modules<'a>(
 
 /// Keep handler files that another module or workspace package references.
 fn retain_referenced(
-    retained: &mut BTreeMap<PathBuf, &'static str>,
+    retained: &mut BTreeMap<PathBuf, IsolationBlockReason>,
     references: &References,
     groups: &BTreeMap<PathBuf, HandlerModule<'_>>,
     own_path: Option<&Path>,
@@ -110,22 +142,21 @@ fn retain_referenced(
         if own_path == Some(path.as_path()) {
             continue;
         }
-        if references.paths.iter().any(|(reference, namespace)| {
-            group
-                .targets
-                .iter()
-                .any(|target| reference == target || (*namespace && target.starts_with(reference)))
+        if references.paths.iter().any(|(reference, is_namespace)| {
+            group.targets.iter().any(|target| {
+                reference == target || (*is_namespace && target.starts_with(reference))
+            })
         }) {
             retained.insert(
                 path.clone(),
-                "handler is referenced by another module or package",
+                IsolationBlockReason::CrossModuleHandlerReference,
             );
         }
     }
 }
 
 /// Allow helpers to move only when the file exposes no other shared items.
-fn can_move_helpers(items: &[Item], handlers: &BTreeSet<&str>) -> bool {
+fn is_helper_move_allowed(items: &[Item], handlers: &BTreeSet<&str>) -> bool {
     let private_types: BTreeSet<_> = items
         .iter()
         .filter_map(|item| match item {
@@ -166,8 +197,9 @@ struct References {
     lib_name: String,
     own_handlers: BTreeSet<String>,
     paths: Vec<(Vec<String>, bool)>,
-    keep_shared: Option<&'static str>,
-    check_self_reference: bool,
+    /// When set, handlers in this file must stay in the shared library.
+    isolation_block_reason: Option<IsolationBlockReason>,
+    is_self_reference_checked: bool,
     external_prefixes: Vec<String>,
     private_macros: BTreeSet<String>,
     own_macros: BTreeSet<String>,
@@ -175,31 +207,31 @@ struct References {
 
 impl References {
     /// Resolve a path and flag references that require the original module.
-    fn record(&mut self, parts: Vec<String>, namespace: bool, expression: bool) {
+    fn record(&mut self, parts: Vec<String>, is_namespace: bool, is_expression: bool) {
         if parts.is_empty() {
             return;
         }
         if !self.external_prefixes.is_empty() {
             if self.external_prefixes.contains(&parts[0]) {
-                self.paths.push((parts[1..].to_vec(), namespace));
+                self.paths.push((parts[1..].to_vec(), is_namespace));
             }
             return;
         }
         let resolved = rust_paths::resolve(&parts, &self.module, &self.lib_name);
         if resolved == ["main"] || resolved == ["__kinetics_user_function"] {
-            self.keep_shared = Some("reference requires the original module");
+            self.isolation_block_reason = Some(IsolationBlockReason::GeneratedNameConflict);
         }
-        if self.check_self_reference
-            && expression
+        if self.is_self_reference_checked
+            && is_expression
             && resolved.len() == self.module.len() + 1
             && resolved.starts_with(&self.module)
             && resolved
                 .last()
                 .is_some_and(|name| self.own_handlers.contains(name))
         {
-            self.keep_shared = Some("reference requires the original module");
+            self.isolation_block_reason = Some(IsolationBlockReason::SharedCodeReference);
         }
-        self.paths.push((resolved, namespace));
+        self.paths.push((resolved, is_namespace));
     }
 }
 
@@ -210,7 +242,7 @@ impl<'ast> Visit<'ast> for References {
             let name = segment.ident.to_string();
             self.private_macros.contains(&name) && !self.own_macros.contains(&name)
         }) {
-            self.keep_shared = Some("reference requires the original module");
+            self.isolation_block_reason = Some(IsolationBlockReason::PrivateMacro);
         }
         if mac.path.segments.last().is_some_and(|segment| {
             matches!(
@@ -218,7 +250,7 @@ impl<'ast> Visit<'ast> for References {
                 "include" | "include_str" | "include_bytes"
             )
         }) {
-            self.keep_shared = Some("relative include requires the original source directory");
+            self.isolation_block_reason = Some(IsolationBlockReason::RelativeInclude);
         }
         static QUALIFIED_PATH: LazyLock<regex::Regex> = LazyLock::new(|| {
             regex::Regex::new(r"(?:[A-Za-z_][A-Za-z_0-9]*\s*::\s*)+[A-Za-z_][A-Za-z_0-9]*")
@@ -226,7 +258,7 @@ impl<'ast> Visit<'ast> for References {
         });
         let tokens = mac.tokens.to_string();
         if tokens.contains("from_worker") {
-            self.keep_shared = Some("reference requires the original module");
+            self.isolation_block_reason = Some(IsolationBlockReason::WorkerReferenceInMacro);
         }
         for path in QUALIFIED_PATH.find_iter(&tokens) {
             self.record(
@@ -243,12 +275,12 @@ impl<'ast> Visit<'ast> for References {
 
     /// Allow handler-to-handler calls within a file that will move together.
     fn visit_item_fn(&mut self, function: &'ast syn::ItemFn) {
-        let previous = self.check_self_reference;
+        let is_self_reference_checked = self.is_self_reference_checked;
         if self.own_handlers.contains(&function.sig.ident.to_string()) {
-            self.check_self_reference = false;
+            self.is_self_reference_checked = false;
         }
         syn::visit::visit_item_fn(self, function);
-        self.check_self_reference = previous;
+        self.is_self_reference_checked = is_self_reference_checked;
     }
 
     /// Keep unresolved from_worker calls in their original module to preserve type identity.
@@ -256,7 +288,7 @@ impl<'ast> Visit<'ast> for References {
         if matches!(&*call.func, syn::Expr::Path(path) if path.path.segments.last().is_some_and(|segment| segment.ident == "from_worker"))
         {
             // Unknown aliases/expressions keep the original function type identity.
-            self.keep_shared = Some("reference requires the original module");
+            self.isolation_block_reason = Some(IsolationBlockReason::UnresolvedWorkerCall);
         }
         syn::visit::visit_expr_call(self, call);
     }

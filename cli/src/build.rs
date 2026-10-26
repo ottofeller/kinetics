@@ -13,6 +13,7 @@ mod sources;
 mod tests;
 
 use crate::function::Function;
+use crate::project::workspace::Workspace;
 use crate::project::Project;
 use eyre::WrapErr;
 use files::BuildFiles;
@@ -23,51 +24,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-/// Generate the build workspace and return all functions, marking those selected.
+/// Generate build inputs in the destination and return all functions, marking those selected.
 pub fn generate_workspace(
     project: &Project,
     deploy_functions: &[String],
     package_name: Option<&str>,
-) -> eyre::Result<Vec<Function>> {
-    generate_workspace_into(
-        project,
-        deploy_functions,
-        package_name,
-        &project.build_path()?,
-    )
-}
-
-/// Compile selected Lambda binaries and create their deployment archives.
-pub async fn compile_and_bundle(
-    functions: &[Function],
-    progress: &indicatif::ProgressBar,
-) -> eyre::Result<()> {
-    cargo::compile(functions, progress).await?;
-    let functions = functions.to_vec();
-    let started = Instant::now();
-    tokio::task::spawn_blocking(move || bundle::write(&functions))
-        .await
-        .wrap_err("Failed to join the Lambda bundling task")??;
-    log::debug!(
-        "Lambda ZIP packaging finished in {:.2}s",
-        started.elapsed().as_secs_f64()
-    );
-    Ok(())
-}
-
-/// Original manifest and parsed sources for one workspace package.
-struct SourcePackage {
-    manifest: toml_edit::DocumentMut,
-    parsed: ParsedPackage,
-    lib_path: PathBuf,
-}
-
-/// Generate build inputs in the destination, preserving unchanged files.
-fn generate_workspace_into(
-    project: &Project,
-    deploy_functions: &[String],
-    package_name: Option<&str>,
-    dst: &Path,
+    destination: &Path,
 ) -> eyre::Result<Vec<Function>> {
     let selected_package = package_name
         .map(|name| project.workspace.package(name))
@@ -85,8 +47,7 @@ fn generate_workspace_into(
     }
 
     let src = &project.workspace.root_path;
-    // Checksums of source files for preventing rewrite existing files
-    let mut files = BuildFiles::new(dst.to_path_buf());
+    let mut files = BuildFiles::new(destination.to_path_buf());
 
     let packages = read_packages(project)?;
     let mut all_functions = Vec::new();
@@ -126,74 +87,17 @@ fn generate_workspace_into(
 
     for package in &project.workspace.packages {
         let pkg_path = &package.relative_path;
-        let source = &packages[pkg_path];
-        let parsed_functions = &source.parsed.functions;
-        let mut package_doc = source.manifest.clone();
-        let sources = if parsed_functions.is_empty() {
-            None
-        } else {
-            let lib_name = manifest::configure_package(&mut package_doc, parsed_functions)?;
-            let references = project
-                .workspace
-                .references
-                .iter()
-                .filter(|reference| reference.package == *pkg_path && reference.source != *pkg_path)
-                .map(|reference| (&packages[&reference.source].parsed, reference.name.as_str()))
-                .collect::<Vec<_>>();
-            Some(PackageSources::generate(
-                &source.parsed,
-                &source.lib_path,
-                lib_name,
-                &references,
-            )?)
-        };
-
-        // Generated manifests and library exports must not be overwritten with
-        // their source versions on every build: that would invalidate Cargo's cache.
-        let mut skip_paths = Vec::new();
-        if !parsed_functions.is_empty() || pkg_path.as_os_str().is_empty() {
-            skip_paths.push(PathBuf::from("Cargo.toml"));
-        }
-        if let Some(sources) = &sources {
-            skip_paths.extend(sources.shared.keys().cloned());
-        }
-        if pkg_path.as_os_str().is_empty() {
-            skip_paths.extend(
-                project
-                    .workspace
-                    .packages
-                    .iter()
-                    .filter(|pkg| !pkg.relative_path.as_os_str().is_empty())
-                    .map(|pkg| pkg.relative_path.clone()),
-            );
-        }
-
-        files.copy_tree(&src.join(pkg_path), pkg_path, &skip_paths)?;
-
-        let Some(sources) = sources else { continue };
-        for (path, syntax) in &sources.shared {
-            files.write(&pkg_path.join(path), prettyplease::unparse(syntax))?;
-        }
-        for (path, syntax) in &sources.handlers {
-            files.write(
-                &pkg_path.join(".kinetics/handlers").join(path),
-                prettyplease::unparse(syntax),
-            )?;
-        }
+        let package_doc = write_package(
+            &project.workspace,
+            &packages,
+            pkg_path,
+            destination,
+            &mut files,
+        )?;
         if pkg_path.as_os_str().is_empty() {
             workspace_doc = package_doc;
-        } else {
-            files.write(&pkg_path.join("Cargo.toml"), package_doc.to_string())?;
         }
-        for function in parsed_functions {
-            entrypoints::write(
-                pkg_path,
-                function,
-                &sources.render_handler_import(&dst.join(pkg_path), function),
-                &mut files,
-            )?;
-        }
-        all_functions.extend(parsed_functions.iter().cloned());
+        all_functions.extend(packages[pkg_path].parsed.functions.iter().cloned());
     }
 
     // Update the workspace manifest with all member paths
@@ -224,6 +128,113 @@ fn generate_workspace_into(
     Ok(functions)
 }
 
+/// Compile selected Lambda binaries and create their deployment archives.
+pub async fn compile_and_bundle(
+    functions: &[Function],
+    progress: &indicatif::ProgressBar,
+) -> eyre::Result<()> {
+    cargo::compile(functions, progress).await?;
+    let functions = functions.to_vec();
+    let started = Instant::now();
+    tokio::task::spawn_blocking(move || bundle::write(&functions))
+        .await
+        .wrap_err("Failed to join the Lambda bundling task")??;
+    log::debug!(
+        "Lambda ZIP packaging finished in {:.2}s",
+        started.elapsed().as_secs_f64()
+    );
+    Ok(())
+}
+
+/// Original manifest and parsed sources for one workspace package.
+struct SourcePackage {
+    manifest: toml_edit::DocumentMut,
+    parsed: ParsedPackage,
+    lib_path: PathBuf,
+}
+
+/// Copy one package and write its generated inputs, returning the updated manifest.
+fn write_package(
+    workspace: &Workspace,
+    packages: &BTreeMap<PathBuf, SourcePackage>,
+    package_path: &Path,
+    destination: &Path,
+    files: &mut BuildFiles,
+) -> eyre::Result<toml_edit::DocumentMut> {
+    let source = &packages[package_path];
+    let functions = &source.parsed.functions;
+    let mut manifest = source.manifest.clone();
+    let sources = if functions.is_empty() {
+        None
+    } else {
+        let lib_name = manifest::configure_package(&mut manifest, functions)?;
+        let references = workspace
+            .references
+            .iter()
+            .filter(|reference| {
+                reference.package == package_path && reference.source != package_path
+            })
+            .map(|reference| (&packages[&reference.source].parsed, reference.name.as_str()))
+            .collect::<Vec<_>>();
+        Some(PackageSources::generate(
+            &source.parsed,
+            &source.lib_path,
+            lib_name,
+            &references,
+        )?)
+    };
+
+    // Generated manifests and library exports must not be overwritten with
+    // their source versions on every build: that would invalidate Cargo's cache.
+    let is_root_package = package_path.as_os_str().is_empty();
+    let mut skip_paths = Vec::new();
+    if !functions.is_empty() || is_root_package {
+        skip_paths.push(PathBuf::from("Cargo.toml"));
+    }
+    if let Some(sources) = &sources {
+        skip_paths.extend(sources.shared.keys().cloned());
+    }
+    if is_root_package {
+        skip_paths.extend(
+            workspace
+                .packages
+                .iter()
+                .filter(|package| !package.relative_path.as_os_str().is_empty())
+                .map(|package| package.relative_path.clone()),
+        );
+    }
+    files.copy_tree(
+        &workspace.root_path.join(package_path),
+        package_path,
+        &skip_paths,
+    )?;
+
+    if let Some(sources) = sources {
+        for (path, syntax) in &sources.shared {
+            files.write(&package_path.join(path), prettyplease::unparse(syntax))?;
+        }
+        for (path, syntax) in &sources.handlers {
+            files.write(
+                &package_path.join(".kinetics/handlers").join(path),
+                prettyplease::unparse(syntax),
+            )?;
+        }
+        if !is_root_package {
+            files.write(&package_path.join("Cargo.toml"), manifest.to_string())?;
+        }
+        for function in functions {
+            entrypoints::write(
+                package_path,
+                function,
+                &sources.render_handler_import(&destination.join(package_path), function),
+                files,
+            )?;
+        }
+    }
+
+    Ok(manifest)
+}
+
 /// Read workspace sources, discovering handlers only within the current project.
 fn read_packages(project: &Project) -> eyre::Result<BTreeMap<PathBuf, SourcePackage>> {
     project
@@ -240,10 +251,11 @@ fn read_packages(project: &Project) -> eyre::Result<BTreeMap<PathBuf, SourcePack
                 .and_then(toml_edit::Item::as_str)
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("src/lib.rs"));
-            let in_project = project.workspace.is_standalone_crate
+            let is_in_project = project.workspace.is_standalone_crate
                 || project.is_ws_root()
                 || directory == project.path;
-            let parsed = ParsedPackage::read(&directory, &lib_path, in_project.then_some(package))?;
+            let parsed =
+                ParsedPackage::read(&directory, &lib_path, is_in_project.then_some(package))?;
             Ok((
                 package.relative_path.clone(),
                 SourcePackage {
