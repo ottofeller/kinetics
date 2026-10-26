@@ -1,5 +1,5 @@
 name: Check Workspace
-description: Check Rust formatting, workspace targets, and Clippy warnings.
+description: Check Rust formatting, workspace targets, Clippy warnings, and tests.
 
 runs:
   using: composite
@@ -26,3 +26,7 @@ runs:
     - name: Run Clippy
       shell: bash
       run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+    - name: Run tests
+      shell: bash
+      run: cargo test --workspace --all-targets --locked

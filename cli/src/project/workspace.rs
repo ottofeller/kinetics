@@ -28,7 +28,7 @@ pub struct PackageReference {
 
 impl Workspace {
     /// Resolve an exact Cargo package name.
-    pub(super) fn package(&self, name: &str) -> eyre::Result<&Package> {
+    pub(crate) fn package(&self, name: &str) -> eyre::Result<&Package> {
         let manifest: toml::Value = fs::read_to_string(self.root_path.join("Cargo.toml"))
             .wrap_err("Failed to read workspace Cargo.toml")?
             .parse()

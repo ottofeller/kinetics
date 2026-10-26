@@ -1,15 +1,7 @@
 mod cache;
 mod config_file;
-mod dependencies;
-mod filehash;
-mod parse;
-mod paths;
-mod prepare;
-mod queue_references;
-
-/// Runtime templates for different workloads
-mod templates;
-mod workspace;
+mod functions;
+pub(crate) mod workspace;
 
 use crate::api::client::Client;
 use crate::api::error::ApiError;

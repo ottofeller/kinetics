@@ -1,0 +1,31 @@
+[workspace]
+members = ["markers", "unrelated"]
+resolver = "2"
+
+[package]
+name = "sample"
+version = "0.1.0"
+edition = "2021"
+autobins = false
+
+[lib]
+path = "@GENERATED@/src/lib.rs"
+
+[dependencies]
+markers = { path = "markers" }
+
+[[bin]]
+name = "SampleApiRequest"
+path = "bin/SampleApiRequest.rs"
+
+[[bin]]
+name = "SampleJobsWorker"
+path = "bin/SampleJobsWorker.rs"
+
+[[bin]]
+name = "SamplePairFirst"
+path = "bin/SamplePairFirst.rs"
+
+[[bin]]
+name = "SamplePairSecond"
+path = "bin/SamplePairSecond.rs"

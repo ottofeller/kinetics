@@ -1,8 +1,9 @@
 use super::progress::{PipelineProgress, ProgressStatus};
 use crate::api::client::Client;
+use crate::build;
 use crate::config::deploy::DeployConfig;
 use crate::error::Error;
-use crate::function::{build, Function};
+use crate::function::Function;
 use crate::project::Project;
 use crate::writer::Writer;
 use eyre::{OptionExt, Report};
@@ -59,9 +60,8 @@ impl<'a> Pipeline<'a> {
         ))?;
 
         // All functions to add to the template
-        let all_functions = self
-            .project
-            .parse_with_package(deploy_functions, self.package.as_deref())?;
+        let all_functions =
+            build::generate_workspace(&self.project, deploy_functions, self.package.as_deref())?;
         log::debug!(
             "Prepared {} Lambda functions in {:.2}s",
             all_functions.len(),
@@ -89,7 +89,7 @@ impl<'a> Pipeline<'a> {
             .new_progress(&self.project.name)
             .log_stage("Building");
 
-        build(&deploy_functions, &pipeline_progress.total_progress_bar).await?;
+        build::compile_and_bundle(&deploy_functions, &pipeline_progress.total_progress_bar).await?;
         pipeline_progress.increase_current_function_position();
 
         let Some(client) = client else {
