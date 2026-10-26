@@ -1,4 +1,5 @@
 pub mod api;
+mod build;
 mod commands;
 mod config;
 mod credentials;
@@ -12,6 +13,7 @@ mod project;
 mod runner;
 mod secrets;
 mod writer;
+
 use crate::commands::Commands;
 use crate::error::Error;
 use crate::logger::Logger;

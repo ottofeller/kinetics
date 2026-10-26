@@ -1,3 +1,6 @@
+// Public structs for build process.
+pub mod build;
+
 // Public structs for kinetics API.
 pub mod api;
 

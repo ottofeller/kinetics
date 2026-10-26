@@ -1,6 +1,7 @@
 use super::check_results;
 use crate::api::client::Client;
 use crate::api::error::ApiError;
+use crate::build;
 use crate::error::Error;
 use crate::project::Project;
 use crate::runner::{Runnable, Runner};
@@ -182,7 +183,7 @@ async fn remote(
 
 /// Gets environment variables from local configuration
 async fn local(project: &Project) -> eyre::Result<HashMap<String, HashMap<String, String>>> {
-    let functions = project.parse(&[])?;
+    let functions = build::generate_workspace(project, &[], None, &project.build_path()?)?;
     let mut result = HashMap::new();
 
     for function in functions {

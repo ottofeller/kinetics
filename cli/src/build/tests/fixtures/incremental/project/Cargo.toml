@@ -1,0 +1,8 @@
+[package]
+name = "sample"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+kinetics-lib = "0.1"
+markers = { path = "../harness/markers" }

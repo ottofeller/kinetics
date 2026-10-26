@@ -1,4 +1,5 @@
 use crate::api::error::ApiError;
+use crate::build;
 use crate::commands::build::pipeline::Pipeline;
 use crate::commands::deploy::DeployCommand;
 use crate::commands::envs::check_results;
@@ -76,12 +77,16 @@ impl DeployRunner<'_> {
             console::style("Provisioning").bold()
         ))?;
 
-        let functions: Vec<Function> = project
-            .parse_with_package(&self.command.functions, self.command.package.as_deref())?
-            .iter()
-            .filter(|f| f.is_deploying)
-            .cloned()
-            .collect();
+        let functions: Vec<Function> = build::generate_workspace(
+            &project,
+            &self.command.functions,
+            self.command.package.as_deref(),
+            &project.build_path()?,
+        )?
+        .iter()
+        .filter(|f| f.is_deploying)
+        .cloned()
+        .collect();
 
         if functions.is_empty() {
             self.writer.text(&format!(

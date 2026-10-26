@@ -16,11 +16,19 @@ pub struct Workspace {
     pub root_path: PathBuf,
     pub is_standalone_crate: bool,
     pub packages: Vec<Package>,
+    pub references: Vec<PackageReference>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PackageReference {
+    pub source: PathBuf,
+    pub package: PathBuf,
+    pub name: String,
 }
 
 impl Workspace {
     /// Resolve an exact Cargo package name.
-    pub(super) fn package(&self, name: &str) -> eyre::Result<&Package> {
+    pub(crate) fn package(&self, name: &str) -> eyre::Result<&Package> {
         let manifest: toml::Value = fs::read_to_string(self.root_path.join("Cargo.toml"))
             .wrap_err("Failed to read workspace Cargo.toml")?
             .parse()
@@ -43,6 +51,36 @@ impl Workspace {
     pub fn from_path(path: &Path) -> eyre::Result<Self> {
         let metadata = MetadataCommand::new().current_dir(path).exec()?;
         let root_path = metadata.workspace_root.as_std_path();
+        let references = metadata
+            .packages
+            .iter()
+            .filter(|package| metadata.workspace_members.contains(&package.id))
+            .flat_map(|package| {
+                package.dependencies.iter().filter_map(|dependency| {
+                    Some(PackageReference {
+                        source: package
+                            .manifest_path
+                            .parent()?
+                            .as_std_path()
+                            .strip_prefix(root_path)
+                            .ok()?
+                            .to_path_buf(),
+                        package: dependency
+                            .path
+                            .as_ref()?
+                            .as_std_path()
+                            .strip_prefix(root_path)
+                            .ok()?
+                            .to_path_buf(),
+                        name: dependency
+                            .rename
+                            .as_deref()
+                            .unwrap_or(&dependency.name)
+                            .replace('-', "_"),
+                    })
+                })
+            })
+            .collect();
         let packages: Vec<Package> = metadata
             .workspace_members
             .into_iter()
@@ -85,6 +123,7 @@ impl Workspace {
 
         Ok(Self {
             packages,
+            references,
             root_path: root_path.into(),
             is_standalone_crate,
         })

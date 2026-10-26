@@ -1,3 +1,4 @@
+use crate::build;
 use crate::commands::invoke::InvokeCommand;
 use crate::error::Error;
 use crate::function::Function;
@@ -19,7 +20,12 @@ impl Runner for InvokeRunner<'_> {
         let project = self.project(&self.command.project).await?;
 
         // Get function names as well as pull all updates from the code.
-        let all_functions = project.parse(std::slice::from_ref(&self.command.name))?;
+        let all_functions = build::generate_workspace(
+            &project,
+            std::slice::from_ref(&self.command.name),
+            None,
+            &project.build_path()?,
+        )?;
 
         let function = Function::find_by_name(&all_functions, &self.command.name)?;
 

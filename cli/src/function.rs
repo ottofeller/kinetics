@@ -11,10 +11,6 @@ use kinetics_api::{func, upload};
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::process::Stdio;
-use tokio::io::{AsyncBufReadExt, BufReader};
-
-mod bundle;
 
 // Re-export types from kinetics-parser
 pub use kinetics_parser::{Params, ParsedFunction, Role};
@@ -24,6 +20,9 @@ pub use kinetics_parser::{Params, ParsedFunction, Role};
 pub struct Function {
     /// The name of the function
     pub name: String,
+
+    /// Source package path within the generated workspace.
+    pub package_path: PathBuf,
 
     /// Whether the function is requested for deployment
     pub is_deploying: bool,
@@ -69,6 +68,7 @@ impl Function {
 
         Ok(Function {
             name: function.func_name(false)?,
+            package_path: function.pkg_rel_path.clone(),
             is_deploying: false,
             project: project.clone(),
             params,
@@ -289,69 +289,6 @@ pub async fn status(
             })
             .collect()),
     }
-}
-
-pub async fn build(
-    functions: &[Function],
-    total_progress: &indicatif::ProgressBar,
-) -> eyre::Result<()> {
-    let Some(Function { project, .. }) = functions.iter().next() else {
-        return Err(eyre!("Attempted to build an empty function list"));
-    };
-
-    total_progress.set_message("Starting cargo...");
-    let mut cmd = tokio::process::Command::new("cargo");
-    cmd.arg("lambda")
-        .arg("build")
-        .arg("--release")
-        .arg("--target")
-        .arg("x86_64-unknown-linux-musl")
-        .arg("--output-format")
-        .arg("binary")
-        .current_dir(&project.build_path()?)
-        // Null stdout avoids an unread pipe when cargo-lambda inherits verbose RUST_LOG.
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped());
-
-    for function in functions {
-        cmd.arg("--bin").arg(&function.name);
-    }
-
-    let mut child = cmd.spawn().wrap_err("Failed to execute the process")?;
-
-    let mut is_failed = false;
-    let mut error_message_lines = Vec::new();
-
-    if let Some(stderr) = child.stderr.take() {
-        let mut reader = BufReader::new(stderr).lines();
-        let regex = regex::Regex::new(r"^[\t ]+")?;
-
-        while let Some(line) = reader.next_line().await? {
-            let trimmed = line.trim();
-
-            if is_failed || trimmed.starts_with("error") || trimmed.starts_with("Error") {
-                is_failed = true;
-                error_message_lines.push(line);
-                continue;
-            };
-            total_progress.set_message(regex.replace_all(&line, "").to_string());
-        }
-    }
-
-    total_progress.set_message("");
-    let status = child.wait().await?;
-
-    if !status.success() {
-        return Err(eyre!("{}", error_message_lines.join("\n")));
-    }
-
-    let functions = functions.to_vec();
-
-    tokio::task::spawn_blocking(move || bundle::bundle_functions(&functions))
-        .await
-        .wrap_err("Failed to join the Lambda bundling task")??;
-
-    Ok(())
 }
 
 impl From<&Function> for kinetics_api::stack::deploy::FunctionRequest {
