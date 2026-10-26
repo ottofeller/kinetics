@@ -6,4 +6,5 @@ pub mod environment;
 pub mod init_once;
 pub mod queue;
 pub mod secrets;
+pub mod storage;
 pub mod urls;
