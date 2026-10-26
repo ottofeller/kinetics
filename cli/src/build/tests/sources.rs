@@ -100,6 +100,52 @@ fn shared_helper_referencing_its_handler_keeps_the_file_shared() {
 }
 
 #[test]
+fn macro_references_from_shared_helpers_keep_handlers_shared() {
+    for expression in [
+        "dbg!(worker())",
+        "dbg!({ [worker()][0] })",
+        "dbg!(self::worker())",
+        "dbg!(crate::jobs::worker())",
+    ] {
+        let mut parsed = parsed("shared_helper");
+        // A public helper stays in the library, so its macro must still reach the worker.
+        let code = format!(
+            "pub fn call() -> i32 {{ {expression} }} #[worker] fn worker() -> i32 {{ 42 }}"
+        );
+        parsed
+            .sources
+            .insert("src/jobs.rs".into(), syn::parse_file(&code).unwrap());
+        let generated = generate(&parsed);
+        assert!(generated.handlers.is_empty(), "{expression}");
+        // Compile both the shared library and its handler binary to catch missing symbols.
+        compile_and_run(&generated, &parsed, "src/lib.rs", "worker", 42);
+    }
+}
+
+#[test]
+fn macro_string_literals_do_not_block_handler_isolation() {
+    for literal in [
+        r#""worker from_worker crate::jobs::worker""#,
+        r##"r#"worker from_worker crate::jobs::worker"#"##,
+    ] {
+        let mut parsed = parsed("shared_helper");
+        let code = format!(
+            "pub fn call() -> i32 {{ let _ = format!({literal}); 42 }} \
+             #[worker] fn worker() -> i32 {{ 42 }}"
+        );
+        parsed
+            .sources
+            .insert("src/jobs.rs".into(), syn::parse_file(&code).unwrap());
+        let generated = generate(&parsed);
+        assert!(
+            generated.handlers.contains_key(Path::new("src/jobs.rs")),
+            "{literal}"
+        );
+        compile_and_run(&generated, &parsed, "src/lib.rs", "worker", 42);
+    }
+}
+
+#[test]
 fn includes_macro_items_and_unresolved_worker_identity_stay_shared() {
     for code in [
         r#"#[worker] fn worker() { include_str!("payload.txt"); }"#,

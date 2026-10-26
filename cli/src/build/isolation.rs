@@ -3,7 +3,7 @@ use kinetics_parser::{ParsedFunction, ParsedPackage};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
+use syn::buffer::{Cursor, TokenBuffer};
 use syn::visit::Visit;
 use syn::Item;
 
@@ -206,6 +206,45 @@ struct References {
 }
 
 impl References {
+    /// Macro bodies are opaque to the AST visitor, so inspect their tokens directly.
+    /// Treat identifier paths as possible value references without expanding the macro.
+    fn record_macro_paths(&mut self, mut cursor: Cursor<'_>) {
+        while let Some((_, rest)) = cursor.token_tree() {
+            if let Some((inner, _, _, rest)) = cursor.any_group() {
+                // References can be nested inside (), [] or {}, as in dbg!({ worker() }).
+                self.record_macro_paths(inner);
+                cursor = rest;
+            } else if let Some((ident, rest)) = cursor.ident() {
+                let mut parts = vec![ident.to_string()];
+                cursor = rest;
+                // Keep other::worker as one path so worker is not resolved in this module.
+                while let Some((first, rest)) = cursor.punct() {
+                    let Some((second, rest)) = rest.punct() else {
+                        break;
+                    };
+                    if first.as_char() != ':' || second.as_char() != ':' {
+                        break;
+                    }
+                    let Some((ident, rest)) = rest.ident() else {
+                        break;
+                    };
+                    parts.push(ident.to_string());
+                    cursor = rest;
+                }
+                if parts.iter().any(|part| part == "from_worker") {
+                    // Calls inside macros cannot be rewritten to from_name, so preserve
+                    // the original worker type identity by keeping this file shared.
+                    self.isolation_block_reason =
+                        Some(IsolationBlockReason::WorkerReferenceInMacro);
+                }
+                self.record(parts, false, true);
+            } else {
+                // Text such as "worker" or "from_worker" inside a literal is not code.
+                cursor = rest;
+            }
+        }
+    }
+
     /// Resolve a path and flag references that require the original module.
     fn record(&mut self, parts: Vec<String>, is_namespace: bool, is_expression: bool) {
         if parts.is_empty() {
@@ -252,24 +291,8 @@ impl<'ast> Visit<'ast> for References {
         }) {
             self.isolation_block_reason = Some(IsolationBlockReason::RelativeInclude);
         }
-        static QUALIFIED_PATH: LazyLock<regex::Regex> = LazyLock::new(|| {
-            regex::Regex::new(r"(?:[A-Za-z_][A-Za-z_0-9]*\s*::\s*)+[A-Za-z_][A-Za-z_0-9]*")
-                .expect("valid qualified path regex")
-        });
-        let tokens = mac.tokens.to_string();
-        if tokens.contains("from_worker") {
-            self.isolation_block_reason = Some(IsolationBlockReason::WorkerReferenceInMacro);
-        }
-        for path in QUALIFIED_PATH.find_iter(&tokens) {
-            self.record(
-                path.as_str()
-                    .split("::")
-                    .map(|part| part.trim().to_owned())
-                    .collect(),
-                false,
-                true,
-            );
-        }
+        let tokens = TokenBuffer::new2(mac.tokens.clone());
+        self.record_macro_paths(tokens.begin());
         syn::visit::visit_macro(self, mac);
     }
 
