@@ -84,6 +84,13 @@ pub(crate) struct InvokeCommand {
     #[arg(long = "with-worker", visible_aliases = ["worker"], value_name = "WORKERS")]
     with_worker: Option<String>,
 
+    /// Run a local S3 for project storage.
+    /// Not available when called with --remote flag.
+    ///
+    /// Accepts a path to the storage folder relative to project root, defaults to <project>/storage/
+    #[arg(long = "with-storage", visible_aliases = ["storage"], num_args = 0..=1, default_missing_value = "")]
+    with_storage: Option<String>,
+
     /// Relative path to the project directory
     #[arg(long)]
     pub(crate) project: Option<PathBuf>,

@@ -19,6 +19,7 @@ arborium = { version = "2.18.2", features = ["lang-sql"] }
 async-trait = "0.1.89"
 aws-config = "1.8.15"
 aws-sdk-dynamodb = "1.110.0"
+aws-sdk-s3 = "1.133.0"
 aws-sdk-sqs = "1.97.0"
 base64 = "0.22.1"
 cargo_metadata = "0.23.1"

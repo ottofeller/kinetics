@@ -27,6 +27,10 @@ impl Client {
     pub async fn new() -> eyre::Result<Self> {
         let client = STORAGE_CLIENT
             .get_or_try_init(|| async {
+                if std::env::var("KINETICS_IS_LOCAL").is_ok() {
+                    return Self::from_local().await;
+                }
+
                 let sdk_config =
                     aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
                 Self::from_config(&sdk_config).await
@@ -34,6 +38,37 @@ impl Client {
             .await?;
 
         Ok(client.clone())
+    }
+
+    /// Local invocation: endpoint, bucket and credentials come from the environment the CLI sets
+    async fn from_local() -> eyre::Result<Self> {
+        let guidance =
+            "Local storage is not configured; invoke the function with --with-storage [path]";
+
+        let bucket = std::env::var("KINETICS_STORAGE_BUCKET").wrap_err(guidance)?;
+        let endpoint = std::env::var("KINETICS_STORAGE_ENDPOINT").wrap_err(guidance)?;
+        let identity = std::env::var("KINETICS_STORAGE_IDENTITY").wrap_err(guidance)?;
+        let credential = std::env::var("KINETICS_STORAGE_CREDENTIAL").wrap_err(guidance)?;
+        let region = std::env::var("KINETICS_STORAGE_REGION").wrap_err(guidance)?;
+
+        // Explicit local settings only — no AWS environment or config chain.
+        let config = aws_sdk_s3::config::Builder::new()
+            .behavior_version(aws_config::BehaviorVersion::latest())
+            .region(Some(aws_sdk_s3::config::Region::new(region)))
+            .endpoint_url(endpoint)
+            .credentials_provider(aws_sdk_s3::config::Credentials::new(
+                identity, credential, None, None, "kinetics",
+            ))
+            // s3proxy answers path-style requests; virtual-hosted would need bucket DNS.
+            .force_path_style(true)
+            .build();
+
+        Ok(Self {
+            client: aws_sdk_s3::Client::from_conf(config),
+            bucket,
+            // No key prefix locally: the mounted folder is already project-scoped.
+            prefix: String::new(),
+        })
     }
 
     /// Create a client from the SDK configuration
