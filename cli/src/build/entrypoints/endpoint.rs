@@ -61,6 +61,11 @@ pub(super) fn render(
                 }};
 
                 let mut event_builder = Builder::new();
+
+                if let Ok(invoke_method) = std::env::var(\"KINETICS_INVOKE_METHOD\") {{
+                    event_builder = event_builder.method(invoke_method.as_str());
+                }}
+
                 let headers = event_builder.headers_mut().unwrap();
                 let headers_value = serde_json::from_str::<serde_json::Value>(&headers_json)
                     .unwrap_or_default();

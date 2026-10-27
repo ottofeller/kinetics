@@ -1,10 +1,11 @@
 use crate::build;
 use crate::commands::invoke::InvokeCommand;
 use crate::error::Error;
-use crate::function::Function;
+use crate::function::{Function, Params};
 use crate::runner::Runner;
 use crate::writer::Writer;
 use eyre::WrapErr;
+use http::Method;
 use kinetics_parser::Role;
 use serde_json::Value;
 use std::fs;
@@ -89,5 +90,47 @@ impl InvokeRunner<'_> {
         };
 
         Ok(resolved_payload)
+    }
+
+    /// Resolves and validates the HTTP method for the function invocation.
+    ///
+    /// Defaults to POST, falling back to the first method declared
+    /// on the endpoint when it does not accept POST.
+    pub(super) fn resolve_method(&self, function: &Function) -> eyre::Result<Method> {
+        // The method only shapes endpoint requests, any other role ignores it.
+        let declared = match &function.params {
+            Params::Endpoint(endpoint) => endpoint
+                .methods
+                .iter()
+                .filter_map(|method| Method::from_bytes(method.as_bytes()).ok())
+                .collect::<Vec<Method>>(),
+            _ => return Ok(self.command.method.clone().unwrap_or(Method::POST)),
+        };
+
+        let Some(requested) = &self.command.method else {
+            // The invocation carries a payload, so prefer POST whenever the endpoint takes it.
+            return Ok(if declared.is_empty() || declared.contains(&Method::POST) {
+                Method::POST
+            } else {
+                declared[0].clone()
+            });
+        };
+
+        if !declared.is_empty() && !declared.contains(requested) {
+            let available = declared
+                .iter()
+                .map(|method| method.as_str())
+                .collect::<Vec<&str>>()
+                .join(", ");
+
+            eyre::bail!(
+                "Endpoint {} does not accept method {}. Available: [{}]",
+                function.name,
+                requested,
+                available
+            );
+        }
+
+        Ok(requested.clone())
     }
 }

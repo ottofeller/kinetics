@@ -8,7 +8,8 @@ use syn::{
     token, Ident, LitBool, LitStr,
 };
 
-const ALLOWED_METHODS: [Method; 5] = [
+/// HTTP methods an endpoint may declare.
+pub const ALLOWED_METHODS: [Method; 5] = [
     Method::GET,
     Method::POST,
     Method::PUT,

@@ -8,6 +8,8 @@ use crate::{
     runner::{Runnable, Runner},
     writer::Writer,
 };
+use http::Method;
+use kinetics_parser::params::endpoint::ALLOWED_METHODS;
 use runner::InvokeRunner;
 use std::path::PathBuf;
 
@@ -29,6 +31,16 @@ pub(crate) struct InvokeCommand {
     /// Example: --url-path /user/1/profile
     #[arg(long)]
     url_path: Option<String>,
+
+    /// HTTP method to use while calling endpoint function.
+    ///
+    /// Available: GET, POST, PUT, DELETE, PATCH.
+    /// Defaults to POST, falling back to the first method declared
+    /// on the endpoint when it does not accept POST.
+    ///
+    /// Example: --method GET
+    #[arg(long, value_name = "METHOD", value_parser = parse_method)]
+    method: Option<Method>,
 
     /// JSON payload for an endpoint or worker.
     ///
@@ -96,4 +108,24 @@ impl Runnable for InvokeCommand {
             writer,
         }
     }
+}
+
+/// Validate an HTTP method against the set supported for endpoints.
+fn parse_method(value: &str) -> Result<Method, String> {
+    let method = Method::from_bytes(value.to_uppercase().as_bytes())
+        .map_err(|err| format!("Invalid method: {err}"))?;
+
+    if !ALLOWED_METHODS.contains(&method) {
+        let allowed = ALLOWED_METHODS
+            .iter()
+            .map(|method| method.as_str())
+            .collect::<Vec<&str>>()
+            .join(", ");
+
+        return Err(format!(
+            "Unsupported method: {method}. Available: [{allowed}]"
+        ));
+    }
+
+    Ok(method)
 }

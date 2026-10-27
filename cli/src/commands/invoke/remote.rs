@@ -25,6 +25,7 @@ impl InvokeRunner<'_> {
         let payload = self
             .resolve_payload(&function.role)?
             .expect("endpoint payload is always resolved");
+        let method = self.resolve_method(&function)?;
 
         let project = self.project(&self.command.project).await?;
         let display_path = format!(
@@ -86,7 +87,7 @@ impl InvokeRunner<'_> {
         let client = reqwest::Client::new();
 
         let response = client
-            .post(url)
+            .request(method, url)
             .headers(headers_map)
             .body(payload)
             .send()
