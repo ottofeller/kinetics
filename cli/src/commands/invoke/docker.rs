@@ -1,4 +1,4 @@
-use super::service::{LocalDynamoDB, LocalQueue, LocalSqlDB, Service};
+use super::service::{LocalDynamoDB, LocalQueue, LocalS3, LocalSqlDB, Service};
 use crate::process::Process;
 use crate::{error::Error, writer::Writer};
 use eyre::Context;
@@ -125,6 +125,11 @@ impl<'a> Docker<'a> {
                         .provision()
                         .await
                         .wrap_err("Failed to provision local SQL DB"),
+
+                    Service::S3(s3) => s3
+                        .provision()
+                        .await
+                        .wrap_err("Failed to provision local S3"),
                 }
             })
             .collect::<Vec<_>>();
@@ -149,6 +154,10 @@ impl<'a> Docker<'a> {
         self.services.push(Service::Queue(queue));
     }
 
+    pub fn with_s3(&mut self, s3: LocalS3) {
+        self.services.push(Service::S3(s3));
+    }
+
     /// Creates docker-compose.yml string with all docker services
     fn docker_compose_string(&self) -> eyre::Result<String> {
         // Contains all services for docker-compose.yml file
@@ -160,6 +169,7 @@ impl<'a> Docker<'a> {
                 Service::DynamoDB(service) => service.docker_compose_snippet(),
                 Service::Queue(service) => service.docker_compose_snippet(),
                 Service::SqlDB(service) => service.docker_compose_snippet(),
+                Service::S3(service) => service.docker_compose_snippet(),
             };
 
             let mapping: Map<String, Value> = serde_saphyr::from_str(&service_snippet)

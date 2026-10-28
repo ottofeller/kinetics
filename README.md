@@ -287,6 +287,13 @@ Invoke a function with a DB and applied migrations. The migrations are pulled fr
 kinetics invoke DatabaseDatabase --with-db --with-migrations my-migrations
 ```
 
+Read and store files in the project storage. The storage runs in docker and keeps objects
+as plain files in the project's `storage/` folder (`--with-storage <path>` tunes it).
+
+```sh
+kinetics invoke ExamplesStorageStorage --with-storage
+```
+
 Deploy entire project:
 
 ```sh

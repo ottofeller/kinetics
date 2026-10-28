@@ -23,6 +23,10 @@ pub struct RuntimeConfig {
     pub secrets_names: Vec<String>,
     /// Queue logical names to physical names mapping.
     pub queues: BTreeMap<String, String>,
+    /// Project storage bucket.
+    pub storage_bucket: String,
+    /// Project storage key prefix.
+    pub storage_prefix: String,
 }
 
 static RUNTIME_CONFIG: OnceCell<RuntimeConfig> = OnceCell::const_new();

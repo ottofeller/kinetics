@@ -1,6 +1,6 @@
 use super::docker::Docker;
 use super::poller::LocalQueuePoller;
-use super::service::{LocalDynamoDB, LocalQueue, LocalSqlDB};
+use super::service::{LocalDynamoDB, LocalQueue, LocalS3, LocalSqlDB};
 use crate::commands::invoke::InvokeRunner;
 use crate::config::build_config;
 use crate::function::{Function, Params};
@@ -61,6 +61,31 @@ impl InvokeRunner<'_> {
         let mut docker = Docker::new(&PathBuf::from(&build_config()?.kinetics_path));
 
         let mut local_environment = HashMap::from([("KINETICS_IS_LOCAL", "true".to_string())]);
+
+        if let Some(path) = self.command.with_storage.as_deref() {
+            // Local storage runs as an s3proxy container
+            // and stores objects as plain files in the mounted folder.
+            let storage_dir = if path.is_empty() {
+                project.path.join("storage")
+            } else {
+                project.path.join(path)
+            };
+
+            std::fs::create_dir_all(&storage_dir)
+                .wrap_err("Failed to create the local storage folder")?;
+
+            docker.with_s3(LocalS3::new(storage_dir));
+
+            // The storage client builds its S3 configuration from these envs.
+            local_environment.insert("KINETICS_STORAGE_ENDPOINT", LocalS3::ENDPOINT.to_string());
+            local_environment.insert("KINETICS_STORAGE_BUCKET", LocalS3::BUCKET.to_string());
+            local_environment.insert("KINETICS_STORAGE_IDENTITY", LocalS3::IDENTITY.to_string());
+            local_environment.insert(
+                "KINETICS_STORAGE_CREDENTIAL",
+                LocalS3::CREDENTIAL.to_string(),
+            );
+            local_environment.insert("KINETICS_STORAGE_REGION", LocalS3::REGION.to_string());
+        }
 
         if self.command.with_database {
             let mut sqldb = LocalSqlDB::new(&project, self.writer);
