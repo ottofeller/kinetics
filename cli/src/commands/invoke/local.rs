@@ -25,6 +25,7 @@ impl InvokeRunner<'_> {
         migrations_path: Option<&str>,
     ) -> eyre::Result<()> {
         let payload = self.resolve_payload(&function.role)?;
+        let method = self.resolve_method(function)?;
 
         let project = self.project(&self.command.project).await?;
         let mut secrets_envs = HashMap::new();
@@ -180,6 +181,7 @@ impl InvokeRunner<'_> {
             &function_secrets(function),
             &aws_credentials,
             &local_environment,
+            &method,
             payload.as_deref(),
         )?;
 
@@ -207,6 +209,7 @@ impl InvokeRunner<'_> {
                     &function_secrets(&worker),
                     &aws_credentials,
                     &local_environment,
+                    &method,
                     Some(&payload),
                 )?;
             }
@@ -224,6 +227,7 @@ impl InvokeRunner<'_> {
     /// Spawn and log the `*Local` binary for the given function.
     ///
     /// Returns the captured stdout of the invocation.
+    #[allow(clippy::too_many_arguments)]
     fn invoke_local_binary(
         &self,
         function: &Function,
@@ -231,6 +235,7 @@ impl InvokeRunner<'_> {
         secrets_envs: &HashMap<String, String>,
         aws_credentials: &HashMap<&str, &str>,
         local_environment: &HashMap<&str, String>,
+        method: &http::Method,
         payload: Option<&str>,
     ) -> eyre::Result<String> {
         let mut command = Command::new("cargo");
@@ -251,6 +256,7 @@ impl InvokeRunner<'_> {
                 "KINETICS_INVOKE_URL_PATH",
                 self.command.url_path.clone().unwrap_or_default(),
             )
+            .env("KINETICS_INVOKE_METHOD", method.to_string())
             .current_dir(invoke_dir)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());

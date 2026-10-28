@@ -269,6 +269,12 @@ Invoke endpoint with http headers:
 kinetics invoke BasicWorkerWorker --headers '{"Authorization": "Bearer 123"}'
 ```
 
+Invoke endpoint with http method of an endpoint call:
+
+```sh
+kinetics invoke BasicEndpointEndpoint --method GET
+```
+
 Invoke a function which needs a DB. DB gets provisioned locally and is fully operational, not just a mock for requests.
 
 ```sh
