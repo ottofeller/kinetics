@@ -16,10 +16,14 @@ pub struct RuntimeConfig {
     pub schema_version: u32,
     pub owner_id: String,
     pub project_name: String,
+    /// Cargo package containing this Lambda's handler.
+    pub package_name: String,
     pub cloud_account_id: String,
     pub sqldb_cluster_id: String,
     pub sqldb_user: String,
-    /// SSM parameter names
+    /// Legacy SSM parameter names, retained until existing runtimes are migrated.
+    #[deprecated(note = "Use tools::secrets::load instead")]
+    #[serde(default)]
     pub secrets_names: Vec<String>,
     /// Queue logical names to physical names mapping.
     pub queues: BTreeMap<String, String>,
