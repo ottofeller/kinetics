@@ -11,3 +11,6 @@ pub mod request;
 pub mod stack;
 pub mod upload;
 pub mod validators;
+
+#[cfg(test)]
+mod tests;

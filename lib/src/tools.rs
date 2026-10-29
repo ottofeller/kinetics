@@ -1,8 +1,13 @@
 pub mod config;
+pub mod features;
 pub mod http;
 pub mod queue;
 pub mod runtime;
+pub mod secrets;
 pub mod storage;
+
+#[cfg(test)]
+mod tests;
 
 /// Namespace included in project resource hash inputs.
 const RESOURCE_NAMESPACE: &str = "kinetics";

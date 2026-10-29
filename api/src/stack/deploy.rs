@@ -332,6 +332,9 @@ fn validate_dlq_links(functions: &[FunctionRequest]) -> Vec<String> {
 pub struct FunctionRequest {
     pub is_deploying: bool,
     pub name: String,
+    /// Omitted by older CLI versions whose runtimes still read SSM.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub package: Option<String>,
     pub role: Role,
     pub params: Params,
     pub environment: HashMap<String, String>,

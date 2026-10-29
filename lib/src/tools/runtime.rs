@@ -1,3 +1,4 @@
+use super::features::Features;
 use aws_config::SdkConfig;
 use eyre::{Context, OptionExt};
 use serde::{Deserialize, Serialize};
@@ -14,12 +15,21 @@ pub const RUNTIME_CONFIG_VERSION: u32 = 1;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RuntimeConfig {
     pub schema_version: u32,
+    #[serde(default)]
+    pub features: Features,
     pub owner_id: String,
     pub project_name: String,
+    /// Cargo package containing this Lambda's handler.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub package_name: Option<String>,
     pub cloud_account_id: String,
     pub sqldb_cluster_id: String,
     pub sqldb_user: String,
-    /// SSM parameter names
+    /// Secrets table provisioned and selected by the backend.
+    pub secrets_table_name: String,
+    /// Legacy SSM parameter names, retained until existing runtimes are migrated.
+    #[deprecated(note = "Use tools::secrets::load instead")]
+    #[serde(default)]
     pub secrets_names: Vec<String>,
     /// Queue logical names to physical names mapping.
     pub queues: BTreeMap<String, String>,

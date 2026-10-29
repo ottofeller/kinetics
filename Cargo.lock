@@ -2733,6 +2733,7 @@ version = "0.19.3"
 dependencies = [
  "aws-config",
  "aws-sdk-dsql",
+ "aws-sdk-dynamodb",
  "aws-sdk-s3",
  "aws-sdk-sqs",
  "aws_lambda_events",
@@ -2746,6 +2747,7 @@ dependencies = [
  "log",
  "percent-encoding",
  "serde",
+ "serde_dynamo",
  "serde_json",
  "sha256",
  "tokio",
@@ -4188,7 +4190,7 @@ checksum = "09fbdfe7a27a1b1633dfc0c4c8e65940b8d819c5ddb9cca48ebc3223b00c8b14"
 dependencies = [
  "ahash",
  "annotate-snippets",
- "base64 0.21.7",
+ "base64 0.22.1",
  "encoding_rs_io",
  "getrandom 0.3.4",
  "nohash-hasher",
@@ -4226,6 +4228,7 @@ version = "4.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "873a97c3f7a67dd042bceb47d056d288424b82d4c66b0a25e1a3b34675620951"
 dependencies = [
+ "aws-sdk-dynamodb",
  "base64 0.21.7",
  "serde",
  "serde_core",
@@ -4817,7 +4820,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
@@ -5587,7 +5590,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
