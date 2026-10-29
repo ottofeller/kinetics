@@ -21,6 +21,8 @@ pub struct Function {
     /// The name of the function
     pub name: String,
 
+    pub package_name: String,
+
     /// Source package path within the generated workspace.
     pub package_path: PathBuf,
 
@@ -68,6 +70,7 @@ impl Function {
 
         Ok(Function {
             name: function.func_name(false)?,
+            package_name: function.pkg_name.clone(),
             package_path: function.pkg_rel_path.clone(),
             is_deploying: false,
             project: project.clone(),
@@ -295,6 +298,7 @@ impl From<&Function> for kinetics_api::stack::deploy::FunctionRequest {
     fn from(function: &Function) -> Self {
         Self {
             name: function.name.clone(),
+            package: Some(function.package_name.clone()),
             is_deploying: function.is_deploying,
             params: function.params.clone(),
             role: function.role.clone(),

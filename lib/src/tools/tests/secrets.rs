@@ -1,13 +1,13 @@
-use crate::tools::secrets::{merge_secrets, scope_key, Source};
+use crate::tools::secrets::{merge_secrets, scope_key, Secret, Source};
 use aws_sdk_dynamodb::types::AttributeValue;
 use std::collections::HashMap;
 
 fn secret(scope: &str, key: &str, value: &str) -> HashMap<String, AttributeValue> {
-    serde_dynamo::to_item(serde_json::json!({
-        "scope": scope,
-        "key": key,
-        "value": value,
-    }))
+    serde_dynamo::to_item(Secret {
+        scope: scope.to_string(),
+        key: key.to_string(),
+        value: value.to_string(),
+    })
     .unwrap()
 }
 
@@ -38,7 +38,6 @@ fn scope_keys_escape_iam_wildcards() {
 fn package_overrides_project_regardless_of_response_order() {
     let values = merge_secrets(
         &["project", "package"],
-        Source::Local,
         vec![
             secret("package", "local#TOKEN", "package-token"),
             secret("project", "local#TOKEN", "project-token"),
@@ -53,14 +52,11 @@ fn package_overrides_project_regardless_of_response_order() {
 
 #[test]
 fn empty_scopes_are_allowed() {
-    assert!(
-        merge_secrets(&["project", "package"], Source::Local, vec![])
-            .unwrap()
-            .is_empty()
-    );
+    assert!(merge_secrets(&["project", "package"], vec![])
+        .unwrap()
+        .is_empty());
     let values = merge_secrets(
         &["project", "package"],
-        Source::Local,
         vec![secret("project", "local#TOKEN", "project-token")],
     )
     .unwrap();
@@ -74,7 +70,7 @@ fn invalid_values_are_rejected_without_exposing_their_content() {
         "value".to_string(),
         AttributeValue::L(vec![AttributeValue::S("sensitive-content".to_string())]),
     );
-    let error = merge_secrets(&["project"], Source::Local, vec![item]).unwrap_err();
+    let error = merge_secrets(&["project"], vec![item]).unwrap_err();
 
     assert!(!format!("{error:?}").contains("sensitive-content"));
 }
@@ -84,29 +80,24 @@ fn all_record_fields_are_required() {
     for field in ["scope", "key", "value"] {
         let mut item = secret("project", "local#TOKEN", "value");
         item.remove(field);
-        assert!(merge_secrets(&["project"], Source::Local, vec![item]).is_err());
+        assert!(merge_secrets(&["project"], vec![item]).is_err());
     }
 }
 
 #[test]
-fn unexpected_scopes_are_rejected() {
+fn records_outside_requested_scopes_are_ignored() {
     assert!(merge_secrets(
         &["project", "package"],
-        Source::Local,
         vec![secret("another-package", "local#TOKEN", "value")],
     )
-    .is_err());
+    .unwrap()
+    .is_empty());
 }
 
 #[test]
-fn local_keys_require_a_source_prefix_and_a_name() {
-    for key in ["local#", "TOKEN", "shared#TOKEN"] {
-        assert!(merge_secrets(
-            &["project"],
-            Source::Local,
-            vec![secret("project", key, "value")],
-        )
-        .is_err());
+fn keys_require_a_known_source_prefix_and_a_name() {
+    for key in ["local#", "TOKEN", "unknown#TOKEN"] {
+        assert!(merge_secrets(&["project"], vec![secret("project", key, "value")],).is_err());
     }
 }
 
@@ -114,7 +105,6 @@ fn local_keys_require_a_source_prefix_and_a_name() {
 fn shared_source_uses_the_same_record_schema() {
     let values = merge_secrets(
         &["project", "package"],
-        Source::Shared,
         vec![
             secret("project", &Source::Shared.key("TOKEN"), "project-token"),
             secret("package", &Source::Shared.key("TOKEN"), "package-token"),
