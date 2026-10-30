@@ -23,7 +23,7 @@ pub(super) fn write(root: &Path, path: &str, content: &str) {
 /// Locate checked-in fixtures independently of the test's working directory.
 pub(super) fn fixture_path(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("src/build/tests/fixtures")
+        .join("tests/fixtures")
         .join(name)
 }
 
