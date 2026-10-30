@@ -251,9 +251,7 @@ fn read_packages(project: &Project) -> eyre::Result<BTreeMap<PathBuf, SourcePack
                 .and_then(toml_edit::Item::as_str)
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("src/lib.rs"));
-            let is_in_project = project.workspace.is_standalone_crate
-                || project.is_ws_root()
-                || directory == project.path;
+            let is_in_project = project.is_in_project(package);
             let parsed =
                 ParsedPackage::read(&directory, &lib_path, is_in_project.then_some(package))?;
             Ok((
