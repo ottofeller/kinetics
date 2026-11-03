@@ -16,8 +16,10 @@ aws-sdk-dsql = "1.54.0"
 aws-sdk-dynamodb = "1.110.0"
 aws-sdk-s3 = "1.133.0"
 aws-sdk-sqs = "1.97.0"
+aws-sdk-ssm = "1.110.0"
 bytes = "^1.0"
 eyre = "0.6.12"
+http = "^1.0"
 http-body = "^1.0"
 kinetics-macro = { workspace = true }
 kinetics-parser = { workspace = true }
@@ -33,3 +35,9 @@ tokio = { workspace = true, features = ["full"] }
 tower = "^0"
 url = "2.5.8"
 uuid = { version = "1.23.3", features = ["v4"] }
+
+[dev-dependencies]
+aws-sdk-dynamodb = { version = "1.110.0", features = ["test-util"] }
+aws-sdk-ssm = { version = "1.110.0", features = ["test-util"] }
+aws-smithy-mocks = "0.3.0"
+insta = { version = "1.49.0", features = ["json"] }

@@ -1,7 +1,7 @@
 use super::{features::secrets::SecretsV2, runtime::RuntimeConfig};
 use aws_config::SdkConfig;
 use aws_sdk_dynamodb::{types::AttributeValue, Client};
-use eyre::WrapErr;
+use eyre::{OptionExt, WrapErr};
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -47,19 +47,30 @@ pub fn scope_key(owner_id: &str, project_name: &str, package_name: Option<&str>)
     key
 }
 
-/// Read shared and local secrets when the backend enables DynamoDB secrets.
+/// Read secrets from DynamoDB when SecretsV2 is enabled, or legacy SSM otherwise.
 ///
-/// Disabled deployments perform no requests. Both scopes are queried concurrently,
+/// Both DynamoDB scopes are queried concurrently,
 /// each returning all sources and pages. Local values override shared values;
 /// within each source, package values override project values.
+#[allow(deprecated)] // Old runtime configurations still list SSM parameter names.
 pub async fn load(
     sdk_config: &SdkConfig,
     config: &RuntimeConfig,
 ) -> eyre::Result<HashMap<String, String>> {
     if !config.features.enabled::<SecretsV2>() {
-        return Ok(HashMap::new());
+        if config.secrets_names.is_empty() {
+            return Ok(HashMap::new());
+        }
+        return load_ssm(&aws_sdk_ssm::Client::new(sdk_config), config).await;
     }
 
+    load_dynamodb(&Client::new(sdk_config), config).await
+}
+
+pub(super) async fn load_dynamodb(
+    client: &Client,
+    config: &RuntimeConfig,
+) -> eyre::Result<HashMap<String, String>> {
     let project_scope = scope_key(&config.owner_id, &config.project_name, None);
 
     let package_scope = scope_key(
@@ -68,13 +79,50 @@ pub async fn load(
         config.package_name.as_deref(),
     );
 
-    let client = Client::new(sdk_config);
     let (mut items, package_items) = tokio::try_join!(
-        query_scope(&client, &config.secrets_table_name, &project_scope),
-        query_scope(&client, &config.secrets_table_name, &package_scope),
+        query_scope(client, &config.secrets_table_name, &project_scope),
+        query_scope(client, &config.secrets_table_name, &package_scope),
     )?;
     items.extend(package_items);
     merge_secrets(&[&project_scope, &package_scope], items)
+}
+
+#[allow(deprecated)] // Old runtime configurations still list SSM parameter names.
+pub(super) async fn load_ssm(
+    client: &aws_sdk_ssm::Client,
+    config: &RuntimeConfig,
+) -> eyre::Result<HashMap<String, String>> {
+    let mut secrets = HashMap::new();
+    for secret_name in &config.secrets_names {
+        let response = client
+            .get_parameter()
+            .name(secret_name)
+            .with_decryption(true)
+            .send()
+            .await
+            .wrap_err("Failed to read secret from SSM")?;
+        let value = response
+            .parameter
+            .and_then(|parameter| parameter.value)
+            .ok_or_eyre("SSM secret has no value")?;
+
+        let tags = client
+            .list_tags_for_resource()
+            .resource_type(aws_sdk_ssm::types::ResourceTypeForTagging::Parameter)
+            .resource_id(secret_name)
+            .send()
+            .await
+            .wrap_err("Failed to read SSM secret name")?;
+        let name = tags
+            .tag_list()
+            .iter()
+            .find(|tag| tag.key() == "original_name")
+            .map(|tag| tag.value().to_string())
+            .ok_or_eyre("SSM secret has no original_name tag")?;
+        secrets.insert(name, value);
+    }
+
+    Ok(secrets)
 }
 
 async fn query_scope(client: &Client, table_name: &str, scope: &str) -> eyre::Result<Vec<Item>> {

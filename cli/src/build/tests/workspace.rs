@@ -42,7 +42,7 @@ fn generates_all_roles_and_preserves_dependency_settings() {
     assert!(dependencies.get("kinetics-macro").is_none());
     assert_eq!(
         dependencies["kinetics-lib"]["version"].as_str(),
-        Some(env!("CARGO_PKG_VERSION"))
+        Some(kinetics_lib::VERSION)
     );
     assert_eq!(dependencies["tokio"]["version"].as_str(), Some("1"));
     assert_eq!(
@@ -54,6 +54,55 @@ fn generates_all_roles_and_preserves_dependency_settings() {
     );
     assert!(dependencies.get("lambda_http").is_some());
     assert!(dependencies.get("lambda_runtime").is_some());
+}
+
+#[test]
+fn runtime_version_is_updated_without_losing_dependency_options() {
+    for dependency in [
+        "kinetics-lib = { version = \"0.1\", path = \"../runtime\", default-features = false }",
+        "[dependencies.kinetics-lib]\nversion = \"0.1\"\npath = \"../runtime\"\ndefault-features = false",
+    ] {
+        let fixture = Fixture::new("sample");
+        write(
+            fixture.source.path(),
+            "Cargo.toml",
+            &format!("[package]\nname = \"sample\"\nversion = \"0.1.0\"\nedition = \"2021\"\n[dependencies]\n{dependency}\n"),
+        );
+        fixture.generate();
+        let manifest = fixture.manifest("Cargo.toml");
+        let runtime = &manifest["dependencies"]["kinetics-lib"];
+        assert_eq!(runtime["version"].as_str(), Some(kinetics_lib::VERSION));
+        assert_eq!(runtime["path"].as_str(), Some("../runtime"));
+        assert_eq!(runtime["default-features"].as_bool(), Some(false));
+    }
+}
+
+#[test]
+fn inherited_runtime_version_is_updated_in_workspace_dependencies() {
+    let fixture = workspace_fixture(false);
+    let root = fs::read_to_string(fixture.source.path().join("Cargo.toml")).unwrap();
+    write(
+        fixture.source.path(),
+        "Cargo.toml",
+        &format!("{root}\n[workspace.dependencies]\nkinetics-lib = {{ version = \"0.1\", default-features = false }}\n"),
+    );
+    replace(
+        fixture.source.path(),
+        "service/Cargo.toml",
+        "kinetics-lib = \"0.1\"",
+        "kinetics-lib = { workspace = true }",
+    );
+
+    fixture.generate();
+
+    let root = fixture.manifest("Cargo.toml");
+    let runtime = &root["workspace"]["dependencies"]["kinetics-lib"];
+    assert_eq!(runtime["version"].as_str(), Some(kinetics_lib::VERSION));
+    assert_eq!(runtime["default-features"].as_bool(), Some(false));
+    let member = fixture.manifest("service/Cargo.toml");
+    let inherited = &member["dependencies"]["kinetics-lib"];
+    assert_eq!(inherited["workspace"].as_bool(), Some(true));
+    assert!(inherited.get("version").is_none());
 }
 
 #[test]

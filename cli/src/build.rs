@@ -8,7 +8,6 @@ mod manifest;
 mod queue_calls;
 mod rust_paths;
 mod sources;
-
 #[cfg(test)]
 mod tests;
 
@@ -102,6 +101,14 @@ pub fn generate_workspace(
 
     // Update the workspace manifest with all member paths
     workspace_doc["workspace"]["members"] = toml_edit::Array::from_iter(member_paths.iter()).into();
+
+    if let Some(runtime) = workspace_doc
+        .get_mut("workspace")
+        .and_then(|workspace| workspace.get_mut("dependencies"))
+        .and_then(|dependencies| dependencies.get_mut("kinetics-lib"))
+    {
+        manifest::set_runtime_version(runtime)?;
+    }
 
     files.write(Path::new("Cargo.toml"), workspace_doc.to_string())?;
 

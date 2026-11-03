@@ -131,22 +131,25 @@ fn add_runtime_dependencies(
         }
     }
 
-    let kinetics_version = env!("CARGO_PKG_VERSION");
-    if doc["dependencies"]["kinetics-lib"].as_str().is_some() {
-        // Discard string version and write an object
-        doc["dependencies"]["kinetics-lib"] =
-            toml_edit::Table::from_iter([("version", kinetics_version)]).into();
-    } else {
-        // For an object overwrite only the version field
-        doc["dependencies"]["kinetics-lib"]
-            .or_insert(toml_edit::Table::new().into())
-            .as_table_mut()
-            .map(|t| t.insert("version", kinetics_version.into()));
-    }
+    set_runtime_version(&mut doc["dependencies"]["kinetics-lib"])?;
 
     if let Some(deps_table) = doc["dependencies"].as_table_mut() {
         deps_table.remove("kinetics-macro");
     }
 
+    Ok(())
+}
+
+/// Keep generated entry points on a runtime that provides their macro API.
+pub(super) fn set_runtime_version(dependency: &mut Item) -> eyre::Result<()> {
+    if dependency.is_none() || dependency.as_str().is_some() {
+        *dependency = toml_edit::Table::new().into();
+    }
+    let table = dependency
+        .as_table_like_mut()
+        .ok_or_else(|| eyre!("Invalid kinetics-lib dependency"))?;
+    if table.get("workspace").and_then(Item::as_bool) != Some(true) {
+        table.insert("version", kinetics_lib::VERSION.into());
+    }
     Ok(())
 }
