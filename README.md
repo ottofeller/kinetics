@@ -256,6 +256,12 @@ Print out all available functions before deployment. Their names and URLs of RES
 kinetics func list
 ```
 
+Show only the functions of one workspace package:
+
+```sh
+kinetics func list --package api
+```
+
 Invoke a function with JSON using `--payload` or `--payload-file`; worker payloads must be arrays, with one message per item:
 
 ```sh
