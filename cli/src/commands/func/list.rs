@@ -81,6 +81,10 @@ pub(crate) struct ListCommand {
     #[arg(short, long)]
     verbose: bool,
 
+    /// Show only functions from the workspace package with this Cargo package name
+    #[arg(long)]
+    package: Option<String>,
+
     /// Relative path to the project directory
     #[arg(long)]
     project: Option<PathBuf>,
@@ -111,6 +115,13 @@ impl Runner for ListRunner<'_> {
         // If the method is called within other method, then the auth error won't be propogated
         let client = self.api_client().await?;
 
+        let package = self
+            .command
+            .package
+            .as_deref()
+            .map(|name| project.workspace.package(name))
+            .transpose()?;
+
         self.functions = project.parsed_functions().map_err(|e| {
             self.error(
                 Some("Failed to parse the project"),
@@ -118,6 +129,11 @@ impl Runner for ListRunner<'_> {
                 None,
             )
         })?;
+
+        if let Some(package) = package {
+            self.functions
+                .retain(|function| function.pkg_rel_path == package.relative_path);
+        }
 
         if !self.command.verbose {
             return self
