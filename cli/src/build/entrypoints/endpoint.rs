@@ -109,45 +109,7 @@ pub(super) fn render(
                 let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
                 let runtime_config = kinetics_lib::tools::runtime::load(&config).await?;
                 println!(\"Fetching secrets\");
-                let secrets_client = aws_sdk_ssm::Client::new(&config);
-                let mut secrets = std::collections::HashMap::new();
-
-                for secret_name in &runtime_config.secrets_names {{
-                    let desc = secrets_client
-                        .get_parameter()
-                        .name(secret_name.clone())
-                        .with_decryption(true)
-                        .send()
-                        .await.inspect_err(|e| {{
-                            eprintln!(\"Error fetching secret {{}}: {{:?}}\", secret_name, e);
-                        }})?;
-
-                    let result = desc.parameter.unwrap();
-
-                    let tags = secrets_client
-                        .list_tags_for_resource()
-                        .resource_type(aws_sdk_ssm::types::ResourceTypeForTagging::Parameter)
-                        .resource_id(secret_name.clone())
-                        .send()
-                        .await
-                        .inspect_err(|e| {{
-                            eprintln!(\"Error fetching tags for secret {{}}: {{:?}}\", secret_name, e);
-                        }})?
-                        .tag_list
-                        .unwrap_or_default();
-
-                    let name = tags
-                        .iter()
-                        .find(|t| t.key() == \"original_name\")
-                        .map(|t| t.value().to_string())
-                        .ok_or(format!(
-                            \"Secret {{}} not found\",
-                            secret_name
-                        ))?;
-
-                    let secret_value = result.value().unwrap();
-                    secrets.insert(name, secret_value.to_string());
-                }}
+                let secrets = kinetics_lib::tools::secrets::load(&config, runtime_config).await?;
 
                 let endpoint_config = {config};
                 let kinetics_config = KineticsConfig::new(&config, Some(endpoint_config)).await.inspect_err(|e| {{
