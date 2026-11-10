@@ -3,6 +3,7 @@ use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use crossterm::style::Stylize;
 use kinetics_api::orgs::members::delete::{Request, Response};
+use kinetics_api::request::Validate;
 use serde_json::json;
 use std::io::{stdin, stdout, Write};
 
@@ -74,14 +75,17 @@ impl Runner for DeleteMemberRunner<'_> {
             console::style("Removing").bold()
         ))?;
 
+        let request = Request {
+            org: org.clone(),
+            username: username.clone(),
+        };
+
+        if let Some(errors) = request.validate() {
+            return Err(Error::new("Validation failed", Some(&errors.join("\n"))));
+        }
+
         client
-            .request::<Request, Response>(
-                "/orgs/members/delete",
-                Request {
-                    org: org.clone(),
-                    username: username.clone(),
-                },
-            )
+            .request::<Request, Response>("/orgs/members/delete", request)
             .await?;
 
         self.writer
