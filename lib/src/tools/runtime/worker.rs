@@ -111,9 +111,14 @@ macro_rules! worker_main {
             let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
             let runtime_config = $crate::tools::runtime::load(&config).await?;
             println!("Provisioning secrets");
-            let secrets = $crate::tools::secrets::load(&config, runtime_config).await?;
-
-            let kinetics_config = KineticsConfig::new(&config, None).await?;
+            let (secrets, kinetics_config) = tokio::try_join!(
+                async {
+                    $crate::tools::secrets::load(&config, runtime_config)
+                        .await
+                        .map_err(Error::from)
+                },
+                KineticsConfig::new(&config, None),
+            )?;
             println!("Serving requests");
 
             run(service_fn(|event| async {

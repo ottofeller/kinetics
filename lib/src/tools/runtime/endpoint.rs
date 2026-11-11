@@ -100,14 +100,15 @@ macro_rules! endpoint_main {
             let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
             let runtime_config = $crate::tools::runtime::load(&config).await?;
             println!("Fetching secrets");
-            let secrets = $crate::tools::secrets::load(&config, runtime_config).await?;
-
             let endpoint_config = EndpointConfig::new($url_path);
-            let kinetics_config = KineticsConfig::new(&config, Some(endpoint_config))
-                .await
-                .inspect_err(|e| {
-                    eprintln!("Error initializing kinetics config: {:?}", e);
-                })?;
+            let (secrets, kinetics_config) = tokio::try_join!(
+                async {
+                    $crate::tools::secrets::load(&config, runtime_config)
+                        .await
+                        .map_err(lambda_http::Error::from)
+                },
+                KineticsConfig::new(&config, Some(endpoint_config)),
+            )?;
 
             println!("Serving requests");
 
