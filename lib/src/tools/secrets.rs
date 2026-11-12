@@ -61,9 +61,11 @@ pub async fn load(
         if config.secrets_names.is_empty() {
             return Ok(HashMap::new());
         }
+        println!("Loading legacy secrets");
         return load_ssm(&aws_sdk_ssm::Client::new(sdk_config), config).await;
     }
 
+    println!("Loading secrets V2");
     load_dynamodb(&Client::new(sdk_config), config).await
 }
 

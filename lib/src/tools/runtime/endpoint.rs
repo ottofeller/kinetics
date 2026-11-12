@@ -94,12 +94,13 @@ macro_rules! endpoint_main {
         use lambda_http::{run, service_fn, Request};
         use $crate::tools::config::{Config as KineticsConfig, EndpointConfig};
         use $crate::tools::runtime::dependencies::{aws_config, http, lambda_http, tokio};
-        #[tokio::main]
+        #[tokio::main(flavor = "current_thread")]
         async fn main() -> Result<(), lambda_http::Error> {
             let user_function = $handler;
+            println!("Initializing runtime");
             let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+            println!("Loading runtime configuration");
             let runtime_config = $crate::tools::runtime::load(&config).await?;
-            println!("Fetching secrets");
             let endpoint_config = EndpointConfig::new($url_path);
             let (secrets, kinetics_config) = tokio::try_join!(
                 async {
@@ -109,9 +110,7 @@ macro_rules! endpoint_main {
                 },
                 KineticsConfig::new(&config, Some(endpoint_config)),
             )?;
-
             println!("Serving requests");
-
             run(service_fn(|event: Request| async {
                 let (head, body) = event.into_parts();
                 let result = match $crate::tools::http::Body::from(body).try_into() {

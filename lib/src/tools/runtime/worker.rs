@@ -105,12 +105,13 @@ macro_rules! worker_main {
         use lambda_runtime::{run, service_fn, Error};
         use $crate::tools::runtime::dependencies::{aws_config, lambda_runtime, tokio};
         use $crate::tools::{config::Config as KineticsConfig, queue::Record as QueueRecord};
-        #[tokio::main]
+        #[tokio::main(flavor = "current_thread")]
         async fn main() -> Result<(), Error> {
             let user_function = $handler;
+            println!("Initializing runtime");
             let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+            println!("Loading runtime configuration");
             let runtime_config = $crate::tools::runtime::load(&config).await?;
-            println!("Provisioning secrets");
             let (secrets, kinetics_config) = tokio::try_join!(
                 async {
                     $crate::tools::secrets::load(&config, runtime_config)
@@ -120,7 +121,6 @@ macro_rules! worker_main {
                 KineticsConfig::new(&config, None),
             )?;
             println!("Serving requests");
-
             run(service_fn(|event| async {
                 match user_function(
                     QueueRecord::from_sqsevent(event)?,

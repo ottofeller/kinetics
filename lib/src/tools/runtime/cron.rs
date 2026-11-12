@@ -29,12 +29,13 @@ macro_rules! cron_main {
         use $crate::tools::runtime::dependencies::{
             aws_config, aws_lambda_events, lambda_runtime, serde_json, tokio,
         };
-        #[tokio::main]
+        #[tokio::main(flavor = "current_thread")]
         async fn main() -> Result<(), Error> {
             let user_function = $handler;
+            println!("Initializing runtime");
             let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+            println!("Loading runtime configuration");
             let runtime_config = $crate::tools::runtime::load(&config).await?;
-            println!("Provisioning secrets");
             let (secrets, kinetics_config) = tokio::try_join!(
                 async {
                     $crate::tools::secrets::load(&config, runtime_config)
@@ -44,7 +45,6 @@ macro_rules! cron_main {
                 KineticsConfig::new(&config, None),
             )?;
             println!("Serving requests");
-
             run(service_fn(
                 |_event: LambdaEvent<EventBridgeEvent<serde_json::Value>>| async {
                     match user_function(&secrets, &kinetics_config).await {

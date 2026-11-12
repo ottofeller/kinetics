@@ -2,7 +2,6 @@ use aws_config::{Region, SdkConfig};
 use aws_sdk_dsql::auth_token::{AuthToken, AuthTokenGenerator, Config as DsqlConfig};
 use eyre::Context;
 use lambda_runtime::Error;
-use log::{error, info};
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -32,7 +31,7 @@ impl SqlDb {
     pub async fn new(cluster_id: &str, username: &str, config: &SdkConfig) -> Result<Self, Error> {
         let region = config.region().unwrap_or(&Region::new("us-east-1")).clone();
         let endpoint = format!("{}.dsql.{}.on.aws", cluster_id, region.as_ref());
-        info!("Initializing SQL DB connection: {}", endpoint);
+        println!("Initializing DB connection: {}", endpoint);
 
         let password = fetch_dsql_password(&endpoint, config)
             .await
@@ -135,7 +134,7 @@ impl SqlDb {
                     }
 
                     Err(err) => {
-                        error!("Failed to refresh auth token: {err}");
+                        eprintln!("Failed to refresh auth token: {err}");
 
                         // Retry-until-success with bounded exponential backoff
                         tokio::time::sleep(backoff).await;
