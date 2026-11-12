@@ -19,6 +19,7 @@ use http::StatusCode;
 use kinetics_api::projects::{Kvdb, ProjectInfo};
 use kinetics_api::request::{to_log_safe_string_pretty, Validate};
 use kinetics_api::stack;
+use kinetics_parser::Package;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -151,6 +152,16 @@ impl Project {
     /// while a member project covers only its own package.
     pub fn is_ws_root(&self) -> bool {
         self.path == self.workspace.root_path
+    }
+
+    /// Whether the package's sources belong to this project.
+    ///
+    /// A root project covers every member,
+    /// a member project only its own package.
+    pub fn is_in_project(&self, package: &Package) -> bool {
+        self.workspace.is_standalone_crate
+            || self.is_ws_root()
+            || self.workspace.root_path.join(&package.relative_path) == self.path
     }
 
     /// Get project by name, with automatic cache management.
