@@ -105,7 +105,7 @@ macro_rules! worker_main {
         use lambda_runtime::{run, service_fn, Error};
         use $crate::tools::runtime::dependencies::{aws_config, lambda_runtime, tokio};
         use $crate::tools::{config::Config as KineticsConfig, queue::Record as QueueRecord};
-        #[tokio::main(flavor = "current_thread")]
+        #[tokio::main]
         async fn main() -> Result<(), Error> {
             let user_function = $handler;
             println!("Initializing runtime");

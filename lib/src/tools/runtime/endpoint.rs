@@ -94,7 +94,7 @@ macro_rules! endpoint_main {
         use lambda_http::{run, service_fn, Request};
         use $crate::tools::config::{Config as KineticsConfig, EndpointConfig};
         use $crate::tools::runtime::dependencies::{aws_config, http, lambda_http, tokio};
-        #[tokio::main(flavor = "current_thread")]
+        #[tokio::main]
         async fn main() -> Result<(), lambda_http::Error> {
             let user_function = $handler;
             println!("Initializing runtime");

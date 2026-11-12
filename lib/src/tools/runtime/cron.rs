@@ -29,7 +29,7 @@ macro_rules! cron_main {
         use $crate::tools::runtime::dependencies::{
             aws_config, aws_lambda_events, lambda_runtime, serde_json, tokio,
         };
-        #[tokio::main(flavor = "current_thread")]
+        #[tokio::main]
         async fn main() -> Result<(), Error> {
             let user_function = $handler;
             println!("Initializing runtime");
