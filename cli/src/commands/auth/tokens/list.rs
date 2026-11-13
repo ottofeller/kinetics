@@ -5,7 +5,7 @@ use crate::writer::Writer;
 use chrono::{DateTime, Local};
 use eyre::Context;
 use kinetics_api::auth::tokens::list::Response;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct ListCommand;

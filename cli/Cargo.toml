@@ -1,7 +1,7 @@
 [package]
 name = "kinetics"
 version.workspace = true
-edition = "2021"
+edition = "2024"
 description = "Kinetics is a hosting platform for Rust applications that allows you to deploy all types of workloads by writing **only Rust code**."
 readme = "../README.md"
 repository = "https://github.com/ottofeller/kinetics"
@@ -66,12 +66,12 @@ sqlx = { version = "0.8.6", features = [
   "runtime-tokio-rustls",
 ] }
 syn = { version = "2.0", features = ["full", "visit", "visit-mut"] }
-tabled = "0.20.0"
+tabled = "0.22.0"
 tempfile = "3.27.0"
 terminal_size = "0.4.4"
 tokio = { workspace = true, features = ["full"] }
 toml = { workspace = true }
-toml_edit = "0.25.11+spec-1.1.0"
+toml_edit = "0.25.11"
 twox-hash = "2.1.2"
 url = "2.5.8"
 users = "0.11.0"

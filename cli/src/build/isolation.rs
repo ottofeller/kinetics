@@ -3,9 +3,9 @@ use kinetics_parser::{ParsedFunction, ParsedPackage};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::path::{Path, PathBuf};
+use syn::Item;
 use syn::buffer::{Cursor, TokenBuffer};
 use syn::visit::Visit;
-use syn::Item;
 
 /// Handlers from one source file and whether their helpers can move with them.
 pub(super) struct HandlerModule<'a> {

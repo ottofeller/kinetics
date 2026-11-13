@@ -77,7 +77,7 @@ impl Runner for DestroyRunner<'_> {
         }
 
         self.writer
-            .text(&format!("{}: {}\n", "Destroying".bold(), &project.name))?;
+            .text(&format!("{}: {}\n", "Destroying".bold(), project.name))?;
 
         project
             .destroy()

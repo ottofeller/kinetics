@@ -1,4 +1,4 @@
-use super::utils::{replace, CargoFixture};
+use super::utils::{CargoFixture, replace};
 
 #[test]
 fn unchanged_workspace_keeps_every_cargo_target_fresh() {

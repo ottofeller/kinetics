@@ -179,13 +179,13 @@ impl Credentials {
                     let default =
                         json!({ "email": "", "token": "", "expires_at": "2000-01-01T00:00:00Z" })
                             .to_string();
-                    if let Some(dir) = path.parent() {
-                        if !dir.exists() {
-                            std::fs::create_dir_all(dir).wrap_err(format!(
-                                "Failed to create dir \"{:?}\" to store credential file",
-                                dir
-                            ))?;
-                        }
+                    if let Some(dir) = path.parent()
+                        && !dir.exists()
+                    {
+                        std::fs::create_dir_all(dir).wrap_err(format!(
+                            "Failed to create dir \"{:?}\" to store credential file",
+                            dir
+                        ))?;
                     };
 
                     eyre::Ok(default)

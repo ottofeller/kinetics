@@ -6,7 +6,7 @@ use crate::project::Project;
 use crate::secrets::Secrets;
 use base64::Engine as _;
 use crc_fast::{CrcAlgorithm::Crc64Nvme, Digest};
-use eyre::{eyre, ContextCompat, WrapErr};
+use eyre::{ContextCompat, WrapErr, eyre};
 use kinetics_api::{func, upload};
 use reqwest::StatusCode;
 use std::collections::HashMap;
@@ -62,10 +62,10 @@ impl Function {
 
         // Resolve local fn name in `dlq` into full function name.
         let mut params = function.params.clone();
-        if let Params::Worker(worker) = &mut params {
-            if let Some(target) = worker.dlq.as_deref() {
-                worker.dlq = Some(function.full_name(target)?);
-            }
+        if let Params::Worker(worker) = &mut params
+            && let Some(target) = worker.dlq.as_deref()
+        {
+            worker.dlq = Some(function.full_name(target)?);
         }
 
         Ok(Function {

@@ -28,7 +28,7 @@ pub async fn worker(
             return Err(Box::new(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 "No records found",
-            )))
+            )));
         }
     };
 

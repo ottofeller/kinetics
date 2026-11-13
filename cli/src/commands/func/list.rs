@@ -1,19 +1,19 @@
 use crate::api::client::Client;
 use crate::error::Error;
-use crate::function::status;
 use crate::function::Function;
+use crate::function::status;
 use crate::project::Project;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
 use kinetics_parser::{Params, ParsedFunction, Role};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
-use tabled::settings::{peaker::Priority, style::Style, Settings, Width};
+use tabled::settings::{Settings, Width, peaker::Priority, style::Style};
 use tabled::{Table, Tabled};
-use terminal_size::{terminal_size, Height as TerminalHeight, Width as TerminalWidth};
+use terminal_size::{Height as TerminalHeight, Width as TerminalWidth, terminal_size};
 
 #[derive(Tabled, Clone)]
 struct EndpointRow {

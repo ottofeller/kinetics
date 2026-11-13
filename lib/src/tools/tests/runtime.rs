@@ -1,6 +1,6 @@
 use crate::tools::{
     features::secrets::SecretsV2,
-    runtime::{RuntimeConfig, RUNTIME_CONFIG_VERSION},
+    runtime::{RUNTIME_CONFIG_VERSION, RuntimeConfig},
 };
 use serde_json::json;
 
@@ -24,10 +24,12 @@ pub(super) fn runtime_json() -> serde_json::Value {
 fn legacy_runtime_defaults_to_disabled_features() {
     let config: RuntimeConfig = serde_json::from_value(runtime_json()).unwrap();
     assert!(config.package_name.is_none());
-    assert!(serde_json::to_value(&config)
-        .unwrap()
-        .get("package_name")
-        .is_none());
+    assert!(
+        serde_json::to_value(&config)
+            .unwrap()
+            .get("package_name")
+            .is_none()
+    );
 
     assert!(!config.features.enabled::<SecretsV2>());
 }

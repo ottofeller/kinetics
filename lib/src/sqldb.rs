@@ -3,7 +3,7 @@ use aws_sdk_dsql::auth_token::{AuthToken, AuthTokenGenerator, Config as DsqlConf
 use eyre::Context;
 use lambda_runtime::Error;
 use log::{error, info};
-use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;

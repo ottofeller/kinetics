@@ -21,9 +21,11 @@ fn private_helpers_and_multiple_handlers_move_together() {
 fn shared_types_and_parent_helpers_remain_accessible() {
     let parsed = parsed("shared_types");
     let generated = generate(&parsed);
-    assert!(generated
-        .handlers
-        .contains_key(Path::new("src/api/nested.rs")));
+    assert!(
+        generated
+            .handlers
+            .contains_key(Path::new("src/api/nested.rs"))
+    );
     let shared = source(&generated.shared, "src/api/nested.rs");
     assert!(shared.contains("pub number: i32"));
     assert!(!shared.contains("fn request"));

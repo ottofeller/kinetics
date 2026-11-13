@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use syn::{
+    LitStr,
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
-    token, LitStr,
+    token,
 };
 
 pub(crate) type Environment = HashMap<String, String>;

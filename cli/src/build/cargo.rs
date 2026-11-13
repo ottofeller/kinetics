@@ -1,5 +1,5 @@
 use crate::function::Function;
-use eyre::{eyre, WrapErr};
+use eyre::{WrapErr, eyre};
 use std::io::IsTerminal;
 use std::process::Stdio;
 use std::time::Instant;

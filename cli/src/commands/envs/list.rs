@@ -7,10 +7,10 @@ use crate::project::Project;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use crossterm::style::Stylize;
-use eyre::{eyre, WrapErr};
+use eyre::{WrapErr, eyre};
 use kinetics_api::envs;
 use kinetics_parser::ParsedFunction;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::path::PathBuf;
 

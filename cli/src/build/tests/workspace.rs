@@ -1,4 +1,4 @@
-use super::utils::{age_files, copy_fixture, files, fixture_path, replace, write, Fixture};
+use super::utils::{Fixture, age_files, copy_fixture, files, fixture_path, replace, write};
 use crate::build::files::CHECKSUMS_FILENAME;
 use crate::build::generate_workspace;
 use crate::project::workspace::PackageReference;
@@ -131,9 +131,11 @@ fn removes_obsolete_outputs_but_preserves_cargo_cache_and_lockfile() {
     assert_eq!(fixture.read("Cargo.lock"), "generated lockfile");
     let checksums: BTreeMap<String, String> =
         serde_json::from_str(&fixture.read(CHECKSUMS_FILENAME)).unwrap();
-    assert!(!checksums
-        .keys()
-        .any(|path| path.contains("jobs") || path.contains("Jobs")));
+    assert!(
+        !checksums
+            .keys()
+            .any(|path| path.contains("jobs") || path.contains("Jobs"))
+    );
 }
 
 #[test]
@@ -157,9 +159,11 @@ fn skips_source_caches_and_rejects_invalid_attributes_before_writing() {
     )
     .unwrap();
     let error = generate_workspace(&fixture.project, &[], None, fixture.build.path()).unwrap_err();
-    assert!(error
-        .to_string()
-        .contains("Missing required attribute `url_path`"));
+    assert!(
+        error
+            .to_string()
+            .contains("Missing required attribute `url_path`")
+    );
     assert_eq!(before, files(fixture.build.path()));
 }
 
@@ -220,11 +224,13 @@ fn workspace_members_and_external_references_are_preserved() {
                 .collect::<Vec<_>>(),
             expected
         );
-        assert!(!fixture
-            .build
-            .path()
-            .join("service/.kinetics/handlers/src/lib.rs")
-            .exists());
+        assert!(
+            !fixture
+                .build
+                .path()
+                .join("service/.kinetics/handlers/src/lib.rs")
+                .exists()
+        );
         assert!(fixture.read("service/src/lib.rs").contains("pub fn worker"));
         assert_eq!(
             fixture.read("consumer/src/lib.rs"),
@@ -254,20 +260,24 @@ fn package_selection_marks_functions_without_removing_other_binaries() {
         .map(|function| function.name.as_str())
         .collect();
     assert_eq!(selected, ["ServiceLibWorker"]);
-    assert!(fixture
-        .build
-        .path()
-        .join("src/bin/SampleJobsWorker.rs")
-        .exists());
-    assert!(generate_workspace(
-        &fixture.project,
-        &["missing".into()],
-        Some("service"),
-        fixture.build.path()
-    )
-    .unwrap_err()
-    .to_string()
-    .contains("No functions match"));
+    assert!(
+        fixture
+            .build
+            .path()
+            .join("src/bin/SampleJobsWorker.rs")
+            .exists()
+    );
+    assert!(
+        generate_workspace(
+            &fixture.project,
+            &["missing".into()],
+            Some("service"),
+            fixture.build.path()
+        )
+        .unwrap_err()
+        .to_string()
+        .contains("No functions match")
+    );
     assert!(
         generate_workspace(&fixture.project, &[], Some("missing"), fixture.build.path())
             .unwrap_err()

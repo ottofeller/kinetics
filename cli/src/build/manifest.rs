@@ -1,4 +1,4 @@
-use eyre::{eyre, ContextCompat};
+use eyre::{ContextCompat, eyre};
 use kinetics_parser::{ParsedFunction, Role};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;

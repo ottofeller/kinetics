@@ -13,8 +13,8 @@ mod sources;
 mod tests;
 
 use crate::function::Function;
-use crate::project::workspace::Workspace;
 use crate::project::Project;
+use crate::project::workspace::Workspace;
 use eyre::WrapErr;
 use files::BuildFiles;
 use kinetics_parser::ParsedPackage;
@@ -35,15 +35,14 @@ pub fn generate_workspace(
         .map(|name| project.workspace.package(name))
         .transpose()?;
 
-    if let (Some(package), Some(name)) = (selected_package, package_name) {
-        if !project.workspace.is_standalone_crate
-            && project.path != project.workspace.root_path
-            && project.workspace.root_path.join(&package.relative_path) != project.path
-        {
-            eyre::bail!(
-                "Package `{name}` is outside the current Kinetics project; use --project to select its project",
-            );
-        }
+    if let (Some(package), Some(name)) = (selected_package, package_name)
+        && !project.workspace.is_standalone_crate
+        && project.path != project.workspace.root_path
+        && project.workspace.root_path.join(&package.relative_path) != project.path
+    {
+        eyre::bail!(
+            "Package `{name}` is outside the current Kinetics project; use --project to select its project",
+        );
     }
 
     let src = &project.workspace.root_path;
@@ -119,10 +118,10 @@ pub fn generate_workspace(
         })
         .collect::<eyre::Result<Vec<_>>>()?;
 
-    if let Some(name) = package_name {
-        if !functions.iter().any(|function| function.is_deploying) {
-            eyre::bail!("No functions match the selection in package `{name}`");
-        }
+    if let Some(name) = package_name
+        && !functions.iter().any(|function| function.is_deploying)
+    {
+        eyre::bail!("No functions match the selection in package `{name}`");
     }
 
     Ok(functions)

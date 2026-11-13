@@ -5,7 +5,7 @@ use crossterm::style::Stylize;
 use kinetics_api::orgs::owners::delete::{Request, Response};
 use kinetics_api::request::Validate;
 use serde_json::json;
-use std::io::{stdin, stdout, Write};
+use std::io::{Write, stdin, stdout};
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct DeleteOwnerCommand {

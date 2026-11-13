@@ -1,7 +1,7 @@
 use super::runtime::runtime_json;
 use crate::tools::features::{
-    secrets::{SecretsParams, SecretsV2},
     Feature, Features,
+    secrets::{SecretsParams, SecretsV2},
 };
 use crate::tools::runtime::RuntimeConfig;
 use crate::tools::secrets;
@@ -40,9 +40,11 @@ async fn secrets_v2_requires_the_flag_and_package_identity() {
         let config: RuntimeConfig = serde_json::from_value(invalid).unwrap();
 
         assert!(!config.features.enabled::<SecretsV2>());
-        assert!(secrets::load(&sdk_config, &config)
-            .await
-            .unwrap()
-            .is_empty());
+        assert!(
+            secrets::load(&sdk_config, &config)
+                .await
+                .unwrap()
+                .is_empty()
+        );
     }
 }

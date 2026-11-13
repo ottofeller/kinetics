@@ -1,8 +1,8 @@
 use super::{features::secrets::SecretsV2, runtime::RuntimeConfig};
 use aws_config::SdkConfig;
-use aws_sdk_dynamodb::{types::AttributeValue, Client};
+use aws_sdk_dynamodb::{Client, types::AttributeValue};
 use eyre::WrapErr;
-use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

@@ -4,7 +4,7 @@ use crate::error::Error;
 use crate::project::Project;
 use crate::runner::Runner;
 use crate::writer::Writer;
-use eyre::{eyre, WrapErr};
+use eyre::{WrapErr, eyre};
 use kinetics_parser::Role;
 use reqwest::Response;
 use serde_json::json;
@@ -13,7 +13,7 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
-use toml_edit::{value, DocumentMut};
+use toml_edit::{DocumentMut, value};
 
 const CRON_TEMPLATE_URL: &str =
     "https://github.com/ottofeller/kinetics-cron-template/archive/refs/heads/main.zip";

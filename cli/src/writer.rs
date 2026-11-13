@@ -49,7 +49,7 @@ impl Writer {
             return Ok(());
         }
 
-        self.write(&format!("{}\n", &output.to_string()), false)?;
+        self.write(&format!("{}\n", output), false)?;
         Ok(())
     }
 

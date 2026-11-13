@@ -7,7 +7,7 @@ use eyre::Context;
 use kinetics_api::auth::tokens::delete::Request;
 use kinetics_api::request::Validate;
 use serde_json::json;
-use std::io::{stdin, stdout, Write};
+use std::io::{Write, stdin, stdout};
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct DeleteCommand {

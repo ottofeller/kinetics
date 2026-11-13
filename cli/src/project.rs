@@ -17,14 +17,14 @@ use config_file::ConfigFile;
 use eyre::WrapErr;
 use http::StatusCode;
 use kinetics_api::projects::{Kvdb, ProjectInfo};
-use kinetics_api::request::{to_log_safe_string_pretty, Validate};
+use kinetics_api::request::{Validate, to_log_safe_string_pretty};
 use kinetics_api::stack;
 use kinetics_parser::Package;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use toml_edit::{value, DocumentMut, Table};
+use toml_edit::{DocumentMut, Table, value};
 
 /// Managing user's project
 ///
@@ -99,7 +99,9 @@ impl Project {
             == 0;
         // 2. Error on config present in root and members
         if workspace_config_exists && !no_member_configs {
-            eyre::bail!("Workspace is not allowed to have `kinetics.toml` within its root and within its members at the same time.");
+            eyre::bail!(
+                "Workspace is not allowed to have `kinetics.toml` within its root and within its members at the same time."
+            );
         }
 
         // 3. Root config
@@ -114,7 +116,9 @@ impl Project {
 
         // 5. Call from root or member without config
         if ws.root_path == path || !ConfigFile::exists(path) {
-            eyre::bail!("Current folder is not a kinetics project. From the workspace root point to a folder with kinetics.toml with --project argument");
+            eyre::bail!(
+                "Current folder is not a kinetics project. From the workspace root point to a folder with kinetics.toml with --project argument"
+            );
         }
 
         // 6. Call from member with config
