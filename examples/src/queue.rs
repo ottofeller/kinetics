@@ -1,4 +1,4 @@
-use crate::basic::worker::worker;
+use crate::basic::worker::test_worker;
 use http::{Request, Response, StatusCode};
 use kinetics_lib::macros::endpoint;
 use kinetics_lib::tools::config::Config as KineticsConfig;
@@ -19,7 +19,7 @@ pub async fn queue(
     _secrets: &HashMap<String, String>,
     _config: &KineticsConfig,
 ) -> Result<Response<String>, BoxError> {
-    let client = QueueClient::from_worker(worker).await?;
+    let client = QueueClient::from_worker(test_worker).await?;
     client.send("Test message").await?;
 
     let resp = Response::builder()
