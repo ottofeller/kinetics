@@ -22,8 +22,15 @@ pub(super) fn runtime_json() -> serde_json::Value {
 
 #[test]
 fn legacy_runtime_defaults_to_disabled_features() {
-    let config: RuntimeConfig = serde_json::from_value(runtime_json()).unwrap();
+    let mut json = runtime_json();
+    json.as_object_mut().unwrap().remove("secrets_table_name");
+    let config: RuntimeConfig = serde_json::from_value(json).unwrap();
     assert!(config.package_name.is_none());
+    assert!(config.secrets_table_name.is_empty());
+    assert_eq!(
+        serde_json::to_value(&config).unwrap()["secrets_names"],
+        json!(["legacy-parameter"])
+    );
     assert!(serde_json::to_value(&config)
         .unwrap()
         .get("package_name")
@@ -33,12 +40,13 @@ fn legacy_runtime_defaults_to_disabled_features() {
 }
 
 #[tokio::test]
-async fn disabled_dynamodb_performs_no_requests_even_with_legacy_secrets() {
+async fn empty_legacy_secrets_perform_no_requests() {
     let sdk_config = aws_config::SdkConfig::builder().build();
     for package in [None, Some("payments")] {
         let mut json = runtime_json();
         json["package_name"] = json!(package);
         json["features"] = json!([]);
+        json["secrets_names"] = json!([]);
         let config: RuntimeConfig = serde_json::from_value(json).unwrap();
 
         let secrets = crate::tools::secrets::load(&sdk_config, &config)

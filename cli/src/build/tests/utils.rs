@@ -130,6 +130,11 @@ impl CargoFixture {
         let project = Fixture::new("incremental/project");
         let harness = tempfile::tempdir().unwrap();
         copy_fixture("incremental/harness", harness.path());
+        fs::rename(
+            harness.path().join("Cargo.toml.template"),
+            harness.path().join("Cargo.toml"),
+        )
+        .unwrap();
         replace(
             harness.path(),
             "Cargo.toml",

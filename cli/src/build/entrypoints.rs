@@ -1,9 +1,4 @@
-mod cron;
-mod endpoint;
-mod worker;
-
 use super::files::BuildFiles;
-use kinetics_lib::tools::config::EndpointConfig;
 use kinetics_parser::{Params, ParsedFunction};
 use std::path::Path;
 
@@ -17,17 +12,18 @@ pub(super) fn write(
     for is_local in [false, true] {
         let name = function.func_name(is_local)?;
         let function_name = "__kinetics_user_function";
+        let mode = if is_local { "local" } else { "remote" };
         let code = match &function.params {
-            Params::Endpoint(params) => endpoint::render(
-                import,
-                function_name,
-                EndpointConfig::new(&params.url_path),
-                is_local,
+            Params::Endpoint(params) => format!(
+                "{import}\nkinetics_lib::endpoint_main!({mode}, {function_name}, {:?});",
+                params.url_path,
             ),
             Params::Worker(_) | Params::DlqWorker(_) => {
-                worker::render(import, function_name, is_local)
+                format!("{import}\nkinetics_lib::worker_main!({mode}, {function_name});")
             }
-            Params::Cron(_) => cron::render(import, function_name, is_local),
+            Params::Cron(_) => {
+                format!("{import}\nkinetics_lib::cron_main!({mode}, {function_name});")
+            }
         };
         let syntax = syn::parse_file(&code)?;
         files.write(
