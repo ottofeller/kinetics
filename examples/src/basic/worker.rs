@@ -14,7 +14,7 @@ use tower::BoxError;
 /// Test locally with the following command:
 /// kinetics invoke BasicWorkerWorker --payload '[{"name": "John"}, {"name": "Jane"}]'
 #[worker(fifo = true, batch_size = 2)]
-pub async fn worker(
+pub async fn test_worker(
     records: Vec<QueueRecord>,
     _secrets: &HashMap<String, String>,
     _config: &KineticsConfig,
