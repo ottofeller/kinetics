@@ -2,6 +2,7 @@ use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use kinetics_api::orgs::owners::add::{Request, Response};
+use kinetics_api::request::Validate;
 use serde_json::json;
 
 #[derive(clap::Args, Clone)]
@@ -42,14 +43,17 @@ impl Runner for AddOwnerRunner<'_> {
             console::style("of").dim(),
         ))?;
 
+        let request = Request {
+            org: org.to_owned(),
+            username: username.to_owned(),
+        };
+
+        if let Some(errors) = request.validate() {
+            return Err(Error::new("Validation failed", Some(&errors.join("\n"))));
+        }
+
         client
-            .request::<Request, Response>(
-                "/orgs/owners/add",
-                Request {
-                    org: org.to_owned(),
-                    username: username.to_owned(),
-                },
-            )
+            .request::<Request, Response>("/orgs/owners/add", request)
             .await?;
 
         self.writer

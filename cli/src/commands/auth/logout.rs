@@ -3,7 +3,7 @@ use crate::credentials::Credentials;
 use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
-use kinetics_api::auth;
+
 use serde_json::json;
 
 #[derive(clap::Args, Clone)]
@@ -27,7 +27,7 @@ impl Runner for LogoutRunner<'_> {
         let credentials = Credentials::new().await?;
 
         if credentials.is_valid() {
-            self.remove(&credentials.email).await?;
+            self.remove().await?;
         }
 
         credentials.delete()?;
@@ -43,16 +43,10 @@ impl Runner for LogoutRunner<'_> {
 }
 
 impl LogoutRunner<'_> {
-    async fn remove(&mut self, email: &str) -> Result<(), Error> {
+    async fn remove(&mut self) -> Result<(), Error> {
         let client = self.api_client().await?;
 
-        let response = client
-            .post("/auth/logout")
-            .json(&auth::logout::Request {
-                email: email.to_owned(),
-            })
-            .send()
-            .await?;
+        let response = client.post("/auth/logout").send().await?;
 
         if response.status().is_success() {
             return Ok(());
