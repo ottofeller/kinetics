@@ -2,7 +2,7 @@ use http_body::{Body as HttpBody, Frame, SizeHint};
 use std::{borrow::Cow, mem::take, pin::Pin, task::Poll};
 
 mod response;
-pub use response::{map_result, ApiResponse};
+pub use response::{ApiResponse, map_result};
 
 /// Request body supported by kinetics runtime.
 /// In addition to empty bodies string and binary data are supported.
@@ -139,8 +139,8 @@ impl HttpBody for Body {
     fn size_hint(&self) -> SizeHint {
         match self {
             Body::Empty => SizeHint::default(),
-            Body::Text(ref s) => SizeHint::with_exact(s.len() as u64),
-            Body::Binary(ref b) => SizeHint::with_exact(b.len() as u64),
+            Body::Text(s) => SizeHint::with_exact(s.len() as u64),
+            Body::Binary(b) => SizeHint::with_exact(b.len() as u64),
         }
     }
 

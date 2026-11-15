@@ -1,4 +1,4 @@
-use crate::tools::secrets::{merge_secrets, scope_key, Secret, Source};
+use crate::tools::secrets::{Secret, Source, merge_secrets, scope_key};
 use aws_sdk_dynamodb::types::AttributeValue;
 use std::collections::HashMap;
 
@@ -52,9 +52,11 @@ fn package_overrides_project_regardless_of_response_order() {
 
 #[test]
 fn empty_scopes_are_allowed() {
-    assert!(merge_secrets(&["project", "package"], vec![])
-        .unwrap()
-        .is_empty());
+    assert!(
+        merge_secrets(&["project", "package"], vec![])
+            .unwrap()
+            .is_empty()
+    );
     let values = merge_secrets(
         &["project", "package"],
         vec![secret("project", "local#TOKEN", "project-token")],
@@ -86,12 +88,14 @@ fn all_record_fields_are_required() {
 
 #[test]
 fn records_outside_requested_scopes_are_ignored() {
-    assert!(merge_secrets(
-        &["project", "package"],
-        vec![secret("another-package", "local#TOKEN", "value")],
-    )
-    .unwrap()
-    .is_empty());
+    assert!(
+        merge_secrets(
+            &["project", "package"],
+            vec![secret("another-package", "local#TOKEN", "value")],
+        )
+        .unwrap()
+        .is_empty()
+    );
 }
 
 #[test]

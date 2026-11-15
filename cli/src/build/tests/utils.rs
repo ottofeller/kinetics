@@ -2,8 +2,8 @@ use crate::build::files::CHECKSUMS_FILENAME;
 use crate::build::generate_workspace;
 use crate::build::sources::PackageSources;
 use crate::function::Function;
-use crate::project::workspace::Workspace;
 use crate::project::Project;
+use crate::project::workspace::Workspace;
 use kinetics_parser::{Package, ParsedPackage};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -330,7 +330,7 @@ pub(super) fn compile_and_run(
     }
     let library = root.join("libsample.rlib");
     let output = Command::new("rustc")
-        .args(["--edition=2021", "--crate-type=lib", "--crate-name=sample"])
+        .args(["--edition=2024", "--crate-type=lib", "--crate-name=sample"])
         .arg(root.join(lib_path))
         .arg("-o")
         .arg(&library)
@@ -356,7 +356,7 @@ pub(super) fn compile_and_run(
     );
     let executable = root.join("handler");
     let output = Command::new("rustc")
-        .arg("--edition=2021")
+        .arg("--edition=2024")
         .arg(root.join("main.rs"))
         .arg("--extern")
         .arg(format!("sample={}", library.display()))

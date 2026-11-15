@@ -30,32 +30,32 @@ impl Validate for Request {
 
         for function in &self.functions {
             errors.extend(validate_function(function));
-            if !self.is_hotswap && function.is_deploying {
-                if let Err(error) = validate_user_environment(&function.name, &function.environment)
-                {
-                    errors.push(error);
-                }
+            if !self.is_hotswap
+                && function.is_deploying
+                && let Err(error) = validate_user_environment(&function.name, &function.environment)
+            {
+                errors.push(error);
             }
         }
 
         errors.extend(validate_dlq_links(&self.functions));
 
-        if let Some(message) = &self.version_message {
-            if message.chars().count() > MAX_MESSAGE_LENGTH {
-                errors.push(format!(
-                    "message must be at most {} characters, got {}",
-                    MAX_MESSAGE_LENGTH,
-                    message.chars().count()
-                ));
-            }
+        if let Some(message) = &self.version_message
+            && message.chars().count() > MAX_MESSAGE_LENGTH
+        {
+            errors.push(format!(
+                "message must be at most {} characters, got {}",
+                MAX_MESSAGE_LENGTH,
+                message.chars().count()
+            ));
         }
 
-        if let Some(observability) = &self.project.observability {
-            if observability.dd_api_key.is_empty() {
-                errors.push(
-                    "DataDog API key is missing in [observability] section of kinetics.toml".into(),
-                );
-            }
+        if let Some(observability) = &self.project.observability
+            && observability.dd_api_key.is_empty()
+        {
+            errors.push(
+                "DataDog API key is missing in [observability] section of kinetics.toml".into(),
+            );
         }
 
         if !errors.is_empty() {
@@ -150,11 +150,7 @@ fn validate_endpoint(
 }
 
 fn max_batch_size(fifo: bool) -> u32 {
-    if fifo {
-        10
-    } else {
-        100
-    }
+    if fifo { 10 } else { 100 }
 }
 
 fn validate_cron(function: &FunctionRequest, cron: &kinetics_parser::Cron) -> Vec<String> {
@@ -182,25 +178,25 @@ fn validate_worker(function: &FunctionRequest, worker: &Worker) -> Vec<String> {
         ));
     }
 
-    if let Some(count) = worker.max_receive_count {
-        if !(1..=1000).contains(&count) {
-            errors.push(format!(
-                "Invalid worker \"{}\". `max_receive_count` must be 1..=1000, got {count}.",
-                function.name
-            ));
-        }
+    if let Some(count) = worker.max_receive_count
+        && !(1..=1000).contains(&count)
+    {
+        errors.push(format!(
+            "Invalid worker \"{}\". `max_receive_count` must be 1..=1000, got {count}.",
+            function.name
+        ));
     }
 
     let max_batch_size = max_batch_size(worker.fifo);
-    if let Some(batch_size) = worker.batch_size {
-        if !(1..=max_batch_size).contains(&batch_size) {
-            errors.push(format!(
-                "Invalid worker \"{}\". Batch size must be 1..{} for {} queues.",
-                function.name,
-                max_batch_size,
-                if worker.fifo { "FIFO" } else { "standard" }
-            ));
-        }
+    if let Some(batch_size) = worker.batch_size
+        && !(1..=max_batch_size).contains(&batch_size)
+    {
+        errors.push(format!(
+            "Invalid worker \"{}\". Batch size must be 1..{} for {} queues.",
+            function.name,
+            max_batch_size,
+            if worker.fifo { "FIFO" } else { "standard" }
+        ));
     }
 
     errors

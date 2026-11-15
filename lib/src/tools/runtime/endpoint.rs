@@ -70,12 +70,15 @@ macro_rules! endpoint_main {
                 );
             }
 
-            let result = match $crate::tools::http::Body::from(payload).try_into() {
+            let result = match $crate::tools::http::Body::from(payload)
+                .try_into()
+                .map_err(Into::into)
+            {
                 Ok(body) => {
                     let event = event_builder.uri(url_path).body(body)?;
                     user_function(event, &secrets, &kinetics_config).await
                 }
-                Err(error) => Err(error.into()),
+                Err(error) => Err(error),
             };
             match $crate::tools::http::map_result(result) {
                 Ok(response) => {
@@ -91,7 +94,7 @@ macro_rules! endpoint_main {
         }
     };
     (remote, $handler:path, $url_path:expr) => {
-        use lambda_http::{run, service_fn, Request};
+        use lambda_http::{Request, run, service_fn};
         use $crate::tools::config::{Config as KineticsConfig, EndpointConfig};
         use $crate::tools::runtime::dependencies::{aws_config, http, lambda_http, tokio};
         #[tokio::main]
@@ -113,12 +116,15 @@ macro_rules! endpoint_main {
             println!("Serving requests");
             run(service_fn(|event: Request| async {
                 let (head, body) = event.into_parts();
-                let result = match $crate::tools::http::Body::from(body).try_into() {
+                let result = match $crate::tools::http::Body::from(body)
+                    .try_into()
+                    .map_err(Into::into)
+                {
                     Ok(body) => {
                         let event = http::Request::from_parts(head, body);
                         user_function(event, &secrets, &kinetics_config).await
                     }
-                    Err(error) => Err(error.into()),
+                    Err(error) => Err(error),
                 };
                 match $crate::tools::http::map_result(result) {
                     Ok(response) => Ok(response),

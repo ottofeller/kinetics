@@ -7,7 +7,7 @@ use aws_sdk_ssm::{
     },
     types::{Parameter, ResourceTypeForTagging, Tag},
 };
-use aws_smithy_mocks::{mock, mock_client, Rule, RuleMode};
+use aws_smithy_mocks::{Rule, RuleMode, mock, mock_client};
 use serde_json::json;
 
 #[tokio::test]

@@ -102,7 +102,7 @@ macro_rules! worker_main {
         }
     };
     (remote, $handler:path) => {
-        use lambda_runtime::{run, service_fn, Error};
+        use lambda_runtime::{Error, run, service_fn};
         use $crate::tools::runtime::dependencies::{aws_config, lambda_runtime, tokio};
         use $crate::tools::{config::Config as KineticsConfig, queue::Record as QueueRecord};
         #[tokio::main]

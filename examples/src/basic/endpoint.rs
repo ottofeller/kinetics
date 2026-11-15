@@ -12,7 +12,7 @@ use tower::BoxError;
 /// Test locally with the following command:
 /// kinetics invoke BasicEndpointEndpoint
 #[endpoint(url_path = "/endpoint", methods = ["GET", "POST"])]
-pub async fn endpoint(
+pub async fn test_endpoint(
     event: Request<Body>,
     _secrets: &HashMap<String, String>,
     _config: &KineticsConfig,

@@ -24,7 +24,7 @@ macro_rules! cron_main {
     };
     (remote, $handler:path) => {
         use aws_lambda_events::eventbridge::EventBridgeEvent;
-        use lambda_runtime::{run, service_fn, Error, LambdaEvent};
+        use lambda_runtime::{Error, LambdaEvent, run, service_fn};
         use $crate::tools::config::Config as KineticsConfig;
         use $crate::tools::runtime::dependencies::{
             aws_config, aws_lambda_events, lambda_runtime, serde_json, tokio,

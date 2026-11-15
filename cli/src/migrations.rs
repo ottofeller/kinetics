@@ -1,5 +1,5 @@
 use crate::writer::Writer;
-use arborium::{theme::builtin, AnsiHighlighter};
+use arborium::{AnsiHighlighter, theme::builtin};
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};

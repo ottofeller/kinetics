@@ -8,7 +8,7 @@ use tower::BoxError;
 /// Test locally with the following command:
 /// kinetics invoke BasicCronCron
 #[cron(schedule = "rate(1 hour)")]
-pub async fn cron(
+pub async fn test_cron(
     _secrets: &HashMap<String, String>,
     _config: &KineticsConfig,
 ) -> Result<(), BoxError> {

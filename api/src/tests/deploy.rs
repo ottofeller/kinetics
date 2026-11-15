@@ -1,5 +1,5 @@
 use crate::{request::Validate, stack::deploy::Request};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn legacy_request() -> Value {
     json!({

@@ -1,12 +1,12 @@
 use crate::{
-    params::{Cron, DlqWorker, Endpoint, Params, Worker},
     ParsedFunction, Role,
+    params::{Cron, DlqWorker, Endpoint, Params, Worker},
 };
 use color_eyre::eyre;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use syn::{parse::Parse, visit::Visit, Attribute, ItemFn, Meta};
+use syn::{Attribute, ItemFn, Meta, parse::Parse, visit::Visit};
 use walkdir::WalkDir;
 
 /// For a workspace represents its member.

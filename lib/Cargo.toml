@@ -1,7 +1,7 @@
 [package]
 name = "kinetics-lib"
 version.workspace = true
-edition = "2021"
+edition = "2024"
 description = "Runtime helpers and macros for Kinetics applications."
 readme = "../README.md"
 repository = "https://github.com/ottofeller/kinetics"
