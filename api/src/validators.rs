@@ -3,7 +3,7 @@ use regex::Regex;
 
 static EMAIL_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$",
+        r"^[a-zA-Z0-9.!$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$",
     )
     .expect("Failed to init regexp")
 });
@@ -16,6 +16,6 @@ impl Email {
     }
 
     pub fn message() -> String {
-        "Invalid \"email\". Must be a valid email address.".into()
+        "Invalid \"email\". Must be a valid email address without '#'.".into()
     }
 }
