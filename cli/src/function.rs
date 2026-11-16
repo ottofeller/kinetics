@@ -48,12 +48,8 @@ impl Function {
         let secrets = if !project.workspace.is_standalone_crate && project.is_ws_root() {
             // Within workspace if package the function belongs to is not a project,
             // read secrets from package and write them to the function.
-            Secrets::from_files(&[&project.workspace.root_path.join(&function.pkg_rel_path)]).map(
-                |values| kinetics_api::stack::deploy::FunctionSecrets {
-                    scope: function.pkg_name.clone(),
-                    values,
-                },
-            )
+            Secrets::from_files(&[&project.workspace.root_path.join(&function.pkg_rel_path)])
+                .map(|values| kinetics_api::stack::deploy::FunctionSecrets { values })
         } else {
             // In standalone crate or workspace-root project
             // all secrets are global and reside in project, nothing in function.
@@ -298,7 +294,7 @@ impl From<&Function> for kinetics_api::stack::deploy::FunctionRequest {
     fn from(function: &Function) -> Self {
         Self {
             name: function.name.clone(),
-            package: Some(function.package_name.clone()),
+            package: function.package_name.clone(),
             is_deploying: function.is_deploying,
             params: function.params.clone(),
             role: function.role.clone(),

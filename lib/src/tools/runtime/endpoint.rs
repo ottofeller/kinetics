@@ -5,12 +5,11 @@ macro_rules! endpoint_main {
         use http::header::{HeaderName, HeaderValue};
         use http::request::Builder;
         use std::str::FromStr;
-        use $crate::tools::config::{Config as KineticsConfig, EndpointConfig};
-        use $crate::tools::runtime::dependencies::{aws_config, http, serde_json, tokio, tower};
+        use $crate::tools::config::EndpointConfig;
+        use $crate::tools::runtime::dependencies::{http, serde_json, tokio, tower};
+        use $crate::tools::runtime::{Environment, Runtime};
         #[tokio::main]
         async fn main() -> Result<(), tower::BoxError> {
-            let user_function = $handler;
-            let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
             let endpoint_config = EndpointConfig::new($url_path);
             let url_path = std::env::var("KINETICS_INVOKE_URL_PATH").unwrap_or_default();
             let url_path = if url_path.is_empty() {
@@ -21,15 +20,11 @@ macro_rules! endpoint_main {
             } else {
                 url_path
             };
-            let kinetics_config = KineticsConfig::new(&config, Some(endpoint_config)).await?;
-            let mut secrets = std::collections::HashMap::new();
 
-            for (k, v) in std::env::vars() {
-                if k.starts_with("KINETICS_SECRET_") {
-                    let key = k.replace("KINETICS_SECRET_", "");
-                    secrets.insert(key, v);
-                }
-            }
+            let Runtime {
+                secrets,
+                config: kinetics_config,
+            } = Runtime::load(Environment::Local, Some(endpoint_config)).await?;
 
             let payload_path = std::env::args_os().nth(1).ok_or_else(|| {
                 std::io::Error::new(
@@ -76,7 +71,7 @@ macro_rules! endpoint_main {
             {
                 Ok(body) => {
                     let event = event_builder.uri(url_path).body(body)?;
-                    user_function(event, &secrets, &kinetics_config).await
+                    $handler(event, &secrets, &kinetics_config).await
                 }
                 Err(error) => Err(error),
             };
@@ -95,24 +90,16 @@ macro_rules! endpoint_main {
     };
     (remote, $handler:path, $url_path:expr) => {
         use lambda_http::{Request, run, service_fn};
-        use $crate::tools::config::{Config as KineticsConfig, EndpointConfig};
-        use $crate::tools::runtime::dependencies::{aws_config, http, lambda_http, tokio};
+        use $crate::tools::config::EndpointConfig;
+        use $crate::tools::runtime::dependencies::{http, lambda_http, tokio};
+        use $crate::tools::runtime::{Environment, Runtime};
         #[tokio::main]
         async fn main() -> Result<(), lambda_http::Error> {
-            let user_function = $handler;
             println!("Initializing runtime");
-            let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-            println!("Loading runtime configuration");
-            let runtime_config = $crate::tools::runtime::load(&config).await?;
-            let endpoint_config = EndpointConfig::new($url_path);
-            let (secrets, kinetics_config) = tokio::try_join!(
-                async {
-                    $crate::tools::secrets::load(&config, runtime_config)
-                        .await
-                        .map_err(lambda_http::Error::from)
-                },
-                KineticsConfig::new(&config, Some(endpoint_config)),
-            )?;
+            let Runtime {
+                secrets,
+                config: kinetics_config,
+            } = Runtime::load(Environment::Lambda, Some(EndpointConfig::new($url_path))).await?;
             println!("Serving requests");
             run(service_fn(|event: Request| async {
                 let (head, body) = event.into_parts();
@@ -122,7 +109,7 @@ macro_rules! endpoint_main {
                 {
                     Ok(body) => {
                         let event = http::Request::from_parts(head, body);
-                        user_function(event, &secrets, &kinetics_config).await
+                        $handler(event, &secrets, &kinetics_config).await
                     }
                     Err(error) => Err(error),
                 };

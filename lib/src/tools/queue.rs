@@ -144,7 +144,7 @@ impl Client {
                     .load()
                     .await
             } else {
-                aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await
+                runtime::sdk_config().await.clone()
             };
 
             // Resolve the queue the message should be delivered to:
@@ -184,7 +184,7 @@ impl Client {
 
                 (queue_name, account_id)
             } else {
-                let runtime = runtime::load(&config).await?;
+                let runtime = runtime::RuntimeConfig::load(&config).await?;
                 (
                     runtime
                         .queues

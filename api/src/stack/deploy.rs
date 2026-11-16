@@ -109,6 +109,10 @@ fn validate_function(function: &FunctionRequest) -> Vec<String> {
         errors.push("Invalid function name. Must not be empty.".into());
     }
 
+    if function.package.is_empty() {
+        errors.push("Invalid function package. Must not be empty.".into());
+    }
+
     if function.name.chars().count() > 64 {
         errors.push(format!(
             "Invalid function \"{}\". Name must be at most 64 characters.",
@@ -328,9 +332,8 @@ fn validate_dlq_links(functions: &[FunctionRequest]) -> Vec<String> {
 pub struct FunctionRequest {
     pub is_deploying: bool,
     pub name: String,
-    /// Omitted by older CLI versions whose runtimes still read SSM.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub package: Option<String>,
+    /// Cargo package containing the handler.
+    pub package: String,
     pub role: Role,
     pub params: Params,
     pub environment: HashMap<String, String>,
@@ -341,7 +344,6 @@ pub struct FunctionRequest {
 /// Function-level secrets scoped by their workspace package
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct FunctionSecrets {
-    pub scope: String,
     pub values: HashMap<String, String>,
 }
 

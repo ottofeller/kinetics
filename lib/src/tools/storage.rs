@@ -31,9 +31,8 @@ impl Client {
                     return Self::from_local().await;
                 }
 
-                let sdk_config =
-                    aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-                Self::from_config(&sdk_config).await
+                let sdk_config = runtime::sdk_config().await;
+                Self::from_config(sdk_config).await
             })
             .await?;
 
@@ -73,8 +72,7 @@ impl Client {
 
     /// Create a client from the SDK configuration
     pub async fn from_config(sdk_config: &SdkConfig) -> eyre::Result<Self> {
-        let runtime = runtime::load(sdk_config).await?;
-
+        let runtime = runtime::RuntimeConfig::load(sdk_config).await?;
         Ok(Self {
             client: aws_sdk_s3::Client::new(sdk_config),
             bucket: runtime.storage_bucket.clone(),

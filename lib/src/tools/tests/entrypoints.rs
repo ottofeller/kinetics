@@ -30,36 +30,44 @@ async fn cron_handler(
 
 #[test]
 fn endpoint_remote_compiles() {
-    crate::endpoint_main!(remote, endpoint_handler, "/test/{id}");
+    crate::endpoint_main!(
+        remote,
+        crate::tools::tests::entrypoints::endpoint_handler,
+        "/test/{id}"
+    );
     let _entrypoint = main;
 }
 
 #[test]
 fn endpoint_local_compiles() {
-    crate::endpoint_main!(local, endpoint_handler, "/test/{id}");
+    crate::endpoint_main!(
+        local,
+        crate::tools::tests::entrypoints::endpoint_handler,
+        "/test/{id}"
+    );
     let _entrypoint = main;
 }
 
 #[test]
 fn worker_remote_compiles() {
-    crate::worker_main!(remote, worker_handler);
+    crate::worker_main!(remote, crate::tools::tests::entrypoints::worker_handler);
     let _entrypoint = main;
 }
 
 #[test]
 fn worker_local_compiles() {
-    crate::worker_main!(local, worker_handler);
+    crate::worker_main!(local, crate::tools::tests::entrypoints::worker_handler);
     let _entrypoint = main;
 }
 
 #[test]
 fn cron_remote_compiles() {
-    crate::cron_main!(remote, cron_handler);
+    crate::cron_main!(remote, crate::tools::tests::entrypoints::cron_handler);
     let _entrypoint = main;
 }
 
 #[test]
 fn cron_local_compiles() {
-    crate::cron_main!(local, cron_handler);
+    crate::cron_main!(local, crate::tools::tests::entrypoints::cron_handler);
     let _entrypoint = main;
 }

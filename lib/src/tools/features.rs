@@ -1,5 +1,3 @@
-pub mod secrets;
-
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -19,13 +17,12 @@ pub trait Feature {
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum FeatureId {
-    SecretsV2,
     /// Accept feature names introduced by newer producers during deserialization.
     #[serde(other)]
     Unknown,
 }
 
-/// Computed decisions serialized as a list such as `["secrets_v2"]`.
+/// Computed feature decisions serialized as a list of identifiers.
 /// The ordered set keeps runtime config serialization deterministic.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(transparent)]
