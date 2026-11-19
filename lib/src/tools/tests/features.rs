@@ -19,6 +19,7 @@ fn future_features_do_not_break_older_runtimes() {
 async fn secrets_v2_requires_the_flag_and_package_identity() {
     let mut valid = runtime_json();
     valid["package_name"] = json!("payments");
+    valid["secrets_names"] = json!([]);
     valid["features"] = json!(Features::default().with::<SecretsV2>(SecretsParams {
         package: Some("payments"),
     }));

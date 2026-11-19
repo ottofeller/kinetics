@@ -1,3 +1,15 @@
+mod cron;
+mod endpoint;
+mod worker;
+
+/// Dependencies used by the exported entry point macros via `$crate`.
+#[doc(hidden)]
+pub mod dependencies {
+    pub use {
+        aws_config, aws_lambda_events, http, lambda_http, lambda_runtime, serde_json, tokio, tower,
+    };
+}
+
 use super::features::Features;
 use aws_config::SdkConfig;
 use eyre::{Context, OptionExt};
@@ -26,6 +38,7 @@ pub struct RuntimeConfig {
     pub sqldb_cluster_id: String,
     pub sqldb_user: String,
     /// Secrets table provisioned and selected by the backend.
+    #[serde(default)]
     pub secrets_table_name: String,
     /// Legacy SSM parameter names, retained until existing runtimes are migrated.
     #[deprecated(note = "Use tools::secrets::load instead")]
