@@ -1,117 +1,80 @@
+mod config;
 mod cron;
 mod endpoint;
 mod worker;
 
+#[cfg(test)]
+#[path = "tests/runtime.rs"]
+mod tests;
+
+pub use config::{
+    RUNTIME_CONFIG_KEY_ENV, RUNTIME_CONFIG_TABLE_ENV, RUNTIME_CONFIG_VERSION, RuntimeConfig,
+};
+
 /// Dependencies used by the exported entry point macros via `$crate`.
 #[doc(hidden)]
 pub mod dependencies {
-    pub use {
-        aws_config, aws_lambda_events, http, lambda_http, lambda_runtime, serde_json, tokio, tower,
-    };
+    pub use {aws_lambda_events, http, lambda_http, lambda_runtime, serde_json, tokio, tower};
 }
 
-use super::features::Features;
+use super::{
+    config::{Config, EndpointConfig},
+    secrets,
+};
 use aws_config::SdkConfig;
-use eyre::{Context, OptionExt};
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use std::str::FromStr;
+use aws_sdk_dynamodb::Client;
+use lambda_runtime::Error;
+use std::{collections::HashMap, sync::OnceLock};
 use tokio::sync::OnceCell;
 
-/// The environment variable that contains the URI of the runtime configuration.
-pub const RUNTIME_CONFIG_ENV_URI: &str = "KINETICS_RUNTIME_CONFIG_URI";
-
-pub const RUNTIME_CONFIG_VERSION: u32 = 1;
-
-/// Shared JSON configuration written by the backend and read by cloud Lambda runtimes.
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct RuntimeConfig {
-    pub schema_version: u32,
-    #[serde(default)]
-    pub features: Features,
-    pub owner_id: String,
-    pub project_name: String,
-    /// Cargo package containing this Lambda's handler.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub package_name: Option<String>,
-    pub cloud_account_id: String,
-    pub sqldb_cluster_id: String,
-    pub sqldb_user: String,
-    /// Secrets table provisioned and selected by the backend.
-    #[serde(default)]
-    pub secrets_table_name: String,
-    /// Legacy SSM parameter names, retained until existing runtimes are migrated.
-    #[deprecated(note = "Use tools::secrets::load instead")]
-    #[serde(default)]
-    pub secrets_names: Vec<String>,
-    /// Queue logical names to physical names mapping.
-    pub queues: BTreeMap<String, String>,
-    /// Project storage bucket.
-    pub storage_bucket: String,
-    /// Project storage key prefix.
-    pub storage_prefix: String,
+#[derive(Clone, Copy, Debug)]
+pub enum Environment {
+    Local,
+    Lambda,
 }
 
-static RUNTIME_CONFIG: OnceCell<RuntimeConfig> = OnceCell::const_new();
-
-/// Parsed S3 location of the runtime configuration.
-struct RuntimeConfigUri {
-    bucket: String,
-    key: String,
+pub struct Runtime {
+    pub secrets: HashMap<String, String>,
+    pub config: Config,
 }
 
-impl FromStr for RuntimeConfigUri {
-    type Err = eyre::Report;
-
-    fn from_str(uri: &str) -> Result<Self, Self::Err> {
-        let (bucket, key) = uri
-            .strip_prefix("s3://")
-            .and_then(|location| location.split_once('/'))
-            .filter(|(bucket, key)| !bucket.is_empty() && !key.is_empty())
-            .ok_or_eyre("Runtime configuration URI must have the form s3://bucket/key")?;
-
-        Ok(Self {
-            bucket: bucket.to_string(),
-            key: key.to_string(),
-        })
+impl Runtime {
+    pub async fn load(
+        environment: Environment,
+        endpoint: Option<EndpointConfig>,
+    ) -> Result<Self, Error> {
+        match environment {
+            Environment::Local => Ok(Self {
+                secrets: secrets::from_env(std::env::vars()),
+                config: Config::from_local(endpoint).await?,
+            }),
+            Environment::Lambda => {
+                let sdk = sdk_config().await;
+                let runtime = RuntimeConfig::load(sdk).await?;
+                let (secrets, mut config) = tokio::try_join!(
+                    async {
+                        secrets::load(dynamodb(sdk), runtime)
+                            .await
+                            .map_err(Error::from)
+                    },
+                    Config::from_runtime(sdk, runtime, endpoint),
+                )?;
+                config.db = config.db.spawn_password_refresh();
+                Ok(Self { secrets, config })
+            }
+        }
     }
 }
 
-/// Load the required cloud configuration once per Lambda execution environment.
-pub async fn load(sdk_config: &SdkConfig) -> eyre::Result<&'static RuntimeConfig> {
-    RUNTIME_CONFIG
-        .get_or_try_init(|| async {
-            let uri = std::env::var(RUNTIME_CONFIG_ENV_URI).wrap_err_with(|| {
-                format!("{RUNTIME_CONFIG_ENV_URI} must be set for cloud invocation")
-            })?;
+static SDK_CONFIG: OnceCell<SdkConfig> = OnceCell::const_new();
+static DYNAMODB: OnceLock<Client> = OnceLock::new();
 
-            let uri = uri.parse::<RuntimeConfigUri>()?;
-
-            let response = aws_sdk_s3::Client::new(sdk_config)
-                .get_object()
-                .bucket(uri.bucket)
-                .key(uri.key)
-                .send()
-                .await
-                .wrap_err("Failed to fetch runtime configuration from S3")?;
-
-            let body = response
-                .body
-                .collect()
-                .await
-                .wrap_err("Failed to read runtime configuration from S3")?;
-
-            let runtime_config: RuntimeConfig = serde_json::from_slice(&body.into_bytes())
-                .map_err(|_| eyre::eyre!("Invalid runtime configuration JSON"))?;
-
-            if runtime_config.schema_version != RUNTIME_CONFIG_VERSION {
-                eyre::bail!(
-                    "Unsupported runtime configuration schema version: {}",
-                    runtime_config.schema_version
-                );
-            }
-
-            Ok(runtime_config)
-        })
+pub(super) async fn sdk_config() -> &'static SdkConfig {
+    SDK_CONFIG
+        .get_or_init(|| aws_config::load_defaults(aws_config::BehaviorVersion::latest()))
         .await
+}
+
+fn dynamodb(sdk: &SdkConfig) -> &'static Client {
+    DYNAMODB.get_or_init(|| Client::new(sdk))
 }

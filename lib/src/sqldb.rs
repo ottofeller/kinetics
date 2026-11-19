@@ -19,8 +19,8 @@ pub struct SqlDb {
     /// Password for DSQL cluster access
     password: Arc<RwLock<String>>,
 
-    /// AWS SDK configuration
-    config: SdkConfig,
+    /// Credentials used to refresh DSQL tokens; local PostgreSQL does not use AWS.
+    dsql_config: Option<SdkConfig>,
 
     /// SSL mode for the connection
     ssl_mode: String,
@@ -46,7 +46,7 @@ impl SqlDb {
             endpoint,
             password: Arc::new(RwLock::new(password.to_string())),
             username: username.to_string(),
-            config: config.clone(),
+            dsql_config: Some(config.clone()),
             ssl_mode: "verify-full".to_string(), // Strictly require TLS for postgres connections
         };
 
@@ -54,7 +54,7 @@ impl SqlDb {
     }
 
     // Creates a local SQL DB instance using provided connection string
-    pub async fn new_local(connection_string: &str, config: &SdkConfig) -> Result<Self, Error> {
+    pub async fn new_local(connection_string: &str) -> Result<Self, Error> {
         // Parse as regular URL postgres://username:password@localhost:5432/dbname
         let url = Url::parse(connection_string).wrap_err("Failed to parse connection string")?;
         let params: HashMap<String, String> = url.query_pairs().into_owned().collect();
@@ -63,7 +63,7 @@ impl SqlDb {
             username: url.username().to_string(),
             password: Arc::new(RwLock::new(url.password().unwrap_or("").to_string())),
             endpoint: url.host_str().unwrap_or("localhost").to_string(),
-            config: config.clone(),
+            dsql_config: None,
 
             ssl_mode: params
                 .get("ssl_mode")
@@ -113,7 +113,9 @@ impl SqlDb {
     /// backoff mechanism to retry the fetch operation in case of failure.
     /// Note: The first token refresh happens after a 10-minute delay.
     pub fn spawn_password_refresh(self) -> Self {
-        let config = self.config.clone();
+        let Some(config) = self.dsql_config.clone() else {
+            return self;
+        };
         let cluster_endpoint = self.endpoint.clone();
         let password = self.password.clone();
 

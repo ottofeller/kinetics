@@ -3,23 +3,17 @@
 macro_rules! worker_main {
     (local, $handler:path) => {
         use aws_lambda_events::sqs::{SqsEvent, SqsMessage};
+        use $crate::tools::queue::Record as QueueRecord;
         use $crate::tools::runtime::dependencies::{
-            aws_config, aws_lambda_events, lambda_runtime, serde_json, tokio, tower,
+            aws_lambda_events, lambda_runtime, serde_json, tokio, tower,
         };
-        use $crate::tools::{config::Config as KineticsConfig, queue::Record as QueueRecord};
+        use $crate::tools::runtime::{Environment, Runtime};
         #[tokio::main]
         async fn main() -> Result<(), tower::BoxError> {
-            let user_function = $handler;
-            let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-            let kinetics_config = KineticsConfig::new(&config, None).await?;
-            let mut secrets = std::collections::HashMap::new();
-
-            for (k, v) in std::env::vars() {
-                if k.starts_with("KINETICS_SECRET_") {
-                    let key = k.replace("KINETICS_SECRET_", "");
-                    secrets.insert(key, v);
-                }
-            }
+            let Runtime {
+                secrets,
+                config: kinetics_config,
+            } = Runtime::load(Environment::Local, None).await?;
 
             let payload_path = std::env::args_os().nth(1).ok_or_else(|| {
                 std::io::Error::new(
@@ -76,7 +70,7 @@ macro_rules! worker_main {
             let context = lambda_runtime::Context::default();
             let event = lambda_runtime::LambdaEvent::new(sqs_event, context);
 
-            match user_function(
+            match $handler(
                 QueueRecord::from_sqsevent(event)?,
                 &secrets,
                 &kinetics_config,
@@ -103,26 +97,19 @@ macro_rules! worker_main {
     };
     (remote, $handler:path) => {
         use lambda_runtime::{Error, run, service_fn};
-        use $crate::tools::runtime::dependencies::{aws_config, lambda_runtime, tokio};
-        use $crate::tools::{config::Config as KineticsConfig, queue::Record as QueueRecord};
+        use $crate::tools::queue::Record as QueueRecord;
+        use $crate::tools::runtime::dependencies::{lambda_runtime, tokio};
+        use $crate::tools::runtime::{Environment, Runtime};
         #[tokio::main]
         async fn main() -> Result<(), Error> {
-            let user_function = $handler;
             println!("Initializing runtime");
-            let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-            println!("Loading runtime configuration");
-            let runtime_config = $crate::tools::runtime::load(&config).await?;
-            let (secrets, kinetics_config) = tokio::try_join!(
-                async {
-                    $crate::tools::secrets::load(&config, runtime_config)
-                        .await
-                        .map_err(Error::from)
-                },
-                KineticsConfig::new(&config, None),
-            )?;
+            let Runtime {
+                secrets,
+                config: kinetics_config,
+            } = Runtime::load(Environment::Lambda, None).await?;
             println!("Serving requests");
             run(service_fn(|event| async {
-                match user_function(
+                match $handler(
                     QueueRecord::from_sqsevent(event)?,
                     &secrets,
                     &kinetics_config,

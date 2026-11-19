@@ -23,8 +23,6 @@ pub enum ProjectResourceKind {
     Queue,
     /// SQS dead-letter queue.
     DeadLetterQueue,
-    /// SSM parameter containing a project secret.
-    Secret,
     /// Lambda function.
     Lambda,
 }
@@ -35,7 +33,6 @@ impl ProjectResourceKind {
         match self {
             Self::Queue => "q",
             Self::DeadLetterQueue => "d",
-            Self::Secret => "s",
             Self::Lambda => "l",
         }
     }
@@ -45,7 +42,6 @@ impl ProjectResourceKind {
         match self {
             Self::Queue => "main-queue",
             Self::DeadLetterQueue => "dead-letter-queue",
-            Self::Secret => "secret",
             Self::Lambda => "lambda",
         }
     }

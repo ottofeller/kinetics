@@ -51,7 +51,7 @@ fn package_overrides_project_regardless_of_response_order() {
 }
 
 #[test]
-fn empty_scopes_are_allowed() {
+fn projects_and_packages_may_have_no_secrets() {
     assert!(
         merge_secrets(&["project", "package"], vec![])
             .unwrap()
