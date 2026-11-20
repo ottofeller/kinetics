@@ -6,9 +6,7 @@ runs:
   steps:
     - name: Set up Rust from rust-toolchain.toml
       shell: bash
-      run: |
-        rustup install
-        rustup component add rustfmt clippy
+      run: rustup install
 
     - name: Check formatting
       shell: bash
