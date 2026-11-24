@@ -1,3 +1,4 @@
+use crate::api::error::ApiError;
 use crate::error::Error;
 use crate::function::Function;
 use crate::runner::{Runnable, Runner};
@@ -71,23 +72,10 @@ impl Runner for StatsRunner<'_> {
                 period: self.command.period.to_owned(),
             })
             .send()
-            .await
-            .wrap_err("Failed to send request to stat endpoint")?;
+            .await?;
 
         if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or("Unknown error".to_string());
-
-            log::error!(
-                "Failed to fetch statistics from API ({}): {}",
-                status,
-                error_text
-            );
-
-            return Err(Error::new(
-                "Failed to fetch statistics",
-                Some("Try again later."),
-            ));
+            return Err(ApiError::from_response(response).await?.into());
         }
 
         let stats_response: func::stats::Response = response.json().await.wrap_err(Error::new(

@@ -1,10 +1,12 @@
 use crate::{
-    params::{Cron, Endpoint, Params, Worker},
     ParsedFunction, Role,
+    params::{Cron, DlqWorker, Endpoint, Params, Worker},
 };
 use color_eyre::eyre;
+use std::collections::BTreeMap;
+use std::fs;
 use std::path::{Path, PathBuf};
-use syn::{parse::Parse, visit::Visit, Attribute, ItemFn};
+use syn::{Attribute, ItemFn, Meta, parse::Parse, visit::Visit};
 use walkdir::WalkDir;
 
 /// For a workspace represents its member.
@@ -18,6 +20,61 @@ pub struct Package {
     pub relative_path: PathBuf,
 }
 
+/// Source files and workload metadata from a single read of a package.
+pub struct ParsedPackage {
+    pub sources: BTreeMap<PathBuf, syn::File>,
+    pub functions: Vec<ParsedFunction>,
+}
+
+impl ParsedPackage {
+    /// Read syntax for dependency analysis, optionally discovering package workloads.
+    pub fn read(
+        directory: &Path,
+        lib_path: &Path,
+        package: Option<&Package>,
+    ) -> eyre::Result<Self> {
+        let mut sources = read_sources(directory)?;
+        if !sources.contains_key(lib_path) {
+            let path = directory.join(lib_path);
+            let content = if path.exists() {
+                fs::read_to_string(path)?
+            } else {
+                String::new()
+            };
+            sources.insert(lib_path.to_path_buf(), syn::parse_file(&content)?);
+        }
+        let mut parser = Parser {
+            pkg: package,
+            ..Default::default()
+        };
+        if package.is_some() {
+            parser.parse_sources(&sources)?;
+        }
+        Ok(Self {
+            sources,
+            functions: parser.functions,
+        })
+    }
+}
+
+fn read_sources(directory: &Path) -> eyre::Result<BTreeMap<PathBuf, syn::File>> {
+    let mut sources = BTreeMap::new();
+    let src = directory.join("src");
+    if !src.exists() {
+        return Ok(sources);
+    }
+    for entry in WalkDir::new(src) {
+        let entry = entry?;
+        if entry.file_type().is_file() && entry.path().extension().is_some_and(|ext| ext == "rs") {
+            sources.insert(
+                entry.path().strip_prefix(directory)?.to_path_buf(),
+                syn::parse_file(&fs::read_to_string(entry.path())?)?,
+            );
+        }
+    }
+    Ok(sources)
+}
+
 #[derive(Debug, Default)]
 pub struct Parser<'a> {
     /// All found functions in the source code
@@ -28,6 +85,9 @@ pub struct Parser<'a> {
 
     /// The package being processed
     pkg: Option<&'a Package>,
+
+    /// Attribute parse errors, collected during the project walk
+    errors: Vec<String>,
 }
 
 impl<'a> Parser<'a> {
@@ -46,22 +106,26 @@ impl<'a> Parser<'a> {
     }
 
     pub fn walk_dir(&mut self, path: &Path) -> eyre::Result<()> {
-        for entry in WalkDir::new(path)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.path().strip_prefix(path).is_ok_and(|p| p.starts_with("src/")) // only src folder
-                && e.path().extension().is_some_and(|ext| ext == "rs") // only rust files
-            })
-        {
-            let content = std::fs::read_to_string(entry.path())?;
-            let syntax = syn::parse_file(&content)?;
+        self.parse_sources(&read_sources(path)?)
+    }
 
-            // Set current file relative path for further imports resolution
-            // WARN It prevents to implement parallel parsing of files and requires rework in the future
-            self.set_fn_rel_path(Some(entry.path().strip_prefix(path)?));
+    fn parse_sources(&mut self, sources: &BTreeMap<PathBuf, syn::File>) -> eyre::Result<()> {
+        for (path, syntax) in sources {
+            self.set_fn_rel_path(Some(path));
+            self.visit_file(syntax);
+        }
 
-            self.visit_file(&syntax);
+        self.functions.sort_by(|left, right| {
+            left.relative_path
+                .cmp(&right.relative_path)
+                .then_with(|| left.rust_function_name.cmp(&right.rust_function_name))
+        });
+
+        if !self.errors.is_empty() {
+            eyre::bail!(
+                "Invalid kinetics macro attributes:\n{}",
+                self.errors.join("\n")
+            );
         }
 
         Ok(())
@@ -76,20 +140,44 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_endpoint(&mut self, attr: &Attribute) -> syn::Result<Endpoint> {
-        attr.parse_args_with(Endpoint::parse)
+        parse_attr_args(attr)
     }
 
     fn parse_worker(&mut self, attr: &Attribute) -> syn::Result<Worker> {
-        attr.parse_args_with(Worker::parse)
+        parse_attr_args(attr)
     }
 
     fn parse_cron(&mut self, attr: &Attribute) -> syn::Result<Cron> {
-        attr.parse_args_with(Cron::parse)
+        parse_attr_args(attr)
+    }
+
+    /// Remember an attribute parse error with the file
+    /// and attribute it came from.
+    /// All errors are reported together after the walk.
+    fn record_attr_error(&mut self, attr: &Attribute, error: syn::Error) {
+        let path = attr
+            .path()
+            .segments
+            .iter()
+            .map(|segment| segment.ident.to_string())
+            .collect::<Vec<_>>()
+            .join("::");
+
+        self.errors.push(format!(
+            "{}: #[{}] {}",
+            self.fn_rel_path.to_string_lossy(),
+            path,
+            error
+        ));
+    }
+
+    fn parse_dlq_worker(&mut self, attr: &Attribute) -> syn::Result<DlqWorker> {
+        parse_attr_args(attr)
     }
 
     /// Checks if the input is a valid kinetics_macro definition and returns its role
     /// Known definitions:
-    /// #[kinetics_macro::<role> or <role>]
+    /// #[<role>, kinetics_macro::<role> or kinetics_lib::macros::<role>]
     fn parse_attr_role(&self, input: &Attribute) -> String {
         let path = input.path();
 
@@ -103,6 +191,14 @@ impl<'a> Parser<'a> {
             return ident.to_string();
         }
 
+        if path.segments.len() == 3
+            && &path.segments[0].ident == "kinetics_lib"
+            && &path.segments[1].ident == "macros"
+        {
+            let ident = &path.segments[2].ident;
+            return ident.to_string();
+        }
+
         "".to_string()
     }
 }
@@ -113,18 +209,34 @@ impl<'a> Visit<'_> for Parser<'a> {
         for attr in &item.attrs {
             // Skip non-endpoint or non-worker attributes
             let (role, params) = match self.parse_attr_role(attr).as_str() {
-                "endpoint" => {
-                    let params = self.parse_endpoint(attr).unwrap();
-                    (Role::Endpoint, Params::Endpoint(params))
-                }
-                "worker" => {
-                    let params = self.parse_worker(attr).unwrap();
-                    (Role::Worker, Params::Worker(params))
-                }
-                "cron" => {
-                    let params = self.parse_cron(attr).unwrap();
-                    (Role::Cron, Params::Cron(params))
-                }
+                "endpoint" => match self.parse_endpoint(attr) {
+                    Ok(params) => (Role::Endpoint, Params::Endpoint(params)),
+                    Err(error) => {
+                        self.record_attr_error(attr, error);
+                        continue;
+                    }
+                },
+                "worker" => match self.parse_worker(attr) {
+                    Ok(params) => (Role::Worker, Params::Worker(params)),
+                    Err(error) => {
+                        self.record_attr_error(attr, error);
+                        continue;
+                    }
+                },
+                "dlq_worker" => match self.parse_dlq_worker(attr) {
+                    Ok(params) => (Role::DlqWorker, Params::DlqWorker(params)),
+                    Err(error) => {
+                        self.record_attr_error(attr, error);
+                        continue;
+                    }
+                },
+                "cron" => match self.parse_cron(attr) {
+                    Ok(params) => (Role::Cron, Params::Cron(params)),
+                    Err(error) => {
+                        self.record_attr_error(attr, error);
+                        continue;
+                    }
+                },
                 _ => continue,
             };
 
@@ -141,5 +253,20 @@ impl<'a> Visit<'_> for Parser<'a> {
         }
 
         // We don't need to parse the function body (in case nested functions), so just exit here
+    }
+}
+
+/// Parse the arguments similar to proc macro:
+/// - `#[worker(fifo = true)]` passes the tokens inside the parentheses;
+/// - bare `#[worker]` is treated as empty arguments
+///   and yields default parameters.
+fn parse_attr_args<T: Parse>(attr: &Attribute) -> syn::Result<T> {
+    match &attr.meta {
+        Meta::Path(_) => syn::parse2(Default::default()),
+        Meta::List(list) => syn::parse2(list.tokens.clone()),
+        Meta::NameValue(name_value) => Err(syn::Error::new(
+            name_value.eq_token.span,
+            "expected parentheses with parameters, e.g. `#[worker(...)]`",
+        )),
     }
 }

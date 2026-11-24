@@ -1,5 +1,5 @@
-use crate::commands::build::pipeline::Pipeline;
 use crate::commands::build::BuildCommand;
+use crate::commands::build::pipeline::Pipeline;
 use crate::error::Error;
 use crate::runner::Runner;
 use crate::writer::Writer;

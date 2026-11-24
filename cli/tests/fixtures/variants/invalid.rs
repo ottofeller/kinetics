@@ -1,0 +1,2 @@
+#[endpoint]
+fn invalid() {}

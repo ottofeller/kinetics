@@ -1,7 +1,6 @@
 use eyre::Context as _;
 
 use crate::{api::client::Client, error::Error, project::Project, writer::Writer};
-use std::error::Error as StdError;
 use std::path::PathBuf;
 
 pub(crate) trait Runner {
@@ -17,7 +16,7 @@ pub(crate) trait Runner {
             ));
         }
 
-        Ok(Client::new(false).await?)
+        Client::new(false).await
     }
 
     /// Current working project
@@ -27,7 +26,7 @@ pub(crate) trait Runner {
         std::env::current_dir()
             .wrap_err("Failed to get current dir")
             .and_then(|cwd| Project::from_path(cwd.join(rel_path.clone().unwrap_or_default())))
-            .map_err(|e| self.error(Some("Project error"), Some(&e.to_string()), None))
+            .map_err(|e| self.error(Some("Project error"), Some(&e.to_string()), Some(e.into())))
     }
 
     /// Run the command
@@ -40,9 +39,12 @@ pub(crate) trait Runner {
         &self,
         title: Option<&str>,
         description: Option<&str>,
-        origin: Option<Box<dyn StdError>>,
+        origin: Option<Error>,
     ) -> Error {
         if let Some(origin) = origin {
+            if matches!(origin, Error::Api(_) | Error::Cli { code: Some(_), .. }) {
+                return origin;
+            }
             log::error!("{origin:?}");
         }
 
@@ -57,7 +59,7 @@ pub(crate) trait Runner {
     }
 
     /// A shortcut to display server error message
-    fn server_error(&self, origin: Option<Box<dyn StdError>>) -> Error {
+    fn server_error(&self, origin: Option<Error>) -> Error {
         self.error(Some("Server error"), Some("Try again later."), origin)
     }
 }

@@ -1,4 +1,5 @@
 pub mod api;
+mod build;
 mod commands;
 mod config;
 mod credentials;
@@ -12,13 +13,13 @@ mod project;
 mod runner;
 mod secrets;
 mod writer;
+
 use crate::commands::Commands;
 use crate::error::Error;
 use crate::logger::Logger;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use clap::{ArgAction, Parser};
-use serde_json::json;
 
 #[derive(Parser)]
 #[command(
@@ -58,8 +59,9 @@ impl Cli {
                     log::error!("Output error: {e:?}");
                 });
 
-            self.writer
-                .json(json!({"success": false, "error": error.to_string()}))
+            error
+                .to_json()
+                .and_then(|output| self.writer.json(output).map_err(Into::into))
                 .unwrap_or_else(|e| {
                     log::error!("Output error: {e:?}");
                 });

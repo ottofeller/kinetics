@@ -9,6 +9,7 @@ pub enum Role {
     Endpoint,
     Cron,
     Worker,
+    DlqWorker,
 }
 
 impl Display for Role {
@@ -17,6 +18,7 @@ impl Display for Role {
             Role::Endpoint => "endpoint",
             Role::Cron => "cron",
             Role::Worker => "worker",
+            Role::DlqWorker => "dlq_worker",
         };
 
         write!(f, "{}", str)
@@ -74,26 +76,34 @@ impl ParsedFunction {
             .collect::<String>()
     }
 
+    /// Full deployment name of a function with the given Rust name
+    /// defined in this function's file.
+    pub fn full_name(&self, rust_function_name: &str) -> eyre::Result<String> {
+        let path = self
+            .relative_path
+            .strip_prefix("src")?
+            .to_str()
+            .wrap_err_with(|| {
+                format!(
+                    "Failed converting func path to str: `{:?}`",
+                    self.relative_path
+                )
+            })?;
+
+        Ok(Self::to_local_name(&[
+            &self.pkg_name,
+            path,
+            rust_function_name,
+        ]))
+    }
+
     /// Generate lambda function name out of Rust function name or macro attribute
     ///
     /// By default use the Rust function plus crate path as the function name. Convert
     /// some-name to SomeName, and do other transformations in order to comply with Lambda
     /// function name requirements.
     pub fn func_name(&self, is_local: bool) -> eyre::Result<String> {
-        let rust_name = &self.rust_function_name;
-        let default_func_name = Self::to_local_name(&[
-            &self.pkg_name,
-            self.relative_path
-                .strip_prefix("src")?
-                .to_str()
-                .wrap_err_with(|| {
-                    format!(
-                        "Failed converting func path to str: `{:?}`",
-                        self.relative_path
-                    )
-                })?,
-            rust_name,
-        ]);
+        let default_func_name = self.full_name(&self.rust_function_name)?;
         let name = self.params.name().unwrap_or(&default_func_name);
 
         if name.len() > 64 {

@@ -1,8 +1,10 @@
 mod dynamodb;
 mod queue;
+mod s3;
 mod sqldb;
 pub use dynamodb::LocalDynamoDB;
 pub use queue::LocalQueue;
+pub use s3::LocalS3;
 pub use sqldb::LocalSqlDB;
 
 pub enum Service<'a> {
@@ -11,4 +13,5 @@ pub enum Service<'a> {
     /// https://rust-lang.github.io/rust-clippy/rust-1.92.0/index.html#large_enum_variant.
     SqlDB(Box<LocalSqlDB<'a>>),
     Queue(LocalQueue),
+    S3(LocalS3),
 }

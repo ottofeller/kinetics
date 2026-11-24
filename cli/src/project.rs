@@ -1,14 +1,10 @@
 mod cache;
 mod config_file;
-mod dependencies;
-mod filehash;
-mod parse;
-
-/// Runtime templates for different workloads
-mod templates;
-mod workspace;
+mod functions;
+pub(crate) mod workspace;
 
 use crate::api::client::Client;
+use crate::api::error::ApiError;
 use crate::config::build_config;
 use crate::config::deploy::DeployConfig;
 use crate::envs::Envs;
@@ -21,13 +17,14 @@ use config_file::ConfigFile;
 use eyre::WrapErr;
 use http::StatusCode;
 use kinetics_api::projects::{Kvdb, ProjectInfo};
-use kinetics_api::request::{to_log_safe_string_pretty, Validate};
+use kinetics_api::request::{Validate, to_log_safe_string_pretty};
 use kinetics_api::stack;
+use kinetics_parser::Package;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use toml_edit::{value, DocumentMut, Table};
+use toml_edit::{DocumentMut, Table, value};
 
 /// Managing user's project
 ///
@@ -102,7 +99,9 @@ impl Project {
             == 0;
         // 2. Error on config present in root and members
         if workspace_config_exists && !no_member_configs {
-            eyre::bail!("Workspace is not allowed to have `kinetics.toml` within its root and within its members at the same time.");
+            eyre::bail!(
+                "Workspace is not allowed to have `kinetics.toml` within its root and within its members at the same time."
+            );
         }
 
         // 3. Root config
@@ -117,7 +116,9 @@ impl Project {
 
         // 5. Call from root or member without config
         if ws.root_path == path || !ConfigFile::exists(path) {
-            eyre::bail!("Current folder is not a kinetics project. From the workspace root point to a folder with kinetics.toml with --project argument");
+            eyre::bail!(
+                "Current folder is not a kinetics project. From the workspace root point to a folder with kinetics.toml with --project argument"
+            );
         }
 
         // 6. Call from member with config
@@ -157,6 +158,16 @@ impl Project {
         self.path == self.workspace.root_path
     }
 
+    /// Whether the package's sources belong to this project.
+    ///
+    /// A root project covers every member,
+    /// a member project only its own package.
+    pub fn is_in_project(&self, package: &Package) -> bool {
+        self.workspace.is_standalone_crate
+            || self.is_ws_root()
+            || self.workspace.root_path.join(&package.relative_path) == self.path
+    }
+
     /// Get project by name, with automatic cache management.
     ///
     /// Returns an error if the API request fails or if there are filesystem issues
@@ -185,7 +196,7 @@ impl Project {
 
     /// Destroy the project by sending a DELETE request to /projects/{name}
     pub async fn destroy(&self) -> eyre::Result<()> {
-        Client::new(false)
+        let response = Client::new(false)
             .await
             .wrap_err("Failed to create client")?
             .post("/stack/destroy")
@@ -194,6 +205,10 @@ impl Project {
             })
             .send()
             .await?;
+
+        if !response.status().is_success() {
+            return Err(ApiError::from_response(response).await?.into());
+        }
 
         Ok(())
     }
@@ -209,7 +224,7 @@ impl Project {
     ) -> eyre::Result<bool> {
         let client = Client::new(deploy_config.is_some()).await?;
 
-        let secrets = if self.is_ws_root() {
+        let mut secrets = if self.is_ws_root() {
             // A workspace-root project keeps root secrets only,
             // while member secrets reside in functions (see Function::new).
             Secrets::from_files(&[&self.workspace.root_path])
@@ -218,7 +233,8 @@ impl Project {
             // merges root and member secrets into the project section.
             Secrets::from_files(&[&self.workspace.root_path, &self.path])
         }
-        .unwrap_or_else(Secrets::from_env);
+        .unwrap_or_default();
+        secrets.extend(Secrets::from_env());
 
         if let Some(config) = deploy_config {
             return config.deploy(self, secrets, functions).await;
@@ -249,24 +265,14 @@ impl Project {
             .json(&request)
             .send()
             .await
-            .inspect_err(|err| log::error!("Error while requesting deploy: {err:?}"))
-            .wrap_err(Error::new(
-                "Network request failed",
-                Some("Try again in a few seconds."),
-            ))?;
+            .inspect_err(|err| log::error!("Error while requesting deploy: {err:?}"))?;
 
         let status = result.status();
         log::info!("got status from /stack/deploy: {status}");
-        log::info!("got response from /stack/deploy: {}", result.text().await?);
-
         match status {
             StatusCode::OK => eyre::Ok(true),
             StatusCode::NOT_MODIFIED => eyre::Ok(false),
-            _ => Err(Error::new(
-                "Deployment request failed",
-                Some("Try again in a few seconds."),
-            )
-            .into()),
+            _ => Err(ApiError::from_response(result).await?.into()),
         }
     }
 
@@ -280,23 +286,16 @@ impl Project {
                 project: self.into(),
             })
             .send()
-            .await
-            .wrap_err(Error::new(
-                "Network request failed",
-                Some("Try again in a few seconds."),
-            ))?;
+            .await?;
 
-        let status = result.status();
-        let text = result.text().await?;
-        log::debug!("Got response from /stack/status:\n{status}\n{text}");
-
-        if status != StatusCode::OK {
-            return Err(
-                Error::new("Status request failed", Some("Try again in a few seconds.")).into(),
-            );
+        if !result.status().is_success() {
+            return Err(ApiError::from_response(result).await?.into());
         }
 
-        serde_json::from_str(&text).wrap_err("Failed to parse response")
+        result
+            .json()
+            .await
+            .wrap_err(Error::new("Server error", Some("Try again later.")))
     }
 
     /// Make sure URL is properly formatted

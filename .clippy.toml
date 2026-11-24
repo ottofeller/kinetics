@@ -1,0 +1,2 @@
+# AWS mocks enable serde_json/preserve_order, making the CLI Error 152 bytes.
+large-error-threshold = 160

@@ -4,7 +4,7 @@ use crate::writer::Writer;
 use crossterm::style::Stylize;
 use kinetics_api::orgs::leave::{Request, Response};
 use serde_json::json;
-use std::io::{stdin, stdout, Write};
+use std::io::{Write, stdin, stdout};
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct LeaveCommand {

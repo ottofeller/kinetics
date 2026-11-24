@@ -5,7 +5,7 @@ use color_eyre::owo_colors::OwoColorize;
 use crossterm::style::Stylize;
 use eyre::Context;
 use kinetics_api::stack;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::path::PathBuf;
 
 #[derive(clap::Args, Clone)]

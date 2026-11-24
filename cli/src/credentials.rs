@@ -1,10 +1,11 @@
-use crate::config::{api_url, build_config};
+use crate::api::client::Client;
+use crate::api::error::ApiError;
+use crate::config::build_config;
 use crate::error::Error;
 use chrono::{DateTime, Utc};
 use eyre::{Context, OptionExt};
 use keyring::Entry;
 use kinetics_api::auth;
-use reqwest::StatusCode;
 use serde_json::json;
 use std::path::{Path, PathBuf};
 use users::{get_current_uid, get_user_by_uid};
@@ -23,43 +24,39 @@ pub struct Credentials {
 /// Managing credentials file
 impl Credentials {
     /// Fetch email and expires_at associated with the token
-    async fn fetch_info(token: &str) -> eyre::Result<auth::info::Response> {
+    async fn fetch_info(token: &str) -> Result<auth::info::Response, Error> {
         let url = "/auth/info";
 
-        // Can't use internal client here, as it will create recursion
-        let result = reqwest::Client::new()
-            .get(api_url(url))
-            .header("Authorization", token)
+        let result = Client::with_token(token)
+            .get(url)
             .send()
             .await
             .inspect_err(|e| log::error!("Request to /auth/info failed: {e:?}"))?;
 
-        let status = result.status();
-        let text = result.text().await?;
-        log::debug!("Got status from {url}: {status}");
-        log::debug!("Got response from {url}: {text}");
-
-        if status != StatusCode::OK {
-            log::error!("Auth info request status is not OK");
-            return Err(eyre::eyre!("Status is not 200"));
+        if !result.status().is_success() {
+            return Err(ApiError::from_response(result).await?.into());
         }
 
-        Ok(serde_json::from_str(&text)
-            .inspect_err(|e| log::error!("Could not parse auth info response: {e:?}"))?)
+        Ok(result
+            .json()
+            .await
+            .wrap_err("Could not parse auth info response")?)
     }
 
     /// Initialize from the path to credentials file
     ///
     /// First checks environment variable, if not found, reads from file
-    pub async fn new() -> eyre::Result<Self> {
+    pub async fn new() -> Result<Self, Error> {
         let config = build_config()?;
         let path = Path::new(config.credentials_path);
 
-        if let Ok(credentials) = Self::from_env().await.inspect_err(|error| {
-            log::info!("Failed to read credentials from env, skipping: {error}")
-        }) {
-            log::info!("Using credentials from env var");
-            return Ok(credentials);
+        match Self::from_env().await {
+            Ok(credentials) => {
+                log::info!("Using credentials from env var");
+                return Ok(credentials);
+            }
+            Err(error @ Error::Api(_)) => return Err(error),
+            Err(error) => log::info!("Failed to read credentials from env, skipping: {error}"),
         }
 
         // Use keyring second (high priority)
@@ -149,7 +146,7 @@ impl Credentials {
     }
 
     /// Init from API token set in the the env
-    async fn from_env() -> eyre::Result<Credentials> {
+    async fn from_env() -> Result<Credentials, Error> {
         let config = build_config()?;
         log::info!("Using credentials from env {}", config.credentials_env);
         let path = Path::new(config.credentials_path);
@@ -160,13 +157,7 @@ impl Credentials {
         ))?;
 
         // Fetch token info from backend
-        let info = Self::fetch_info(&token).await.wrap_err(Error::new(
-            "Failed to fetch auth info",
-            Some(&format!(
-                "Check if your {} is valid.",
-                config.credentials_env
-            )),
-        ))?;
+        let info = Self::fetch_info(&token).await?;
 
         Ok(Credentials {
             path: path.to_path_buf(),
@@ -188,13 +179,13 @@ impl Credentials {
                     let default =
                         json!({ "email": "", "token": "", "expires_at": "2000-01-01T00:00:00Z" })
                             .to_string();
-                    if let Some(dir) = path.parent() {
-                        if !dir.exists() {
-                            std::fs::create_dir_all(dir).wrap_err(format!(
-                                "Failed to create dir \"{:?}\" to store credential file",
-                                dir
-                            ))?;
-                        }
+                    if let Some(dir) = path.parent()
+                        && !dir.exists()
+                    {
+                        std::fs::create_dir_all(dir).wrap_err(format!(
+                            "Failed to create dir \"{:?}\" to store credential file",
+                            dir
+                        ))?;
                     };
 
                     eyre::Ok(default)

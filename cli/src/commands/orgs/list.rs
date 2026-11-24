@@ -29,7 +29,7 @@ impl Runner for ListRunner<'_> {
         let response: Response = client
             .request("/orgs/list", Request {})
             .await
-            .map_err(|e| self.server_error(Some(e.into())))?;
+            .map_err(|e| self.server_error(Some(e)))?;
 
         if response.orgs.is_empty() {
             self.writer

@@ -1,7 +1,7 @@
 [package]
 name = "kinetics-api"
 version.workspace = true
-edition = "2021"
+edition = "2024"
 description = "Shared API request and response types for Kinetics."
 repository = "https://github.com/ottofeller/kinetics"
 license = "Apache-2.0 OR MIT"

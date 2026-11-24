@@ -1,8 +1,9 @@
-use crate::environment::{parse_environment, Environment};
+use crate::environment::{Environment, parse_environment};
 use serde::{Deserialize, Serialize};
 use syn::{
+    Ident, LitStr,
     parse::{Parse, ParseStream},
-    token, Ident, LitStr,
+    token,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

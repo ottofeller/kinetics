@@ -1,6 +1,8 @@
 pub mod auth;
+pub mod compatibility;
 pub mod domains;
 pub mod envs;
+pub mod error;
 pub mod func;
 pub mod orgs;
 pub mod project;
@@ -8,3 +10,7 @@ pub mod projects;
 pub mod request;
 pub mod stack;
 pub mod upload;
+pub mod validators;
+
+#[cfg(test)]
+mod tests;

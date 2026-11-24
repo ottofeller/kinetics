@@ -1,19 +1,16 @@
 use crate::api::client::Client;
+use crate::api::error::ApiError;
 use crate::config::deploy::DeployConfig;
 use crate::error::Error;
 use crate::project::Project;
 use crate::secrets::Secrets;
 use base64::Engine as _;
 use crc_fast::{CrcAlgorithm::Crc64Nvme, Digest};
-use eyre::{eyre, ContextCompat, WrapErr};
+use eyre::{ContextCompat, WrapErr, eyre};
 use kinetics_api::{func, upload};
 use reqwest::StatusCode;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::process::Stdio;
-use tokio::io::{AsyncBufReadExt, BufReader};
-
-mod bundle;
 
 // Re-export types from kinetics-parser
 pub use kinetics_parser::{Params, ParsedFunction, Role};
@@ -23,6 +20,11 @@ pub use kinetics_parser::{Params, ParsedFunction, Role};
 pub struct Function {
     /// The name of the function
     pub name: String,
+
+    pub package_name: String,
+
+    /// Source package path within the generated workspace.
+    pub package_path: PathBuf,
 
     /// Whether the function is requested for deployment
     pub is_deploying: bool,
@@ -46,23 +48,29 @@ impl Function {
         let secrets = if !project.workspace.is_standalone_crate && project.is_ws_root() {
             // Within workspace if package the function belongs to is not a project,
             // read secrets from package and write them to the function.
-            Secrets::from_files(&[&project.workspace.root_path.join(&function.pkg_rel_path)]).map(
-                |values| kinetics_api::stack::deploy::FunctionSecrets {
-                    scope: function.pkg_name.clone(),
-                    values,
-                },
-            )
+            Secrets::from_files(&[&project.workspace.root_path.join(&function.pkg_rel_path)])
+                .map(|values| kinetics_api::stack::deploy::FunctionSecrets { values })
         } else {
             // In standalone crate or workspace-root project
             // all secrets are global and reside in project, nothing in function.
             None
         };
 
+        // Resolve local fn name in `dlq` into full function name.
+        let mut params = function.params.clone();
+        if let Params::Worker(worker) = &mut params
+            && let Some(target) = worker.dlq.as_deref()
+        {
+            worker.dlq = Some(function.full_name(target)?);
+        }
+
         Ok(Function {
             name: function.func_name(false)?,
+            package_name: function.pkg_name.clone(),
+            package_path: function.pkg_rel_path.clone(),
             is_deploying: false,
             project: project.clone(),
-            params: function.params.clone(),
+            params,
             role: function.role.clone(),
             secrets,
         })
@@ -133,12 +141,14 @@ impl Function {
             return Ok(false);
         }
 
-        let text = response.text().await?;
-        log::debug!("Got response for {}: {}", self.name, text);
+        if !response.status().is_success() {
+            return Err(ApiError::from_response(response).await?.into());
+        }
 
-        let presigned = serde_json::from_str::<upload::Response>(&text).inspect_err(|e| {
-            log::error!("Failed to parse the response: {e:?}");
-        })?;
+        let presigned: upload::Response = response
+            .json()
+            .await
+            .wrap_err(Error::new("Server error", Some("Try again later.")))?;
 
         let public_client = reqwest::Client::new();
 
@@ -189,15 +199,17 @@ impl Function {
                 function_name: func::status::FunctionName::Single(self.name.clone()),
             })
             .send()
-            .await
-            .inspect_err(|err| log::error!("{err:?}"))
-            .wrap_err(Error::new(
-                "Network request failed",
-                Some("Try again in a few seconds."),
-            ))?;
+            .await?;
 
-        let result: func::status::Response =
-            result.json().await.wrap_err("Failed to parse response")?;
+        if !result.status().is_success() {
+            return Err(ApiError::from_response(result).await?.into());
+        }
+
+        let result: func::status::Response = result
+            .json()
+            .await
+            .inspect_err(|err| log::debug!("Invalid function status response: {err:?}"))
+            .wrap_err(Error::new("Server error", Some("Try again later.")))?;
 
         match result.last_modified {
             func::status::FunctionStatus::Single(status) => match status {
@@ -248,15 +260,17 @@ pub async fn status(
             ),
         })
         .send()
-        .await
-        .inspect_err(|err| log::error!("{err:?}"))
-        .wrap_err(Error::new(
-            "Network request failed",
-            Some("Try again in a few seconds."),
-        ))?;
+        .await?;
 
-    let result: func::status::Response =
-        result.json().await.wrap_err("Failed to parse response")?;
+    if !result.status().is_success() {
+        return Err(ApiError::from_response(result).await?.into());
+    }
+
+    let result: func::status::Response = result
+        .json()
+        .await
+        .inspect_err(|err| log::debug!("Invalid function statuses response: {err:?}"))
+        .wrap_err(Error::new("Server error", Some("Try again later.")))?;
 
     match result.last_modified {
         func::status::FunctionStatus::Single(_) => Err(Error::new(
@@ -276,73 +290,11 @@ pub async fn status(
     }
 }
 
-pub async fn build(
-    functions: &[Function],
-    total_progress: &indicatif::ProgressBar,
-) -> eyre::Result<()> {
-    let Some(Function { project, .. }) = functions.iter().next() else {
-        return Err(eyre!("Attempted to build an empty function list"));
-    };
-
-    total_progress.set_message("Starting cargo...");
-    let mut cmd = tokio::process::Command::new("cargo");
-    cmd.arg("lambda")
-        .arg("build")
-        .arg("--release")
-        .arg("--target")
-        .arg("x86_64-unknown-linux-musl")
-        .arg("--output-format")
-        .arg("binary")
-        .current_dir(&project.build_path()?)
-        // Null stdout avoids an unread pipe when cargo-lambda inherits verbose RUST_LOG.
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped());
-
-    for function in functions {
-        cmd.arg("--bin").arg(&function.name);
-    }
-
-    let mut child = cmd.spawn().wrap_err("Failed to execute the process")?;
-
-    let mut is_failed = false;
-    let mut error_message_lines = Vec::new();
-
-    if let Some(stderr) = child.stderr.take() {
-        let mut reader = BufReader::new(stderr).lines();
-        let regex = regex::Regex::new(r"^[\t ]+")?;
-
-        while let Some(line) = reader.next_line().await? {
-            let trimmed = line.trim();
-
-            if is_failed || trimmed.starts_with("error") || trimmed.starts_with("Error") {
-                is_failed = true;
-                error_message_lines.push(line);
-                continue;
-            };
-            total_progress.set_message(regex.replace_all(&line, "").to_string());
-        }
-    }
-
-    total_progress.set_message("");
-    let status = child.wait().await?;
-
-    if !status.success() {
-        return Err(eyre!("{}", error_message_lines.join("\n")));
-    }
-
-    let functions = functions.to_vec();
-
-    tokio::task::spawn_blocking(move || bundle::bundle_functions(&functions))
-        .await
-        .wrap_err("Failed to join the Lambda bundling task")??;
-
-    Ok(())
-}
-
 impl From<&Function> for kinetics_api::stack::deploy::FunctionRequest {
     fn from(function: &Function) -> Self {
         Self {
             name: function.name.clone(),
+            package: function.package_name.clone(),
             is_deploying: function.is_deploying,
             params: function.params.clone(),
             role: function.role.clone(),

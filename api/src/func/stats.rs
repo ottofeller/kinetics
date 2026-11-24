@@ -1,4 +1,5 @@
 use crate::project::Project;
+use crate::request::Validate;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -6,6 +7,12 @@ pub struct Request {
     pub project: Project,
     pub function_name: String,
     pub period: Option<String>,
+}
+
+impl Validate for Request {
+    fn validate(&self) -> Option<Vec<String>> {
+        super::validators::validate_names(&self.project, &[&self.function_name])
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]

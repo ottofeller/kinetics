@@ -1,5 +1,5 @@
 use crate::sqldb::SqlDb;
-use crate::tools::runtime;
+use crate::tools::runtime::RuntimeConfig;
 use aws_config::SdkConfig;
 use lambda_runtime::Error;
 
@@ -37,36 +37,22 @@ pub struct Config {
 }
 
 impl Config {
-    pub async fn new(config: &SdkConfig, endpoint: Option<EndpointConfig>) -> Result<Self, Error> {
-        let (cluster_id, user) = if std::env::var("KINETICS_IS_LOCAL").is_ok() {
-            (
-                std::env::var("KINETICS_SQLDB_CLUSTER_ID").ok(),
-                std::env::var("KINETICS_SQLDB_USER").ok(),
-            )
-        } else {
-            let runtime = runtime::load(config).await?;
-            (
-                Some(runtime.sqldb_cluster_id.clone()),
-                Some(runtime.sqldb_user.clone()),
-            )
-        };
+    pub(super) async fn from_runtime(
+        config: &SdkConfig,
+        runtime: &RuntimeConfig,
+        endpoint: Option<EndpointConfig>,
+    ) -> Result<Self, Error> {
+        let db = SqlDb::new(&runtime.sqldb_cluster_id, &runtime.sqldb_user, config).await?;
+        Ok(Self { db, endpoint })
+    }
 
-        // If both cluster_id and user are set, use them to connect to sqldb
-        if let (Some(cluster_id), Some(user)) = (cluster_id, user) {
-            return Ok(Self {
-                db: SqlDb::new(&cluster_id, &user, config)
-                    .await?
-                    .spawn_password_refresh(),
-                endpoint,
-            });
-        }
-
+    pub(super) async fn from_local(endpoint: Option<EndpointConfig>) -> Result<Self, Error> {
+        // Config.db is required even when local invocation does not provision a database.
         let connection_string = std::env::var("KINETICS_SQLDB_LOCAL_CONNECTION_STRING")
-            // Add any valid connection string as default if sqldb is not enabled
-            .unwrap_or("postgres://user:password@localhost:5432/postgres".to_string());
+            .unwrap_or_else(|_| "postgres://user:password@localhost:5432/postgres".into());
 
         Ok(Self {
-            db: SqlDb::new_local(&connection_string, config).await?,
+            db: SqlDb::new_local(&connection_string).await?,
             endpoint,
         })
     }

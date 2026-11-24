@@ -1,3 +1,4 @@
+use crate::api::error::ApiError;
 use crate::commands::invoke::InvokeRunner;
 use crate::error::Error;
 use crate::function::Function;
@@ -16,7 +17,7 @@ impl InvokeRunner<'_> {
     pub async fn remote(&mut self, function: Function) -> eyre::Result<()> {
         match function.role {
             Role::Endpoint => self.endpoint(function).await,
-            Role::Cron | Role::Worker => self.worker_or_cron(function).await,
+            Role::Cron | Role::Worker | Role::DlqWorker => self.worker_or_cron(function).await,
         }
     }
 
@@ -24,6 +25,7 @@ impl InvokeRunner<'_> {
         let payload = self
             .resolve_payload(&function.role)?
             .expect("endpoint payload is always resolved");
+        let method = self.resolve_method(&function)?;
 
         let project = self.project(&self.command.project).await?;
         let display_path = format!(
@@ -85,7 +87,7 @@ impl InvokeRunner<'_> {
         let client = reqwest::Client::new();
 
         let response = client
-            .post(url)
+            .request(method, url)
             .headers(headers_map)
             .body(payload)
             .send()
@@ -97,7 +99,7 @@ impl InvokeRunner<'_> {
         let response_text = response
             .text()
             .await
-            .unwrap_or("Failed to read response".to_string());
+            .wrap_err("Failed to read function response")?;
 
         self.writer
             .text(&format!(
@@ -130,20 +132,16 @@ impl InvokeRunner<'_> {
                 project: project.into(),
                 function_name: function.name,
                 payload: match function.role {
-                    Role::Worker => payload,
+                    Role::Worker | Role::DlqWorker => payload,
                     Role::Cron => None,
                     _ => unreachable!(),
                 },
             })
             .send()
-            .await
-            .wrap_err("Failed to send invoke request")
-            .map_err(|e| self.server_error(Some(e.into())))?;
+            .await?;
 
         if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or("Unknown error".to_string());
-            eyre::bail!("Failed to invoke the function ({status}): {error_text}");
+            return Err(ApiError::from_response(response).await?.into());
         }
 
         let body: func::invoke::Response = response.json().await.wrap_err(Error::new(
@@ -173,7 +171,7 @@ impl InvokeRunner<'_> {
                     .text(&format!("{}\n", console::style("Success").bold()))?;
 
                 match function.role {
-                    Role::Worker if let Some(payload) = &body.payload => {
+                    Role::Worker | Role::DlqWorker if let Some(payload) = &body.payload => {
                         self.writer.text(&format!(
                             "{}",
                             console::style(

@@ -1,4 +1,5 @@
 use crate::project::Project;
+use crate::request::Validate;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::*;
@@ -23,6 +24,12 @@ pub struct Request {
     pub project: Project,
     pub function_name: String,
     pub operation: Op,
+}
+
+impl Validate for Request {
+    fn validate(&self) -> Option<Vec<String>> {
+        super::validators::validate_names(&self.project, &[&self.function_name])
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]

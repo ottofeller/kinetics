@@ -5,7 +5,7 @@ use crossterm::style::Stylize;
 use kinetics_api::orgs::delete::{Request, Response};
 use kinetics_api::orgs::list;
 use serde_json::json;
-use std::io::{stdin, stdout, Write};
+use std::io::{Write, stdin, stdout};
 
 #[derive(clap::Args, Clone)]
 pub(crate) struct DeleteCommand {
@@ -42,7 +42,7 @@ impl Runner for DeleteRunner<'_> {
         let list_response: list::Response = client
             .request("/orgs/list", list::Request {})
             .await
-            .map_err(|e| self.server_error(Some(e.into())))?;
+            .map_err(|e| self.server_error(Some(e)))?;
 
         if !list_response.orgs.iter().any(|org| org.name == name) {
             return Err(Error::new(
@@ -88,7 +88,7 @@ impl Runner for DeleteRunner<'_> {
                 },
             )
             .await
-            .map_err(|e| self.server_error(Some(e.into())))?;
+            .map_err(|e| self.server_error(Some(e)))?;
 
         self.writer
             .text(&format!("\n{}\n", console::style("Done").bold()))?;

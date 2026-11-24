@@ -14,6 +14,7 @@ const REDACTED_KEYWORDS: &[&str] = &[
     "token",
     "credential",
     "authorization",
+    "connectionstring",
 ];
 
 /// Validates fields of an HTTP request struct before sending it

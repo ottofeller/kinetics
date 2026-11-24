@@ -1,10 +1,12 @@
 use super::progress::{PipelineProgress, ProgressStatus};
 use crate::api::client::Client;
+use crate::build;
 use crate::config::deploy::DeployConfig;
-use crate::function::{build, Function};
+use crate::error::Error;
+use crate::function::Function;
 use crate::project::Project;
 use crate::writer::Writer;
-use eyre::{eyre, OptionExt, Report};
+use eyre::{OptionExt, Report};
 use futures::future;
 use std::sync::Arc;
 use std::time::Instant;
@@ -34,7 +36,7 @@ impl<'a> Pipeline<'a> {
 
         // Only selected functions are built and uploaded
         deploy_functions: &[String],
-    ) -> eyre::Result<()> {
+    ) -> Result<(), Error> {
         let client = if self.is_deploy_enabled {
             Some(Client::new(self.deploy_config.is_some()).await?)
         } else {
@@ -58,9 +60,17 @@ impl<'a> Pipeline<'a> {
         ))?;
 
         // All functions to add to the template
-        let all_functions = self
-            .project
-            .parse_with_package(deploy_functions, self.package.as_deref())?;
+        let all_functions = build::generate_workspace(
+            &self.project,
+            deploy_functions,
+            self.package.as_deref(),
+            &self.project.build_path()?,
+        )?;
+        log::debug!(
+            "Prepared {} Lambda functions in {:.2}s",
+            all_functions.len(),
+            start_time.elapsed().as_secs_f64(),
+        );
 
         // Clear the previous line, the "Preparing..." step is not a part of the build pipeline
         self.writer.text("\r\x1B[K")?;
@@ -83,7 +93,7 @@ impl<'a> Pipeline<'a> {
             .new_progress(&self.project.name)
             .log_stage("Building");
 
-        build(&deploy_functions, &pipeline_progress.total_progress_bar).await?;
+        build::compile_and_bundle(&deploy_functions, &pipeline_progress.total_progress_bar).await?;
         pipeline_progress.increase_current_function_position();
 
         let Some(client) = client else {
@@ -153,18 +163,22 @@ impl<'a> Pipeline<'a> {
             })
             .collect();
 
-        let (.., errors): (Vec<_>, Vec<_>) = results.into_iter().partition(Result::is_ok);
+        let errors: Vec<Error> = results
+            .into_iter()
+            .filter_map(Result::err)
+            .map(Error::from)
+            .collect();
 
         if !errors.is_empty() {
-            log::error!(
-                "Failed to process functions: {:?}",
-                errors
-                    .into_iter()
-                    .map(Result::unwrap_err)
-                    .collect::<Vec<_>>()
-            );
+            log::error!("Failed to process functions: {errors:?}");
+            if let Some(error) = errors
+                .into_iter()
+                .find(|error| matches!(error, Error::Api(_)))
+            {
+                return Err(error);
+            }
 
-            return Err(eyre!("Failed to process function(s)"));
+            return Err(Error::new("Failed to process function(s)", None));
         }
 
         // Check if there's an ongoing deployment and wait for it to finish
@@ -226,27 +240,26 @@ impl<'a> Pipeline<'a> {
                     status = self.project.status().await?;
                 }
 
-                if matches!(status.status.as_str(), "FAILED" | "FROZEN") {
+                if status.status != "COMPLETE" {
                     deploying_progress.error("Provisioning");
                     pipeline_progress.total_progress_bar.finish_and_clear();
 
                     if status.status == "FROZEN" {
                         log::info!("Project deploy failed with FROZEN status - destroy it.");
-                        self.project.destroy().await?;
+                        if let Err(error) = self.project.destroy().await {
+                            log::warn!(
+                                "Failed to destroy project after deployment failure: {error:?}"
+                            );
+                        }
                     }
 
-                    let error_text = status
-                        .errors
-                        .map(|errors| errors.join("\n"))
-                        .unwrap_or("Unknown error".into());
-
-                    return Err(eyre!("{error_text}"));
+                    return Err(Error::stack_operation(&status, "Deployment failed"));
                 }
             }
             Err(err) => {
                 deploying_progress.error("Provisioning");
                 pipeline_progress.total_progress_bar.finish_and_clear();
-                return Err(err);
+                return Err(err.into());
             }
         };
 

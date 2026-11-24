@@ -1,5 +1,5 @@
 use crate::writer::Writer;
-use arborium::{theme::builtin, AnsiHighlighter};
+use arborium::{AnsiHighlighter, theme::builtin};
 use color_eyre::owo_colors::OwoColorize;
 use eyre::Context;
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
@@ -289,7 +289,7 @@ impl<'a> Migrations<'a> {
                 eyre::bail!(
                     "Migration: {path} contains both DDL and DML statements. \
                     Please split them into separate migration files."
-                )
+                );
             }
         }
 

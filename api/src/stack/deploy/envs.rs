@@ -10,13 +10,20 @@ pub struct Request {
 
 impl Validate for Request {
     fn validate(&self) -> Option<Vec<String>> {
-        let errors: Vec<String> = self
+        let mut errors: Vec<String> = self
             .functions
             .iter()
             .filter_map(|(name, environment)| {
                 super::validate_user_environment(name, environment).err()
             })
             .collect();
+
+        if self.project.name.trim().is_empty() {
+            errors.push("Invalid \"project\". Must not be empty.".into());
+        }
+        if self.functions.keys().any(|name| name.trim().is_empty()) {
+            errors.push("Invalid \"functions\". Function names must not be empty.".into());
+        }
 
         if errors.is_empty() {
             None
@@ -26,7 +33,4 @@ impl Validate for Request {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Response {
-    pub fails: Vec<String>,
-}
+pub type Response = crate::envs::Response;

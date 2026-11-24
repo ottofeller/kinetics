@@ -1,11 +1,20 @@
+use super::error::ApiError;
 use crate::config::api_url;
 use crate::credentials::Credentials;
 use crate::error::Error;
 use chrono::Utc;
-use eyre::{Ok, WrapErr};
-use reqwest::StatusCode;
+use eyre::WrapErr;
+use kinetics_api::compatibility::{MIN_VERSION_HEADER, VERSION_HEADER};
+use kinetics_api::request::to_log_safe_string_pretty;
+use reqwest::{Method, StatusCode};
+use semver::Version;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::OnceCell;
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+const UPGRADE_COMMAND: &str = "cargo install kinetics --locked --force";
+static WARNED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Clone)]
 pub struct Client {
@@ -13,15 +22,56 @@ pub struct Client {
     client: reqwest::Client,
 }
 
+pub struct RequestBuilder(reqwest::RequestBuilder);
+
+impl RequestBuilder {
+    pub fn json<T: Serialize + ?Sized>(self, body: &T) -> Self {
+        Self(self.0.json(body))
+    }
+
+    pub async fn send(self) -> Result<reqwest::Response, Error> {
+        let response = self
+            .0
+            .header(VERSION_HEADER, VERSION)
+            .send()
+            .await
+            .wrap_err(Error::new(
+                "Network request failed",
+                Some("Try again in a few seconds."),
+            ))?;
+        let minimum = response
+            .headers()
+            .get(MIN_VERSION_HEADER)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| Version::parse(value).ok());
+
+        if response.status() == StatusCode::UPGRADE_REQUIRED {
+            return Err(ApiError::from_response(response).await?.into());
+        }
+
+        // The backend advertises its minimum even when enforcement is disabled.
+        // In that mode, warn once and let the request continue.
+        if let Some(minimum) = minimum {
+            let current = Version::parse(VERSION).wrap_err("Invalid CLI version")?;
+            if current.cmp_precedence(&minimum).is_lt() && !WARNED.swap(true, Ordering::Relaxed) {
+                eprintln!(
+                    "{}: kinetics {VERSION} is below the backend minimum {minimum}.\n\
+                     Update with: {UPGRADE_COMMAND}",
+                    console::style("Warning").yellow()
+                );
+            }
+        }
+
+        Ok(response)
+    }
+}
+
 static CREDENTIALS: OnceCell<Credentials> = OnceCell::const_new();
 
 impl Client {
-    pub async fn new(is_directly: bool) -> eyre::Result<Self> {
+    pub async fn new(is_directly: bool) -> Result<Self, Error> {
         if is_directly {
-            return Ok(Client {
-                access_token: "".into(),
-                client: reqwest::Client::new(),
-            });
+            return Ok(Self::unauthenticated());
         }
 
         let credentials = CREDENTIALS
@@ -30,24 +80,42 @@ impl Client {
 
         // If credentials expired — request to re-login
         if credentials.expires_at.timestamp() <= Utc::now().timestamp() {
-            return Err(eyre::eyre!("Credentials expired, please re-login."));
+            return Err(Error::new("Credentials expired, please re-login.", None));
         }
 
-        Ok(Client {
-            access_token: credentials.token.clone(),
+        Ok(Self::with_token(&credentials.token))
+    }
+
+    pub(crate) fn unauthenticated() -> Self {
+        Self::with_token("")
+    }
+
+    pub(crate) fn with_token(token: &str) -> Self {
+        Self {
+            access_token: token.to_owned(),
             client: reqwest::Client::new(),
-        })
+        }
     }
 
     /// A POST request with the Authorization header
-    pub fn post(&self, path: &str) -> reqwest::RequestBuilder {
-        self.client
-            .post(api_url(path))
-            .header("Authorization", &self.access_token)
+    pub fn post(&self, path: &str) -> RequestBuilder {
+        self.builder(Method::POST, path)
+    }
+
+    pub(crate) fn get(&self, path: &str) -> RequestBuilder {
+        self.builder(Method::GET, path)
+    }
+
+    fn builder(&self, method: Method, path: &str) -> RequestBuilder {
+        let mut request = self.client.request(method, api_url(path));
+        if !self.access_token.is_empty() {
+            request = request.header("Authorization", &self.access_token);
+        }
+        RequestBuilder(request)
     }
 
     /// Encapsulate a typical POST request
-    pub async fn request<B, R>(&self, path: &str, body: B) -> eyre::Result<R>
+    pub async fn request<B, R>(&self, path: &str, body: B) -> Result<R, Error>
     where
         B: Serialize + for<'de> Deserialize<'de>,
         R: Serialize + for<'de> Deserialize<'de>,
@@ -57,36 +125,26 @@ impl Client {
             .json(&body)
             .send()
             .await
-            .inspect_err(|err| log::error!("{err:?}"))
-            .wrap_err(Error::new(
-                "Network request failed",
-                Some("Try again in a few seconds."),
-            ))?;
+            .inspect_err(|err| log::error!("{err:?}"))?;
 
         let status = result.status();
-        let text = result.text().await?;
         log::info!("Got status from {path}: {status}");
-        log::info!("Got response from {path}: {text}");
 
         if status != StatusCode::OK {
-            let response: serde_json::Value = serde_json::from_str(&text).wrap_err(Error::new(
-                "Invalid response from server",
-                Some("Try again later."),
-            ))?;
-
-            return Err(Error::new(
-                "Request failed",
-                Some(
-                    response
-                        .get("error")
-                        .unwrap_or(&serde_json::Value::Null)
-                        .as_str()
-                        .unwrap_or("Unknown error"),
-                ),
-            )
-            .into());
+            return Err(ApiError::from_response(result).await?.into());
         }
 
-        Ok(serde_json::from_str(&text).wrap_err("Could not parse")?)
+        let response = result
+            .json::<R>()
+            .await
+            .inspect_err(|error| log::debug!("Invalid response from {path}: {error:?}"))
+            .wrap_err(Error::new("Server error", Some("Try again later.")))?;
+        log::info!(
+            "Got response from {path}: {}",
+            to_log_safe_string_pretty(&response)
+                .unwrap_or_else(|_| "[unavailable response]".to_owned())
+        );
+
+        Ok(response)
     }
 }

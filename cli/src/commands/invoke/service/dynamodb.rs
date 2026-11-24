@@ -82,11 +82,11 @@ impl LocalDynamoDB {
                 }
                 Err(err) => {
                     // Check if the table already exists
-                    if let Some(service_err) = err.as_service_error() {
-                        if service_err.to_string().contains("ResourceInUseException") {
-                            log::warn!("Table '{}' already exists.", self.table);
-                            return Ok(());
-                        }
+                    if let Some(service_err) = err.as_service_error()
+                        && service_err.to_string().contains("ResourceInUseException")
+                    {
+                        log::warn!("Table '{}' already exists.", self.table);
+                        return Ok(());
                     }
 
                     // If this is the final attempt, propagate the error

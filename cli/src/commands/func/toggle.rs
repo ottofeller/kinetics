@@ -1,8 +1,8 @@
+use crate::api::error::ApiError;
 use crate::error::Error;
 use crate::function::Function;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
-use eyre::Context;
 use http::StatusCode;
 use kinetics_api::func;
 use serde_json::json;
@@ -97,9 +97,7 @@ impl Runner for ToggleRunner<'_> {
                 operation: self.op.clone(),
             })
             .send()
-            .await
-            .wrap_err(format!("Failed to send {:?} request", self.op))
-            .map_err(|e| self.server_error(Some(e.into())))?;
+            .await?;
 
         let is_throttled = match self.op {
             func::toggle::Op::Start => false,
@@ -134,32 +132,7 @@ impl Runner for ToggleRunner<'_> {
 
                 Ok(())
             }
-            StatusCode::FORBIDDEN => {
-                let func::toggle::Response { reason, .. } = response
-                    .json()
-                    .await
-                    .wrap_err("Invalid response from server")
-                    .map_err(|e| self.server_error(Some(e.into())))?;
-
-                let message = format!("Function is stopped by platform. {reason}");
-
-                self.writer
-                    .text(&format!("{}\n", console::style(&message).yellow()))?;
-
-                self.writer
-                    .json(json!({"success": false, "message": message}))?;
-
-                Ok(())
-            }
-            err_status => {
-                log::error!(
-                    "Failed to call {:?} from API ({err_status}): {}",
-                    self.op,
-                    response.text().await.unwrap_or("Unknown error".to_string()),
-                );
-
-                Err(self.server_error(None))
-            }
+            _ => Err(ApiError::from_response(response).await?.into()),
         }
     }
 }

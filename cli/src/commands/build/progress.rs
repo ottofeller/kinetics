@@ -1,8 +1,8 @@
 use crate::logger::Logger;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use std::io::{stdout, IsTerminal};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::io::{IsTerminal, stdout};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Clone)]
 pub(super) struct PipelineProgress<'a> {

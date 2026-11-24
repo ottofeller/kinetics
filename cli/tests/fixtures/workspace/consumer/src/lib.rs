@@ -1,0 +1,3 @@
+fn call() {
+    renamed::worker();
+}

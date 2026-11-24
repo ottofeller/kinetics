@@ -1,13 +1,13 @@
 use http::{Request, Response};
 use kinetics_lib::tools::config::Config as KineticsConfig;
 use kinetics_lib::{macros::endpoint, tools::http::Body};
-use opentelemetry::global;
 use opentelemetry::KeyValue;
+use opentelemetry::global;
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use opentelemetry_otlp::{LogExporter, MetricExporter};
+use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::logs::SdkLoggerProvider;
 use opentelemetry_sdk::metrics::{SdkMeterProvider, Temporality};
-use opentelemetry_sdk::Resource;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::OnceLock;

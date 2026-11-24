@@ -43,6 +43,7 @@ impl Runner for CreateRunner<'_> {
         // Create migrations directory if it doesn't exist
         tokio::fs::create_dir_all(&migrations_path)
             .await
+            .map_err(eyre::Report::from)
             .map_err(|e| self.error(None, None, Some(e.into())))?;
 
         Migrations::new(&migrations_path, self.writer)

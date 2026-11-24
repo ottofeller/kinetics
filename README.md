@@ -134,9 +134,59 @@ A queue worker. When deployed, a corresponding queue gets provisioned automatica
 
 - `concurrency`: Max number of concurrent workers.
 - `fifo`: Set to true to enable FIFO processing.
+- `dlq`: Name of the `dlq_worker` function consuming this worker's dead-letter queue; must be defined in the same file.
+- `max_receive_count`: Attempts before the main queue drives a record to its DLQ (default 3).
 - `environment`: Environment variables.
 
 [Example](https://github.com/ottofeller/kinetics/blob/main/examples/src/basic/worker.rs).
+
+#### DLQ worker
+
+A dead-letter queue recovery handler.
+Inherits FIFO setting from the main worker.
+Settlement is owned by the handler - after exhausted attempts the message is lost.
+
+- `concurrency`: Max number of concurrent workers (default 2).
+- `batch_size`: Max number of records processed in a single batch.
+- `environment`: Environment variables.
+
+Note: across a redrive the message is new — `message_id` changes and
+`receive_count` restarts.
+
+A worker with its recovery handler:
+
+```rust
+/// Reject every message and after 3 attempts redrive to `log_dlq`.
+#[worker(dlq = log_dlq, max_receive_count = 3)]
+pub async fn process_jobs(
+    records: Vec<QueueRecord>,
+    _secrets: &HashMap<String, String>,
+    _config: &KineticsConfig,
+) -> Result<QueueRetries, BoxError> {
+    let mut retries = QueueRetries::new();
+
+    for record in &records {
+        retries.add(&record.message_id.clone().unwrap_or_default());
+    }
+
+    Ok(retries)
+}
+
+/// Same handler signature as a worker; consumes the dead-letter queue,
+/// logs the message and acknowledges it with an empty `QueueRetries`.
+#[dlq_worker()]
+pub async fn log_dlq(
+    records: Vec<QueueRecord>,
+    _secrets: &HashMap<String, String>,
+    _config: &KineticsConfig,
+) -> Result<QueueRetries, BoxError> {
+    for record in &records {
+        println!("DLQ: {}", record.body.clone().unwrap_or_default());
+    }
+
+    Ok(QueueRetries::new())
+}
+```
 
 #### Cron
 
@@ -206,6 +256,12 @@ Print out all available functions before deployment. Their names and URLs of RES
 kinetics func list
 ```
 
+Show only the functions of one workspace package:
+
+```sh
+kinetics func list --package api
+```
+
 Invoke a function with JSON using `--payload` or `--payload-file`; worker payloads must be arrays, with one message per item:
 
 ```sh
@@ -219,6 +275,12 @@ Invoke endpoint with http headers:
 kinetics invoke BasicWorkerWorker --headers '{"Authorization": "Bearer 123"}'
 ```
 
+Invoke endpoint with http method of an endpoint call:
+
+```sh
+kinetics invoke BasicEndpointEndpoint --method GET
+```
+
 Invoke a function which needs a DB. DB gets provisioned locally and is fully operational, not just a mock for requests.
 
 ```sh
@@ -229,6 +291,13 @@ Invoke a function with a DB and applied migrations. The migrations are pulled fr
 
 ```sh
 kinetics invoke DatabaseDatabase --with-db --with-migrations my-migrations
+```
+
+Read and store files in the project storage. The storage runs in docker and keeps objects
+as plain files in the project's `storage/` folder (`--with-storage <path>` tunes it).
+
+```sh
+kinetics invoke ExamplesStorageStorage --with-storage
 ```
 
 Deploy entire project:

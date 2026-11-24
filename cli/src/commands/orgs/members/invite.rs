@@ -2,6 +2,7 @@ use crate::error::Error;
 use crate::runner::{Runnable, Runner};
 use crate::writer::Writer;
 use kinetics_api::orgs::members::invite::{Request, Response};
+use kinetics_api::request::Validate;
 use serde_json::json;
 
 #[derive(clap::Args, Clone)]
@@ -41,14 +42,17 @@ impl Runner for InviteMemberRunner<'_> {
             console::style("to").dim()
         ))?;
 
+        let request = Request {
+            org: org.to_owned(),
+            email: email.to_owned(),
+        };
+
+        if let Some(errors) = request.validate() {
+            return Err(Error::new("Validation failed", Some(&errors.join("\n"))));
+        }
+
         client
-            .request::<Request, Response>(
-                "/orgs/members/invite",
-                Request {
-                    org: org.to_owned(),
-                    email: email.to_owned(),
-                },
-            )
+            .request::<Request, Response>("/orgs/members/invite", request)
             .await?;
 
         self.writer.text(&format!(

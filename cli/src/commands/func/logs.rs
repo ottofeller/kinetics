@@ -1,3 +1,4 @@
+use crate::api::error::ApiError;
 use crate::error::Error;
 use crate::function::Function;
 use crate::runner::{Runnable, Runner};
@@ -88,13 +89,7 @@ impl Runner for LogsRunner<'_> {
                 cursor,
             };
 
-            let response = client
-                .post("/function/logs")
-                .json(&request)
-                .send()
-                .await
-                .wrap_err("Failed to send request to logs endpoint")
-                .map_err(|e| self.server_error(Some(e.into())))?;
+            let response = client.post("/function/logs").json(&request).send().await?;
 
             // The notice printed for the previous page is erased once this page arrives.
             if self.interactive && page > 1 {
@@ -102,17 +97,13 @@ impl Runner for LogsRunner<'_> {
             }
 
             if !response.status().is_success() {
-                let status = response.status();
-                let error_text = response.text().await.unwrap_or("Unknown error".to_string());
-                log::error!("Failed to fetch logs from API ({}): {}", status, error_text);
-                return Err(self.server_error(None));
+                return Err(ApiError::from_response(response).await?.into());
             }
 
-            let response: func::logs::Response = response
-                .json()
-                .await
-                .wrap_err("Invalid response from server")
-                .map_err(|e| self.error(None, None, Some(e.into())))?;
+            let response: func::logs::Response = response.json().await.wrap_err(Error::new(
+                "Invalid response from server",
+                Some("Try again later."),
+            ))?;
 
             // Print the period once.
             if response_period.is_none() && !response.events.is_empty() {

@@ -42,7 +42,7 @@ impl Runner for CreateRunner<'_> {
                 },
             )
             .await
-            .map_err(|e| self.server_error(Some(e.into())))?;
+            .map_err(|e| self.server_error(Some(e)))?;
 
         self.writer
             .text(&format!("{}\n", console::style("Done").bold()))?;

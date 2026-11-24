@@ -1,6 +1,6 @@
 use super::docker::Docker;
 use super::poller::LocalQueuePoller;
-use super::service::{LocalDynamoDB, LocalQueue, LocalSqlDB};
+use super::service::{LocalDynamoDB, LocalQueue, LocalS3, LocalSqlDB};
 use crate::commands::invoke::InvokeRunner;
 use crate::config::build_config;
 use crate::function::{Function, Params};
@@ -25,6 +25,7 @@ impl InvokeRunner<'_> {
         migrations_path: Option<&str>,
     ) -> eyre::Result<()> {
         let payload = self.resolve_payload(&function.role)?;
+        let method = self.resolve_method(function)?;
 
         let project = self.project(&self.command.project).await?;
         let mut secrets_envs = HashMap::new();
@@ -52,16 +53,39 @@ impl InvokeRunner<'_> {
         };
 
         let invoke_dir = project.build_path()?;
-        let display_path = format!(
-            "{}/{}/src/bin/{}Local.rs",
-            invoke_dir.display(),
-            function.name,
-            function.name
-        );
+        let display_path = invoke_dir
+            .join(&function.package_path)
+            .join("src/bin")
+            .join(format!("{}Local.rs", function.name));
 
         let mut docker = Docker::new(&PathBuf::from(&build_config()?.kinetics_path));
 
         let mut local_environment = HashMap::from([("KINETICS_IS_LOCAL", "true".to_string())]);
+
+        if let Some(path) = self.command.with_storage.as_deref() {
+            // Local storage runs as an s3proxy container
+            // and stores objects as plain files in the mounted folder.
+            let storage_dir = if path.is_empty() {
+                project.path.join("storage")
+            } else {
+                project.path.join(path)
+            };
+
+            std::fs::create_dir_all(&storage_dir)
+                .wrap_err("Failed to create the local storage folder")?;
+
+            docker.with_s3(LocalS3::new(storage_dir));
+
+            // The storage client builds its S3 configuration from these envs.
+            local_environment.insert("KINETICS_STORAGE_ENDPOINT", LocalS3::ENDPOINT.to_string());
+            local_environment.insert("KINETICS_STORAGE_BUCKET", LocalS3::BUCKET.to_string());
+            local_environment.insert("KINETICS_STORAGE_IDENTITY", LocalS3::IDENTITY.to_string());
+            local_environment.insert(
+                "KINETICS_STORAGE_CREDENTIAL",
+                LocalS3::CREDENTIAL.to_string(),
+            );
+            local_environment.insert("KINETICS_STORAGE_REGION", LocalS3::REGION.to_string());
+        }
 
         if self.command.with_database {
             let mut sqldb = LocalSqlDB::new(&project, self.writer);
@@ -171,7 +195,7 @@ impl InvokeRunner<'_> {
                 "\n{} function {} {}...\n",
                 console::style("Invoking").bold(),
                 console::style("from").dimmed(),
-                console::style(&display_path).underlined().bold()
+                console::style(display_path.display()).underlined().bold()
             ))
             .map_err(|e| eyre::eyre!(e))?;
 
@@ -182,6 +206,7 @@ impl InvokeRunner<'_> {
             &function_secrets(function),
             &aws_credentials,
             &local_environment,
+            &method,
             payload.as_deref(),
         )?;
 
@@ -209,6 +234,7 @@ impl InvokeRunner<'_> {
                     &function_secrets(&worker),
                     &aws_credentials,
                     &local_environment,
+                    &method,
                     Some(&payload),
                 )?;
             }
@@ -226,6 +252,7 @@ impl InvokeRunner<'_> {
     /// Spawn and log the `*Local` binary for the given function.
     ///
     /// Returns the captured stdout of the invocation.
+    #[allow(clippy::too_many_arguments)]
     fn invoke_local_binary(
         &self,
         function: &Function,
@@ -233,12 +260,15 @@ impl InvokeRunner<'_> {
         secrets_envs: &HashMap<String, String>,
         aws_credentials: &HashMap<&str, &str>,
         local_environment: &HashMap<&str, String>,
+        method: &http::Method,
         payload: Option<&str>,
     ) -> eyre::Result<String> {
         let mut command = Command::new("cargo");
 
         command
-            .args(["run", "--bin", &format!("{}Local", function.name)])
+            .args(["run", "--manifest-path"])
+            .arg(invoke_dir.join(&function.package_path).join("Cargo.toml"))
+            .args(["--bin", &format!("{}Local", function.name)])
             .envs(secrets_envs)
             .envs(aws_credentials)
             .envs(local_environment)
@@ -251,6 +281,7 @@ impl InvokeRunner<'_> {
                 "KINETICS_INVOKE_URL_PATH",
                 self.command.url_path.clone().unwrap_or_default(),
             )
+            .env("KINETICS_INVOKE_METHOD", method.to_string())
             .current_dir(invoke_dir)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -278,9 +309,10 @@ impl InvokeRunner<'_> {
         let mut process = Process::new(child, self.writer);
         let status = process.log()?;
 
-        if !status.success() {
-            process.print_error()?;
+        // Report the child's stderr whether or not the invocation failed.
+        process.print_error()?;
 
+        if !status.success() {
             return Err(eyre::eyre!(
                 "Invocation failed with status {}: {}",
                 status,

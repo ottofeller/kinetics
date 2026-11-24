@@ -1,8 +1,9 @@
-use crate::environment::{parse_environment, Environment};
+use crate::environment::{Environment, parse_environment};
 use serde::{Deserialize, Serialize};
 use syn::{
+    Ident, LitBool, LitInt,
     parse::{Parse, ParseStream},
-    token, Ident, LitBool, LitInt,
+    token,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,6 +13,12 @@ pub struct Worker {
     pub fifo: bool,
     pub environment: Environment,
     pub batch_size: Option<u32>,
+
+    /// Rust function name of the `#[dlq_worker]` consuming this worker's DLQ
+    pub dlq: Option<String>,
+
+    /// Attempts before the main queue redrives a record to the DLQ
+    pub max_receive_count: Option<u32>,
 }
 
 impl Parse for Worker {
@@ -21,6 +28,8 @@ impl Parse for Worker {
         let mut fifo = None;
         let mut environment = None;
         let mut batch_size = None;
+        let mut dlq = None;
+        let mut max_receive_count = None;
 
         while !input.is_empty() {
             let ident_span = input.span();
@@ -73,6 +82,21 @@ impl Parse for Worker {
 
                     batch_size = Some(input.parse::<LitInt>()?.base10_parse::<u32>()?);
                 }
+                "dlq" => {
+                    if dlq.is_some() {
+                        return Err(syn::Error::new(ident_span, "Duplicate attribute `dlq`"));
+                    }
+                    dlq = Some(input.parse::<Ident>()?.to_string());
+                }
+                "max_receive_count" => {
+                    if max_receive_count.is_some() {
+                        return Err(syn::Error::new(
+                            ident_span,
+                            "Duplicate attribute `max_receive_count`",
+                        ));
+                    }
+                    max_receive_count = Some(input.parse::<LitInt>()?.base10_parse::<u32>()?);
+                }
                 // Ignore unknown attributes
                 _ => {}
             }
@@ -99,6 +123,8 @@ impl Parse for Worker {
             fifo: fifo.unwrap_or_default(),
             environment: environment.unwrap_or_default(),
             batch_size,
+            dlq,
+            max_receive_count,
         })
     }
 }

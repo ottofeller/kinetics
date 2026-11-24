@@ -1,14 +1,15 @@
-use crate::environment::{parse_environment, Environment};
+use crate::environment::{Environment, parse_environment};
 use http::Method;
 use serde::{Deserialize, Serialize};
 use syn::{
-    bracketed,
+    Ident, LitBool, LitStr, bracketed,
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
-    token, Ident, LitBool, LitStr,
+    token,
 };
 
-const ALLOWED_METHODS: [Method; 5] = [
+/// HTTP methods an endpoint may declare.
+pub const ALLOWED_METHODS: [Method; 5] = [
     Method::GET,
     Method::POST,
     Method::PUT,
@@ -109,7 +110,7 @@ impl Parse for Endpoint {
                                 return Err(syn::Error::new(
                                     ident_span,
                                     format!("Invalid method: {}", err),
-                                ))
+                                ));
                             }
                         }
                     }

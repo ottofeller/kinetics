@@ -4,7 +4,7 @@ use crate::error::Error;
 use crate::project::Project;
 use chrono::Duration;
 use chrono::{DateTime, Utc};
-use eyre::{ContextCompat, WrapErr};
+use eyre::WrapErr;
 use kinetics_api::orgs::validators;
 use kinetics_api::projects;
 use serde::{Deserialize, Serialize};
@@ -77,8 +77,12 @@ impl Cache {
     pub(super) fn get(&self, project_name: &str) -> eyre::Result<Project> {
         self.projects
             .get(project_name)
-            .wrap_err("Project not found")
+            .ok_or_else(|| {
+                Error::new("Project not found", Some("Check the project name."))
+                    .with_code("project_not_found")
+            })
             .cloned()
+            .map_err(Into::into)
     }
 
     pub(super) fn clear() -> eyre::Result<()> {
@@ -137,11 +141,7 @@ impl Cache {
                     org: org.map(str::to_owned),
                 },
             )
-            .await
-            .wrap_err(Error::new(
-                "Failed to fetch project information",
-                Some("Try again in a few seconds."),
-            ))?;
+            .await?;
 
         let projects = HashMap::from_iter(
             response

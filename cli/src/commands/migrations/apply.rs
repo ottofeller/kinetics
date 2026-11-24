@@ -69,6 +69,7 @@ impl<'a> Runner for ApplyRunner<'a> {
         // FIXME Move create migrations table routine
         let connection = sqlx::PgPool::connect(&response.connection_string)
             .await
+            .map_err(eyre::Report::from)
             .map_err(|e| self.server_error(Some(e.into())))?;
 
         sqlx::query(
@@ -81,6 +82,7 @@ impl<'a> Runner for ApplyRunner<'a> {
         )
         .execute(&connection)
         .await
+        .map_err(eyre::Report::from)
         .map_err(|e| self.server_error(Some(e.into())))?;
 
         let migrations = Migrations::new(migrations_path.as_path(), self.writer)
